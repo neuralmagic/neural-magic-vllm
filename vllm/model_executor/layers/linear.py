@@ -205,7 +205,7 @@ class ColumnParallelLinear(torch.nn.Module):
         assert param_data.shape == loaded_weight.shape
         param_data.copy_(loaded_weight)
 
-        # If SparsParameter, repack dense data as sparse.
+        # If SparseParameter, repack dense data as sparse.
         if isinstance(param, SparseParameter):
             param.pack()
 
