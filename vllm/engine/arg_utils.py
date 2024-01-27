@@ -205,7 +205,7 @@ class EngineArgs:
                             default=None,
                             help='Method used to compress sparse weights. If '
                             'None, we first check the `sparsity_config` attribute '
-                            'in the model config gile. If that is None we assume '
+                            'in the model config file. If that is None we assume '
                             'the model weights are dense')
         parser.add_argument('--enforce-eager',
                             action='store_true',
