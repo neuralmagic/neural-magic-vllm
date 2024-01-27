@@ -36,10 +36,21 @@ void gelu_new(torch::Tensor &out, torch::Tensor &input);
 void gelu_fast(torch::Tensor &out, torch::Tensor &input);
 
 #ifndef USE_ROCM
-torch::Tensor awq_gemm(torch::Tensor _in_feats, torch::Tensor _kernel,
-                       torch::Tensor _scaling_factors, torch::Tensor _zeros,
-                       int split_k_iters);
+torch::Tensor awq_gemm(
+  torch::Tensor _in_feats,
+  torch::Tensor _kernel,
+  torch::Tensor _scaling_factors,
+  torch::Tensor _zeros,
+  int split_k_iters);
 
+torch::Tensor awq_dequantize(
+    torch::Tensor _kernel,
+    torch::Tensor _scaling_factors,
+    torch::Tensor _zeros,
+    int split_k_iters,
+    int thx,
+    int thy);
+  
 torch::Tensor marlin_gemm(torch::Tensor &a, torch::Tensor &b_q_weight,
                           torch::Tensor &b_scales, torch::Tensor &workspace,
                           int64_t size_m, int64_t size_n, int64_t size_k);
