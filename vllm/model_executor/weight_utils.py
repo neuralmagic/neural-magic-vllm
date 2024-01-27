@@ -19,7 +19,8 @@ from vllm.model_executor.layers.quantization import (get_quantization_config,
                                                      QuantizationConfig)
 from vllm.model_executor.layers.sparsity import (get_sparsity_config,
                                                  SparsityConfig)
-from vllm.model_executor.parameters import SparseParameter, get_param_data
+from vllm.model_executor.layers.parameters import (get_param_data, 
+                                                   SparseParameter)
 
 logger = init_logger(__name__)
 
