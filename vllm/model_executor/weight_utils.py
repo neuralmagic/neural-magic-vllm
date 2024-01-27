@@ -17,9 +17,12 @@ from tqdm.auto import tqdm
 from vllm.logger import init_logger
 from vllm.model_executor.layers.quantization import (get_quantization_config,
                                                      QuantizationConfig)
+from vllm.model_executor.layers.sparsity import SparseParameter
+
+# TODO: import safely
+import nm_gpu
 
 logger = init_logger(__name__)
-
 
 class Disabledtqdm(tqdm):
 
@@ -276,13 +279,20 @@ def convert_pyslice_to_tensor(x: Any) -> torch.Tensor:
         x = x[:]
     return x
 
+def get_param_data(param: torch.nn.Parameter) -> torch.Tensor:
+    """Gets parameter data in dense format."""
+    if isinstance(param, SparseParameter):
+        return param.get_data_dense()
+    else:
+        return param.data
 
-def default_weight_loader(param: torch.Tensor,
+def default_weight_loader(param: torch.nn.Parameter,
                           loaded_weight: torch.Tensor) -> None:
     """Default weight loader."""
     assert param.size() == loaded_weight.size()
-    param.data.copy_(loaded_weight)
-
+    get_param_data(param).copy_(loaded_weight)
+    if isinstance(param, SparseParameter):
+        param.pack()
 
 def initialize_dummy_weights(
     model: torch.nn.Module,
