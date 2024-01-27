@@ -17,10 +17,9 @@ from tqdm.auto import tqdm
 from vllm.logger import init_logger
 from vllm.model_executor.layers.quantization import (get_quantization_config,
                                                      QuantizationConfig)
-from vllm.model_executor.layers.sparsity import SparseParameter
-
-# TODO: import safely
-import nm_gpu
+from vllm.model_executor.layers.sparsity import (get_sparsity_config,
+                                                 SparsityConfig)
+from vllm.model_executor.parameters import SparseParameter, get_param_data
 
 logger = init_logger(__name__)
 
@@ -84,6 +83,20 @@ def convert_bin_to_safetensor_file(
         if not torch.equal(pt_tensor, sf_tensor):
             raise RuntimeError(f"The output tensors do not match for key {k}")
 
+# TODO(rib-2): Once we define hf_sparsity_config 
+def get_sparse_config(
+    sparsity: str,
+    model_name_or_path: str,
+    hf_config: PretrainedConfig,
+    cache_dir: Optional[str] = None,
+) -> SparsityConfig:
+    sparsity_cls = get_sparsity_config(sparsity)
+    hf_sparsity_config = getattr(hf_config, "sparsity_config", None)
+    if hf_sparsity_config is not None:
+        raise NotImplementedError(
+            "Loading hf sparsity config not yet supported"
+        )
+    return sparsity_cls()
 
 # TODO(woosuk): Move this to other place.
 def get_quant_config(
@@ -278,13 +291,6 @@ def convert_pyslice_to_tensor(x: Any) -> torch.Tensor:
     if not isinstance(x, torch.Tensor):
         x = x[:]
     return x
-
-def get_param_data(param: torch.nn.Parameter) -> torch.Tensor:
-    """Gets parameter data in dense format."""
-    if isinstance(param, SparseParameter):
-        return param.get_data_dense()
-    else:
-        return param.data
 
 def default_weight_loader(param: torch.nn.Parameter,
                           loaded_weight: torch.Tensor) -> None:
