@@ -17,6 +17,7 @@ from vllm.model_executor.layers.parameters import SparseParameter, get_param_dat
 
 logger = init_logger(__name__)
 
+
 class LinearMethodBase(ABC):
     """Base class for different (maybe quantized) linear methods."""
 
@@ -223,6 +224,7 @@ class ColumnParallelLinear(torch.nn.Module):
         output_bias = self.bias if self.skip_bias_add else None
         return output, output_bias
 
+
 class MergedColumnParallelLinear(ColumnParallelLinear):
     """Packed linear layers with column parallelism.
 
@@ -269,7 +271,8 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
         if loaded_shard_id is None:
             if isinstance(param, SparseParameter):
                 raise NotImplementedError(
-                    "Passing loaded_shard_id=None not yet supported for SparseParameter")
+                    "Passing loaded_shard_id=None not yet supported for SparseParameter"
+                )
 
             # Loaded weight is already packed.
             if output_dim is None:
@@ -323,6 +326,7 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
         # If Parameter, repack dense data as sparse.
         if isinstance(param, SparseParameter):
             param.pack()
+
 
 class QKVParallelLinear(ColumnParallelLinear):
     """Linear layers for the attention's QKV transformation.
@@ -384,13 +388,14 @@ class QKVParallelLinear(ColumnParallelLinear):
     def weight_loader(self,
                       param: Parameter,
                       loaded_weight: torch.Tensor,
-                      loaded_shard_id: Optional[str] = None):      
+                      loaded_shard_id: Optional[str] = None):
         param_data = get_param_data(param)
         output_dim = getattr(param, "output_dim", None)
         if loaded_shard_id is None:
             if isinstance(param, SparseParameter):
                 raise NotImplementedError(
-                    "Passing loaded_shard_id=None not yet supported for SparseParameter")
+                    "Passing loaded_shard_id=None not yet supported for SparseParameter"
+                )
 
             # Loaded weight is already packed.
             if output_dim is None:
@@ -458,6 +463,7 @@ class QKVParallelLinear(ColumnParallelLinear):
         # If SparseParameter, repack dense data as sparse.
         if isinstance(param, SparseParameter):
             param.pack()
+
 
 class RowParallelLinear(torch.nn.Module):
     """Linear layer with row parallelism.
@@ -548,7 +554,7 @@ class RowParallelLinear(torch.nn.Module):
                                                  shard_size)
         assert param_data.shape == loaded_weight.shape
         param_data.copy_(loaded_weight)
-        
+
         # If SparseParameter, repack dense data as sparse.
         if isinstance(param, SparseParameter):
             param.pack()

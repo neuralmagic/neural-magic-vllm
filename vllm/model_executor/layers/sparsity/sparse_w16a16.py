@@ -7,7 +7,6 @@ from vllm.model_executor.layers.linear import LinearMethodBase, set_weight_attrs
 from vllm.model_executor.layers.sparsity.base_config import SparsityConfig
 from vllm.model_executor.layers.parameters import SparseParameter
 
-import nm_gpu
 
 class SparseW16A16Config(SparsityConfig):
     """Config class for SparseW16A16.
@@ -46,6 +45,7 @@ class SparseW16A16Config(SparsityConfig):
     def get_linear_method(self) -> "SparseW16A16LinearMethod":
         return SparseW16A16LinearMethod(self)
 
+
 class SparseW16A16LinearMethod(LinearMethodBase):
     """Linear method for Sparse W16A16.
 
@@ -65,7 +65,8 @@ class SparseW16A16LinearMethod(LinearMethodBase):
         params_dtype: torch.dtype,
     ) -> Dict[str, Any]:
         weight = SparseParameter(
-            shape=torch.Size((output_size_per_partition, input_size_per_partition)),
+            shape=torch.Size(
+                (output_size_per_partition, input_size_per_partition)),
             dtype=params_dtype,
         )
 

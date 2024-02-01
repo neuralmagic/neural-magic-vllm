@@ -8,8 +8,10 @@ from transformers import PretrainedConfig
 
 from vllm.config import ModelConfig, LoRAConfig
 from vllm.model_executor.models import ModelRegistry
-from vllm.model_executor.weight_utils import (get_quant_config, get_sparse_config,
+from vllm.model_executor.weight_utils import (get_quant_config,
+                                              get_sparse_config,
                                               initialize_dummy_weights)
+
 
 @contextlib.contextmanager
 def _set_default_torch_dtype(dtype: torch.dtype):
@@ -58,9 +60,9 @@ def get_model(model_config: ModelConfig,
                 f"{supported_dtypes}")
         linear_method = quant_config.get_linear_method()
     if model_config.sparsity is not None:
-        sparse_config = get_sparse_config(model_config.sparsity, 
+        sparse_config = get_sparse_config(model_config.sparsity,
                                           model_config.model,
-                                          model_config.hf_config, 
+                                          model_config.hf_config,
                                           model_config.download_dir)
         capability = torch.cuda.get_device_capability()
         capability = capability[0] * 10 + capability[1]

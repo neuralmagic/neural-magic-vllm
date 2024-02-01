@@ -4,11 +4,11 @@ Fork of vLLM with sparsity.
 
 ### To Run
 
-Clone and install nm_gpu:
+Clone and install magic_wand:
 
 ```bash
-git clone https://github.com/neuralmagic/nm_gpu.git
-cd nm_gpu
+git clone https://github.com/neuralmagic/magic_wand.git
+cd magic_wand
 export TORCH_CUDA_ARCH_LIST=8.6
 pip install -e .
 ```

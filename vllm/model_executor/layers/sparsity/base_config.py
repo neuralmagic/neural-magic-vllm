@@ -5,6 +5,7 @@ import torch
 
 from vllm.model_executor.layers.linear import LinearMethodBase
 
+
 class SparsityConfig(ABC):
     """Base class for sparsity configs."""
 
@@ -31,7 +32,7 @@ class SparsityConfig(ABC):
 
     @classmethod
     @abstractmethod
-    def from_config(cls, config: Dict[str, Any]) -> "BaseSparsityConfig":
+    def from_config(cls, config: Dict[str, Any]) -> "SparsityConfig":
         """Create a config class from the model's sparse config."""
         raise NotImplementedError
 

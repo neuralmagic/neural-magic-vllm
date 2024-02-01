@@ -7,10 +7,12 @@ _SPARSITY_CONFIG_REGISTRY = {
     "sparse_w16a16": SparseW16A16Config,
 }
 
+
 def get_sparsity_config(sparsity: str) -> Type[SparsityConfig]:
     if sparsity not in _SPARSITY_CONFIG_REGISTRY:
         raise ValueError(f"Invalid sparsity method: {sparsity}")
     return _SPARSITY_CONFIG_REGISTRY[sparsity]
+
 
 __all__ = [
     "SparsityConfig",

@@ -19,10 +19,11 @@ from vllm.model_executor.layers.quantization import (get_quantization_config,
                                                      QuantizationConfig)
 from vllm.model_executor.layers.sparsity import (get_sparsity_config,
                                                  SparsityConfig)
-from vllm.model_executor.layers.parameters import (get_param_data, 
+from vllm.model_executor.layers.parameters import (get_param_data,
                                                    SparseParameter)
 
 logger = init_logger(__name__)
+
 
 class Disabledtqdm(tqdm):
 
@@ -84,7 +85,8 @@ def convert_bin_to_safetensor_file(
         if not torch.equal(pt_tensor, sf_tensor):
             raise RuntimeError(f"The output tensors do not match for key {k}")
 
-# TODO(rib-2): Once we define hf_sparsity_config 
+
+# TODO(rib-2): Once we define hf_sparsity_config
 def get_sparse_config(
     sparsity: str,
     model_name_or_path: str,
@@ -95,9 +97,9 @@ def get_sparse_config(
     hf_sparsity_config = getattr(hf_config, "sparsity_config", None)
     if hf_sparsity_config is not None:
         raise NotImplementedError(
-            "Loading hf sparsity config not yet supported"
-        )
+            "Loading hf sparsity config not yet supported")
     return sparsity_cls()
+
 
 # TODO(woosuk): Move this to other place.
 def get_quant_config(
@@ -293,6 +295,7 @@ def convert_pyslice_to_tensor(x: Any) -> torch.Tensor:
         x = x[:]
     return x
 
+
 def default_weight_loader(param: torch.nn.Parameter,
                           loaded_weight: torch.Tensor) -> None:
     """Default weight loader."""
@@ -300,6 +303,7 @@ def default_weight_loader(param: torch.nn.Parameter,
     get_param_data(param).copy_(loaded_weight)
     if isinstance(param, SparseParameter):
         param.pack()
+
 
 def initialize_dummy_weights(
     model: torch.nn.Module,

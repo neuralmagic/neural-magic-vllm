@@ -151,17 +151,17 @@ class ModelConfig:
         supported_sparsity = ["sparse_w16a16"]
 
         if self.quantization is not None:
-            raise ValueError(f"Both sparsity and quantization detected. Only "
-                              "one or the other is supported at a time.")
+            raise ValueError("Both sparsity and quantization detected. Only "
+                             "one or the other is supported at a time.")
 
-        if self.sparsity is not None:
-            if self.sparsity not in supported_sparsity:
-                raise ValueError(f"Unknown sparse method: {self.sparsity}. Must "
-                                 f"be one of {supported_sparse}.")
-        
+        if self.sparsity is not None and self.sparsity not in supported_sparsity:
+            raise ValueError(f"Unknown sparse method: {self.sparsity}. Must "
+                             f"be one of {supported_sparsity}.")
+
         hf_sparsity_config = getattr(self.hf_config, "sparsity_config", None)
         if hf_sparsity_config is not None:
-            hf_sparsity_method = str(hf_sparse_config["sparse_method"]).lower()
+            hf_sparsity_method = str(
+                hf_sparsity_config["sparse_method"]).lower()
             if self.sparsity is None:
                 self.sparsity = hf_sparsity_method
             elif self.sparsity != hf_sparsity_method:
