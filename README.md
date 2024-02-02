@@ -2,6 +2,10 @@
 
 Fork of vLLM with sparsity.
 
+### Notes on dependencies
+
+* Requires python>=3.10 for magic_wand compat
+
 ### To Run
 
 Clone and install magic_wand:
@@ -11,6 +15,7 @@ git clone https://github.com/neuralmagic/magic_wand.git
 cd magic_wand
 export TORCH_CUDA_ARCH_LIST=8.6
 pip install -e .
+make -C build/
 ```
 
 Install:
@@ -18,6 +23,8 @@ Install:
 cd ../
 pip install -e .
 ```
+
+Loading HuggingFace models will require being logged in i.e. via `huggingface-cli login`
 
 ### Run Sample
 
