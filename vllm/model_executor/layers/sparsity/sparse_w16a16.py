@@ -11,6 +11,8 @@ from magic_wand import (CompressedStorageFormat, SparseBitmaskStorageFormat,
 
 logger = init_logger(__name__)
 
+from .sparse_w16a16_linear_method import SparseW16A16LinearMethod
+from magic_wand import CompressedStorageFormat,SparseBitmaskStorageFormat
 
 class SparseW16A16Config(SparsityConfig):
     """Config class for SparseW16A16."""
