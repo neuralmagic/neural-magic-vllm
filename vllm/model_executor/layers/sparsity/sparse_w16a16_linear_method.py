@@ -40,9 +40,9 @@ class SparseW16A16LinearMethod(LinearMethodBase):
             # transpose when we compress so we can use a basic matmul
             compress_transposed=not supports_linear)
 
-            set_weight_attrs(weight, {"input_dim": 1, "output_dim": 0})
+        set_weight_attrs(weight, {"input_dim": 1, "output_dim": 0})
 
-            return {"weight": weight}
+        return {"weight": weight}
 
     def apply_weights(
         self,
