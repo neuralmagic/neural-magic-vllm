@@ -341,6 +341,17 @@ if _is_cuda():
     vllm_extension_sources.append(
         "csrc/quantization/marlin/marlin_cuda_kernel.cu")
 
+    # Add MoE kernels.
+    ext_modules.append(
+        CUDAExtension(
+            name="vllm._moe_C",
+            sources=glob("csrc/moe/*.cu") + glob("csrc/moe/*.cpp"),
+            extra_compile_args={
+                "cxx": CXX_FLAGS,
+                "nvcc": NVCC_FLAGS,
+            },
+        ))
+
 if not _is_neuron():
     vllm_extension = CUDAExtension(
         name="vllm._C",
