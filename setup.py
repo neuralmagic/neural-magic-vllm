@@ -15,11 +15,6 @@ from torch.utils.cpp_extension import CUDA_HOME
 
 ROOT_DIR = os.path.dirname(__file__)
 
-# If you are developing the C++ backend of vLLM, consider building vLLM with
-# `python setup.py develop` since it will give you incremental builds.
-# The downside is that this method is deprecated, see
-# https://github.com/pypa/setuptools/issues/917
-
 MAIN_CUDA_VERSION = "12.1"
 
 
@@ -276,7 +271,7 @@ def get_requirements() -> List[str]:
 ext_modules = []
 
 if _is_cuda():
-#    ext_modules.append(CMakeExtension(name="vllm._moe_C"))
+    ext_modules.append(CMakeExtension(name="vllm._moe_C"))
 
     if _install_punica():
         ext_modules.append(CMakeExtension(name="vllm._punica_C"))
