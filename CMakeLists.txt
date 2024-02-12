@@ -83,6 +83,7 @@ check_language(CUDA)
 
 if(NOT CMAKE_HIP_COMPILER STREQUAL "NOTFOUND")
   enable_language(HIP)
+  set(CUDA_LANG "HIP")
   list(APPEND NVCC_FLAGS "-DUSE_ROCM -U__HIP_NO_HALF_CONVERSIONS__ -U__HIP_NO_HALF_OPERATORS__")
 
   # TODO: intersect with this list?
@@ -95,6 +96,7 @@ if(NOT CMAKE_HIP_COMPILER STREQUAL "NOTFOUND")
   endforeach()
 elseif(NOT CMAKE_CUDA_COMPILER STREQUAL "NOTFOUND")
   enable_language(CUDA)
+  set(CUDA_LANG "CUDA")
   set(IS_CUDA true)
 
   # TODO: parse TORCH_CUDA_ARCH_LIST -> CMAKE_CUDA_ARCHITECTURES?
@@ -119,25 +121,28 @@ endif()
 #
 set(CMAKE_CXX_STANDARD 17)
 
-function(define_module_target MOD_NAME MOD_NVCC_FLAGS)
-  Python_add_library(${MOD_NAME} MODULE WITH_SOABI)
+function(define_module_target MOD_NAME)
+  Python_add_library(${MOD_NAME} MODULE ${ARGN} WITH_SOABI)
   # Note: optimization level/debug info is set by build type
-  if (IS_CUDA)
-    set(CUDA_LANG "CUDA")
-  else()
-    set(CUDA_LANG "HIP")
-  endif()
-  target_compile_options(${MOD_NAME} PRIVATE
-    $<$<COMPILE_LANGUAGE:${CUDA_LANG}>:${MOD_NVCC_FLAGS}>)
+
   target_compile_definitions(${MOD_NAME} PRIVATE "-DTORCH_EXTENSION_NAME=${MOD_NAME}")
   target_include_directories(${MOD_NAME} PRIVATE csrc PRIVATE ${MPI_CXX_INCLUDE_DIRS})
   target_link_libraries(${MOD_NAME} PRIVATE ${TORCH_LIBRARIES}) # this also sets include dirs
   install(TARGETS ${MOD_NAME} LIBRARY DESTINATION vllm)
 endfunction()
 
-define_module_target(_C "${NVCC_FLAGS}")
-define_module_target(_moe_C "${NVCC_FLAGS}")
-define_module_target(_punica_C "${PUNICA_NVCC_FLAGS}")
+function(add_cuda_flags MOD_NAME FLAGS)
+  target_compile_options(${MOD_NAME} PRIVATE $<$<COMPILE_LANGUAGE:${CUDA_LANG}>:${FLAGS}>)
+endfunction()
+
+define_module_target(_C)
+add_cuda_flags(_C "${NVCC_FLAGS}")
+
+define_module_target(_moe_C)
+add_cuda_flags(_moe_C "${NVCC_FLAGS}")
+
+define_module_target(_punica_C)
+add_cuda_flags(_punica_C "${PUNICA_NVCC_FLAGS}")
 
 #
 # Add target source files
