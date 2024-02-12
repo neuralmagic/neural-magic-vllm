@@ -115,37 +115,12 @@ if(NVCC_THREADS)
 endif()
 
 #
-# Define target source files
-#
-
-set(VLLM_EXT_SRC
-  "csrc/cache_kernels.cu"
-  "csrc/attention/attention_kernels.cu"
-  "csrc/pos_encoding_kernels.cu"
-  "csrc/activation_kernels.cu"
-  "csrc/layernorm_kernels.cu"
-  "csrc/quantization/squeezellm/quant_cuda_kernel.cu"
-  "csrc/quantization/gptq/q_gemm.cu"
-  "csrc/cuda_utils_kernels.cu"
-  "csrc/moe_align_block_size_kernels.cu"
-  "csrc/pybind.cpp")
-
-if(IS_CUDA)
-  list(APPEND VLLM_EXT_SRC
-    "csrc/quantization/awq/gemm_kernels.cu"
-    "csrc/custom_all_reduce.cu")
-endif()
-
-File(GLOB VLLM_MOE_EXT_SRC "csrc/moe/*.cu" "csrc/moe/*.cpp")
-File(GLOB VLLM_PUNICA_EXT_SRC "csrc/punica/bgmv/*.cu" "csrc/punica/*.cpp")
-
-#
 # Define targets
 #
 set(CMAKE_CXX_STANDARD 17)
 
-function(define_module_target MOD_NAME MOD_SRC MOD_NVCC_FLAGS)
-  Python_add_library(${MOD_NAME} MODULE ${MOD_SRC} WITH_SOABI)
+function(define_module_target MOD_NAME MOD_NVCC_FLAGS)
+  Python_add_library(${MOD_NAME} MODULE WITH_SOABI)
   # Note: optimization level/debug info is set by build type
   if (IS_CUDA)
     set(CUDA_LANG "CUDA")
@@ -155,11 +130,59 @@ function(define_module_target MOD_NAME MOD_SRC MOD_NVCC_FLAGS)
   target_compile_options(${MOD_NAME} PRIVATE
     $<$<COMPILE_LANGUAGE:${CUDA_LANG}>:${MOD_NVCC_FLAGS}>)
   target_compile_definitions(${MOD_NAME} PRIVATE "-DTORCH_EXTENSION_NAME=${MOD_NAME}")
-  target_include_directories(${MOD_NAME} PRIVATE csrc PRIVATE ${TORCH_INCLUDE_DIRS} ${MPI_CXX_INCLUDE_DIRS})
-  target_link_libraries(${MOD_NAME} PRIVATE ${TORCH_LIBRARIES})
+  target_include_directories(${MOD_NAME} PRIVATE csrc PRIVATE ${MPI_CXX_INCLUDE_DIRS})
+  target_link_libraries(${MOD_NAME} PRIVATE ${TORCH_LIBRARIES}) # this also sets include dirs
   install(TARGETS ${MOD_NAME} LIBRARY DESTINATION vllm)
 endfunction()
 
-define_module_target(_C "${VLLM_EXT_SRC}" "${NVCC_FLAGS}")
-define_module_target(_moe_C "${VLLM_MOE_EXT_SRC}" "${NVCC_FLAGS}")
-define_module_target(_punica_C "${VLLM_PUNICA_EXT_SRC}" "${PUNICA_NVCC_FLAGS}")
+define_module_target(_C "${NVCC_FLAGS}")
+define_module_target(_moe_C "${NVCC_FLAGS}")
+define_module_target(_punica_C "${PUNICA_NVCC_FLAGS}")
+
+#
+# Add target source files
+#
+target_sources(_C PRIVATE
+        "csrc/cache_kernels.cu"
+        "csrc/attention/attention_kernels.cu"
+        "csrc/pos_encoding_kernels.cu"
+        "csrc/activation_kernels.cu"
+        "csrc/layernorm_kernels.cu"
+        "csrc/quantization/squeezellm/quant_cuda_kernel.cu"
+        "csrc/quantization/gptq/q_gemm.cu"
+        "csrc/cuda_utils_kernels.cu"
+        "csrc/moe_align_block_size_kernels.cu"
+        "csrc/pybind.cpp")
+
+if (IS_CUDA)
+  target_sources(_C PRIVATE
+          "csrc/quantization/awq/gemm_kernels.cu"
+          "csrc/custom_all_reduce.cu")
+endif ()
+
+target_sources(_moe_C PRIVATE
+        "csrc/moe/moe_ops.cpp"
+        "csrc/moe/topk_softmax_kernels.cu")
+
+target_sources(_punica_C PRIVATE
+        "csrc/punica/punica_ops.cc"
+        "csrc/punica/bgmv/bgmv_bf16_bf16_bf16.cu"
+        "csrc/punica/bgmv/bgmv_bf16_bf16_fp16.cu"
+        "csrc/punica/bgmv/bgmv_bf16_fp16_bf16.cu"
+        "csrc/punica/bgmv/bgmv_bf16_fp16_fp16.cu"
+        "csrc/punica/bgmv/bgmv_bf16_fp32_bf16.cu"
+        "csrc/punica/bgmv/bgmv_bf16_fp32_fp16.cu"
+        "csrc/punica/bgmv/bgmv_fp16_bf16_bf16.cu"
+        "csrc/punica/bgmv/bgmv_fp16_bf16_fp16.cu"
+        "csrc/punica/bgmv/bgmv_fp16_fp16_bf16.cu"
+        "csrc/punica/bgmv/bgmv_fp16_fp16_fp16.cu"
+        "csrc/punica/bgmv/bgmv_fp16_fp32_bf16.cu"
+        "csrc/punica/bgmv/bgmv_fp16_fp32_fp16.cu"
+        "csrc/punica/bgmv/bgmv_fp32_bf16_bf16.cu"
+        "csrc/punica/bgmv/bgmv_fp32_bf16_fp16.cu"
+        "csrc/punica/bgmv/bgmv_fp32_fp16_bf16.cu"
+        "csrc/punica/bgmv/bgmv_fp32_fp16_fp16.cu"
+        "csrc/punica/bgmv/bgmv_fp32_fp32_bf16.cu"
+        "csrc/punica/bgmv/bgmv_fp32_fp32_fp16.cu")
+
+
