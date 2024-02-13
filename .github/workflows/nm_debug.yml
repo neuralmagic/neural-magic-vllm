@@ -1,4 +1,4 @@
-name: debug instance
+name: nm debug instance
 on:
   workflow_dispatch:
     inputs:
