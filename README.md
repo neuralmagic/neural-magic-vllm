@@ -9,6 +9,7 @@ Clone and install magic_wand:
 ```bash
 git clone https://github.com/neuralmagic/magic_wand.git
 cd magic_wand
+git submodule update --init --recursive
 export TORCH_CUDA_ARCH_LIST=8.6
 pip install -e .
 ```
