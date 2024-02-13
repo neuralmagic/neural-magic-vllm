@@ -27,7 +27,7 @@ Run a 50% sparse model:
 from vllm import LLM, SamplingParams
 
 model = LLM(
-    "nm-testing/Llama-2-7b-pruned50-retrained", 
+    "nm-testing/Llama-2-7b-pruned50-retrained",
     sparsity="sparse_w16a16",   # If left off, model will be loaded as dense
     enforce_eager=True,         # Does not work with cudagraphs yet
     dtype="float16",
