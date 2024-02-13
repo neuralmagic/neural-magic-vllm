@@ -1,0 +1,2 @@
+# requirements specific to the vllm neuralmagic fork
+aiohttp
