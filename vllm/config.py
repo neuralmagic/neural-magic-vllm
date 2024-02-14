@@ -160,7 +160,7 @@ class ModelConfig:
     def _verify_sparsity(self) -> None:
         supported_sparsity = ["sparse_w16a16", "semi_structured_sparse_w16a16"]
 
-        if self.quantization is not None:
+        if self.sparsity is not None and self.quantization is not None:
             raise ValueError("Both sparsity and quantization detected. Only "
                              "one or the other is supported at a time.")
 
