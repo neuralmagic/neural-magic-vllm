@@ -7,6 +7,7 @@ from magic_wand import (CompressedStorageFormat, SparseBitmaskStorageFormat)
 
 
 class LazyCompressedParameter(torch.Tensor):
+
     @staticmethod
     def __new__(cls,
                 uncompressed_data: torch.Tensor,
