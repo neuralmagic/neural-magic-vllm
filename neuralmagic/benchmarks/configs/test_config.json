@@ -1,0 +1,12 @@
+{
+	"description" : "Benchmarking system test",
+
+	"script_name" : "benchmark_serving.py",
+	
+	"script_args" : {
+		"num_prompts" = ["1000"],
+		"request_rate" = [10]
+	},
+
+	"models" : ["facebook/opt-125m"]
+}
