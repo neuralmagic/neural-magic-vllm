@@ -71,4 +71,3 @@ class SparseW16A16LinearMethod(LinearMethodBase):
             assert not w.compress_transposed
             output = F.linear(x, w.compressed_data.decompress(), bias)
         return output
-

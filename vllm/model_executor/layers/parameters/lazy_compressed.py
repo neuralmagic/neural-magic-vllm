@@ -63,7 +63,7 @@ class LazyCompressedParameter(torch.Tensor):
         density = torch.count_nonzero(
             self.uncompressed_data).item() / numpy.prod(self.shape)
 
-        # only compress if we have sufficient sparsity (>=45%), currently 
+        # only compress if we have sufficient sparsity (>=45%), currently
         # this applies globally across all formats including 2:4
         if (1 - density) < 0.45:
             return
