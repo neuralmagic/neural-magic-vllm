@@ -6,8 +6,7 @@ import torch.nn.functional as F
 from vllm.model_executor.layers.linear import LinearMethodBase, set_weight_attrs
 from vllm.model_executor.layers.sparsity.base_config import SparsityConfig
 from vllm.model_executor.layers.parameters import LazyCompressedParameter
-from magic_wand import (CompressedStorageFormat, SparseBEGemmStorageFormat,
-                        SparseSemiStructuredStorageFormat)
+from magic_wand import (CompressedStorageFormat, SparseBEGemmStorageFormat)
 from magic_wand.ops import be_ds_gemm
 
 
@@ -28,14 +27,16 @@ class SparseW16A16LinearMethod(LinearMethodBase):
                        output_size_per_partition: int, input_size: int,
                        output_size: int,
                        params_dtype: torch.dtype) -> Dict[str, Any]:
-        self.input_size_per_partition = input_size_per_partition
-        self.output_size_per_partition = output_size_per_partition
 
+        supports_linear = (self.storage_format_cls !=
+                           SparseBEGemmStorageFormat)
         weight = LazyCompressedParameter(
             torch.empty((output_size_per_partition, input_size_per_partition),
                         dtype=params_dtype),
             storage_format_cls=self.storage_format_cls,
-            compress_transposed=True)
+            # if we don't support F.linear or something analogous,
+            # transpose when we compress so we can use a basic matmul
+            compress_transposed=not supports_linear)
 
         set_weight_attrs(weight, {"input_dim": 1, "output_dim": 0})
 
@@ -49,10 +50,16 @@ class SparseW16A16LinearMethod(LinearMethodBase):
     ) -> torch.Tensor:
         w: LazyCompressedParameter = weights["weight"]
 
-        if self.storage_format_cls == SparseSemiStructuredStorageFormat:
-            output = F.linear(x, w, bias)
-            return output
-        if self.storage_format_cls == SparseBEGemmStorageFormat:
+        # if we never compressed (likely due to insufficient sparsity), i.e. have uncompressed_data run normally
+        if w.has_uncompressed_data:
+            assert not w.has_compressed_data
+            output = F.linear(x, w.uncompressed_data, bias)
+        # The current 2:4 implementation was running dense so ignore it
+        #  for now and instead just explicitly decompress as usual
+        # elif self.storage_format_cls == SparseSemiStructuredStorageFormat:
+        #     assert bias is None
+        #     raise NotImplementedError
+        elif self.storage_format_cls == SparseBEGemmStorageFormat:
             assert bias is None
             assert w.compress_transposed
             out_shape = (x.shape[:-1] + (w.shape[0], ))
@@ -62,5 +69,6 @@ class SparseW16A16LinearMethod(LinearMethodBase):
         else:
             # Standard matrix multiply
             # Uncompress to dense
-            output = F.linear(x, w.to_dense(), bias)
-            return output
+            assert not w.compress_transposed
+            output = F.linear(x, w.compressed_data.decompress(), bias)
+        return output

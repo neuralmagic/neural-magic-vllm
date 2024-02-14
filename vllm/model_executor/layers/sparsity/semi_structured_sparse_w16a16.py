@@ -8,8 +8,7 @@ from magic_wand import (CompressedStorageFormat,
 
 
 class SemiStructuredSparseW16A16Config(SparsityConfig):
-    """Config class for SemiStructuredSparseW16A16.
-    """
+    """Config class for SemiStructuredSparseW16A16."""
 
     def __init__(self) -> None:
         pass
@@ -27,7 +26,7 @@ class SemiStructuredSparseW16A16Config(SparsityConfig):
 
     @classmethod
     def get_supported_act_dtypes(cls) -> List[torch.dtype]:
-        return [torch.half, torch.bfloat16]
+        return [torch.float16, torch.bfloat16]
 
     @classmethod
     def get_min_capability(cls) -> int:
