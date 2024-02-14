@@ -206,7 +206,6 @@ class ColumnParallelLinear(torch.nn.Module):
         assert param_data.shape == loaded_weight.shape
         param_data.copy_(loaded_weight)
 
-        # If LazyCompressedParameter, compress the data.
         if isinstance(param, LazyCompressedParameter):
             param.compress()
 
@@ -463,8 +462,6 @@ class QKVParallelLinear(ColumnParallelLinear):
         # all of the shards are loaded, for the QKV matrix this means
         # loading shards "q", "k" and "v"
         all_shards_loaded = (self.loaded_shards == set(["q", "k", "v"]))
-
-        # If LazyCompressedParameter, compress the data.
         if all_shards_loaded and isinstance(param, LazyCompressedParameter):
             param.compress()
 
@@ -559,7 +556,6 @@ class RowParallelLinear(torch.nn.Module):
         assert param_data.shape == loaded_weight.shape
         param_data.copy_(loaded_weight)
 
-        # If LazyCompressedParameter, compress the data.
         if isinstance(param, LazyCompressedParameter):
             param.compress()
 
