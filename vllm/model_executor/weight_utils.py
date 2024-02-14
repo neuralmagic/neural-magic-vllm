@@ -301,7 +301,7 @@ def default_weight_loader(param: torch.nn.Parameter,
     assert param.size() == loaded_weight.size()
     param.data.copy_(loaded_weight)
     if isinstance(param, LazyCompressedParameter):
-        param.pack()
+        param.compress()
 
 
 def initialize_dummy_weights(
