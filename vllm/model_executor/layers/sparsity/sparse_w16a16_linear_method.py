@@ -27,7 +27,6 @@ class SparseW16A16LinearMethod(LinearMethodBase):
                        output_size_per_partition: int, input_size: int,
                        output_size: int,
                        params_dtype: torch.dtype) -> Dict[str, Any]:
-
         supports_linear = (self.storage_format_cls !=
                            SparseBEGemmStorageFormat)
         weight = LazyCompressedParameter(
@@ -72,3 +71,4 @@ class SparseW16A16LinearMethod(LinearMethodBase):
             assert not w.compress_transposed
             output = F.linear(x, w.compressed_data.decompress(), bias)
         return output
+
