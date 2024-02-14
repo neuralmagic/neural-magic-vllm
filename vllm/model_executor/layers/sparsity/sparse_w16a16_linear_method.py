@@ -49,7 +49,8 @@ class SparseW16A16LinearMethod(LinearMethodBase):
     ) -> torch.Tensor:
         w: LazyCompressedParameter = weights["weight"]
 
-        # if we never compressed (likely due to insufficient sparsity), i.e. have uncompressed_data run normally
+        # if we never compressed (likely due to insufficient sparsity), 
+        # i.e. have uncompressed_data run normally
         if w.has_uncompressed_data:
             assert not w.has_compressed_data
             output = F.linear(x, w.uncompressed_data, bias)
