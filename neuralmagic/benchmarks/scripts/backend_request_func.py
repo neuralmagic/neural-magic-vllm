@@ -1,4 +1,8 @@
-## TODO (varun) this file is copied from upstream main. Figure out what to do before landing
+"""
+Benchmark serving utilities for various end-points.
+
+NOTE: This script is copied from upstream vllm repo (february 13th, 2024).
+"""
 
 import json
 import os

@@ -1,5 +1,3 @@
-# TODO (varun) : This files is copied from upstream main - figure out what to do before landing
-
 """Benchmark online serving throughput.
 
 On the server side, run one of the following commands:
@@ -16,6 +14,8 @@ On the client side, run:
         --backend <backend> \
         --tokenizer <your_model> --dataset <target_dataset> \
         --request-rate <request_rate>
+
+NOTE: This script is copied from upstream vllm repo (february 13th, 2024).
 """
 import argparse
 import asyncio
@@ -297,7 +297,7 @@ def main(args: argparse.Namespace):
     )
 
     # Save config and results to json
-    save_result = len(args.save_directory) != 0
+    save_result = args.save_directory is not None
     if save_result:
         result_json = {}
 
@@ -409,7 +409,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--save-directory", type=str, help="Output directory to store result file"
+        "--save-directory", type=str, default=None, help="Output directory to store result file"
     )
 
     args = parser.parse_args()
