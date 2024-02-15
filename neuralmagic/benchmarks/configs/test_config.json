@@ -1,12 +1,16 @@
 {
 	"description" : "Benchmarking system test",
 
+	"dataset_download_cmds" : ["wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json"],
+
+	"models" : ["facebook/opt-125m"],
+
 	"script_name" : "benchmark_serving.py",
 	
 	"script_args" : {
-		"num_prompts" = ["1000"],
-		"request_rate" = [10]
-	},
-
-	"models" : ["facebook/opt-125m"]
+		"num-prompts" : [20, 25],
+		"request-rate" : [5, 10],
+		"best-of" : [1],
+		"dataset" : ["ShareGPT_V3_unfiltered_cleaned_split.json"] 
+	}
 }

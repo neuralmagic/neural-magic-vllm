@@ -22,6 +22,7 @@ import asyncio
 import json
 import random
 import time
+from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
 from typing import AsyncGenerator, List, Tuple
@@ -294,7 +295,8 @@ def main(args: argparse.Namespace):
         ))
 
     # Save config and results to json
-    if args.save_result:
+    save_result = len(args.save_directory) != 0
+    if save_result:
         result_json = {}
 
         # Setup
@@ -317,7 +319,7 @@ def main(args: argparse.Namespace):
 
         # Save to file
         base_model_id = model_id.split("/")[-1]
-        file_name = f"{backend}-{args.request_rate}qps-{base_model_id}-{current_dt}.json"
+        file_name = Path(args.save_directory) / f"{backend}-{args.request_rate}qps-{base_model_id}-{current_dt}.json"
         with open(file_name, "w") as outfile:
             json.dump(result_json, outfile)
 
@@ -401,10 +403,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Specify to disbale tqdm progress bar.",
     )
+
     parser.add_argument(
-        "--save-result",
-        action="store_true",
-        help="Specify to save benchmark results to a json file",
+        "--save-directory",
+        type=str,
+        help="Output directory to store result file"
     )
 
     args = parser.parse_args()

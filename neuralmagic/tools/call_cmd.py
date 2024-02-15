@@ -27,7 +27,7 @@ def parse_process_stats(str):
         return None
 
 
-def call_cmd(cmd, collect_process_stats=False):
+def call_cmd(cmd, collect_process_stats=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE):
     try:
         start = time.perf_counter()
 
@@ -37,7 +37,7 @@ def call_cmd(cmd, collect_process_stats=False):
             cmd = [f"{rootdir}/time.sh", "-o", process_stats_file.name] + cmd
 
         ret = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False
+            cmd, stdout=stdout, stderr=stderr, check=False
         )
         total = round(time.perf_counter() - start, 3)
 
@@ -49,8 +49,8 @@ def call_cmd(cmd, collect_process_stats=False):
         else:
             process_stats = None
 
-        return [ret.stdout.decode("utf-8").strip(),
-                ret.stderr.decode("utf-8").strip(),
+        return [ret.stdout.decode("utf-8").strip() if stdout else None,
+                ret.stderr.decode("utf-8").strip() if stderr else None,
                 ret.returncode,
                 total,
                 process_stats]
