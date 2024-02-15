@@ -31,6 +31,7 @@ import numpy as np
 from tqdm.asyncio import tqdm
 from transformers import PreTrainedTokenizerBase
 from vllm.transformers_utils.tokenizer import get_tokenizer
+from common import get_bench_environment
 
 from backend_request_func import (
     ASYNC_REQUEST_FUNCS,
@@ -304,6 +305,7 @@ def main(args: argparse.Namespace):
         # Setup
         current_dt = datetime.now().strftime("%Y%m%d-%H%M%S")
         result_json["date"] = current_dt
+        result_json["bench_env"] = get_bench_environment()
         result_json["backend"] = backend
         result_json["version"] = args.version
         result_json["model_id"] = model_id
