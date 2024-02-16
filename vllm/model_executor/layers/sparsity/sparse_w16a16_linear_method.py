@@ -75,16 +75,20 @@ class SparseW16A16LinearMethod(LinearMethodBase):
             reshaped_x, valid_rows_range = pad_tensor_to_multiple(
                 x.reshape(-1, x.shape[-1]), 8
             )
+            if bias is None:
+                bias = torch.nn.Parameter(
+                    torch.zeros(
+                        (w_encap.shape[0],),
+                        dtype=reshaped_x.dtype,
+                        device=reshaped_x.device,
+                    )
+                )
             output = F.linear(
                 reshaped_x,
                 w_encap,
-                torch.nn.Parameter(torch.zeros((w_encap.shape[0],)))
-                .to(reshaped_x.dtype)
-                .to(reshaped_x.device),
+                bias,
             ).contiguous()
             output = extract_valid_rows(output, valid_rows_range).reshape(out_shape)
-            if bias is not None:
-                output = output + bias
         elif self.storage_format_cls == SparseBEGemmStorageFormat:
             assert w.compress_transposed
             out_shape = x.shape[:-1] + (w.shape[0],)
