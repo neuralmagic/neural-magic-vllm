@@ -65,22 +65,23 @@ class SparseW16A16LinearMethod(LinearMethodBase):
             if bias is None:
                 bias = torch.nn.Parameter(
                     torch.zeros(
-                        (w_encap.shape[0],),
+                        (w_encap.shape[0], ),
                         dtype=reshaped_x.dtype,
                         device=reshaped_x.device,
-                    )
-                )
+                    ))
             output = F.linear(
                 reshaped_x,
                 w_encap,
                 bias,
             ).contiguous()
-            output = extract_valid_rows(output, valid_rows_range).reshape(out_shape)
+            output = extract_valid_rows(output,
+                                        valid_rows_range).reshape(out_shape)
         elif self.storage_format_cls == SparseBEGemmStorageFormat:
             assert w.compress_transposed
             out_shape = (x.shape[:-1] + (w.shape[0], ))
             reshaped_x = x.reshape(-1, x.shape[-1])
-            output = be_ds_gemm(reshaped_x, w.compressed_data).reshape(out_shape)
+            output = be_ds_gemm(reshaped_x,
+                                w.compressed_data).reshape(out_shape)
             if bias is not None:
                 output = output + bias
         else:
