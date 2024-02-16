@@ -16,8 +16,8 @@
 			"script_name" : "benchmark_serving.py",
 
 			"script_args" : {
-				"num-prompts" : [1],
-				"request-rate" : [1],
+				"num-prompts" : [50, 100],
+				"request-rate" : [0.5, 1.0, 2.5, 5.0],
 				"best-of" : [1],
 				"dataset" : ["ShareGPT_V3_unfiltered_cleaned_split.json"] 
 			}
