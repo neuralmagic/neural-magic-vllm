@@ -58,15 +58,22 @@ class SparseW16A16LinearMethod(LinearMethodBase):
             assert not w.has_compressed_data
             output = F.linear(x, w.uncompressed_data, bias)
         elif self.storage_format_cls == SparseSemiStructuredStorageFormat:
-            assert bias is None
+            #assert bias is None # TODO: Cruft, if unnecessary
             w_encap = w.compressed_data.encapsulated_torch_sparse_tensor
             out_shape = (x.shape[:-1] + (w_encap.shape[0], ))
             reshaped_x, valid_rows_range = pad_tensor_to_multiple(
                 x.reshape(-1, x.shape[-1]), 8)
-            output = F.linear(
-                reshaped_x, w_encap,
-                torch.nn.Parameter(torch.zeros((w_encap.shape[0], ))).to(
-                    reshaped_x.dtype).to(reshaped_x.device)).contiguous()
+            output=None
+            if bias is None:
+                output = F.linear(
+                    reshaped_x, w_encap,
+                    torch.nn.Parameter(torch.zeros((w_encap.shape[0], ))).to(
+                        reshaped_x.dtype).to(reshaped_x.device)).contiguous()
+            else:
+                output = F.linear(
+                    reshaped_x, w_encap,
+                    bias.to(reshaped_x.dtype).to(reshaped_x.device)).contiguous()
+
             output = extract_valid_rows(output, valid_rows_range)
             return output.reshape(out_shape)
         elif self.storage_format_cls == SparseBEGemmStorageFormat:
