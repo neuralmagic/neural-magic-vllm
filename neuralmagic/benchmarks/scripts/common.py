@@ -11,5 +11,6 @@ def get_bench_environment() -> dict:
     return {
         "python_version" :  f"{sys.version}",
         "torch_version" : f"{torch.__version__}",
-        "torch_cuda_version" : f"{torch.version.cuda}"
+        "torch_cuda_version" : f"{torch.version.cuda}",
+        "cuda_device(0)": f"{torch.cuda.get_device_properties(0)}"
     }
