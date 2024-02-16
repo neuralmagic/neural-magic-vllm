@@ -1,13 +1,13 @@
 import argparse
 import subprocess
+import requests
 import time
-import socket
 
 from typing import NamedTuple, Optional
 from pathlib import Path
 
 from neuralmagic.tools.call_cmd import call_cmd
-from common import download_datasets, script_args_to_cla
+from common import download_model, download_datasets, script_args_to_cla, benchmark_configs
 
 BENCH_SERVER_HOST = "localhost"
 BENCH_SERVER_PORT = 9000
@@ -15,12 +15,11 @@ BENCH_SERVER_PORT = 9000
 def get_this_script_dir() -> Path:
     return Path(__file__).parent.resolve()
 
-def is_server_running(host: str, port: int, timeout= 60 * 30) -> bool:
+def is_server_running(host: str, port: int, timeout= 60) -> bool:
     def try_connection() -> bool:
         try:
-            sock = socket.create_connection((host, port))
-            sock.close()
-            return True
+            r = requests.get(f"http://{host}:{port}/health")
+            return r.status_code == 200
         except Exception as _:
             return False
 
@@ -42,10 +41,10 @@ def run_benchmark_serving_script(config: NamedTuple, output_directory: Optional[
         try:
             # start server
             server_process = subprocess.Popen("exec " + server_cmd, shell=True)
-            #if not is_server_running(BENCH_SERVER_HOST, BENCH_SERVER_PORT):
-            #    raise ValueError(
-            #        f"Aborting bench run with : server-cmd {server_cmd} , bench-cmd {bench_cmd}. Reason: Cannot start Server"
-            #    )
+            if not is_server_running(BENCH_SERVER_HOST, BENCH_SERVER_PORT):
+                raise ValueError(
+                    f"Aborting bench run with : server-cmd {server_cmd} , bench-cmd {bench_cmd}. Reason: Cannot start Server"
+                )
             # run bench
             call_cmd(bench_cmd, stdout=None, stderr=None)
         finally:
@@ -59,8 +58,11 @@ def run_benchmark_serving_script(config: NamedTuple, output_directory: Optional[
     script_path = get_this_script_dir() / f"scripts/{config.script_name}"
 
     for model in config.models:
-        server_cmd = f"python3 -m vllm.entrypoints.api_server --model {model} --tokenizer {model} --host {BENCH_SERVER_HOST} --port {BENCH_SERVER_PORT} --disable-log-requests"
 
+        # download model before hand so we dont have to wait for the download during the server spin-up
+        download_model(model)
+
+        server_cmd = f"python3 -m vllm.entrypoints.api_server --model {model} --tokenizer {model} --host {BENCH_SERVER_HOST} --port {BENCH_SERVER_PORT} --disable-log-requests"
         for script_args in script_args_to_cla(config):
             bench_cmd = (
                 ["python3", f"{script_path}"]
@@ -98,22 +100,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    assert config_file_path.exists()
+    output_directory = Path(args.output_directory) if args.output_directory is not None else None
 
-    configs = None
-    with open(config_file_path, "r") as f:
-        configs = json.load(f, object_hook=lambda d: Namespace(**d))
-    assert configs is not None
-
-    for config in configs.configs:
-        if config.script_name == "benchmark_serving.py":
-            run_benchmark_serving_script(config, output_directory)
-            continue
-
-        if config.script_name == "benchmark_throughput.py":
-            run_benchmark_throughput_script(config, output_directory)
-            continue
-
-        raise ValueError(f"Unhandled benchmark script f{config.script_name}")
-
-    run(Path(args.input_config_file), Path(args.output_directory))
+    for config in benchmark_configs(Path(args.input_config_file)):
+        run_benchmark_serving_script(config, output_directory)
