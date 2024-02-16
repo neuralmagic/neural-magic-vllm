@@ -1,21 +1,14 @@
 import argparse
-import json
 
-from argparse import Namespace
 from pathlib import Path
+from common import benchmark_configs
 
 from run_benchmark_serving import run_benchmark_serving_script
 from run_benchmark_throughput import run_benchmark_throughput_script
 
 def run(config_file_path: Path, output_directory: Path) -> None:
-    assert config_file_path.exists()
 
-    configs = None
-    with open(config_file_path, "r") as f:
-        configs = json.load(f, object_hook=lambda d: Namespace(**d))
-    assert configs is not None
-
-    for config in configs.configs:
+    for config in benchmark_configs():
         if config.script_name == "benchmark_serving.py":
             run_benchmark_serving_script(config, output_directory)
             continue
