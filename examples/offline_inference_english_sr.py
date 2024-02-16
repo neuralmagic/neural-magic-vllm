@@ -1,4 +1,5 @@
 from vllm import LLM, SamplingParams
+from transformers import WhisperModelForConditionalGeneration
 
 # Sample prompts.
 prompts = [
