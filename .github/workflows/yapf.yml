@@ -20,4 +20,5 @@ jobs:
         echo "and what will happen now?"
         echo "i've been added as an outside collaborator"
         echo "but only have read access ..."
+        echo "just joking ... i actually have write access"
 
