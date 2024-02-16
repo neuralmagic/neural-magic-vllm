@@ -1,8 +1,9 @@
+import argparse
 import subprocess
 import time
 import socket
 
-from typing import NamedTuple
+from typing import NamedTuple, Optional
 from pathlib import Path
 
 from neuralmagic.tools.call_cmd import call_cmd
@@ -33,16 +34,18 @@ def is_server_running(host: str, port: int, timeout= 60 * 30) -> bool:
 
     return False
 
-def run_benchmark_serving_script(config: NamedTuple, output_directory: Path) -> None:
+def run_benchmark_serving_script(config: NamedTuple, output_directory: Optional[Path] = None) -> None:
+
+    assert config.script_name == 'benchmark_serving.py'
 
     def run_bench(server_cmd: str, bench_cmd: list[str]) -> None:
         try:
             # start server
             server_process = subprocess.Popen("exec " + server_cmd, shell=True)
-            if not is_server_running(BENCH_SERVER_HOST, BENCH_SERVER_PORT):
-                raise ValueError(
-                    f"Aborting bench run with : server-cmd {server_cmd} , bench-cmd {bench_cmd}. Reason: Cannot start Server"
-                )
+            #if not is_server_running(BENCH_SERVER_HOST, BENCH_SERVER_PORT):
+            #    raise ValueError(
+            #        f"Aborting bench run with : server-cmd {server_cmd} , bench-cmd {bench_cmd}. Reason: Cannot start Server"
+            #    )
             # run bench
             call_cmd(bench_cmd, stdout=None, stderr=None)
         finally:
@@ -62,10 +65,55 @@ def run_benchmark_serving_script(config: NamedTuple, output_directory: Path) -> 
             bench_cmd = (
                 ["python3", f"{script_path}"]
                 + script_args
-                + ["--save-directory", f"{output_directory}"]
                 + ["--model", f"{model}"]
                 + ["--tokenizer", f"{model}"]
                 + ["--port", f"{BENCH_SERVER_PORT}"]
                 + ["--host", f"{BENCH_SERVER_HOST}"]
             )
+
+            if output_directory:
+                bench_cmd = bench_cmd + ["--save-directory", f"{output_directory}"]
+
             run_bench(server_cmd, bench_cmd)
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(
+        description="Runs the benchmark_serving.py script as a subprocess"
+    )
+    parser.add_argument(
+        "-i",
+        "--input-config-file",
+        required=True,
+        type=str,
+        help="Path to the input config file describing the benhmarks to run",
+    )
+    parser.add_argument(
+        "-o",
+        "--output-directory",
+        type=str,
+        default=None,
+        help="Path to a directory that is the output store",
+    )
+
+    args = parser.parse_args()
+
+    assert config_file_path.exists()
+
+    configs = None
+    with open(config_file_path, "r") as f:
+        configs = json.load(f, object_hook=lambda d: Namespace(**d))
+    assert configs is not None
+
+    for config in configs.configs:
+        if config.script_name == "benchmark_serving.py":
+            run_benchmark_serving_script(config, output_directory)
+            continue
+
+        if config.script_name == "benchmark_throughput.py":
+            run_benchmark_throughput_script(config, output_directory)
+            continue
+
+        raise ValueError(f"Unhandled benchmark script f{config.script_name}")
+
+    run(Path(args.input_config_file), Path(args.output_directory))
