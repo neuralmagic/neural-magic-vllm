@@ -14,7 +14,7 @@ BENCH_SERVER_PORT = 9000
 def get_this_script_dir() -> Path:
     return Path(__file__).parent.resolve()
 
-def is_server_running(host: str, port: int, timeout=20) -> bool:
+def is_server_running(host: str, port: int, timeout= 60 * 30) -> bool:
     def try_connection() -> bool:
         try:
             sock = socket.create_connection((host, port))
@@ -23,13 +23,13 @@ def is_server_running(host: str, port: int, timeout=20) -> bool:
         except Exception as _:
             return False
 
-    retries = 5
-    timeout_part = timeout / retries
-    while retries:
+    timeout_part = 15 # retry every 15 seconds
+    time_waited = 0
+    while time_waited <= timeout:
         time.sleep(timeout_part)
         if try_connection():
             return True
-        retries = retries - 1
+        time_waited = time_waited + timeout_part
 
     return False
 
