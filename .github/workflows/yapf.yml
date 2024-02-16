@@ -18,4 +18,5 @@ jobs:
       run: |
         echo "hello world ... "
         echo "and what will happen now?"
+        echo "i've been added as an outside collaborator"
 
