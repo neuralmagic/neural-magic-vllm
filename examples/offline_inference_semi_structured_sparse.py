@@ -1,6 +1,6 @@
 from vllm import LLM, SamplingParams
 
-model = LLM("nm-testing/zephyr-50sparse-24",
+model = LLM("nm-testing/opt-125m-pruned2.4",
             sparsity="semi_structured_sparse_w16a16",
             enforce_eager=True,
             dtype="float16",
