@@ -6,6 +6,7 @@ from common import benchmark_configs
 from run_benchmark_serving import run_benchmark_serving_script
 from run_benchmark_throughput import run_benchmark_throughput_script
 
+
 def run(config_file_path: Path, output_directory: Path) -> None:
 
     for config in benchmark_configs():
@@ -19,10 +20,10 @@ def run(config_file_path: Path, output_directory: Path) -> None:
 
         raise ValueError(f"Unhandled benchmark script f{config.script_name}")
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Runs benchmark-scripts as a subprocess"
-    )
+        description="Runs benchmark-scripts as a subprocess")
     parser.add_argument(
         "-i",
         "--input-config-file",

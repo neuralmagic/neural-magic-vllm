@@ -12,10 +12,13 @@ from common import download_model, download_datasets, script_args_to_cla, benchm
 BENCH_SERVER_HOST = "localhost"
 BENCH_SERVER_PORT = 9000
 
+
 def get_this_script_dir() -> Path:
     return Path(__file__).parent.resolve()
 
-def is_server_running(host: str, port: int, timeout= 60) -> bool:
+
+def is_server_running(host: str, port: int, timeout=60) -> bool:
+
     def try_connection() -> bool:
         try:
             r = requests.get(f"http://{host}:{port}/health")
@@ -23,7 +26,7 @@ def is_server_running(host: str, port: int, timeout= 60) -> bool:
         except Exception as _:
             return False
 
-    timeout_part = 15 # retry every 15 seconds
+    timeout_part = 15  # retry every 15 seconds
     time_waited = 0
     while time_waited <= timeout:
         time.sleep(timeout_part)
@@ -33,7 +36,10 @@ def is_server_running(host: str, port: int, timeout= 60) -> bool:
 
     return False
 
-def run_benchmark_serving_script(config: NamedTuple, output_directory: Optional[Path] = None) -> None:
+
+def run_benchmark_serving_script(config: NamedTuple,
+                                 output_directory: Optional[Path] = None
+                                 ) -> None:
 
     assert config.script_name == 'benchmark_serving.py'
 
@@ -64,25 +70,24 @@ def run_benchmark_serving_script(config: NamedTuple, output_directory: Optional[
 
         server_cmd = f"python3 -m vllm.entrypoints.api_server --model {model} --tokenizer {model} --host {BENCH_SERVER_HOST} --port {BENCH_SERVER_PORT} --disable-log-requests"
         for script_args in script_args_to_cla(config):
-            bench_cmd = (
-                ["python3", f"{script_path}"]
-                + script_args
-                + ["--model", f"{model}"]
-                + ["--tokenizer", f"{model}"]
-                + ["--port", f"{BENCH_SERVER_PORT}"]
-                + ["--host", f"{BENCH_SERVER_HOST}"]
-            )
+            bench_cmd = (["python3", f"{script_path}"] + script_args +
+                         ["--model", f"{model}"] +
+                         ["--tokenizer", f"{model}"] +
+                         ["--port", f"{BENCH_SERVER_PORT}"] +
+                         ["--host", f"{BENCH_SERVER_HOST}"])
 
             if output_directory:
-                bench_cmd = bench_cmd + ["--save-directory", f"{output_directory}"]
+                bench_cmd = bench_cmd + [
+                    "--save-directory", f"{output_directory}"
+                ]
 
             run_bench(server_cmd, bench_cmd)
+
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
-        description="Runs the benchmark_serving.py script as a subprocess"
-    )
+        description="Runs the benchmark_serving.py script as a subprocess")
     parser.add_argument(
         "-i",
         "--input-config-file",
@@ -100,7 +105,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    output_directory = Path(args.output_directory) if args.output_directory is not None else None
+    output_directory = Path(
+        args.output_directory) if args.output_directory is not None else None
 
     for config in benchmark_configs(Path(args.input_config_file)):
         run_benchmark_serving_script(config, output_directory)
