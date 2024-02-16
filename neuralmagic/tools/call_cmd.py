@@ -17,7 +17,8 @@ def parse_process_stats(str):
     )
     results = re.search(exp, str)
     if results:
-        [elapsed, user, system, maxrss, avgrss, avgmem, avgdata] = results.groups()
+        [elapsed, user, system, maxrss, avgrss, avgmem,
+         avgdata] = results.groups()
         return {
             "elapsed": float(elapsed),
             "user": float(user),
@@ -31,9 +32,10 @@ def parse_process_stats(str):
         return None
 
 
-def call_cmd(
-    cmd, collect_process_stats=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-):
+def call_cmd(cmd,
+             collect_process_stats=False,
+             stdout=subprocess.PIPE,
+             stderr=subprocess.PIPE):
     try:
         start = time.perf_counter()
 

@@ -72,13 +72,12 @@ def sample_requests(
     # Filter out the conversations with less than 2 turns.
     dataset = [data for data in dataset if len(data["conversations"]) >= 2]
     # Only keep the first two turns of each conversation.
-    dataset = [
-        (data["conversations"][0]["value"], data["conversations"][1]["value"])
-        for data in dataset
-    ]
+    dataset = [(data["conversations"][0]["value"],
+                data["conversations"][1]["value"]) for data in dataset]
 
     # some of these will be filtered out, so sample more than we need
-    sampled_indices = random.sample(range(len(dataset)), int(num_requests * 1.2))
+    sampled_indices = random.sample(range(len(dataset)),
+                                    int(num_requests * 1.2))
     dataset = [dataset[i] for i in sampled_indices]
 
     # Tokenize the prompts and completions.
@@ -207,9 +206,8 @@ async def benchmark(
         )
         tasks.append(
             asyncio.create_task(
-                request_func(request_func_input=request_func_input, pbar=pbar)
-            )
-        )
+                request_func(request_func_input=request_func_input,
+                             pbar=pbar)))
     outputs = await asyncio.gather(*tasks)
 
     if not disable_tqdm:
@@ -280,7 +278,8 @@ def main(args: argparse.Namespace):
     else:
         api_url = f"http://{args.host}:{args.port}{args.endpoint}"
 
-    tokenizer = get_tokenizer(tokenizer_id, trust_remote_code=args.trust_remote_code)
+    tokenizer = get_tokenizer(tokenizer_id,
+                              trust_remote_code=args.trust_remote_code)
     input_requests = sample_requests(args.dataset, args.num_prompts, tokenizer)
 
     benchmark_result = asyncio.run(
@@ -294,8 +293,7 @@ def main(args: argparse.Namespace):
             use_beam_search=args.use_beam_search,
             request_rate=args.request_rate,
             disable_tqdm=args.disable_tqdm,
-        )
-    )
+        ))
 
     # Save config and results to json
     save_result = args.save_directory is not None
@@ -316,8 +314,7 @@ def main(args: argparse.Namespace):
 
         # Traffic
         result_json["request_rate"] = (
-            args.request_rate if args.request_rate < float("inf") else "inf"
-        )
+            args.request_rate if args.request_rate < float("inf") else "inf")
 
         # Merge with benchmark result
         result_json = {**result_json, **benchmark_result}
@@ -325,8 +322,8 @@ def main(args: argparse.Namespace):
         # Save to file
         base_model_id = model_id.split("/")[-1]
         file_name = (
-            Path(args.save_directory)
-            / f"{backend}-{args.request_rate}qps-{base_model_id}-{current_dt}.json"
+            Path(args.save_directory) /
+            f"{backend}-{args.request_rate}qps-{base_model_id}-{current_dt}.json"
         )
         with open(file_name, "w") as outfile:
             json.dump(result_json, outfile)
@@ -334,8 +331,7 @@ def main(args: argparse.Namespace):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Benchmark the online serving throughput."
-    )
+        description="Benchmark the online serving throughput.")
     parser.add_argument(
         "--backend",
         type=str,
@@ -362,9 +358,10 @@ if __name__ == "__main__":
         default="/generate",
         help="API endpoint.",
     )
-    parser.add_argument(
-        "--dataset", type=str, required=True, help="Path to the dataset."
-    )
+    parser.add_argument("--dataset",
+                        type=str,
+                        required=True,
+                        help="Path to the dataset.")
     parser.add_argument(
         "--model",
         type=str,
@@ -374,13 +371,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--tokenizer",
         type=str,
-        help="Name or path of the tokenizer, if not using the default model tokenizer.",
+        help=
+        "Name or path of the tokenizer, if not using the default model tokenizer.",
     )
     parser.add_argument(
         "--best-of",
         type=int,
         default=1,
-        help="Generates `best_of` sequences per prompt and " "returns the best one.",
+        help="Generates `best_of` sequences per prompt and "
+        "returns the best one.",
     )
     parser.add_argument("--use-beam-search", action="store_true")
     parser.add_argument(
@@ -410,9 +409,10 @@ if __name__ == "__main__":
         help="Specify to disbale tqdm progress bar.",
     )
 
-    parser.add_argument(
-        "--save-directory", type=str, default=None, help="Output directory to store result file"
-    )
+    parser.add_argument("--save-directory",
+                        type=str,
+                        default=None,
+                        help="Output directory to store result file")
 
     args = parser.parse_args()
     main(args)
