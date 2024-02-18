@@ -32,12 +32,25 @@ def script_args_to_cla(config: NamedTuple) -> Iterable[list[str]]:
     #config is a NamedTuple constructed from some JSON in neuralmagic/benchmarks/configs
 
     kv = vars(config.script_args)
+
+    keys = kv.keys()
     arg_lists = kv.values()
     assert all(map(lambda le: isinstance(le, list), arg_lists))
 
-    keys = kv.keys()
+    # Empty lists are arguments without any values (e.g. boolean args)
+    key_args = []
+    for k, v in zip(keys, arg_lists):
+        if len(v) == 0:
+            key_args.append(k)
+
+    key_args_cla = list(map(lambda k : f"--{k}", key_args))
+
+    # Remove empty lists from arg_lists and remove key args from keys
+    arg_lists = filter(lambda l : len(l) != 0, arg_lists)
+    keys = filter(lambda k : k not in key_args, keys)
+
     for args in itertools.product(*arg_lists):
-        cla = []
+        cla = key_args_cla
         for name, value in zip(keys, args):
             cla.extend([f"--{name}", f"{value}"])
         yield cla

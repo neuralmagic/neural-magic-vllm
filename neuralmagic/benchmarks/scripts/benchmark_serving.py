@@ -25,7 +25,7 @@ import time
 from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
-from typing import AsyncGenerator, List, Tuple
+from typing import AsyncGenerator, List, Tuple, Optional
 
 import numpy as np
 from tqdm.asyncio import tqdm
@@ -60,12 +60,33 @@ class BenchmarkMetrics:
     p90_tpot_ms: float
     p99_tpot_ms: float
 
+def generate_synthetic_requests(num_input_tokens : int,
+                                num_output_tokens : int,
+                                num_requests : int,
+                                tokenizer : PreTrainedTokenizerBase) -> List[Tuple[str, int, int]]:
+    assert num_input_tokens is not None
+    assert num_output_tokens is not None
+
+    def ids_to_prompt(prompt_ids: list[int]) -> list[int]:
+        # remove special tokens from prompt ids
+        prompt_ids = list(filter(lambda id: id not in tokenizer.all_special_ids, prompt_ids))
+        return tokenizer.decode(prompt_ids)
+
+    prompt = " ".join(["hello"] * num_input_tokens)
+    prompt_ids = tokenizer(prompt).input_ids 
+    prompt_ids = prompt_ids[:num_input_tokens]
+
+    # updated prompt
+    prompt = ids_to_prompt(prompt_ids)
+    dataset = [(prompt, num_input_tokens, num_output_tokens)] * num_requests
+    return dataset
 
 def sample_requests(
     dataset_path: str,
     num_requests: int,
     tokenizer: PreTrainedTokenizerBase,
 ) -> List[Tuple[str, int, int]]:
+    assert dataset_path
     # Load the dataset.
     with open(dataset_path) as f:
         dataset = json.load(f)
@@ -181,6 +202,7 @@ async def benchmark(
     use_beam_search: bool,
     request_rate: float,
     disable_tqdm: bool,
+    log_model_io: bool
 ):
     if backend in ASYNC_REQUEST_FUNCS:
         request_func = ASYNC_REQUEST_FUNCS.get(backend)
@@ -214,6 +236,15 @@ async def benchmark(
         pbar.close()
 
     benchmark_duration = time.perf_counter() - benchmark_start_time
+
+    # Dump model i/o
+    if log_model_io: 
+        for i, o in zip(input_requests, outputs):
+            prompt = i[0]
+            generated_txt = o.generated_text
+            input_tokens = tokenizer(prompt).input_ids
+            output_tokens = tokenizer(generated_txt).input_ids
+            print(f"\n\n\n inputs ({len(input_tokens)}) : {prompt} \n outputs ({len(output_tokens)}) : {generated_txt}")
 
     metrics = calculate_metrics(
         input_requests=input_requests,
@@ -280,7 +311,12 @@ def main(args: argparse.Namespace):
 
     tokenizer = get_tokenizer(tokenizer_id,
                               trust_remote_code=args.trust_remote_code)
-    input_requests = sample_requests(args.dataset, args.num_prompts, tokenizer)
+
+    input_requests = None
+    if args.dataset:
+        input_requests = sample_requests(args.dataset, args.num_prompts, tokenizer)
+    else:
+        input_requests = generate_synthetic_requests(args.num_input_tokens, args.num_output_tokens, args.num_prompts, tokenizer)
 
     benchmark_result = asyncio.run(
         benchmark(
@@ -293,6 +329,7 @@ def main(args: argparse.Namespace):
             use_beam_search=args.use_beam_search,
             request_rate=args.request_rate,
             disable_tqdm=args.disable_tqdm,
+            log_model_io=args.log_model_io
         ))
 
     # Save config and results to json
@@ -331,7 +368,7 @@ def main(args: argparse.Namespace):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Benchmark the online serving throughput.")
+        description='''Benchmark the online serving throughput.''')
     parser.add_argument(
         "--backend",
         type=str,
@@ -360,8 +397,16 @@ if __name__ == "__main__":
     )
     parser.add_argument("--dataset",
                         type=str,
-                        required=True,
+                        default=None,
                         help="Path to the dataset.")
+    parser.add_argument("--num-input-tokens",
+                        type=int,
+                        default=None,
+                        help="Number of tokens in the input prompt")
+    parser.add_argument("--num-output-tokens",
+                        type=int,
+                        default=None,
+                        help="Number of generated tokens per prompt")
     parser.add_argument(
         "--model",
         type=str,
@@ -382,6 +427,7 @@ if __name__ == "__main__":
         "returns the best one.",
     )
     parser.add_argument("--use-beam-search", action="store_true")
+    parser.add_argument("--log-model-io", action="store_true")
     parser.add_argument(
         "--num-prompts",
         type=int,
@@ -408,11 +454,18 @@ if __name__ == "__main__":
         action="store_true",
         help="Specify to disbale tqdm progress bar.",
     )
-
     parser.add_argument("--save-directory",
                         type=str,
                         default=None,
                         help="Output directory to store result file")
 
+
     args = parser.parse_args()
+
+    # Sanity check
+    if args.dataset is not None:
+        assert args.num_input_tokens is None and args.num_output_tokens is None
+    else:
+        assert args.num_input_tokens is not None and args.num_output_tokens is not None
+
     main(args)
