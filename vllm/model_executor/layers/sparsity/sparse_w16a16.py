@@ -5,9 +5,6 @@ import torch
 from vllm.model_executor.layers.sparsity.base_config import SparsityConfig
 
 from .sparse_w16a16_linear_method import SparseW16A16LinearMethod
-from magic_wand import (CompressedStorageFormat, SparseBEGemmStorageFormat)
-
-from .sparse_w16a16_linear_method import SparseW16A16LinearMethod
 from magic_wand import CompressedStorageFormat,SparseBitmaskStorageFormat
 
 class SparseW16A16Config(SparsityConfig):
