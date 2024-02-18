@@ -22,6 +22,7 @@ import asyncio
 import json
 import random
 import time
+import random
 from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
@@ -32,6 +33,8 @@ from tqdm.asyncio import tqdm
 from transformers import PreTrainedTokenizerBase
 from vllm.transformers_utils.tokenizer import get_tokenizer
 from common import get_bench_environment
+
+from neuralmagic.tools.call_cmd import call_cmd
 
 from backend_request_func import (
     ASYNC_REQUEST_FUNCS,
@@ -64,22 +67,50 @@ def generate_synthetic_requests(num_input_tokens : int,
                                 num_output_tokens : int,
                                 num_requests : int,
                                 tokenizer : PreTrainedTokenizerBase) -> List[Tuple[str, int, int]]:
-    assert num_input_tokens is not None
-    assert num_output_tokens is not None
+
+    share_gpt_path = Path("ShareGPT_V3_unfiltered_cleaned_split.json")
+    if not share_gpt_path.exists():
+        share_gpt_download_str =  \
+    "wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json";
+        share_gpt_download_list = share_gpt_download_str.split(" ") 
+        call_cmd(share_gpt_download_list, stdout=None, stderr=None)
+    assert share_gpt_path.exists()
+
+    dataset = None
+    with open(share_gpt_path) as f:
+        dataset = json.load(f)
+    assert dataset
 
     def ids_to_prompt(prompt_ids: list[int]) -> list[int]:
         # remove special tokens from prompt ids
         prompt_ids = list(filter(lambda id: id not in tokenizer.all_special_ids, prompt_ids))
         return tokenizer.decode(prompt_ids)
 
-    prompt = " ".join(["hello"] * num_input_tokens)
-    prompt_ids = tokenizer(prompt).input_ids 
-    prompt_ids = prompt_ids[:num_input_tokens]
+    sampled_requests = []
+    while len(sampled_requests) != num_requests:
+        # get a random sample.
+        convo = random.choice(dataset)
 
-    # updated prompt
-    prompt = ids_to_prompt(prompt_ids)
-    dataset = [(prompt, num_input_tokens, num_output_tokens)] * num_requests
-    return dataset
+        # build prompt until we fill as many words as num_input_tokens.
+        # We would be over-sampling, but that is fine as we truncate below.
+        prompt = ""
+        for turn in convo["conversations"]:
+            prompt = prompt + " " + turn["value"]
+            if len(prompt) >= num_input_tokens:
+                break
+
+        prompt_ids = tokenizer(prompt).input_ids 
+
+        if len(prompt_ids) < num_input_tokens:
+            continue
+
+        prompt_ids = prompt_ids[:num_input_tokens]
+        prompt = ids_to_prompt(prompt_ids)
+
+        sampled_requests.append((prompt, num_input_tokens, num_output_tokens))
+
+    assert len(sampled_requests) == num_requests
+    return sampled_requests
 
 def sample_requests(
     dataset_path: str,
@@ -128,7 +159,6 @@ def sample_requests(
     # Sample the requests.
     sampled_requests = random.sample(filtered_dataset, num_requests)
     return sampled_requests
-
 
 async def get_request(
     input_requests: List[Tuple[str, int, int]],
