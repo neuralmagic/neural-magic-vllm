@@ -34,15 +34,15 @@ void paged_attention_v2(
   const std::string& kv_cache_dtype);
 
 void rms_norm(
-  torch::Tensor& out, 
-  torch::Tensor& input, 
+  torch::Tensor& out,
+  torch::Tensor& input,
   torch::Tensor& weight,
   float epsilon);
 
 void fused_add_rms_norm(
-  torch::Tensor& input, 
+  torch::Tensor& input,
   torch::Tensor& residual,
-  torch::Tensor& weight, 
+  torch::Tensor& weight,
   float epsilon);
 
 void rotary_embedding(
@@ -50,7 +50,7 @@ void rotary_embedding(
   torch::Tensor& query,
   torch::Tensor& key,
   int head_size,
-  torch::Tensor &cos_sin_cache,
+  torch::Tensor& cos_sin_cache,
   bool is_neox);
 
 void silu_and_mul(
@@ -66,9 +66,12 @@ void gelu_fast(
   torch::Tensor& input);
 
 #ifndef USE_ROCM
-torch::Tensor awq_gemm(torch::Tensor _in_feats, torch::Tensor _kernel,
-                       torch::Tensor _scaling_factors, torch::Tensor _zeros,
-                       int split_k_iters);
+torch::Tensor awq_gemm(
+  torch::Tensor _in_feats,
+  torch::Tensor _kernel,
+  torch::Tensor _scaling_factors,
+  torch::Tensor _zeros,
+  int split_k_iters);
 
 torch::Tensor awq_dequantize(
     torch::Tensor _kernel,
