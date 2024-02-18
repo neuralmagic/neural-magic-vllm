@@ -150,7 +150,7 @@ class ModelConfig:
     def _verify_sparsity(self) -> None:
         supported_sparsity = ["sparse_w16a16", "semi_structured_sparse_w16a16"]
 
-        if self.sparsity is not None and self.quantization is not None:
+        if self.quantization is not None:
             raise ValueError("Both sparsity and quantization detected. Only "
                              "one or the other is supported at a time.")
 
@@ -180,7 +180,6 @@ class ModelConfig:
         # Parse quantization method from the HF model config, if available.
         hf_quant_config = getattr(self.hf_config, "quantization_config", None)
         if hf_quant_config is not None:
-
             hf_quant_method = str(hf_quant_config["quant_method"]).lower()
             # If the GPTQ model is serialized in marlin format, use marlin.
             if (hf_quant_method == "gptq"
