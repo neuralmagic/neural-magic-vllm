@@ -37,7 +37,9 @@ _MODELS = {
     "QWenLMHeadModel": ("qwen", "QWenLMHeadModel"),
     "RWForCausalLM": ("falcon", "FalconForCausalLM"),
     "StableLMEpochForCausalLM": ("stablelm", "StablelmForCausalLM"),
-    "YiForCausalLM": ("yi", "YiForCausalLM")
+    "T5ForConditionalGeneration": ("t5", "T5ForConditionalGeneration"),
+    "T5WithLMHeadModel": ("t5", "T5ForConditionalGeneration"),
+    "YiForCausalLM": ("yi", "YiForCausalLM"),
 }
 
 # Models not supported by ROCm.
