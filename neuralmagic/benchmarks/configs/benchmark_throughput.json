@@ -29,7 +29,7 @@
     	"description" : "Benchmark vllm engine prefill throughput - synthetic",
 
     	"dataset_download_cmds" : [],
-		"models_comment" : ["facebook/opt-125m",
+		"models" : ["facebook/opt-125m",
 					"PY007/TinyLlama-1.1B-step-50K-105b",
 					"mistralai/Mistral-7B-Instruct-v0.2",
 					"NousResearch/Llama-2-7b-chat-hf",
@@ -37,7 +37,6 @@
 					"codellama/CodeLlama-34b-hf",
 					"NousResearch/Llama-2-70b-chat-hf"
 		],
-		"models" : ["facebook/opt-125m"],
     	"script_name" : "benchmark_throughput.py",
     
     	"script_args" : {
@@ -56,7 +55,7 @@
 
     	"dataset_download_cmds" : [],
 
-		"models_comment" : ["facebook/opt-125m",
+		"models" : ["facebook/opt-125m",
 					"PY007/TinyLlama-1.1B-step-50K-105b",
 					"mistralai/Mistral-7B-Instruct-v0.2",
 					"NousResearch/Llama-2-7b-chat-hf",
@@ -64,7 +63,6 @@
 					"codellama/CodeLlama-34b-hf",
 					"NousResearch/Llama-2-70b-chat-hf"
 		],
-		"models" : ["facebook/opt-125m"],
     	"script_name" : "benchmark_throughput.py",
     
     	"script_args" : {
