@@ -1,0 +1,39 @@
+{
+   "configs" :[ {
+    	"description" : "Benchmark vllm engine prefill throughput",
+
+	    "models" : ["facebook/opt-125m",
+	     	"PY007/TinyLlama-1.1B-step-50K-105b",
+	    	"mistralai/Mistral-7B-Instruct-v0.2",
+	    	"NousResearch/Llama-2-7b-chat-hf",
+	    	"mistralai/Mixtral-8x7B-Instruct-v0.1",
+	    	"codellama/CodeLlama-34b-hf",
+	    	"NousResearch/Llama-2-70b-chat-hf"
+	    	],
+       	"script_name" : "benchmark_prefill_decode_throughput.py",
+    
+    	"script_args" : {
+            "batch-size" : [1],
+            "prompt-len" : [16, 32, 64, 128, 256, 512, 1024, 2048],
+            "benchmark-prefill" : []
+    	}
+    },
+    {
+    	"description" : "Benchmark vllm engine decode throughput",
+
+	    "models" : ["facebook/opt-125m",
+	     	"PY007/TinyLlama-1.1B-step-50K-105b",
+	    	"mistralai/Mistral-7B-Instruct-v0.2",
+	    	"NousResearch/Llama-2-7b-chat-hf",
+	    	"mistralai/Mixtral-8x7B-Instruct-v0.1",
+	    	"codellama/CodeLlama-34b-hf",
+	    	"NousResearch/Llama-2-70b-chat-hf"
+	    	],
+       	"script_name" : "benchmark_prefill_decode_throughput.py",
+    
+    	"script_args" : {
+            "batch-size" : [1, 4, 8, 16, 32, 46],
+            "benchmark-decode" : []
+    	}
+    }]
+}

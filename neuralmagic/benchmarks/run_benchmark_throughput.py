@@ -37,7 +37,7 @@ def run_benchmark_throughput_script(config: NamedTuple,
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
-        description="Runs the benchmark_serving.py script as a subprocess")
+        description="Runs the benchmark_throughput.py script as a subprocess")
     parser.add_argument(
         "-i",
         "--input-config-file",
