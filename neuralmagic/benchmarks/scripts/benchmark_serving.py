@@ -25,7 +25,7 @@ import time
 from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
-from typing import AsyncGenerator, List, Tuple 
+from typing import AsyncGenerator, List, Tuple
 
 import numpy as np
 from tqdm.asyncio import tqdm
@@ -59,6 +59,7 @@ class BenchmarkMetrics:
     median_tpot_ms: float
     p90_tpot_ms: float
     p99_tpot_ms: float
+
 
 async def get_request(
     input_requests: List[Tuple[str, int, int]],
@@ -122,18 +123,11 @@ def calculate_metrics(
     return metrics
 
 
-async def benchmark(
-    backend: str,
-    api_url: str,
-    model_id: str,
-    tokenizer: PreTrainedTokenizerBase,
-    input_requests: List[Tuple[str, int, int]],
-    best_of: int,
-    use_beam_search: bool,
-    request_rate: float,
-    disable_tqdm: bool,
-    log_model_io: bool
-):
+async def benchmark(backend: str, api_url: str, model_id: str,
+                    tokenizer: PreTrainedTokenizerBase,
+                    input_requests: List[Tuple[str, int, int]], best_of: int,
+                    use_beam_search: bool, request_rate: float,
+                    disable_tqdm: bool, log_model_io: bool):
     if backend in ASYNC_REQUEST_FUNCS:
         request_func = ASYNC_REQUEST_FUNCS.get(backend)
     else:
@@ -168,13 +162,15 @@ async def benchmark(
     benchmark_duration = time.perf_counter() - benchmark_start_time
 
     # Dump model i/o
-    if log_model_io: 
+    if log_model_io:
         for i, o in zip(input_requests, outputs):
             prompt = i[0]
             generated_txt = o.generated_text
             input_tokens = tokenizer(prompt).input_ids
             output_tokens = tokenizer(generated_txt).input_ids
-            print(f"\n\n\n inputs ({len(input_tokens)}) : {prompt} \n outputs ({len(output_tokens)}) : {generated_txt}")
+            print(
+                f"\n\n\n inputs ({len(input_tokens)}) : {prompt} \n outputs ({len(output_tokens)}) : {generated_txt}"
+            )
 
     metrics = calculate_metrics(
         input_requests=input_requests,
@@ -244,23 +240,25 @@ def main(args: argparse.Namespace):
 
     input_requests = None
     if args.dataset:
-        input_requests = sample_requests(args.dataset, args.num_prompts, tokenizer)
+        input_requests = sample_requests(args.dataset, args.num_prompts,
+                                         tokenizer)
     else:
-        input_requests = generate_synthetic_requests(args.num_input_tokens, args.num_output_tokens, args.num_prompts, tokenizer)
+        input_requests = generate_synthetic_requests(args.num_input_tokens,
+                                                     args.num_output_tokens,
+                                                     args.num_prompts,
+                                                     tokenizer)
 
     benchmark_result = asyncio.run(
-        benchmark(
-            backend=backend,
-            api_url=api_url,
-            model_id=model_id,
-            tokenizer=tokenizer,
-            input_requests=input_requests,
-            best_of=args.best_of,
-            use_beam_search=args.use_beam_search,
-            request_rate=args.request_rate,
-            disable_tqdm=args.disable_tqdm,
-            log_model_io=args.log_model_io
-        ))
+        benchmark(backend=backend,
+                  api_url=api_url,
+                  model_id=model_id,
+                  tokenizer=tokenizer,
+                  input_requests=input_requests,
+                  best_of=args.best_of,
+                  use_beam_search=args.use_beam_search,
+                  request_rate=args.request_rate,
+                  disable_tqdm=args.disable_tqdm,
+                  log_model_io=args.log_model_io))
 
     # Save config and results to json
     save_result = args.save_directory is not None
@@ -388,7 +386,6 @@ if __name__ == "__main__":
                         type=str,
                         default=None,
                         help="Output directory to store result file")
-
 
     args = parser.parse_args()
 

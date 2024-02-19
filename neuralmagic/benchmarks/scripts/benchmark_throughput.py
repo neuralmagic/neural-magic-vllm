@@ -19,6 +19,7 @@ from tqdm import tqdm
 
 from common import get_bench_environment, sample_requests, generate_synthetic_requests
 
+
 def run_vllm(
     requests: List[Tuple[str, int, int]],
     model: str,
@@ -155,7 +156,8 @@ def main(args: argparse.Namespace):
         args.tokenizer, trust_remote_code=args.trust_remote_code)
     if args.dataset is None:
         # Synthesize a prompt with the given input length.
-        requests = generate_synthetic_requests(args.input_len, args.output_len, args.num_prompts, tokenizer)
+        requests = generate_synthetic_requests(args.input_len, args.output_len,
+                                               args.num_prompts, tokenizer)
     else:
         requests = sample_requests(args.dataset, args.num_prompts, tokenizer,
                                    args.output_len)

@@ -20,7 +20,8 @@ def run(config_file_path: Path, output_directory: Path) -> None:
             continue
 
         if config.script_name == "benchmark_prefill_decode_throughput.py":
-            run_benchmark_prefill_decode_throughput_script(config, output_directory)
+            run_benchmark_prefill_decode_throughput_script(
+                config, output_directory)
             continue
 
         raise ValueError(f"Unhandled benchmark script f{config.script_name}")
