@@ -87,7 +87,7 @@ def get_ultrachat(tokenizer: PreTrainedTokenizerBase, dataset_args: DatasetArgs)
 SHAREGPT_DOWNLOAD_STR = "wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json"
 SHAREGPT_PATH = "ShareGPT_V3_unfiltered_cleaned_split.json"
 
-def get_sharegpt(dataset_args: DatasetArgs) -> DatasetTriple:
+def get_sharegpt(tokenizer: PreTrainedTokenizerBase, dataset_args: DatasetArgs) -> DatasetTriple:
     # Load data (possibly downloading first).
     share_gpt_path = Path(SHAREGPT_PATH)
     if not share_gpt_path.exists():
@@ -108,6 +108,7 @@ def get_sharegpt(dataset_args: DatasetArgs) -> DatasetTriple:
     return make_dataset_triples(
         prompts=prompts,
         completions=completions,
+        tokenizer=tokenizer,
         dataset_args=dataset_args,
     )
 
