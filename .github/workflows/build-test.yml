@@ -59,11 +59,11 @@ jobs:
 
             - name: setenv
               id: setenv
-              uses: ./.github/actions/set-env/
+              uses: ./.github/actions/nm-set-env/
 
             - name: set python
               id: set_python
-              uses: ./.github/actions/set-python/
+              uses: ./.github/actions/nm-set-python/
               with:
                 python: ${{ inputs.python }}
                 venv: TEST
@@ -71,7 +71,7 @@ jobs:
             # TODO: testmo source is currently hardcoded.
             - name: create testmo run
               id: create_testmo_run
-              uses: ./.github/actions/testmo-run-create/
+              uses: ./.github/actions/nm-testmo-run-create/
               if: success() || failure()
               with:
                 testmo_url: https://neuralmagic.testmo.net
@@ -79,7 +79,7 @@ jobs:
                 source: 'build-test'
 
             - name: complete testmo run
-              uses: ./.github/actions/testmo-run-complete/
+              uses: ./.github/actions/nm-testmo-run-complete/
               if: success() || failure()
               with:
                 testmo_url: https://neuralmagic.testmo.net
