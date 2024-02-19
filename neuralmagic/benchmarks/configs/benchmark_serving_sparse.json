@@ -1,19 +1,35 @@
 {
-	"configs" : [
+	"configs": [
 		{
-			"description" : "Benchmark vllm serving",
-		
-			"dataset_download_cmds" : ["wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json"],
-		
-			"models" : ["nm-testing/zephyr-50sparse-24"],
-			"sparsity" : ["sparsity_w16a16", "semi_structured_sparsity_w16a16"],
-			"script_name" : "benchmark_serving.py",
-
-			"script_args" : {
-				"num-prompts" : [50, 100],
-				"request-rate" : [0.5, 1.0, 2.5, 5.0],
-				"best-of" : [1],
-				"dataset" : ["ShareGPT_V3_unfiltered_cleaned_split.json"] 
+			"description": "Benchmark vllm serving",
+			"dataset_download_cmds": [
+				"wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json"
+			],
+			"models": [
+				"nm-testing/zephyr-50sparse-24"
+			],
+			"sparsity": [
+				"sparsity_w16a16",
+				"semi_structured_sparsity_w16a16"
+			],
+			"script_name": "benchmark_serving.py",
+			"script_args": {
+				"num-prompts": [
+					50,
+					100
+				],
+				"request-rate": [
+					0.5,
+					1.0,
+					2.5,
+					5.0
+				],
+				"best-of": [
+					1
+				],
+				"dataset": [
+					"ShareGPT_V3_unfiltered_cleaned_split.json"
+				]
 			}
 		}
 	]

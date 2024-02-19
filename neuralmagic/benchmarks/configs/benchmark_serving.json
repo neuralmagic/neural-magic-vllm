@@ -1,26 +1,38 @@
 {
-	"configs" : [
+	"configs": [
 		{
-			"description" : "Benchmark vllm serving",
-		
-			"dataset_download_cmds" : ["wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json"],
-		
-			"models" : ["facebook/opt-125m",
-			 			"PY007/TinyLlama-1.1B-step-50K-105b",
-						"mistralai/Mistral-7B-Instruct-v0.2",
-						"NousResearch/Llama-2-7b-chat-hf",
-						"mistralai/Mixtral-8x7B-Instruct-v0.1",
-						"codellama/CodeLlama-34b-hf",
-						"NousResearch/Llama-2-70b-chat-hf"
-					],
-			"sparsity" : [],
-			"script_name" : "benchmark_serving.py",
-
-			"script_args" : {
-				"num-prompts" : [50, 100],
-				"request-rate" : [0.5, 1.0, 2.5, 5.0],
-				"best-of" : [1],
-				"dataset" : ["ShareGPT_V3_unfiltered_cleaned_split.json"] 
+			"description": "Benchmark vllm serving",
+			"dataset_download_cmds": [
+				"wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json"
+			],
+			"models": [
+				"facebook/opt-125m",
+				"PY007/TinyLlama-1.1B-step-50K-105b",
+				"mistralai/Mistral-7B-Instruct-v0.2",
+				"NousResearch/Llama-2-7b-chat-hf",
+				"mistralai/Mixtral-8x7B-Instruct-v0.1",
+				"codellama/CodeLlama-34b-hf",
+				"NousResearch/Llama-2-70b-chat-hf"
+			],
+			"sparsity": [],
+			"script_name": "benchmark_serving.py",
+			"script_args": {
+				"num-prompts": [
+					50,
+					100
+				],
+				"request-rate": [
+					0.5,
+					1.0,
+					2.5,
+					5.0
+				],
+				"best-of": [
+					1
+				],
+				"dataset": [
+					"ShareGPT_V3_unfiltered_cleaned_split.json"
+				]
 			}
 		}
 	]
