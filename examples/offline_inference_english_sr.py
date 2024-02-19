@@ -1,21 +1,28 @@
 # Based on this tutorial
 # https://huggingface.co/docs/transformers/model_doc/whisper
 
-# TODO: install huggingface 'datasets' in requirements.txt or work around it
+# TODO: install huggingface 'transformers', 'datasets', 'soundfile', 'librosa' in requirements.txt or work around it
+# to obtain audio dataset
 from datasets import load_dataset
+from transformers import WhisperProcessor, WhisperForConditionalGeneration
 from vllm import LLM, SamplingParams
 
-# Select an audio file and read it:
+# TODO: vLLM audio frontend performs audio tokenization
+# This code is a standin for a new audio frontend
 ds = load_dataset("hf-internal-testing/librispeech_asr_dummy", "clean", split="validation")
-
-# Audio encoder processor params
+processor = WhisperProcessor.from_pretrained("openai/whisper-tiny")
 audio_sample = ds[0]["audio"]
-waveform = audio_sample["array"]
+waveform = audio_sample["array"] # (93680,) floating-point values
 processor_params = {
-    "sampling_rate": audio_sample["sampling_rate"]
+    "sampling_rate": audio_sample["sampling_rate"] # 16KHz
 }
 
-# Transcription decoder sampling params object.
+# (1, 80, 3000)
+input_features = processor(
+    waveform, sampling_rate=processor_params["sampling_rate"], return_tensors="pt"
+).input_features
+
+# Transcription decoder text token sampling params object.
 sampling_params = SamplingParams(temperature=0.0)
 
 # Create an LLM.
@@ -32,6 +39,8 @@ sampling_params = SamplingParams(temperature=0.0)
 #
 llm = LLM(model="openai/whisper-tiny")
 
+
+
 # Encode audio
 #
 # This is a change from how decoder-only LLM works *and* how HF transformers whisper workflow operates:
@@ -47,7 +56,7 @@ llm = LLM(model="openai/whisper-tiny")
 #
 # vLLM convention appears to be to abstract tokenization/preprocessing behind .generate()
 #
-predicted_ids = llm.generate(waveform, processor_params=processor_params)
+predicted_ids = llm.generate(prompt_token_ids=input_features, processor_params=processor_params)
 
 # Decoder token ids to transcription
 #
