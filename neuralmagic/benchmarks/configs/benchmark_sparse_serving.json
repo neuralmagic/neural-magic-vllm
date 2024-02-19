@@ -13,6 +13,7 @@
 						"codellama/CodeLlama-34b-hf",
 						"NousResearch/Llama-2-70b-chat-hf"
 					],
+			"sparsity" : ["sparsity_w16a16", "semi_structured_sparsity_w16a16"],
 			"script_name" : "benchmark_serving.py",
 
 			"script_args" : {

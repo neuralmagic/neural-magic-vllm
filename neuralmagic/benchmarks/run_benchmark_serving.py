@@ -64,24 +64,25 @@ def run_benchmark_serving_script(config: NamedTuple,
     script_path = get_this_script_dir() / f"scripts/{config.script_name}"
 
     for model in config.models:
+        for sparsity in config.sparsity:
 
-        # download model before hand so we dont have to wait for the download during the server spin-up
-        download_model(model)
+            # download model before hand so we dont have to wait for the download during the server spin-up
+            download_model(model)
 
-        server_cmd = f"python3 -m vllm.entrypoints.api_server --model {model} --tokenizer {model} --host {BENCH_SERVER_HOST} --port {BENCH_SERVER_PORT} --disable-log-requests"
-        for script_args in script_args_to_cla(config):
-            bench_cmd = (["python3", f"{script_path}"] + script_args +
-                         ["--model", f"{model}"] +
-                         ["--tokenizer", f"{model}"] +
-                         ["--port", f"{BENCH_SERVER_PORT}"] +
-                         ["--host", f"{BENCH_SERVER_HOST}"])
+            server_cmd = f"python3 -m vllm.entrypoints.api_server --model {model} --tokenizer {model} --sparsity {sparsity} --host {BENCH_SERVER_HOST} --port {BENCH_SERVER_PORT} --disable-log-requests"
+            for script_args in script_args_to_cla(config):
+                bench_cmd = (["python3", f"{script_path}"] + script_args +
+                             ["--model", f"{model}"] +
+                             ["--tokenizer", f"{model}"] +
+                             ["--port", f"{BENCH_SERVER_PORT}"] +
+                             ["--host", f"{BENCH_SERVER_HOST}"])
 
-            if output_directory:
-                bench_cmd = bench_cmd + [
-                    "--save-directory", f"{output_directory}"
-                ]
+                if output_directory:
+                    bench_cmd = bench_cmd + [
+                        "--save-directory", f"{output_directory}"
+                    ]
 
-            run_bench(server_cmd, bench_cmd)
+                run_bench(server_cmd, bench_cmd)
 
 
 if __name__ == '__main__':
