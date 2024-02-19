@@ -1,0 +1,17 @@
+{
+	"configs" : [
+		{
+			"description" : "Benchmark vllm serving",
+				
+			"models" : ["TinyLlama/TinyLlama-1.1B-Chat-v1.0"],
+			"script_name" : "benchmark_serving",
+
+			"script_args" : {
+				"num-prompts" : [10],
+				"request-rate" : [1.0],
+				"best-of" : [1],
+				"dataset" : ["sharegpt"]
+			}
+		}
+	]
+}
