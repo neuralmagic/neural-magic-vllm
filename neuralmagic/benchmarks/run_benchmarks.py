@@ -5,6 +5,7 @@ from common import benchmark_configs
 
 from run_benchmark_serving import run_benchmark_serving_script
 from run_benchmark_throughput import run_benchmark_throughput_script
+from run_benchmark_prefill_decode_throughput import run_benchmark_prefill_decode_throughput_script
 
 
 def run(config_file_path: Path, output_directory: Path) -> None:
@@ -16,6 +17,10 @@ def run(config_file_path: Path, output_directory: Path) -> None:
 
         if config.script_name == "benchmark_throughput.py":
             run_benchmark_throughput_script(config, output_directory)
+            continue
+
+        if config.script_name == "benchmark_prefill_decode_throughput.py":
+            run_benchmark_prefill_decode_throughput_script(config, output_directory)
             continue
 
         raise ValueError(f"Unhandled benchmark script f{config.script_name}")
