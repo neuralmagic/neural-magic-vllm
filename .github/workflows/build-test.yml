@@ -68,20 +68,32 @@ jobs:
                 python: ${{ inputs.python }}
                 venv: TEST
 
-            # TODO: testmo source is currently hardcoded.
-            - name: create testmo run
-              id: create_testmo_run
-              uses: ./.github/actions/nm-testmo-run-create/
-              if: success() || failure()
-              with:
-                testmo_url: https://neuralmagic.testmo.net
-                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-                source: 'build-test'
+            # # TODO: testmo source is currently hardcoded.
+            # - name: create testmo run
+            #   id: create_testmo_run
+            #   uses: ./.github/actions/nm-testmo-run-create/
+            #   if: success() || failure()
+            #   with:
+            #     testmo_url: https://neuralmagic.testmo.net
+            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+            #     source: 'build-test'
 
-            - name: complete testmo run
-              uses: ./.github/actions/nm-testmo-run-complete/
+            - name: summary
+              uses: ./.github/actions/nm-run-summary/
               if: success() || failure()
               with:
-                testmo_url: https://neuralmagic.testmo.net
-                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-                testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
+                label: ${{ inputs.label }}
+                gitref: ${{ inputs.gitref }}
+                testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
+                python: ${{ steps.set_python.outputs.version }}
+                lint_status: 0
+                build_status: 0
+                test_status: 0
+
+            # - name: complete testmo run
+            #   uses: ./.github/actions/nm-testmo-run-complete/
+            #   if: success() || failure()
+            #   with:
+            #     testmo_url: https://neuralmagic.testmo.net
+            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+            #     testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
