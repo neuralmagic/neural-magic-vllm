@@ -17,55 +17,7 @@ from transformers import (AutoModelForCausalLM, AutoTokenizer,
                           PreTrainedTokenizerBase)
 from tqdm import tqdm
 
-from common import get_bench_environment
-
-
-def sample_requests(
-    dataset_path: str,
-    num_requests: int,
-    tokenizer: PreTrainedTokenizerBase,
-    fixed_output_len: Optional[int],
-) -> List[Tuple[str, int, int]]:
-    if fixed_output_len is not None and fixed_output_len < 4:
-        raise ValueError("output_len too small")
-
-    # Load the dataset.
-    with open(dataset_path) as f:
-        dataset = json.load(f)
-    # Filter out the conversations with less than 2 turns.
-    dataset = [data for data in dataset if len(data["conversations"]) >= 2]
-    # Only keep the first two turns of each conversation.
-    dataset = [(data["conversations"][0]["value"],
-                data["conversations"][1]["value"]) for data in dataset]
-
-    # Tokenize the prompts and completions.
-    prompts = [prompt for prompt, _ in dataset]
-    prompt_token_ids = tokenizer(prompts).input_ids
-    completions = [completion for _, completion in dataset]
-    completion_token_ids = tokenizer(completions).input_ids
-    tokenized_dataset = []
-    for i in range(len(dataset)):
-        output_len = len(completion_token_ids[i])
-        if fixed_output_len is not None:
-            output_len = fixed_output_len
-        tokenized_dataset.append((prompts[i], prompt_token_ids[i], output_len))
-
-    # Filter out too long sequences.
-    filtered_dataset: List[Tuple[str, int, int]] = []
-    for prompt, prompt_token_ids, output_len in tokenized_dataset:
-        prompt_len = len(prompt_token_ids)
-        if prompt_len < 4 or output_len < 4:
-            # Prune too short sequences.
-            continue
-        if prompt_len > 1024 or prompt_len + output_len > 2048:
-            # Prune too long sequences.
-            continue
-        filtered_dataset.append((prompt, prompt_len, output_len))
-
-    # Sample the requests.
-    sampled_requests = random.sample(filtered_dataset, num_requests)
-    return sampled_requests
-
+from common import get_bench_environment, sample_requests, generate_synthetic_requests
 
 def run_vllm(
     requests: List[Tuple[str, int, int]],
@@ -203,9 +155,7 @@ def main(args: argparse.Namespace):
         args.tokenizer, trust_remote_code=args.trust_remote_code)
     if args.dataset is None:
         # Synthesize a prompt with the given input length.
-        prompt = "hi" * (args.input_len - 1)
-        requests = [(prompt, args.input_len, args.output_len)
-                    for _ in range(args.num_prompts)]
+        requests = generate_synthetic_requests(args.input_len, args.output_len, args.num_prompts, tokenizer)
     else:
         requests = sample_requests(args.dataset, args.num_prompts, tokenizer,
                                    args.output_len)
