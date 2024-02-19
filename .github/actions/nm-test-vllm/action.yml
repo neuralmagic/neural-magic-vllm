@@ -17,7 +17,11 @@ runs:
   - id: test
     run: |
       SUCCESS=0
-      pip install -r requirements-dev.txt
+      # TODO: this is a hack ... fix it later
+      # pyenv hardcoded ... python version hardcoded ...
+      source $(pyenv root)/versions/3.10.12/envs/TEST/bin/activate
+      pip3 install --index-url http://192.168.201.226:8080/ --trusted-host 192.168.201.226 magic-wand
+      pip3 install -r requirements-dev.txt
       pytest --junitxml=${{ inputs.test_xml }} ${{ inputs.test_directory }} || SUCCESS=$?
       echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
       exit ${SUCCESS}

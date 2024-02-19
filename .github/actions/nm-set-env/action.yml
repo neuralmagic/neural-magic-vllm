@@ -4,7 +4,7 @@ runs:
   using: composite
   steps:
   - run: |
-      # echo "TORCH_CUDA_ARCH_LIST=8.0+PTX" >> $GITHUB_ENV
+      echo "TORCH_CUDA_ARCH_LIST=8.0+PTX" >> $GITHUB_ENV
       echo "PYENV_ROOT=/usr/local/apps/pyenv" >> $GITHUB_ENV
       echo "XDG_CONFIG_HOME=/usr/local/apps" >> $GITHUB_ENV
       WHOAMI=$(whoami)
