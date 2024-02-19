@@ -3,8 +3,7 @@ from pathlib import Path
 from typing import NamedTuple, Optional
 
 from neuralmagic.tools.call_cmd import call_cmd
-from common import download_datasets, script_args_to_cla, benchmark_configs
-
+from common import script_args_to_cla, benchmark_configs
 
 def get_this_script_dir() -> Path:
     return Path(__file__).parent.resolve()
