@@ -22,19 +22,16 @@ import asyncio
 import json
 import random
 import time
-import random
 from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
-from typing import AsyncGenerator, List, Tuple, Optional
+from typing import AsyncGenerator, List, Tuple 
 
 import numpy as np
 from tqdm.asyncio import tqdm
 from transformers import PreTrainedTokenizerBase
 from vllm.transformers_utils.tokenizer import get_tokenizer
-from common import get_bench_environment
-
-from neuralmagic.tools.call_cmd import call_cmd
+from common import get_bench_environment, sample_requests, generate_synthetic_requests
 
 from backend_request_func import (
     ASYNC_REQUEST_FUNCS,
@@ -62,103 +59,6 @@ class BenchmarkMetrics:
     median_tpot_ms: float
     p90_tpot_ms: float
     p99_tpot_ms: float
-
-def generate_synthetic_requests(num_input_tokens : int,
-                                num_output_tokens : int,
-                                num_requests : int,
-                                tokenizer : PreTrainedTokenizerBase) -> List[Tuple[str, int, int]]:
-
-    share_gpt_path = Path("ShareGPT_V3_unfiltered_cleaned_split.json")
-    if not share_gpt_path.exists():
-        share_gpt_download_str =  \
-    "wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json";
-        share_gpt_download_list = share_gpt_download_str.split(" ") 
-        call_cmd(share_gpt_download_list, stdout=None, stderr=None)
-    assert share_gpt_path.exists()
-
-    dataset = None
-    with open(share_gpt_path) as f:
-        dataset = json.load(f)
-    assert dataset
-
-    def ids_to_prompt(prompt_ids: list[int]) -> list[int]:
-        # remove special tokens from prompt ids
-        prompt_ids = list(filter(lambda id: id not in tokenizer.all_special_ids, prompt_ids))
-        return tokenizer.decode(prompt_ids)
-
-    sampled_requests = []
-    while len(sampled_requests) != num_requests:
-        # get a random sample.
-        convo = random.choice(dataset)
-
-        # build prompt until we fill as many words as num_input_tokens.
-        # We would be over-sampling, but that is fine as we truncate below.
-        prompt = ""
-        for turn in convo["conversations"]:
-            prompt = prompt + " " + turn["value"]
-            if len(prompt) >= num_input_tokens:
-                break
-
-        prompt_ids = tokenizer(prompt).input_ids 
-
-        if len(prompt_ids) < num_input_tokens:
-            continue
-
-        prompt_ids = prompt_ids[:num_input_tokens]
-        prompt = ids_to_prompt(prompt_ids)
-
-        sampled_requests.append((prompt, num_input_tokens, num_output_tokens))
-
-    assert len(sampled_requests) == num_requests
-    return sampled_requests
-
-def sample_requests(
-    dataset_path: str,
-    num_requests: int,
-    tokenizer: PreTrainedTokenizerBase,
-) -> List[Tuple[str, int, int]]:
-    assert dataset_path
-    # Load the dataset.
-    with open(dataset_path) as f:
-        dataset = json.load(f)
-    # Filter out the conversations with less than 2 turns.
-    dataset = [data for data in dataset if len(data["conversations"]) >= 2]
-    # Only keep the first two turns of each conversation.
-    dataset = [(data["conversations"][0]["value"],
-                data["conversations"][1]["value"]) for data in dataset]
-
-    # some of these will be filtered out, so sample more than we need
-    sampled_indices = random.sample(range(len(dataset)),
-                                    int(num_requests * 1.2))
-    dataset = [dataset[i] for i in sampled_indices]
-
-    # Tokenize the prompts and completions.
-    prompts = [prompt for prompt, _ in dataset]
-    prompt_token_ids = tokenizer(prompts).input_ids
-    completions = [completion for _, completion in dataset]
-    completion_token_ids = tokenizer(completions).input_ids
-    tokenized_dataset = []
-    for i in range(len(dataset)):
-        output_len = len(completion_token_ids[i])
-        tokenized_dataset.append((prompts[i], prompt_token_ids[i], output_len))
-
-    # Filter out too long sequences.
-    filtered_dataset: List[Tuple[str, int, int]] = []
-    for prompt, prompt_token_ids, output_len in tokenized_dataset:
-        prompt_len = len(prompt_token_ids)
-        if prompt_len < 4 or output_len < 4:
-            # Prune too short sequences.
-            # This is because TGI causes errors when the input or output length
-            # is too short.
-            continue
-        if prompt_len > 1024 or prompt_len + output_len > 2048:
-            # Prune too long sequences.
-            continue
-        filtered_dataset.append((prompt, prompt_len, output_len))
-
-    # Sample the requests.
-    sampled_requests = random.sample(filtered_dataset, num_requests)
-    return sampled_requests
 
 async def get_request(
     input_requests: List[Tuple[str, int, int]],
