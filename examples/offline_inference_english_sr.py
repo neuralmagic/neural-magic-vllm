@@ -56,7 +56,7 @@ llm = LLM(model="openai/whisper-tiny")
 #
 # vLLM convention appears to be to abstract tokenization/preprocessing behind .generate()
 #
-predicted_ids = llm.generate(prompt_token_ids=input_features, processor_params=processor_params)
+predicted_ids = llm.generate(prompt_token_ids=input_features)
 
 # Decoder token ids to transcription
 #
