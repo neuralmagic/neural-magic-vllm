@@ -1,8 +1,9 @@
 """Compare the outputs of a GPTQ model to a Marlin model.
 
 Note: GPTQ and Marlin do not have bitwise correctness. 
-As a result, in this test, we just confirm that the top 5 selected tokens of the 
-Marlin model are in the top 5 selected tokens of the GPTQ model. 
+As a result, in this test, we just confirm that the top selected tokens of the 
+Marlin/GPTQ models are in the top 3 selections of eachother.
+
 Note: Marlin internally uses locks to synchronize the threads. This can
 result in very slight nondeterminism for Marlin. As a result, we re-run the test
 up to 3 times to see if we pass.
@@ -37,7 +38,7 @@ model_pairs = [
 ]
 
 
-@pytest.mark.flaky(reruns=3)
+@pytest.mark.flaky(reruns=2)
 @pytest.mark.skipif(marlin_not_supported,
                     reason="Marlin is not supported on this GPU type.")
 @pytest.mark.parametrize("model_pair", model_pairs)
@@ -63,8 +64,9 @@ def test_models(
     del marlin_model
 
     gptq_model = vllm_runner(model_pair.model_gptq, dtype=dtype)
-    gptq_outputs = gptq_model.generate_greedy_logprobs(
-        example_prompts, max_tokens, num_logprobs)
+    gptq_outputs = gptq_model.generate_greedy_logprobs(example_prompts,
+                                                       max_tokens,
+                                                       num_logprobs)
 
     # Note: not sure why, but deleting just the model on Ada Lovelace
     #   does not free the GPU memory. On Ampere, deleting the just model
@@ -81,12 +83,15 @@ def test_models(
 
         for idx, (gptq_output_id, marlin_output_id) in enumerate(
                 zip(gptq_output_ids, marlin_output_ids)):
-            # If sequence is not an exact match,
+            # If sequence is not an exact match ...
             if marlin_output_id != gptq_output_id:
-                # Each predicted token must be in top 3 of the other's or iteration is a failure
+                # ... each predicted token must be in top 5 of the other's
                 assert gptq_output_id in marlin_logprobs[idx], (
                     f"Test{prompt_idx}:\nGPTQ:\t{gptq_output_str!r}\nMarlin:\t{marlin_output_str!r}"
                 )
                 assert marlin_output_id in gptq_logprobs[idx], (
                     f"Test{prompt_idx}:\nGPTQ:\t{gptq_output_str!r}\nMarlin:\t{marlin_output_str!r}"
-                ) 
+                )
+
+                # Break out since sequences will now diverge.
+                break
