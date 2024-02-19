@@ -41,6 +41,7 @@ _MODELS = {
     "Qwen2ForCausalLM": ("qwen2", "Qwen2ForCausalLM"),
     "RWForCausalLM": ("falcon", "FalconForCausalLM"),
     "StableLMEpochForCausalLM": ("stablelm", "StablelmForCausalLM"),
+    "WhisperForConditionalGeneration": ("whisper","WhisperForConditionalGeneration"),
     "YiForCausalLM": ("yi", "YiForCausalLM")
 }
 
