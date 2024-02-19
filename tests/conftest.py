@@ -13,12 +13,10 @@ _TEST_PROMPTS = [os.path.join(_TEST_DIR, "prompts", "example.txt")]
 _LONG_PROMPTS = [os.path.join(_TEST_DIR, "prompts", "summary.txt")]
 
 
-def _read_prompts(filename: str) -> str:
-    prompts = []
+def _read_prompts(filename: str) -> List[str]:
     with open(filename, "r") as f:
-        prompt = f.readline()
-        prompts.append(prompt)
-    return prompts
+        prompts = f.readlines()
+        return prompts
 
 
 @pytest.fixture
