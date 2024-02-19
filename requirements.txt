@@ -1,6 +1,6 @@
 aioprometheus[starlette]
 fastapi
-magic_wand == 0.0.1
+# magic_wand == 0.0.1
 ninja  # For faster builds.
 numpy
 psutil

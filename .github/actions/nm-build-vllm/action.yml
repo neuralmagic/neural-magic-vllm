@@ -13,7 +13,7 @@ runs:
   steps:
   - id: build
     run: |
-      NUM_THREADS=./.github/scripts/determine-threading -G ${{ inputs.Gi_per_thread }}
+      NUM_THREADS=$(./.github/scripts/determine-threading -G ${{ inputs.Gi_per_thread }})
       pip install --config-settings="--jobs=${NUM_THREADS}" -r requirements.txt
       pip install --config-settings="--jobs=${NUM_THREADS}" -e .
     shell: bash

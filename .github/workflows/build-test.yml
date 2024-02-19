@@ -78,6 +78,20 @@ jobs:
                 testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
                 source: 'build-test'
 
+            - name: python lint
+              id: lint
+              uses: ./.github/actions/nm-lint-python/
+
+            - name: build
+              id: build
+              uses: ./.github/actions/nm-build-vllm/
+              with:
+                Gi_per_thread: 1
+
+            # - name: test
+            #   id: test
+            #   uses: ./.github/actions/nm-test-vllm/
+
             - name: summary
               uses: ./.github/actions/nm-run-summary/
               if: success() || failure()
@@ -86,9 +100,28 @@ jobs:
                 gitref: ${{ inputs.gitref }}
                 testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
                 python: ${{ steps.set_python.outputs.version }}
-                lint_status: 0
-                build_status: 0
+                lint_status: ${{ steps.lint.outputs.status }}
+                build_status: ${{ steps.build.outputs.status }}
                 test_status: 0
+                # start using this soon ... ${{ steps.test.outputs.status }}
+
+            - name: run status
+              id: run_status
+              if: success() || failure()
+              env:
+                CHECKOUT: ${{ steps.checkout.outcome }}
+                LINT_STATUS: ${{ steps.lint.outputs.status }}
+                BUILD_STATUS: ${{ steps.build.outputs.status }}
+                TEST_STATUS: 0
+                # start using this soon ... ${{ steps.test.outputs.status }}
+              run: |
+                  echo "checkout status: ${CHECKOUT}"
+                  if [[ "${CHECKOUT}" != *"success"* ]]; then exit 1; fi
+                  if [ ${LINT_STATUS} -ne 0 ]; then exit 1; fi
+                  if [ ${BUILD_STATUS} -ne 0 ]; then exit 1; fi
+                  echo "build status: ${BUILD_STATUS}"
+                  if [ ${TEST_STATUS} -ne 0 ]; then exit 1; fi
+                  echo "test status: ${TEST_STATUS}"
 
             - name: complete testmo run
               uses: ./.github/actions/nm-testmo-run-complete/
