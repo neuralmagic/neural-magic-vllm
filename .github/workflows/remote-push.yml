@@ -11,13 +11,29 @@ concurrency:
 
 jobs:
 
+    # TODO: expand python matrix later, once CI system has
+    #       matured.
+    # TODO: adjust timeout after we get a bit more experience.
+    #       making it 180 is a bit permissive.
+
     AWS-AVX2-32G-A10G-24G:
         strategy:
-          matrix:
-            python: [3.8.17, 3.9,17, 3.10.12, 3.11.4]
+            matrix:
+                python: [3.10.12]
         uses: ./.github/workflows/build-test.yml
         with:
-          label: aws-avx2-32G-a10g-24G
-          timeout: 180
-          gitref: '${{ github.ref }}'
-          python: ${{ matrix.python }}
+            label: aws-avx2-32G-a10g-24G
+            timeout: 180
+            gitref: '${{ github.ref }}'
+            python: ${{ matrix.python }}
+
+    AWS-AVX512-32G-T4-16G:
+        strategy:
+            matrix:
+                python: [3.11.4]
+        uses: ./.github/workflows/build-test.yml
+        with:
+            label: aws-avx512-32G-T4-16G
+            timeout: 180
+            gitref: '${{ github.ref }}'
+            python: ${{ matrix.python }}
