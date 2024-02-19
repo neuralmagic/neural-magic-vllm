@@ -8,6 +8,7 @@ from pathlib import Path
 from transformers import PreTrainedTokenizerBase
 from neuralmagic.tools.call_cmd import call_cmd
 
+
 def get_bench_environment() -> dict:
     """
     Return the current python version, pytorch version and CUDA version as a dict
@@ -21,16 +22,16 @@ def get_bench_environment() -> dict:
         "cuda_device(0)": f"{torch.cuda.get_device_properties(0)}"
     }
 
-def generate_synthetic_requests(num_input_tokens : int,
-                                num_output_tokens : int,
-                                num_requests : int,
-                                tokenizer : PreTrainedTokenizerBase) -> List[Tuple[str, int, int]]:
+
+def generate_synthetic_requests(
+        num_input_tokens: int, num_output_tokens: int, num_requests: int,
+        tokenizer: PreTrainedTokenizerBase) -> List[Tuple[str, int, int]]:
 
     share_gpt_path = Path("ShareGPT_V3_unfiltered_cleaned_split.json")
     if not share_gpt_path.exists():
         share_gpt_download_str =  \
-    "wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json";
-        share_gpt_download_list = share_gpt_download_str.split(" ") 
+    "wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json"
+        share_gpt_download_list = share_gpt_download_str.split(" ")
         call_cmd(share_gpt_download_list, stdout=None, stderr=None)
     assert share_gpt_path.exists()
 
@@ -41,7 +42,8 @@ def generate_synthetic_requests(num_input_tokens : int,
 
     def ids_to_prompt(prompt_ids: list[int]) -> list[int]:
         # remove special tokens from prompt ids
-        prompt_ids = list(filter(lambda id: id not in tokenizer.all_special_ids, prompt_ids))
+        prompt_ids = list(
+            filter(lambda id: id not in tokenizer.all_special_ids, prompt_ids))
         return tokenizer.decode(prompt_ids)
 
     sampled_requests = []
@@ -57,7 +59,7 @@ def generate_synthetic_requests(num_input_tokens : int,
             if len(prompt) >= num_input_tokens:
                 break
 
-        prompt_ids = tokenizer(prompt).input_ids 
+        prompt_ids = tokenizer(prompt).input_ids
 
         if len(prompt_ids) < num_input_tokens:
             continue
@@ -69,6 +71,7 @@ def generate_synthetic_requests(num_input_tokens : int,
 
     assert len(sampled_requests) == num_requests
     return sampled_requests
+
 
 def sample_requests(
     dataset_path: str,

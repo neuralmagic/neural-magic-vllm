@@ -10,9 +10,8 @@ def get_this_script_dir() -> Path:
     return Path(__file__).parent.resolve()
 
 
-def run_benchmark_prefill_decode_throughput_script(config: NamedTuple,
-                                    output_directory: Optional[Path] = None
-                                    ) -> None:
+def run_benchmark_prefill_decode_throughput_script(
+        config: NamedTuple, output_directory: Optional[Path] = None) -> None:
 
     assert config.script_name == 'benchmark_prefill_decode_throughput.py'
 
@@ -34,7 +33,9 @@ def run_benchmark_prefill_decode_throughput_script(config: NamedTuple,
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
-        description="Runs the benchmark_prefill_decode_throughput.py script as a subprocess")
+        description=
+        "Runs the benchmark_prefill_decode_throughput.py script as a subprocess"
+    )
     parser.add_argument(
         "-i",
         "--input-config-file",
@@ -56,4 +57,5 @@ if __name__ == '__main__':
         args.output_directory) if args.output_directory is not None else None
 
     for config in benchmark_configs(Path(args.input_config_file)):
-        run_benchmark_prefill_decode_throughput_script(config, output_directory)
+        run_benchmark_prefill_decode_throughput_script(config,
+                                                       output_directory)
