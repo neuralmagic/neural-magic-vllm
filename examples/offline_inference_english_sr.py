@@ -73,7 +73,7 @@ predicted_ids = llm.generate(prompt_token_ids=input_features, processor_params=p
 # output.prompt, and output.outputs[...].text. So most likely we would wrap decoder outputs to respect
 # this data structure.
 #
-transcriptions = llm.batch_decode(predicted_ids, sampling_params, skip_special_tokens=True)
+transcriptions = processor.batch_decode(predicted_ids, sampling_params, skip_special_tokens=True)
 
 # Print the outputs.
 for transcription in transcriptions:
