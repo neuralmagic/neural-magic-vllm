@@ -15,6 +15,7 @@ from transformers import AutoTokenizer
 
 from common import get_bench_environment, sample_requests, generate_synthetic_requests
 
+
 def run_vllm(
     requests: List[Tuple[str, int, int]],
     model: str,
@@ -28,7 +29,7 @@ def run_vllm(
     dtype: str,
     max_model_len: Optional[int],
     enforce_eager: bool,
-    sparsity : Optional[str],
+    sparsity: Optional[str],
 ) -> float:
     from vllm import LLM, SamplingParams
     llm = LLM(
@@ -67,6 +68,7 @@ def run_vllm(
 
     return end - start
 
+
 def main(args: argparse.Namespace):
     print(args)
     random.seed(args.seed)
@@ -82,12 +84,19 @@ def main(args: argparse.Namespace):
         requests = sample_requests(args.dataset, args.num_prompts, tokenizer,
                                    args.output_len)
 
-    elapsed_time = run_vllm(requests, args.model, args.tokenizer,
-                            args.quantization, args.tensor_parallel_size,
-                            args.seed, args.n, args.use_beam_search,
-                            args.trust_remote_code, args.dtype,
-                            args.max_model_len, args.enforce_eager,
-                            sparsity = args.sparsity)
+    elapsed_time = run_vllm(requests,
+                            args.model,
+                            args.tokenizer,
+                            args.quantization,
+                            args.tensor_parallel_size,
+                            args.seed,
+                            args.n,
+                            args.use_beam_search,
+                            args.trust_remote_code,
+                            args.dtype,
+                            args.max_model_len,
+                            args.enforce_eager,
+                            sparsity=args.sparsity)
 
     total_prompt_tokens = sum(prompt_len for _, prompt_len, _ in requests)
     total_output_tokens = sum(output_len for _, _, output_len in requests)
@@ -95,9 +104,9 @@ def main(args: argparse.Namespace):
 
     request_throughput = len(requests) / elapsed_time
     token_throughput = total_num_tokens / elapsed_time
-    print (f"total prompt tokens {total_prompt_tokens}")
-    print (f"total output tokens {total_output_tokens}")
-    print (f"total num tokens {total_num_tokens}")
+    print(f"total prompt tokens {total_prompt_tokens}")
+    print(f"total output tokens {total_output_tokens}")
+    print(f"total num tokens {total_num_tokens}")
     print(f"Throughput: {request_throughput:.2f} requests/s, "
           f"{token_throughput:.2f} tokens/s")
 
@@ -128,9 +137,7 @@ if __name__ == "__main__":
                         type=str,
                         choices=["vllm"],
                         default="vllm")
-    parser.add_argument("--sparsity",
-                        type=str,
-                        default=None)
+    parser.add_argument("--sparsity", type=str, default=None)
     parser.add_argument("--dataset",
                         type=str,
                         default=None,

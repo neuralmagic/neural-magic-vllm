@@ -11,7 +11,6 @@ from vllm.outputs import RequestOutput
 from neuralmagic.tools.call_cmd import call_cmd
 
 
-
 def get_bench_environment() -> dict:
     """
     Return the current python version, pytorch version and CUDA version as a dict
@@ -121,6 +120,7 @@ def sample_requests(
     # Sample the requests.
     sampled_requests = random.sample(filtered_dataset, num_requests)
     return sampled_requests
+
 
 def print_benchmark_io(results: List[RequestOutput]) -> None:
     for result in results:
