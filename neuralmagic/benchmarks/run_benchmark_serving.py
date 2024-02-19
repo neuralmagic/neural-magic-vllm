@@ -7,7 +7,7 @@ from typing import NamedTuple, Optional
 from pathlib import Path
 
 from neuralmagic.tools.call_cmd import call_cmd
-from common import download_model, download_datasets, script_args_to_cla, benchmark_configs
+from neuralmagic.benchmarks.common import download_model, download_datasets, script_args_to_cla, benchmark_configs
 
 BENCH_SERVER_HOST = "localhost"
 BENCH_SERVER_PORT = 9000
@@ -41,7 +41,7 @@ def run_benchmark_serving_script(config: NamedTuple,
                                  output_directory: Optional[Path] = None
                                  ) -> None:
 
-    assert config.script_name == 'benchmark_serving.py'
+    assert config.script_name == 'benchmark_serving'
 
     def run_bench(server_cmd: str, bench_cmd: list[str]) -> None:
         try:
@@ -59,23 +59,21 @@ def run_benchmark_serving_script(config: NamedTuple,
             server_process.kill()
 
     # Process config.download_dataset_cmds
-    download_datasets(config)
+    # download_datasets(config)
 
-    script_path = get_this_script_dir() / f"scripts/{config.script_name}"
+    script_path = f"neuralmagic.benchmarks.scripts.{config.script_name}"
 
     for model in config.models:
         for sparsity in config.sparsity:
 
-            # download model before hand so we dont have to wait for the download during the server spin-up
-            download_model(model)
 
-            server_cmd = f"python3 -m vllm.entrypoints.api_server --model {model} --tokenizer {model} --sparsity {sparsity} --host {BENCH_SERVER_HOST} --port {BENCH_SERVER_PORT} --disable-log-requests"
-            for script_args in script_args_to_cla(config):
-                bench_cmd = (["python3", f"{script_path}"] + script_args +
-                             ["--model", f"{model}"] +
-                             ["--tokenizer", f"{model}"] +
-                             ["--port", f"{BENCH_SERVER_PORT}"] +
-                             ["--host", f"{BENCH_SERVER_HOST}"])
+        server_cmd = f"python3 -m vllm.entrypoints.api_server --model {model} --tokenizer {model} --sparsity {sparsity} --host {BENCH_SERVER_HOST} --port {BENCH_SERVER_PORT} --disable-log-requests"
+        for script_args in script_args_to_cla(config):
+            bench_cmd = (["python3", "-m" f"{script_path}"] + script_args +
+                         ["--model", f"{model}"] +
+                         ["--tokenizer", f"{model}"] +
+                         ["--port", f"{BENCH_SERVER_PORT}"] +
+                         ["--host", f"{BENCH_SERVER_HOST}"])
 
                 if output_directory:
                     bench_cmd = bench_cmd + [

@@ -31,9 +31,10 @@ import numpy as np
 from tqdm.asyncio import tqdm
 from transformers import PreTrainedTokenizerBase
 from vllm.transformers_utils.tokenizer import get_tokenizer
-from common import get_bench_environment, sample_requests, generate_synthetic_requests
+from neuralmagic.benchmarks.scripts.common import get_bench_environment, sample_requests, generate_synthetic_requests
+from neuralmagic.benchmarks.datasets_registry import get_dataset, DatasetArgs
 
-from backend_request_func import (
+from neuralmagic.benchmarks.scripts.backend_request_func import (
     ASYNC_REQUEST_FUNCS,
     RequestFuncInput,
     RequestFuncOutput,
@@ -240,9 +241,16 @@ def main(args: argparse.Namespace):
 
     input_requests = None
     if args.dataset:
-        input_requests = sample_requests(args.dataset, args.num_prompts,
-                                         tokenizer)
+        # Get dataset from registry.
+        input_requests = get_dataset(name=args.dataset,
+                                     tokenizer=tokenizer,
+                                     dataset_args=DatasetArgs(
+                                        num_samples=args.num_prompts,
+                                        max_len=4096,
+                                        seed=42,
+                                     ))
     else:
+        # Make a synthetic dataset.
         input_requests = generate_synthetic_requests(args.num_input_tokens,
                                                      args.num_output_tokens,
                                                      args.num_prompts,

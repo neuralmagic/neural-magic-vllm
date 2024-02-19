@@ -1,17 +1,17 @@
 import argparse
 
 from pathlib import Path
-from common import benchmark_configs
-
-from run_benchmark_serving import run_benchmark_serving_script
-from run_benchmark_throughput import run_benchmark_throughput_script
-from run_benchmark_prefill_decode_throughput import run_benchmark_prefill_decode_throughput_script
-
+from neuralmagic.benchmarks.common import benchmark_configs
+from neuralmagic.benchmarks import (
+    run_benchmark_serving_script,
+    run_benchmark_throughput_script,
+    run_benchmark_prefill_decode_throughput_script
+)
 
 def run(config_file_path: Path, output_directory: Path) -> None:
 
-    for config in benchmark_configs():
-        if config.script_name == "benchmark_serving.py":
+    for config in benchmark_configs(config_file_path):
+        if config.script_name == "benchmark_serving":
             run_benchmark_serving_script(config, output_directory)
             continue
 
@@ -24,7 +24,7 @@ def run(config_file_path: Path, output_directory: Path) -> None:
                 config, output_directory)
             continue
 
-        raise ValueError(f"Unhandled benchmark script f{config.script_name}")
+        raise ValueError(f"Unhandled benchmark script {config.script_name}")
 
 
 if __name__ == "__main__":

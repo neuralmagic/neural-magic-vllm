@@ -4,7 +4,7 @@ import json
 from argparse import Namespace
 from pathlib import Path
 from typing import NamedTuple, Iterable
-from neuralmagic.tools.call_cmd import call_cmd
+# from neuralmagic.tools.call_cmd import call_cmd
 
 from vllm.model_executor.weight_utils import prepare_hf_model_weights
 from vllm.transformers_utils.tokenizer import get_tokenizer
