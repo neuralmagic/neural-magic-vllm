@@ -1,0 +1,41 @@
+{
+   "configs" :[ {
+    	"description" : "Benchmark vllm engine throughput - with dataset",
+    	"dataset_download_cmds" : ["wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json"],
+
+
+		"models" : ["nm-testing/zephyr-50sparse-24"],
+    	"script_name" : "benchmark_throughput.py",
+    
+    	"script_args" : {
+            "backend" : ["vllm"],
+    		"dataset" : ["ShareGPT_V3_unfiltered_cleaned_split.json"],
+			"sparsity" : ["sparsity_w16a16", "semi_structured_sparsity_w16a16"],
+            "output-len" : [128],
+            "tensor-parallel-size" : [1],
+            "n" : [1],
+            "num-prompts" : [1000],
+            "seed" : [0],
+            "dtype": ["auto"]
+    	}
+    },
+    {
+    	"description" : "Benchmark vllm engine throughput - synthetic",
+
+    	"dataset_download_cmds" : [],
+		"models" : ["nm-testing/zephyr-50sparse-24"],
+    	"script_name" : "benchmark_throughput.py",
+    
+    	"script_args" : {
+            "backend" : ["vllm"],
+			"sparsity" : ["sparsity_w16a16", "semi_structured_sparsity_w16a16"],
+            "input-len" : [1, 16, 32, 64, 128, 256, 512, 1024],
+            "output-len" : [128],
+            "tensor-parallel-size" : [1],
+            "n" : [1],
+            "num-prompts" : [1000],
+            "seed" : [0],
+            "dtype": ["auto"]
+    	}
+    }]
+}

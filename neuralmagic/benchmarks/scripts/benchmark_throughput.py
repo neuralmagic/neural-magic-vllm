@@ -28,6 +28,7 @@ def run_vllm(
     dtype: str,
     max_model_len: Optional[int],
     enforce_eager: bool,
+    sparsity : Optional[str],
 ) -> float:
     from vllm import LLM, SamplingParams
     llm = LLM(
@@ -84,7 +85,8 @@ def main(args: argparse.Namespace):
                             args.quantization, args.tensor_parallel_size,
                             args.seed, args.n, args.use_beam_search,
                             args.trust_remote_code, args.dtype,
-                            args.max_model_len, args.enforce_eager)
+                            args.max_model_len, args.enforce_eager,
+                            sparsity = args.sparsity)
 
     total_num_tokens = sum(prompt_len + output_len
                            for _, prompt_len, output_len in requests)
@@ -121,6 +123,9 @@ if __name__ == "__main__":
                         type=str,
                         choices=["vllm"],
                         default="vllm")
+    parser.add_argument("--sparsity",
+                        type=str,
+                        default=None)
     parser.add_argument("--dataset",
                         type=str,
                         default=None,
