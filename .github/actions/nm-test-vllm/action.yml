@@ -17,6 +17,7 @@ runs:
   - id: test
     run: |
       SUCCESS=0
+      pip install --force-reinstall -r requirements-dev.txt
       pytest --junitxml=${{ inputs.test_xml }} ${{ inputs.test_directory }} || SUCCESS=$?
       echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
       exit ${SUCCESS}
