@@ -1,0 +1,23 @@
+name: test neuralmagic-vllm
+description: "test neuralmagic-vllm via, 'pytest tests/'"
+inputs:
+  test_directory:
+    description: 'test directory, path is relative to magic_wand'
+    required: true
+  test_xml:
+    description: 'filename for xml test results'
+    required: true
+outputs:
+  status:
+    description: "final status from 'pytest tests/'"
+    value: ${{ steps.test.outputs.status }}
+runs:
+  using: composite
+  steps:
+  - id: test
+    run: |
+      SUCCESS=0
+      pytest --junitxml=${{ inputs.test_xml }} ${{ inputs.test_directory }} || SUCCESS=$?
+      echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
+      exit ${SUCCESS}
+    shell: bash

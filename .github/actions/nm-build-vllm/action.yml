@@ -1,0 +1,19 @@
+name: build neuralmagic-vllm
+description: 'build neuralmagic-vllm'
+inputs:
+  Gi_per_thread:
+    description: 'requested Gi to reserve per thread'
+    required: true
+outputs:
+  status:
+    description: "final build status from 'pip install -e'"
+    value: ${{ steps.build.outputs.status }}
+runs:
+  using: composite
+  steps:
+  - id: build
+    run: |
+      NUM_THREADS=./.github/scripts/determine-threading -G ${{ inputs.Gi_per_thread }}
+      pip install --config-settings="--jobs=${NUM_THREADS}" -r requirements.txt
+      pip install --config-settings="--jobs=${NUM_THREADS}" -e .
+    shell: bash
