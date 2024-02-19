@@ -4,7 +4,6 @@ Note: GPTQ and Marlin do not have bitwise correctness.
 As a result, in this test, we just confirm that the top 5 selected tokens of the 
 Marlin model are in the top 5 selected tokens of the GPTQ model. 
 Note: Marlin internally uses locks to synchronize the threads. This can
-
 result in very slight nondeterminism for Marlin. As a result, we re-run the test
 up to 3 times to see if we pass.
 
