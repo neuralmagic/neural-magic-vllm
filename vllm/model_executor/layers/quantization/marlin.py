@@ -52,10 +52,9 @@ class MarlinConfig(QuantizationConfig):
 
     @classmethod
     def get_supported_act_dtypes(cls) -> List[torch.dtype]:
-        return [torch.half]
+        return [torch.float16]
 
     @classmethod
-    # Need to figure it out
     def get_min_capability(cls) -> int:
         return 80
 
