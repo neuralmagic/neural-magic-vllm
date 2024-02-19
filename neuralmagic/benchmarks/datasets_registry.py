@@ -5,7 +5,7 @@ from transformers import AutoTokenizer, PreTrainedTokenizerBase
 from datasets import load_dataset
 from typing import List, Tuple, Optional
 from pathlib import Path
-# from ..tools.call_cmd import call_cmd
+from neuralmagic.tools.call_cmd import call_cmd
 
 @dataclass
 class DatasetArgs:
@@ -92,7 +92,7 @@ def get_sharegpt(tokenizer: PreTrainedTokenizerBase, dataset_args: DatasetArgs) 
     share_gpt_path = Path(SHAREGPT_PATH)
     if not share_gpt_path.exists():
         share_gpt_download_list = SHAREGPT_DOWNLOAD_STR.split(" ")
-        # call_cmd(share_gpt_download_list, stdout=None, stderr=None)
+        call_cmd(share_gpt_download_list, stdout=None, stderr=None)
     assert share_gpt_path.exists()
     with open(share_gpt_path) as f:
         dataset = json.load(f)
