@@ -293,7 +293,7 @@ def main(args: argparse.Namespace):
             f"{backend}-{args.request_rate}qps-{base_model_id}-{current_dt}.json"
         )
         with open(file_name, "w") as outfile:
-            json.dump(result_json, outfile)
+            json.dump(result_json, outfile, sort_keys=True, indent=4)
 
 
 if __name__ == "__main__":

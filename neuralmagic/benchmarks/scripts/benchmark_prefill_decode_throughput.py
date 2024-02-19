@@ -26,7 +26,7 @@ def run_benchmark_througput(model_id:str,
                             bench_iterations:int,
                             warmup_iterations:int = 3) -> BenchmarkResults:
 
-    model = LLM(model=args.model_id, dtype="float16")
+    model = LLM(model=model_id, dtype="float16")
     sampling_params = SamplingParams(max_tokens=output_tokens_len, ignore_eos=True, temperature=0)
 
     tokenizer = get_tokenizer(model_id)
@@ -79,8 +79,7 @@ def run_benchmark_prefill_throughput(model_id:str,
                              input_tokens_len:int,
                              output_tokens_len:int,
                              bench_iterations:int = 10,
-                             log_model_io:bool = False,
-                             output_directory:Path = None) -> float:
+                             log_model_io:bool = False) -> float:
 
     results = run_benchmark_througput(model_id, batch_size, input_tokens_len, output_tokens_len, bench_iterations)
     if log_model_io:
@@ -102,7 +101,7 @@ def run_benchmark_prefill_throughput(model_id:str,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model-id", type=str, required=True)
+    parser.add_argument("--model", type=str, required=True)
     parser.add_argument("--batch-size", type=int, required=True)
     parser.add_argument("--prompt-len", type=int, default=None)
     parser.add_argument("--log-model-io", action="store_true")
@@ -117,34 +116,32 @@ if __name__ == '__main__':
 
     tput = None
     if args.benchmark_prefill:
-        tput = run_benchmark_prefill_throughput(model_id = args.model_id,
+        tput = run_benchmark_prefill_throughput(model_id = args.model,
                                         batch_size = args.batch_size,
                                         input_tokens_len = args.prompt_len,
                                         output_tokens_len = 1,
-                                        log_model_io = args.log_model_io,
-                                        output_directory = output_directory)
+                                        log_model_io = args.log_model_io)
     else:
         assert args.benchmark_decode
         assert args.prompt_len is None
-        tput = run_benchmark_decode_throughput(model_id = args.model_id,
+        tput = run_benchmark_decode_throughput(model_id = args.model,
                                         batch_size = args.batch_size,
                                         input_tokens_len = 2,
                                         output_tokens_len = 10,
-                                        log_model_io = args.log_model_io,
-                                        output_directory = output_directory)
+                                        log_model_io = args.log_model_io)
 
     if output_directory:
-        result_json = args
+        result_json = args.__dict__
         result_json["bench_env"] = get_bench_environment()
         result_json["throughput"] = tput
 
-        model_id_log = args.model.replace('/', '_')
+        model_log = args.model.replace('/', '_')
         current_dt = datetime.now().strftime("%Y%m%d-%H%M%S")
 
         if args.benchmark_prefill:
-            file_name = output_directory / f"prefill_throughput-{model_id_log}-{current_dt}.json"
+            file_name = output_directory / f"prefill_throughput-{model_log}-{current_dt}.json"
         else:
-            file_name = output_directory / f"decode_throughput-{model_id_log}-{current_dt}.json"
+            file_name = output_directory / f"decode_throughput-{model_log}-{current_dt}.json"
 
         with open(file_name, "w") as outfile:
-            json.dump(result_json, outfile)
+            json.dump(result_json, outfile, sort_keys=True, indent=4)
