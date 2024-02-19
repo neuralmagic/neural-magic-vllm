@@ -1,0 +1,3 @@
+from neuralmagic.benchmarks.run_benchmark_serving import run_benchmark_serving_script
+from neuralmagic.benchmarks.run_benchmark_throughput import run_benchmark_throughput_script
+from neuralmagic.benchmarks.run_benchmark_prefill_decode_throughput import run_benchmark_prefill_decode_throughput_script
