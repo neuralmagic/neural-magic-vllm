@@ -6,7 +6,10 @@ import random
 from typing import List, Tuple, Optional
 from pathlib import Path
 from transformers import PreTrainedTokenizerBase
+
+from vllm.outputs import RequestOutput
 from neuralmagic.tools.call_cmd import call_cmd
+
 
 
 def get_bench_environment() -> dict:
@@ -118,3 +121,10 @@ def sample_requests(
     # Sample the requests.
     sampled_requests = random.sample(filtered_dataset, num_requests)
     return sampled_requests
+
+def print_benchmark_io(results: List[RequestOutput]) -> None:
+    for result in results:
+        output = result.outputs[0]
+        print(
+            f"\n\n inputs({len(result.prompt_token_ids)}): {result.prompt}\n output({len(output.token_ids)}): {output.text}"
+        )

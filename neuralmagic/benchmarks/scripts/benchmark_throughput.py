@@ -64,6 +64,7 @@ def run_vllm(
     # FIXME(woosuk): Do not use internal method.
     llm._run_engine(use_tqdm=True)
     end = time.perf_counter()
+
     return end - start
 
 def main(args: argparse.Namespace):
@@ -88,11 +89,15 @@ def main(args: argparse.Namespace):
                             args.max_model_len, args.enforce_eager,
                             sparsity = args.sparsity)
 
-    total_num_tokens = sum(prompt_len + output_len
-                           for _, prompt_len, output_len in requests)
+    total_prompt_tokens = sum(prompt_len for _, prompt_len, _ in requests)
+    total_output_tokens = sum(output_len for _, _, output_len in requests)
+    total_num_tokens = total_prompt_tokens + total_output_tokens
 
     request_throughput = len(requests) / elapsed_time
     token_throughput = total_num_tokens / elapsed_time
+    print (f"total prompt tokens {total_prompt_tokens}")
+    print (f"total output tokens {total_output_tokens}")
+    print (f"total num tokens {total_num_tokens}")
     print(f"Throughput: {request_throughput:.2f} requests/s, "
           f"{token_throughput:.2f} tokens/s")
 

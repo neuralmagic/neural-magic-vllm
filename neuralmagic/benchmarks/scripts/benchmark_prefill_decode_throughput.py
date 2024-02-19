@@ -15,14 +15,6 @@ from common import get_bench_environment, generate_synthetic_requests
 BenchmarkResults = namedtuple("BenchmarkResults", ['outputs', 'time'])
 
 
-def print_benchmark_io(results: List[RequestOutput]):
-    for result in results:
-        output = result.outputs[0]
-        print(
-            f"\n\n inputs({len(result.prompt_token_ids)}): {result.prompt}\n output({len(output.token_ids)}): {output.text}"
-        )
-
-
 def run_benchmark_througput(model_id: str,
                             batch_size: int,
                             input_tokens_len: int,
