@@ -17,24 +17,26 @@ jobs:
     #       making it 180 is a bit permissive.
 
     # TODO: enable this later
-    # AWS-AVX2-32G-A10G-24G:
-    #     strategy:
-    #         matrix:
-    #             python: [3.10.12]
-    #     uses: ./.github/workflows/build-test.yml
-    #     with:
-    #         label: aws-avx2-32G-a10g-24G
-    #         timeout: 180
-    #         gitref: '${{ github.ref }}'
-    #         python: ${{ matrix.python }}
-
-    AWS-AVX512-32G-T4-16G:
+    AWS-AVX2-32G-A10G-24G:
         strategy:
             matrix:
                 python: [3.10.12]
         uses: ./.github/workflows/build-test.yml
         with:
-            label: aws-avx512-32G-T4-16G
+            label: aws-avx2-32G-a10g-24G
             timeout: 180
             gitref: '${{ github.ref }}'
             python: ${{ matrix.python }}
+
+    # TODO: our whl is doesn't currently support cross gpu arch
+    #       use/deployment.
+    # AWS-AVX512-32G-T4-16G:
+    #     strategy:
+    #         matrix:
+    #             python: [3.10.12]
+    #     uses: ./.github/workflows/build-test.yml
+    #     with:
+    #         label: aws-avx512-32G-T4-16G
+    #         timeout: 180
+    #         gitref: '${{ github.ref }}'
+    #         python: ${{ matrix.python }}

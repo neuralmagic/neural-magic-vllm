@@ -13,10 +13,9 @@ runs:
   steps:
   - id: build
     run: |
-      NUM_THREADS=$(./.github/scripts/determine-threading -G ${{ inputs.Gi_per_thread }})
-      pip install --config-settings="--jobs=${NUM_THREADS}" -r requirements.txt
+      pip install -r requirements.txt
       SUCCESS=0
-      pip install --config-settings="--jobs=${NUM_THREADS}" -e . || SUCCESS=$?
+      pip install -e . || SUCCESS=$?
       echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
       exit ${SUCCESS}
     shell: bash
