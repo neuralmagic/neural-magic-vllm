@@ -8,6 +8,7 @@ from typing import List, Tuple
 from pathlib import Path
 from transformers import PreTrainedTokenizerBase
 
+from vllm import LLM, SamplingParams
 from vllm.outputs import RequestOutput
 from vllm.transformers_utils.tokenizer import get_tokenizer
 from neuralmagic.tools.call_cmd import call_cmd
@@ -76,12 +77,65 @@ def generate_synthetic_requests(
     assert len(sampled_requests) == num_requests
     return sampled_requests
 
+def warmup_requests(tokenizer: PreTrainedTokenizerBase,
+                    num_requests: int = 1000,
+                    num_input_tokens: int = 128,
+                    num_output_tokens: int = 1) -> List[Tuple[str, int, int]]:
+    """
+    Given a tokenizer, generate `num_requests` requests that would be used for vllm engine warmup 
+    """
+    words = list(tokenizer.get_vocab().keys())
+    requests = []
+    for _ in range(num_requests):
+        # We make up random prompts for warmups in order to avoid the effects of
+        # prefix caching during actual benchmarking.
+        prompt = random.choice(words, k = num_input_tokens) 
+        prompt_ids = tokenizer(prompt).input_ids
+        prompt_ids = prompt_ids[:num_input_tokens]
+        prompt = remove_special_tokens_and_decode(prompt_ids, tokenizer)
+        requests.append((prompt, num_input_tokens, num_output_tokens))
+    return requests
+
+def warmup_vllm_engine(engine: LLM,
+                       model: str,
+                       num_input_tokens: int = 128,
+                       num_output_tokens: int = 1,
+                       num_prompts: int = 1000) -> None:
+
+    print (f"Doing warmup : {locals()}")
+
+    tokenizer = get_tokenizer(model)
+    requests = warmup_requests(tokenizer,
+                    num_requests = num_prompts,
+                    num_input_tokens = num_input_tokens,
+                    num_output_tokens = num_output_tokens)
+
+    # Add the requests to the engine.
+    for prompt, _, output_len in requests:
+        sampling_params = SamplingParams(
+            n=1,
+            temperature=0.0,
+            top_p=1.0,
+            use_beam_search=False,
+            ignore_eos=True,
+            max_tokens=output_len,
+        )
+        engine._add_request(
+            prompt=prompt,
+            prompt_token_ids=None,
+            sampling_params=sampling_params,
+        )
+
+    engine._run_engine(use_tqdm=False)
+
 def warmup_server(server_host: int,
                   server_port: int,
                   model: str,
                   num_input_tokens: int = 128,
                   num_output_tokens: int = 1,
                   num_prompts: int = 1000) -> None:
+
+    print (f"Doing warmup : {locals()}")
 
     api_url = f"http://{server_host}:{server_port}/generate"
     async def process_requests(input_requests):
@@ -102,17 +156,10 @@ def warmup_server(server_host: int,
         _ = await asyncio.gather(*tasks)
 
     tokenizer = get_tokenizer(model)
-    words = list(tokenizer.get_vocab().keys())
-    requests = []
-    for _ in range(num_prompts):
-        # We make up random prompts for warmups in order to avoid the effects of
-        # prefix caching during actual benchmarking.
-        prompt = random.choice(words, k = num_input_tokens) 
-        prompt_ids = tokenizer(prompt).input_ids
-        prompt_ids = prompt_ids[:num_input_tokens]
-        prompt = remove_special_tokens_and_decode(prompt_ids, tokenizer)
-        requests.append((prompt, num_input_tokens, num_output_tokens))
-
+    requests = warmup_requests(tokenizer,
+                    num_requests = num_prompts,
+                    num_input_tokens = num_input_tokens,
+                    num_output_tokens = num_output_tokens)
     asyncio.run(process_requests(requests))
 
 def print_benchmark_io(results: List[RequestOutput]) -> None:

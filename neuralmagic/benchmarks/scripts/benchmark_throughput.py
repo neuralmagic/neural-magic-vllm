@@ -12,9 +12,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 from transformers import AutoTokenizer
-from neuralmagic.benchmarks.scripts.common import get_bench_environment, generate_synthetic_requests
+from neuralmagic.benchmarks.scripts.common import get_bench_environment, generate_synthetic_requests, warmup_vllm_engine
 from neuralmagic.benchmarks.datasets_registry import get_dataset, DatasetArgs
-
 
 def run_vllm(
     requests: List[Tuple[str, int, int]],
@@ -43,6 +42,10 @@ def run_vllm(
         max_model_len=max_model_len,
         enforce_eager=enforce_eager,
     )
+
+    warmup_vllm_engine(engine = llm,
+                       model = model,
+                       num_prompts = 1000)
 
     # Add the requests to the engine.
     for prompt, _, output_len in requests:
