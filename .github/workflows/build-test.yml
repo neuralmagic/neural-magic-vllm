@@ -93,6 +93,20 @@ jobs:
             - name: test
               id: test
               uses: ./.github/actions/nm-test-vllm/
+              with:
+                test_directory: tests
+                test_xml: test-results/all_tests.xml
+
+            - name: report test results
+              id: report_test
+              uses: ./.github/actions/nm-testmo-run-submit-thread/
+              if: success() || failure()
+              with:
+                testmo_url: https://neuralmagic.testmo.net
+                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+                testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
+                results: test-results
+                step_status: ${{ steps.test.outputs.status }}
 
             - name: summary
               uses: ./.github/actions/nm-run-summary/
