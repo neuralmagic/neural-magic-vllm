@@ -7,7 +7,7 @@ from typing import NamedTuple, Optional
 from pathlib import Path
 
 from neuralmagic.tools.call_cmd import call_cmd
-from neuralmagic.benchmarks.common import download_model, download_datasets, script_args_to_cla, benchmark_configs
+from neuralmagic.benchmarks.common import download_model, script_args_to_cla, benchmark_configs
 
 BENCH_SERVER_HOST = "localhost"
 BENCH_SERVER_PORT = 9000
@@ -57,9 +57,6 @@ def run_benchmark_serving_script(config: NamedTuple,
             # kill the server
             assert server_process is not None
             server_process.kill()
-
-    # Process config.download_dataset_cmds
-    # download_datasets(config)
 
     script_path = f"neuralmagic.benchmarks.scripts.{config.script_name}"
 

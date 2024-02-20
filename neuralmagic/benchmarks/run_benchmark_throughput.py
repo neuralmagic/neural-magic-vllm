@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import NamedTuple, Optional
 
 from neuralmagic.tools.call_cmd import call_cmd
-from neuralmagic.benchmarks.common import download_datasets, script_args_to_cla, benchmark_configs
+from neuralmagic.benchmarks.common import script_args_to_cla, benchmark_configs
 
 
 def get_this_script_dir() -> Path:
@@ -15,9 +15,6 @@ def run_benchmark_throughput_script(config: NamedTuple,
                                     ) -> None:
 
     assert config.script_name == 'benchmark_throughput.py'
-
-    # Process config.download_dataset_cmds
-    download_datasets(config)
 
     script_path = get_this_script_dir() / f"scripts/{config.script_name}"
 
