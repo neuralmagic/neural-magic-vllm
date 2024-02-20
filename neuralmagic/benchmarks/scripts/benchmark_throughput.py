@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 from transformers import AutoTokenizer
 
-from common import get_bench_environment, sample_requests, generate_synthetic_requests
+from common import get_bench_environment, generate_synthetic_requests
 
 
 def run_vllm(

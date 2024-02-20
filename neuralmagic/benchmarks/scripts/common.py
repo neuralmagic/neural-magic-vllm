@@ -3,12 +3,13 @@ Common functions used in all benchmarking scripts
 """
 import json
 import random
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 from pathlib import Path
 from transformers import PreTrainedTokenizerBase
 
 from vllm.outputs import RequestOutput
 from neuralmagic.tools.call_cmd import call_cmd
+from neuralmagic.benchmarks.datasets_registry import SHAREGPT_PATH, SHAREGPT_DOWNLOAD_STR
 
 
 def get_bench_environment() -> dict:
@@ -29,11 +30,9 @@ def generate_synthetic_requests(
         num_input_tokens: int, num_output_tokens: int, num_requests: int,
         tokenizer: PreTrainedTokenizerBase) -> List[Tuple[str, int, int]]:
 
-    share_gpt_path = Path("ShareGPT_V3_unfiltered_cleaned_split.json")
+    share_gpt_path = Path(SHAREGPT_PATH)
     if not share_gpt_path.exists():
-        share_gpt_download_str =  \
-    "wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json"
-        share_gpt_download_list = share_gpt_download_str.split(" ")
+        share_gpt_download_list = SHAREGPT_DOWNLOAD_STR.split(" ")
         call_cmd(share_gpt_download_list, stdout=None, stderr=None)
     assert share_gpt_path.exists()
 
@@ -73,54 +72,6 @@ def generate_synthetic_requests(
 
     assert len(sampled_requests) == num_requests
     return sampled_requests
-
-
-def sample_requests(
-    dataset_path: str,
-    num_requests: int,
-    tokenizer: PreTrainedTokenizerBase,
-    fixed_output_len: Optional[int],
-) -> List[Tuple[str, int, int]]:
-    if fixed_output_len is not None and fixed_output_len < 4:
-        raise ValueError("output_len too small")
-
-    # Load the dataset.
-    with open(dataset_path) as f:
-        dataset = json.load(f)
-    # Filter out the conversations with less than 2 turns.
-    dataset = [data for data in dataset if len(data["conversations"]) >= 2]
-    # Only keep the first two turns of each conversation.
-    dataset = [(data["conversations"][0]["value"],
-                data["conversations"][1]["value"]) for data in dataset]
-
-    # Tokenize the prompts and completions.
-    prompts = [prompt for prompt, _ in dataset]
-    prompt_token_ids = tokenizer(prompts).input_ids
-    completions = [completion for _, completion in dataset]
-    completion_token_ids = tokenizer(completions).input_ids
-    tokenized_dataset = []
-    for i in range(len(dataset)):
-        output_len = len(completion_token_ids[i])
-        if fixed_output_len is not None:
-            output_len = fixed_output_len
-        tokenized_dataset.append((prompts[i], prompt_token_ids[i], output_len))
-
-    # Filter out too long sequences.
-    filtered_dataset: List[Tuple[str, int, int]] = []
-    for prompt, prompt_token_ids, output_len in tokenized_dataset:
-        prompt_len = len(prompt_token_ids)
-        if prompt_len < 4 or output_len < 4:
-            # Prune too short sequences.
-            continue
-        if prompt_len > 1024 or prompt_len + output_len > 2048:
-            # Prune too long sequences.
-            continue
-        filtered_dataset.append((prompt, prompt_len, output_len))
-
-    # Sample the requests.
-    sampled_requests = random.sample(filtered_dataset, num_requests)
-    return sampled_requests
-
 
 def print_benchmark_io(results: List[RequestOutput]) -> None:
     for result in results:
