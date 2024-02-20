@@ -4,8 +4,7 @@ from pathlib import Path
 from neuralmagic.benchmarks.common import benchmark_configs
 from neuralmagic.benchmarks import (
     run_benchmark_serving_script,
-    run_benchmark_throughput_script,
-    run_benchmark_prefill_decode_throughput_script
+    run_benchmark_throughput_script
 )
 
 def run(config_file_path: Path, output_directory: Path) -> None:
@@ -17,11 +16,6 @@ def run(config_file_path: Path, output_directory: Path) -> None:
 
         if config.script_name == "benchmark_throughput.py":
             run_benchmark_throughput_script(config, output_directory)
-            continue
-
-        if config.script_name == "benchmark_prefill_decode_throughput.py":
-            run_benchmark_prefill_decode_throughput_script(
-                config, output_directory)
             continue
 
         raise ValueError(f"Unhandled benchmark script {config.script_name}")
