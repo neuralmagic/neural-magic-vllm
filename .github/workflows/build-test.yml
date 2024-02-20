@@ -96,6 +96,8 @@ jobs:
               with:
                 test_directory: tests
                 test_xml: test-results/all_tests.xml
+                python: ${{ inputs.python }}
+                venv: TEST
 
             - name: report test results
               id: report_test
