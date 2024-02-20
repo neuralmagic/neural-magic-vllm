@@ -7,7 +7,7 @@ from typing import NamedTuple, Optional
 from pathlib import Path
 
 from neuralmagic.tools.call_cmd import call_cmd
-from neuralmagic.benchmarks.common import script_args_to_cla, benchmark_configs
+from neuralmagic.benchmarks.common import download_model, script_args_to_cla, benchmark_configs
 
 BENCH_SERVER_HOST = "localhost"
 BENCH_SERVER_PORT = 9000
@@ -61,6 +61,9 @@ def run_benchmark_serving_script(config: NamedTuple,
 
     sparsities = [None] if len(config.sparsity) == 0 else config.sparsity
     for model in config.models:
+        # download model beforehand so the server can start without any holdup
+        download_model(model)
+
         for sparsity in sparsities:
             server_cmd = f"python3 -m vllm.entrypoints.api_server --model {model} --tokenizer {model} --host {BENCH_SERVER_HOST} --port {BENCH_SERVER_PORT} --disable-log-requests"
             if sparsity:
