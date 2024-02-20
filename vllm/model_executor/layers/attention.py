@@ -18,6 +18,93 @@ _SUPPORTED_HEAD_SIZES = [64, 80, 96, 112, 128, 256]
 # Should be the same as PARTITION_SIZE in `paged_attention_v2_launcher`.
 _PARTITION_SIZE = 512
 
+class EncoderAttention(nn.Module):
+    """Layer with encoder-style attention.
+    """
+
+    def __init__(
+        self,
+        num_heads: int,
+        head_size: int,
+        scale: float,
+        num_kv_heads: Optional[int] = None,
+    ) -> None:
+        super().__init__()
+        self.num_heads = num_heads
+        self.head_size = head_size
+        self.scale = float(scale)
+        self.num_kv_heads = num_heads if num_kv_heads is None else num_kv_heads
+
+        assert self.num_heads % self.num_kv_heads == 0
+        self.num_queries_per_kv = self.num_heads // self.num_kv_heads
+
+        if self.head_size not in _SUPPORTED_HEAD_SIZES:
+            raise ValueError(f"head_size ({self.head_size}) is not supported. "
+                             f"Supported head sizes: {_SUPPORTED_HEAD_SIZES}.")
+
+    def forward(
+        self,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        key_cache: Optional[torch.Tensor],
+        value_cache: Optional[torch.Tensor],
+        input_metadata: InputMetadata,
+    ) -> torch.Tensor:
+        """EncoderAttention forward pass.
+        """
+        batch_size, seq_len, hidden_size = query.shape
+        # Reshape the query, key, and value tensors.
+        query = query.view(-1, self.num_heads, self.head_size)
+        key = key.view(-1, self.num_kv_heads, self.head_size)
+        value = value.view(-1, self.num_kv_heads, self.head_size)
+
+        # Reshape the keys and values and store them in the cache.
+        # If key_cache and value_cache are not provided, the new key and value
+        # vectors will not be cached. This happens during the initial memory
+        # profiling run.
+        if key_cache is not None and value_cache is not None:
+            cache_ops.reshape_and_cache(
+                key,
+                value,
+                key_cache,
+                value_cache,
+                input_metadata.slot_mapping.flatten(),
+                input_metadata.kv_cache_dtype,
+            )
+
+        # As of Nov 2023, xformers only supports MHA. For MQA/GQA,
+        # project the key and value tensors to the desired number of
+        # heads.
+        # TODO(woosuk): Use MQA/GQA kernels for higher performance.
+        query = query.view(query.shape[0], self.num_kv_heads,
+                            self.num_queries_per_kv, query.shape[-1])
+        key = key[:, :,
+                    None, :].expand(key.shape[0], self.num_kv_heads,
+                                    self.num_queries_per_kv,
+                                    key.shape[-1])
+        value = value[:, :, None, :].expand(value.shape[0],
+                                            self.num_kv_heads,
+                                            self.num_queries_per_kv,
+                                            value.shape[-1])
+
+        # TODO (afeldman-nm): right now, assume prefix-enabled attention does not need to be supported by encoder. Confirm later.
+        # TODO (afeldman-nm): right now, assume no support for masked attention, ALiBi, etc. is required for encoder. Correct later
+
+        out = xops.memory_efficient_attention_forward(
+            query,
+            key,
+            value,
+            attn_bias=input_metadata.attn_bias,
+            p=0.0,
+            scale=self.scale,
+            op=xops.fmha.MemoryEfficientAttentionFlashAttentionOp[0] if
+            (is_hip()) else None,
+        )
+        output = out.view_as(query)
+
+        return output
+
 
 class PagedAttention(nn.Module):
     """MHA/MQA/GQA layer with PagedAttention.
