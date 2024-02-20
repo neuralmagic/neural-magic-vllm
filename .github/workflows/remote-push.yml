@@ -27,3 +27,4 @@ jobs:
             timeout: 60
             gitref: '${{ github.ref }}'
             python: ${{ matrix.python }}
+        secrets: inherit
