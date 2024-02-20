@@ -12,9 +12,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 from transformers import AutoTokenizer
-
-from common import get_bench_environment, generate_synthetic_requests
-
+from neuralmagic.benchmarks.scripts.common import get_bench_environment, generate_synthetic_requests
+from neuralmagic.benchmarks.datasets_registry import get_dataset, DatasetArgs
 
 def run_vllm(
     requests: List[Tuple[str, int, int]],
@@ -76,13 +75,24 @@ def main(args: argparse.Namespace):
     # Sample the requests.
     tokenizer = AutoTokenizer.from_pretrained(
         args.tokenizer, trust_remote_code=args.trust_remote_code)
-    if args.dataset is None:
-        # Synthesize a prompt with the given input length.
-        requests = generate_synthetic_requests(args.input_len, args.output_len,
-                                               args.num_prompts, tokenizer)
+
+    if args.dataset:
+        # Get dataset from registry.
+        requests = get_dataset(name=args.dataset,
+                                     tokenizer=tokenizer,
+                                     dataset_args=DatasetArgs(
+                                        num_samples=args.num_prompts,
+                                        max_len=4096,
+                                        seed=42,
+                                     ))
     else:
-        requests = sample_requests(args.dataset, args.num_prompts, tokenizer,
-                                   args.output_len)
+        # Make a synthetic dataset.
+        requests = generate_synthetic_requests(args.input_len,
+                                                     args.output_len,
+                                                     args.num_prompts,
+                                                     tokenizer)
+
+
 
     elapsed_time = run_vllm(requests,
                             args.model,

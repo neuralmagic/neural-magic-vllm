@@ -35,7 +35,7 @@ def script_args_to_cla(config: NamedTuple) -> Iterable[list[str]]:
     key_args_cla = list(map(lambda k: f"--{k}", key_args))
 
     # Remove empty lists from arg_lists and remove key args from keys
-    arg_lists = filter(lambda l: len(l) != 0, arg_lists)
+    arg_lists = filter(lambda arg_list: len(arg_list) != 0, arg_lists)
     keys = filter(lambda k: k not in key_args, keys)
 
     for args in itertools.product(*arg_lists):

@@ -6,7 +6,7 @@
 				"facebook/opt-125m",
 				"TinyLlama/TinyLlama-1.1B-Chat-v1.0",
 				"mistralai/Mistral-7B-Instruct-v0.2",
-				"NousResearch/Llama-2-7b-chat-hf",
+				"NousResearch/Llama-2-7b-chat-hf"
 			],
 			"sparsity": [],
 			"script_name": "benchmark_serving.py",

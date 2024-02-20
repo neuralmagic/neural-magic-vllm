@@ -6,7 +6,7 @@
 				"facebook/opt-125m",
 				"TinyLlama/TinyLlama-1.1B-Chat-v1.0",
 				"mistralai/Mistral-7B-Instruct-v0.2",
-				"NousResearch/Llama-2-7b-chat-hf",
+				"NousResearch/Llama-2-7b-chat-hf"
 			],
 			"script_name": "benchmark_throughput.py",
 			"script_args": {
@@ -42,7 +42,7 @@
 				"facebook/opt-125m",
 				"TinyLlama/TinyLlama-1.1B-Chat-v1.0",
 				"mistralai/Mistral-7B-Instruct-v0.2",
-				"NousResearch/Llama-2-7b-chat-hf",
+				"NousResearch/Llama-2-7b-chat-hf"
 			],
 			"script_name": "benchmark_throughput.py",
 			"script_args": {
@@ -85,7 +85,7 @@
 				"facebook/opt-125m",
 				"TinyLlama/TinyLlama-1.1B-Chat-v1.0",
 				"mistralai/Mistral-7B-Instruct-v0.2",
-				"NousResearch/Llama-2-7b-chat-hf",
+				"NousResearch/Llama-2-7b-chat-hf"
 			],
 			"script_name": "benchmark_throughput.py",
 			"script_args": {
