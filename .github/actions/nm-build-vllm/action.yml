@@ -4,6 +4,12 @@ inputs:
   Gi_per_thread:
     description: 'requested Gi to reserve per thread'
     required: true
+  python:
+    description: 'python version, e.g. 3.10.12'
+    required: true
+  venv:
+    description: 'name for python virtual environment'
+    required: true
 outputs:
   status:
     description: "final build status from 'pip install -e'"
@@ -15,7 +21,9 @@ runs:
     run: |
       # TODO: this is a hack ... fix it later
       # pyenv hardcoded ... python version hardcoded ...
-      source $(pyenv root)/versions/3.10.12/envs/TEST/bin/activate
+      COMMIT=${{ github.sha }}
+      VENV="${{ inputs.venv }}-${COMMIT:0:7}"
+      source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
       pip3 install --index-url http://192.168.201.226:8080/ --trusted-host 192.168.201.226 magic-wand
       pip3 install -r requirements.txt
       SUCCESS=0
