@@ -25,7 +25,7 @@ class SparseW16A16Config(SparsityConfig):
     @classmethod
     def get_storage_format_cls(cls) -> Type[CompressedStorageFormat]:
         cuda_compute_capability = torch.cuda.get_device_capability()
-        if cuda_compute_capability > (8, 0):
+        if cuda_compute_capability >= (8, 0):
             return SparseBEGemmStorageFormat
         else:
             # For NVIDIA SM < 8.0
