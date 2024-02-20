@@ -225,7 +225,7 @@ def main(args: argparse.Namespace):
     model_id = args.model
     tokenizer_id = args.tokenizer if args.tokenizer is not None else args.model
 
-    num_prompts, request_rate = (args.nr_qps_pair.num_prompts, args.nr_qps_pair.request_rate) if args.nr_qps_pair else (args.num_prompts, args.request_rate)
+    num_prompts, request_rate = (args.nr_qps_pair_.num_prompts, args.nr_qps_pair_.request_rate) if args.nr_qps_pair_ else (args.num_prompts_, args.request_rate_)
     assert num_prompts is not None and request_rate is not None
 
     if args.base_url is not None:
@@ -420,11 +420,11 @@ if __name__ == "__main__":
         else:
             assert args.num_input_tokens is None and args.num_output_tokens is None
         # Sanity check num_prompts, request_rate as separate args vs joint args usecase
-        assert not all([args.num_prompts is None, args.request_rate is None, args.nr_qps_pair is None])
-        if args.nr_qps_pair is None: 
-            assert args.num_prompts is not None and args.request_rate is not None
+        assert not all([args.num_prompts_ is None, args.request_rate_ is None, args.nr_qps_pair_ is None])
+        if args.nr_qps_pair_ is None: 
+            assert args.num_prompts_ is not None and args.request_rate_ is not None
         else:
-            assert args.num_prompts is None and args.request_rate is None
+            assert args.num_prompts_ is None and args.request_rate_ is None
 
     args = parser.parse_args()
     args_sanity_check(args)
