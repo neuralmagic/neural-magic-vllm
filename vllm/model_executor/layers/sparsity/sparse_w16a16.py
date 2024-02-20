@@ -29,9 +29,9 @@ class SparseW16A16Config(SparsityConfig):
             return SparseBEGemmStorageFormat
         else:
             # For NVIDIA SM < 8.0
-            logger.warning(f"Unstructured sparse kernels are not optimized for "
-                            "NVIDIA SM < 8.0. Naive decompress kernels will be "
-                            "used and can be slower than dense models")
+            logger.warning("Unstructured sparse kernels are not optimized for "
+                           "NVIDIA SM < 8.0. Naive decompress kernels will be "
+                           "used and can be slower than dense models")
             return SparseBitmaskStorageFormat
 
     @classmethod
