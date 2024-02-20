@@ -22,6 +22,7 @@ import asyncio
 import json
 import random
 import time
+from collections import namedtuple
 from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
@@ -31,7 +32,7 @@ import numpy as np
 from tqdm.asyncio import tqdm
 from transformers import PreTrainedTokenizerBase
 from vllm.transformers_utils.tokenizer import get_tokenizer
-from neuralmagic.benchmarks.scripts.common import get_bench_environment, generate_synthetic_requests
+from neuralmagic.benchmarks.scripts.common import get_bench_environment, generate_synthetic_requests, print_benchmark_io
 from neuralmagic.benchmarks.datasets_registry import get_dataset, DatasetArgs
 
 from neuralmagic.benchmarks.scripts.backend_request_func import (
@@ -164,14 +165,7 @@ async def benchmark(backend: str, api_url: str, model_id: str,
 
     # Dump model i/o
     if log_model_io:
-        for i, o in zip(input_requests, outputs):
-            prompt = i[0]
-            generated_txt = o.generated_text
-            input_tokens = tokenizer(prompt).input_ids
-            output_tokens = tokenizer(generated_txt).input_ids
-            print(
-                f"\n\n\n inputs ({len(input_tokens)}) : {prompt} \n outputs ({len(output_tokens)}) : {generated_txt}"
-            )
+        print_benchmark_io(outputs)
 
     metrics = calculate_metrics(
         input_requests=input_requests,
@@ -231,6 +225,9 @@ def main(args: argparse.Namespace):
     model_id = args.model
     tokenizer_id = args.tokenizer if args.tokenizer is not None else args.model
 
+    num_prompts, request_rate = (args.nr_qps_pair.num_prompts, args.nr_qps_pair.request_rate) if args.nr_qps_pair else (args.num_prompts, args.request_rate)
+    assert num_prompts is not None and request_rate is not None
+
     if args.base_url is not None:
         api_url = f"{args.base_url}{args.endpoint}"
     else:
@@ -245,7 +242,7 @@ def main(args: argparse.Namespace):
         input_requests = get_dataset(name=args.dataset,
                                      tokenizer=tokenizer,
                                      dataset_args=DatasetArgs(
-                                        num_samples=args.num_prompts,
+                                        num_samples=num_prompts,
                                         max_len=4096,
                                         seed=42,
                                      ))
@@ -253,7 +250,7 @@ def main(args: argparse.Namespace):
         # Make a synthetic dataset.
         input_requests = generate_synthetic_requests(args.num_input_tokens,
                                                      args.num_output_tokens,
-                                                     args.num_prompts,
+                                                     num_prompts,
                                                      tokenizer)
 
     benchmark_result = asyncio.run(
@@ -264,7 +261,7 @@ def main(args: argparse.Namespace):
                   input_requests=input_requests,
                   best_of=args.best_of,
                   use_beam_search=args.use_beam_search,
-                  request_rate=args.request_rate,
+                  request_rate=request_rate,
                   disable_tqdm=args.disable_tqdm,
                   log_model_io=args.log_model_io))
 
@@ -283,11 +280,11 @@ def main(args: argparse.Namespace):
         result_json["tokenizer_id"] = tokenizer_id
         result_json["best_of"] = args.best_of
         result_json["use_beam_search"] = args.use_beam_search
-        result_json["num_prompts"] = args.num_prompts
+        result_json["num_prompts"] = num_prompts
 
         # Traffic
-        result_json["request_rate"] = (
-            args.request_rate if args.request_rate < float("inf") else "inf")
+        result_json["request_rate"] =  \
+            request_rate if request_rate < float("inf") else "inf"
 
         # Merge with benchmark result
         result_json = {**result_json, **benchmark_result}
@@ -303,6 +300,17 @@ def main(args: argparse.Namespace):
 
 
 if __name__ == "__main__":
+
+    Num_Prompts_Request_Rate_T = namedtuple("Num_Prompts_Request_Rate_T", ["num_prompts", "request_rate"]) 
+    def num_prompts_and_request_rate_t(arg) -> Num_Prompts_Request_Rate_T:
+        # The arg parser has a variant where num_prompts and request_rate can
+        # passed in as a pair in the same argument.
+        # Example: A string "1000,0.5" will be parsed into a tuple of
+        # (int(1000), float(0.5))
+        parts = arg.split(',')
+        assert len(parts) == 2 
+        return Num_Prompts_Request_Rate_T(int(parts[0]), float(parts[1]))
+
     parser = argparse.ArgumentParser(
         description='''Benchmark the online serving throughput.''')
     parser.add_argument(
@@ -364,21 +372,6 @@ if __name__ == "__main__":
     )
     parser.add_argument("--use-beam-search", action="store_true")
     parser.add_argument("--log-model-io", action="store_true")
-    parser.add_argument(
-        "--num-prompts",
-        type=int,
-        default=1000,
-        help="Number of prompts to process.",
-    )
-    parser.add_argument(
-        "--request-rate",
-        type=float,
-        default=float("inf"),
-        help="Number of requests per second. If this is inf, "
-        "then all the requests are sent at time 0. "
-        "Otherwise, we use Poisson process to synthesize "
-        "the request arrival times.",
-    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--trust-remote-code",
@@ -395,12 +388,45 @@ if __name__ == "__main__":
                         default=None,
                         help="Output directory to store result file")
 
-    args = parser.parse_args()
+    parser.add_argument(
+        "--num-prompts_",
+        type=int,
+        default=None,
+        help="Number of prompts to process.",
+    )
+    parser.add_argument(
+        "--request-rate_",
+        type=float,
+        default=None,
+        help="Number of requests per second. If this is inf, "
+        "then all the requests are sent at time 0. "
+        "Otherwise, we use Poisson process to synthesize "
+        "the request arrival times.",
+    )
+    parser.add_argument("--nr-qps-pair_", type=num_prompts_and_request_rate_t,
+                        help="""
+                            First argument in the pair is num_prompts: Number of prompts to process.
+                            Second argument in the pair is request_rate : Number of requests per second. If this is inf,
+                            then all the requests are sent at time 0. Otherwise, we use Poisson process to synthesize
+                            the request arrival times.
+                            """,
+                        default=None
+                        )
 
-    # Sanity check
-    if args.dataset is not None:
-        assert args.num_input_tokens is None and args.num_output_tokens is None
-    else:
-        assert args.num_input_tokens is not None and args.num_output_tokens is not None
+    def args_sanity_check(args):
+        # Sanity check real-dataset vs synthetic-dataset usecase
+        if args.dataset is None:
+            assert args.num_input_tokens is not None and args.num_output_tokens is not None
+        else:
+            assert args.num_input_tokens is None and args.num_output_tokens is None
+        # Sanity check num_prompts, request_rate as separate args vs joint args usecase
+        assert not all([args.num_prompts is None, args.request_rate is None, args.nr_qps_pair is None])
+        if args.nr_qps_pair is None: 
+            assert args.num_prompts is not None and args.request_rate is not None
+        else:
+            assert args.num_prompts is None and args.request_rate is None
+
+    args = parser.parse_args()
+    args_sanity_check(args)
 
     main(args)
