@@ -2,9 +2,6 @@
 	"configs": [
 		{
 			"description": "Benchmark vllm engine throughput - with dataset",
-			"dataset_download_cmds": [
-				"wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json"
-			],
 			"models": [
 				"nm-testing/zephyr-50sparse-24"
 			],
@@ -18,7 +15,7 @@
 					"semi_structured_sparse_w16a16"
 				],
 				"dataset": [
-					"ShareGPT_V3_unfiltered_cleaned_split.json"
+					"sharegpt"
 				],
 				"output-len": [
 					128
@@ -42,7 +39,6 @@
 		},
 		{
 			"description": "Benchmark vllm engine prefill throughput - synthetic",
-			"dataset_download_cmds": [],
 			"models": [
 				"nm-testing/zephyr-50sparse-24"
 			],
@@ -87,7 +83,6 @@
 		},
 		{
 			"description": "Benchmark vllm engine decode throughput - synthetic",
-			"dataset_download_cmds": [],
 			"models": [
 				"nm-testing/zephyr-50sparse-24"
 			],
