@@ -30,7 +30,7 @@ jobs:
           submodules: recursive
 
       - name: workflow info
-        uses: ./.github/actions/neuralmagic-workflow-info/
+        uses: ./.github/actions/nm-workflow-info/
         with:
           gitref: ${{ inputs.gitref }}
           label: ${{ inputs.label }}
@@ -42,7 +42,7 @@ jobs:
       #  uses: ./.github/actions/build/
 
       - name: run benchmarks
-        uses: ./.github/actions/neuralmagic-benchmark/
+        uses: ./.github/actions/nm-benchmark/
         with:
           output_directory: benchmark-results
 
