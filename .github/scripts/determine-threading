@@ -3,7 +3,7 @@
 usage() {
     echo "Usage: ${0} <options>"
     echo
-    echo "  -G    - number of Gi per processor (includes hyperthreads, default is 1 Gi)."
+    echo "  -G    - number of GiB per processor (includes hyperthreads, default is 1 GiB)."
     echo "  -h    - this list of options"
     echo
     exit 1
