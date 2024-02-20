@@ -16,7 +16,6 @@ class SparseW16A16Config(SparsityConfig):
     """Config class for SparseW16A16."""
 
     def __init__(self) -> None:
-        # TODO: Add new configs here
         pass
 
     def __repr__(self) -> str:
@@ -44,7 +43,6 @@ class SparseW16A16Config(SparsityConfig):
 
     @classmethod
     def get_min_capability(cls) -> int:
-        # TODO: Update after checks on more GPUs
         return 70
 
     @classmethod
