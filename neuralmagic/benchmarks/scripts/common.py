@@ -3,13 +3,16 @@ Common functions used in all benchmarking scripts
 """
 import json
 import random
+import asyncio
 from typing import List, Tuple
 from pathlib import Path
 from transformers import PreTrainedTokenizerBase
 
 from vllm.outputs import RequestOutput
+from vllm.transformers_utils.tokenizer import get_tokenizer
 from neuralmagic.tools.call_cmd import call_cmd
 from neuralmagic.benchmarks.datasets_registry import SHAREGPT_PATH, SHAREGPT_DOWNLOAD_STR
+from neuralmagic.benchmarks.scripts.backend_request_func import RequestFuncInput, async_request_vllm
 
 
 def get_bench_environment() -> dict:
@@ -25,6 +28,12 @@ def get_bench_environment() -> dict:
         "cuda_device(0)": f"{torch.cuda.get_device_properties(0)}"
     }
 
+def remove_special_tokens_and_decode(prompt_ids : list[int],
+                                     tokenizer : PreTrainedTokenizerBase) -> str:
+    # Remove special tokens from prompt ids
+    prompt_ids = list(
+        filter(lambda id: id not in tokenizer.all_special_ids, prompt_ids))
+    return tokenizer.decode(prompt_ids)
 
 def generate_synthetic_requests(
         num_input_tokens: int, num_output_tokens: int, num_requests: int,
@@ -40,12 +49,6 @@ def generate_synthetic_requests(
     with open(share_gpt_path) as f:
         dataset = json.load(f)
     assert dataset
-
-    def ids_to_prompt(prompt_ids: list[int]) -> list[int]:
-        # remove special tokens from prompt ids
-        prompt_ids = list(
-            filter(lambda id: id not in tokenizer.all_special_ids, prompt_ids))
-        return tokenizer.decode(prompt_ids)
 
     sampled_requests = []
     while len(sampled_requests) != num_requests:
@@ -66,13 +69,51 @@ def generate_synthetic_requests(
             continue
 
         prompt_ids = prompt_ids[:num_input_tokens]
-        prompt = ids_to_prompt(prompt_ids)
+        prompt = remove_special_tokens_and_decode(prompt_ids, tokenizer)
 
         sampled_requests.append((prompt, num_input_tokens, num_output_tokens))
 
     assert len(sampled_requests) == num_requests
     return sampled_requests
 
+def warmup_server(server_host: int,
+                  server_port: int,
+                  model: str,
+                  num_input_tokens: int = 128,
+                  num_output_tokens: int = 1,
+                  num_prompts: int = 1000) -> None:
+
+    api_url = f"http://{server_host}:{server_port}/generate"
+    async def process_requests(input_requests):
+        tasks = []
+        async for request in input_requests:
+            prompt, prompt_len, output_len = request
+            request_func_input = RequestFuncInput(
+                model=model,
+                prompt=prompt,
+                api_url=api_url,
+                prompt_len=prompt_len,
+                output_len=output_len,
+                best_of=1,
+                use_beam_search=False,
+            )
+            tasks.append(
+                asyncio.create_task(async_request_vllm(request_func_input = request_func_input)))
+        _ = await asyncio.gather(*tasks)
+
+    tokenizer = get_tokenizer(model)
+    words = list(tokenizer.get_vocab().keys())
+    requests = []
+    for _ in range(num_prompts):
+        # We make up random prompts for warmups in order to avoid the effects of
+        # prefix caching during actual benchmarking.
+        prompt = random.choice(words, k = num_input_tokens) 
+        prompt_ids = tokenizer(prompt).input_ids
+        prompt_ids = prompt_ids[:num_input_tokens]
+        prompt = remove_special_tokens_and_decode(prompt_ids, tokenizer)
+        requests.append((prompt, num_input_tokens, num_output_tokens))
+
+    asyncio.run(process_requests(requests))
 
 def print_benchmark_io(results: List[RequestOutput]) -> None:
     for result in results:

@@ -7,7 +7,7 @@ from typing import NamedTuple, Optional
 from pathlib import Path
 
 from neuralmagic.tools.call_cmd import call_cmd
-from neuralmagic.benchmarks.common import download_model, script_args_to_cla, benchmark_configs
+from neuralmagic.benchmarks.common import download_model, script_args_to_cla, benchmark_configs, warmup_server
 
 BENCH_SERVER_HOST = "localhost"
 BENCH_SERVER_PORT = 9000
@@ -42,7 +42,7 @@ def run_benchmark_serving_script(config: NamedTuple,
                                  ) -> None:
     assert config.script_name == 'benchmark_serving'
 
-    def run_bench(server_cmd: str, bench_cmd: list[str]) -> None:
+    def run_bench(server_cmd: str, bench_cmd: list[str], model:str) -> None:
         try:
             # start server
             server_process = subprocess.Popen("exec " + server_cmd, shell=True)
@@ -50,6 +50,11 @@ def run_benchmark_serving_script(config: NamedTuple,
                 raise ValueError(
                     f"Aborting bench run with : server-cmd {server_cmd} , bench-cmd {bench_cmd}. Reason: Cannot start Server"
                 )
+
+            # server warmup
+            warmup_server(server_host = BENCH_SERVER_HOST, server_port = BENCH_SERVER_PORT,
+                          model = model, num_prompts = 1000)
+
             # run bench
             call_cmd(bench_cmd, stdout=None, stderr=None)
         finally:
@@ -82,7 +87,7 @@ def run_benchmark_serving_script(config: NamedTuple,
                         "--save-directory", f"{output_directory}"
                     ]
 
-                run_bench(server_cmd, bench_cmd)
+                run_bench(server_cmd, bench_cmd, model)
 
 
 if __name__ == '__main__':
