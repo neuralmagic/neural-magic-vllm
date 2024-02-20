@@ -225,7 +225,10 @@ def main(args: argparse.Namespace):
     model_id = args.model
     tokenizer_id = args.tokenizer if args.tokenizer is not None else args.model
 
-    num_prompts, request_rate = (args.nr_qps_pair_.num_prompts, args.nr_qps_pair_.request_rate) if args.nr_qps_pair_ else (args.num_prompts_, args.request_rate_)
+    num_prompts, request_rate = (
+        args.nr_qps_pair_.num_prompts,
+        args.nr_qps_pair_.request_rate) if args.nr_qps_pair_ else (
+            args.num_prompts_, args.request_rate_)
     assert num_prompts is not None and request_rate is not None
 
     if args.base_url is not None:
@@ -242,16 +245,15 @@ def main(args: argparse.Namespace):
         input_requests = get_dataset(name=args.dataset,
                                      tokenizer=tokenizer,
                                      dataset_args=DatasetArgs(
-                                        num_samples=num_prompts,
-                                        max_len=2048,
-                                        seed=42,
+                                         num_samples=num_prompts,
+                                         max_len=2048,
+                                         seed=42,
                                      ))
     else:
         # Make a synthetic dataset.
         input_requests = generate_synthetic_requests(args.num_input_tokens,
                                                      args.num_output_tokens,
-                                                     num_prompts,
-                                                     tokenizer)
+                                                     num_prompts, tokenizer)
 
     benchmark_result = asyncio.run(
         benchmark(backend=backend,
@@ -293,22 +295,23 @@ def main(args: argparse.Namespace):
         base_model_id = model_id.split("/")[-1]
         file_name = (
             Path(args.save_directory) /
-            f"{backend}-{request_rate}qps-{base_model_id}-{current_dt}.json"
-        )
+            f"{backend}-{request_rate}qps-{base_model_id}-{current_dt}.json")
         with open(file_name, "w") as outfile:
             json.dump(result_json, outfile, sort_keys=True, indent=4)
 
 
 if __name__ == "__main__":
 
-    Num_Prompts_Request_Rate_T = namedtuple("Num_Prompts_Request_Rate_T", ["num_prompts", "request_rate"]) 
+    Num_Prompts_Request_Rate_T = namedtuple("Num_Prompts_Request_Rate_T",
+                                            ["num_prompts", "request_rate"])
+
     def num_prompts_and_request_rate_t(arg) -> Num_Prompts_Request_Rate_T:
         # The arg parser has a variant where num_prompts and request_rate can
         # passed in as a pair in the same argument.
         # Example: A string "1000,0.5" will be parsed into a tuple of
         # (int(1000), float(0.5))
         parts = arg.split(',')
-        assert len(parts) == 2 
+        assert len(parts) == 2
         return Num_Prompts_Request_Rate_T(int(parts[0]), float(parts[1]))
 
     parser = argparse.ArgumentParser(
@@ -403,15 +406,15 @@ if __name__ == "__main__":
         "Otherwise, we use Poisson process to synthesize "
         "the request arrival times.",
     )
-    parser.add_argument("--nr-qps-pair_", type=num_prompts_and_request_rate_t,
+    parser.add_argument("--nr-qps-pair_",
+                        type=num_prompts_and_request_rate_t,
                         help="""
                             First argument in the pair is num_prompts: Number of prompts to process.
                             Second argument in the pair is request_rate : Number of requests per second. If this is inf,
                             then all the requests are sent at time 0. Otherwise, we use Poisson process to synthesize
                             the request arrival times.
                             """,
-                        default=None
-                        )
+                        default=None)
 
     def args_sanity_check(args):
         # Sanity check real-dataset vs synthetic-dataset usecase
@@ -420,8 +423,11 @@ if __name__ == "__main__":
         else:
             assert args.num_input_tokens is None and args.num_output_tokens is None
         # Sanity check num_prompts, request_rate as separate args vs joint args usecase
-        assert not all([args.num_prompts_ is None, args.request_rate_ is None, args.nr_qps_pair_ is None])
-        if args.nr_qps_pair_ is None: 
+        assert not all([
+            args.num_prompts_ is None, args.request_rate_ is None,
+            args.nr_qps_pair_ is None
+        ])
+        if args.nr_qps_pair_ is None:
             assert args.num_prompts_ is not None and args.request_rate_ is not None
         else:
             assert args.num_prompts_ is None and args.request_rate_ is None

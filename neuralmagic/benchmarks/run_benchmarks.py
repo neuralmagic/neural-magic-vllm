@@ -2,10 +2,9 @@ import argparse
 
 from pathlib import Path
 from neuralmagic.benchmarks.common import benchmark_configs
-from neuralmagic.benchmarks import (
-    run_benchmark_serving_script,
-    run_benchmark_throughput_script
-)
+from neuralmagic.benchmarks import (run_benchmark_serving_script,
+                                    run_benchmark_throughput_script)
+
 
 def run(config_file_path: Path, output_directory: Path) -> None:
 

@@ -17,6 +17,7 @@ def download_model(hf_model_id: str) -> None:
     prepare_hf_model_weights(hf_model_id)
     get_tokenizer(hf_model_id)
 
+
 def script_args_to_cla(config: NamedTuple) -> Iterable[list[str]]:
     #config is a NamedTuple constructed from some JSON in neuralmagic/benchmarks/configs
 

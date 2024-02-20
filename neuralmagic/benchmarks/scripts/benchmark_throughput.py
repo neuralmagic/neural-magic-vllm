@@ -15,6 +15,7 @@ from transformers import AutoTokenizer
 from neuralmagic.benchmarks.scripts.common import get_bench_environment, generate_synthetic_requests
 from neuralmagic.benchmarks.datasets_registry import get_dataset, DatasetArgs
 
+
 def run_vllm(
     requests: List[Tuple[str, int, int]],
     model: str,
@@ -79,20 +80,16 @@ def main(args: argparse.Namespace):
     if args.dataset:
         # Get dataset from registry.
         requests = get_dataset(name=args.dataset,
-                                     tokenizer=tokenizer,
-                                     dataset_args=DatasetArgs(
-                                        num_samples=args.num_prompts,
-                                        max_len=2048,
-                                        seed=42,
-                                     ))
+                               tokenizer=tokenizer,
+                               dataset_args=DatasetArgs(
+                                   num_samples=args.num_prompts,
+                                   max_len=2048,
+                                   seed=42,
+                               ))
     else:
         # Make a synthetic dataset.
-        requests = generate_synthetic_requests(args.input_len,
-                                                     args.output_len,
-                                                     args.num_prompts,
-                                                     tokenizer)
-
-
+        requests = generate_synthetic_requests(args.input_len, args.output_len,
+                                               args.num_prompts, tokenizer)
 
     elapsed_time = run_vllm(requests,
                             args.model,

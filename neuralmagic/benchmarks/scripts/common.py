@@ -73,6 +73,7 @@ def generate_synthetic_requests(
     assert len(sampled_requests) == num_requests
     return sampled_requests
 
+
 def print_benchmark_io(results: List[RequestOutput]) -> None:
     for result in results:
         output = result.outputs[0]
