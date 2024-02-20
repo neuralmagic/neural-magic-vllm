@@ -82,7 +82,7 @@ def main(args: argparse.Namespace):
                                      tokenizer=tokenizer,
                                      dataset_args=DatasetArgs(
                                         num_samples=args.num_prompts,
-                                        max_len=4096,
+                                        max_len=2048,
                                         seed=42,
                                      ))
     else:

@@ -40,7 +40,6 @@ def is_server_running(host: str, port: int, timeout=60) -> bool:
 def run_benchmark_serving_script(config: NamedTuple,
                                  output_directory: Optional[Path] = None
                                  ) -> None:
-
     assert config.script_name == 'benchmark_serving'
 
     def run_bench(server_cmd: str, bench_cmd: list[str]) -> None:
@@ -60,9 +59,13 @@ def run_benchmark_serving_script(config: NamedTuple,
 
     script_path = f"neuralmagic.benchmarks.scripts.{config.script_name}"
 
+    sparsities = [None] if len(config.sparsity) == 0 else config.sparsity
     for model in config.models:
-        for sparsity in config.sparsity:
-            server_cmd = f"python3 -m vllm.entrypoints.api_server --model {model} --tokenizer {model} --sparsity {sparsity} --host {BENCH_SERVER_HOST} --port {BENCH_SERVER_PORT} --disable-log-requests"
+        for sparsity in sparsities:
+            server_cmd = f"python3 -m vllm.entrypoints.api_server --model {model} --tokenizer {model} --host {BENCH_SERVER_HOST} --port {BENCH_SERVER_PORT} --disable-log-requests"
+            if sparsity:
+                server_cmd += f" --sparsity {sparsity} "
+
             for script_args in script_args_to_cla(config):
                 bench_cmd = (["python3", "-m" f"{script_path}"] + script_args +
                              ["--model", f"{model}"] +

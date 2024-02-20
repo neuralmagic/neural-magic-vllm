@@ -11,7 +11,7 @@
 			"sparsity": [],
 			"script_name": "benchmark_serving",
 			"script_args": {
-				"nr_qps_pair_": [
+				"nr-qps-pair_": [
 					"50,0.5",
 					"100,1",
 					"200,2",
@@ -36,11 +36,11 @@
 			"sparsity": [],
 			"script_name": "benchmark_serving",
 			"script_args": {
-				"num_prompts_": [
+				"num-prompts_": [
 					50,
 					100
 				],
-				"request_rate_": [
+				"request-rate_": [
 					0.5,
 					"inf"
 				],

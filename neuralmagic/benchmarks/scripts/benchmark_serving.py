@@ -90,7 +90,7 @@ def calculate_metrics(
     total_input = 0
     completed = 0
     latencies = []
-    per_token_latencies = []
+    tpots = []
     ttfts = []
     for i in range(len(outputs)):
         if outputs[i].success:
@@ -98,7 +98,7 @@ def calculate_metrics(
             total_output += output_len
             total_input += input_requests[i][1]
             latencies.append(outputs[i].latency)
-            per_token_latencies.append(outputs[i].latency / output_len)
+            tpots.append((outputs[i].latency - outputs[i].ttft) / output_len)
             ttfts.append(outputs[i].ttft)
             completed += 1
 
@@ -116,10 +116,10 @@ def calculate_metrics(
         median_ttft_ms=np.median(ttfts) * 1000,
         p90_ttft_ms=np.percentile(ttfts, 90) * 1000,
         p99_ttft_ms=np.percentile(ttfts, 99) * 1000,
-        mean_tpot_ms=np.mean(per_token_latencies) * 1000,
-        median_tpot_ms=np.median(per_token_latencies) * 1000,
-        p90_tpot_ms=np.percentile(per_token_latencies, 90) * 1000,
-        p99_tpot_ms=np.percentile(per_token_latencies, 99) * 1000,
+        mean_tpot_ms=np.mean(tpots) * 1000,
+        median_tpot_ms=np.median(tpots) * 1000,
+        p90_tpot_ms=np.percentile(tpots, 90) * 1000,
+        p99_tpot_ms=np.percentile(tpots, 99) * 1000,
     )
 
     return metrics
@@ -243,7 +243,7 @@ def main(args: argparse.Namespace):
                                      tokenizer=tokenizer,
                                      dataset_args=DatasetArgs(
                                         num_samples=num_prompts,
-                                        max_len=4096,
+                                        max_len=2048,
                                         seed=42,
                                      ))
     else:
@@ -293,7 +293,7 @@ def main(args: argparse.Namespace):
         base_model_id = model_id.split("/")[-1]
         file_name = (
             Path(args.save_directory) /
-            f"{backend}-{args.request_rate}qps-{base_model_id}-{current_dt}.json"
+            f"{backend}-{request_rate}qps-{base_model_id}-{current_dt}.json"
         )
         with open(file_name, "w") as outfile:
             json.dump(result_json, outfile, sort_keys=True, indent=4)
