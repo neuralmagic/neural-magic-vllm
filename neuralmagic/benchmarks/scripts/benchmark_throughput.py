@@ -15,6 +15,7 @@ from transformers import AutoTokenizer
 from neuralmagic.benchmarks.scripts.common import get_bench_environment, generate_synthetic_requests, warmup_vllm_engine
 from neuralmagic.benchmarks.datasets_registry import get_dataset, DatasetArgs
 
+
 def run_vllm(
     requests: List[Tuple[str, int, int]],
     model: str,
@@ -43,9 +44,7 @@ def run_vllm(
         enforce_eager=enforce_eager,
     )
 
-    warmup_vllm_engine(engine = llm,
-                       model = model,
-                       num_prompts = 1000)
+    warmup_vllm_engine(engine=llm, model=model, num_prompts=1000)
 
     # Add the requests to the engine.
     for prompt, _, output_len in requests:

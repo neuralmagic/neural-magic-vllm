@@ -42,7 +42,7 @@ def run_benchmark_serving_script(config: NamedTuple,
                                  ) -> None:
     assert config.script_name == 'benchmark_serving'
 
-    def run_bench(server_cmd: str, bench_cmd: list[str], model:str) -> None:
+    def run_bench(server_cmd: str, bench_cmd: list[str], model: str) -> None:
         try:
             # start server
             server_process = subprocess.Popen("exec " + server_cmd, shell=True)
@@ -52,8 +52,10 @@ def run_benchmark_serving_script(config: NamedTuple,
                 )
 
             # server warmup
-            warmup_server(server_host = BENCH_SERVER_HOST, server_port = BENCH_SERVER_PORT,
-                          model = model, num_prompts = 1000)
+            warmup_server(server_host=BENCH_SERVER_HOST,
+                          server_port=BENCH_SERVER_PORT,
+                          model=model,
+                          num_prompts=1000)
 
             # run bench
             call_cmd(bench_cmd, stdout=None, stderr=None)
