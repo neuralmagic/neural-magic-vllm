@@ -8,7 +8,7 @@
 				"mistralai/Mistral-7B-Instruct-v0.2",
 				"NousResearch/Llama-2-7b-chat-hf"
 			],
-			"script_name": "benchmark_throughput.py",
+			"script_name": "benchmark_throughput",
 			"script_args": {
 				"backend": [
 					"vllm"
@@ -44,7 +44,7 @@
 				"mistralai/Mistral-7B-Instruct-v0.2",
 				"NousResearch/Llama-2-7b-chat-hf"
 			],
-			"script_name": "benchmark_throughput.py",
+			"script_name": "benchmark_throughput",
 			"script_args": {
 				"backend": [
 					"vllm"
@@ -87,7 +87,7 @@
 				"mistralai/Mistral-7B-Instruct-v0.2",
 				"NousResearch/Llama-2-7b-chat-hf"
 			],
-			"script_name": "benchmark_throughput.py",
+			"script_name": "benchmark_throughput",
 			"script_args": {
 				"backend": [
 					"vllm"

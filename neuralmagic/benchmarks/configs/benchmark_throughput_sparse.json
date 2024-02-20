@@ -5,7 +5,7 @@
 			"models": [
 				"nm-testing/zephyr-50sparse-24"
 			],
-			"script_name": "benchmark_throughput.py",
+			"script_name": "benchmark_throughput",
 			"script_args": {
 				"backend": [
 					"vllm"
@@ -42,7 +42,7 @@
 			"models": [
 				"nm-testing/zephyr-50sparse-24"
 			],
-			"script_name": "benchmark_throughput.py",
+			"script_name": "benchmark_throughput",
 			"script_args": {
 				"backend": [
 					"vllm"
@@ -86,7 +86,7 @@
 			"models": [
 				"nm-testing/zephyr-50sparse-24"
 			],
-			"script_name": "benchmark_throughput.py",
+			"script_name": "benchmark_throughput",
 			"script_args": {
 				"backend": [
 					"vllm"

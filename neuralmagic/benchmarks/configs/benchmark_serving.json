@@ -9,7 +9,7 @@
 				"NousResearch/Llama-2-7b-chat-hf"
 			],
 			"sparsity": [],
-			"script_name": "benchmark_serving.py",
+			"script_name": "benchmark_serving",
 			"script_args": {
 				"nr_qps_pair_": [
 					"50,0.5",
@@ -34,7 +34,7 @@
 				"NousResearch/Llama-2-7b-chat-hf"
 			],
 			"sparsity": [],
-			"script_name": "benchmark_serving.py",
+			"script_name": "benchmark_serving",
 			"script_args": {
 				"num_prompts_": [
 					50,

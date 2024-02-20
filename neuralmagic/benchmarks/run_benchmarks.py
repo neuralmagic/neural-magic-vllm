@@ -14,7 +14,7 @@ def run(config_file_path: Path, output_directory: Path) -> None:
             run_benchmark_serving_script(config, output_directory)
             continue
 
-        if config.script_name == "benchmark_throughput.py":
+        if config.script_name == "benchmark_throughput":
             run_benchmark_throughput_script(config, output_directory)
             continue
 
