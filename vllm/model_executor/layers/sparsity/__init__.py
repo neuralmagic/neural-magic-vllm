@@ -2,7 +2,7 @@ from typing import Type
 import importlib.util
 
 is_magic_wand_available = importlib.util.find_spec("magic_wand") is not None
-if importlib.util.find_spec("magic_wand") is None:
+if not is_magic_wand_available:
     raise ValueError(
         "magic_wand is not available and required for sparsity "
         "support. Please install it with `pip install magic_wand`")

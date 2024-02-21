@@ -7,12 +7,9 @@ from typing import Type
 
 is_magic_wand_available = importlib.util.find_spec("magic_wand") is not None
 
-if is_magic_wand_available:
-    from magic_wand import (CompressedStorageFormat,
-                            SparseBitmaskStorageFormat)
-else:
-    CompressedStorageFormat = "CompressedStorageFormat"
-    SparseBitmaskStorageFormat = "SparseBitmaskStorageFormat"
+# These are types from magic_wand, but we only want to import if required
+CompressedStorageFormat = "CompressedStorageFormat"
+SparseBitmaskStorageFormat = "SparseBitmaskStorageFormat"
 
 
 class LazyCompressedParameter(torch.Tensor):
@@ -24,7 +21,7 @@ class LazyCompressedParameter(torch.Tensor):
                     CompressedStorageFormat] = SparseBitmaskStorageFormat,
                 compress_transposed: bool = False):
 
-        if not is_magic_wand_available():
+        if not is_magic_wand_available:
             raise ValueError(
                 "magic_wand is not available and required for sparsity "
                 "support. Please install it with `pip install magic_wand`")
