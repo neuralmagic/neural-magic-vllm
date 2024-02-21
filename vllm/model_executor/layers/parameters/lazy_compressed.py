@@ -3,7 +3,6 @@ import torch
 from torch.utils._pytree import tree_map
 
 from typing import Type
-from magic_wand import (CompressedStorageFormat, SparseBitmaskStorageFormat)
 
 
 class LazyCompressedParameter(torch.Tensor):
@@ -12,7 +11,7 @@ class LazyCompressedParameter(torch.Tensor):
     def __new__(cls,
                 uncompressed_data: torch.Tensor,
                 storage_format_cls: Type[
-                    CompressedStorageFormat] = SparseBitmaskStorageFormat,
+                    "CompressedStorageFormat"] = "SparseBitmaskStorageFormat",
                 compress_transposed: bool = False):
         self = torch.Tensor._make_wrapper_subclass(
             cls,
