@@ -89,7 +89,7 @@ def get_sparse_config(
     model_name_or_path: str,
     hf_config: PretrainedConfig,
     cache_dir: Optional[str] = None,
-) -> "SparsityConfig":
+):
     from vllm.model_executor.layers.sparsity import get_sparsity_config
     sparsity_cls = get_sparsity_config(sparsity)
     hf_sparsity_config = getattr(hf_config, "sparsity_config", None)

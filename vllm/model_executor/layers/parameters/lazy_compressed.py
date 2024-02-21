@@ -1,8 +1,18 @@
 import numpy
 import torch
 from torch.utils._pytree import tree_map
+import importlib.util
 
 from typing import Type
+
+is_magic_wand_available = importlib.util.find_spec("magic_wand") is not None
+
+if is_magic_wand_available:
+    from magic_wand import (CompressedStorageFormat,
+                            SparseBitmaskStorageFormat)
+else:
+    CompressedStorageFormat = "CompressedStorageFormat"
+    SparseBitmaskStorageFormat = "SparseBitmaskStorageFormat"
 
 
 class LazyCompressedParameter(torch.Tensor):
@@ -11,8 +21,14 @@ class LazyCompressedParameter(torch.Tensor):
     def __new__(cls,
                 uncompressed_data: torch.Tensor,
                 storage_format_cls: Type[
-                    "CompressedStorageFormat"] = "SparseBitmaskStorageFormat",
+                    CompressedStorageFormat] = SparseBitmaskStorageFormat,
                 compress_transposed: bool = False):
+
+        if not is_magic_wand_available():
+            raise ValueError(
+                "magic_wand is not available and required for sparsity "
+                "support. Please install it with `pip install magic_wand`")
+
         self = torch.Tensor._make_wrapper_subclass(
             cls,
             size=uncompressed_data.shape,
