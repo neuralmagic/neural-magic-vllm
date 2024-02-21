@@ -60,6 +60,8 @@ jobs:
             - name: setenv
               id: setenv
               uses: ./.github/actions/nm-set-env/
+              with:
+                hf_home: ${{ secrets.NM_HF_HOME }}
 
             - name: set python
               id: set_python
