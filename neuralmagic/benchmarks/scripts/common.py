@@ -92,7 +92,7 @@ def warmup_requests(tokenizer: PreTrainedTokenizerBase,
     for _ in range(num_requests):
         # We make up random prompts for warmups in order to avoid the effects of
         # prefix caching during actual benchmarking.
-        prompt = random.choice(words, k=num_input_tokens)
+        prompt = " ".join(random.choices(words, k=num_input_tokens))
         prompt_ids = tokenizer(prompt).input_ids
         prompt_ids = prompt_ids[:num_input_tokens]
         prompt = remove_special_tokens_and_decode(prompt_ids, tokenizer)
@@ -146,7 +146,7 @@ def warmup_server(server_host: int,
 
     async def process_requests(input_requests):
         tasks = []
-        async for request in input_requests:
+        for request in input_requests:
             prompt, prompt_len, output_len = request
             request_func_input = RequestFuncInput(
                 model=model,

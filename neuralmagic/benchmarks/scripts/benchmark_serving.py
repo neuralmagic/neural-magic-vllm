@@ -397,9 +397,10 @@ if __name__ == "__main__":
         default=None,
         help="Number of prompts to process.",
     )
+
     parser.add_argument(
         "--request-rate_",
-        type=float,
+        type=lambda arg: float(arg),
         default=None,
         help="Number of requests per second. If this is inf, "
         "then all the requests are sent at time 0. "

@@ -7,7 +7,8 @@ from typing import NamedTuple, Optional
 from pathlib import Path
 
 from neuralmagic.tools.call_cmd import call_cmd
-from neuralmagic.benchmarks.common import download_model, script_args_to_cla, benchmark_configs, warmup_server
+from neuralmagic.benchmarks.common import download_model, script_args_to_cla, benchmark_configs
+from neuralmagic.benchmarks.scripts.common import warmup_server
 
 BENCH_SERVER_HOST = "localhost"
 BENCH_SERVER_PORT = 9000
