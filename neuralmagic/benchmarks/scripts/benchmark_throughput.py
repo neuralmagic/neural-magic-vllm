@@ -134,8 +134,9 @@ def main(args: argparse.Namespace):
 
         model_id = args.model.replace('/', '_')
         # Save to file
-        file_name = Path(args.save_directory
-                         ) / f"benchmark_throughput-{args.backend}-{model_id}-{current_dt}.json"
+        file_name = Path(
+            args.save_directory
+        ) / f"benchmark_throughput-{args.backend}-{model_id}-{current_dt}.json"
         with open(file_name, "w") as outfile:
             json.dump(result_json, outfile, sort_keys=True, indent=4)
 

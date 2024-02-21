@@ -295,7 +295,8 @@ def main(args: argparse.Namespace):
         base_model_id = model_id.split("/")[-1]
         file_name = (
             Path(args.save_directory) /
-            f"benchmark_serving-{backend}-{request_rate}qps-{base_model_id}-{current_dt}.json")
+            f"benchmark_serving-{backend}-{request_rate}qps-{base_model_id}-{current_dt}.json"
+        )
         with open(file_name, "w") as outfile:
             json.dump(result_json, outfile, sort_keys=True, indent=4)
 
