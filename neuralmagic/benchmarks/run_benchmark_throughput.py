@@ -6,21 +6,17 @@ from neuralmagic.tools.call_cmd import call_cmd
 from neuralmagic.benchmarks.common import script_args_to_cla, benchmark_configs
 
 
-def get_this_script_dir() -> Path:
-    return Path(__file__).parent.resolve()
-
-
 def run_benchmark_throughput_script(config: NamedTuple,
                                     output_directory: Optional[Path] = None
                                     ) -> None:
 
-    assert config.script_name == 'benchmark_throughput.py'
+    assert config.script_name == 'benchmark_throughput'
 
-    script_path = get_this_script_dir() / f"scripts/{config.script_name}"
+    script_path = f"neuralmagic.benchmarks.scripts.{config.script_name}"
 
     for model in config.models:
         for script_args in script_args_to_cla(config):
-            bench_cmd = (["python3", f"{script_path}"] + script_args +
+            bench_cmd = (["python3", "-m", f"{script_path}"] + script_args +
                          ["--model", f"{model}"] + ["--tokenizer", f"{model}"])
 
             if output_directory:

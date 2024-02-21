@@ -14,10 +14,6 @@ BENCH_SERVER_HOST = "localhost"
 BENCH_SERVER_PORT = 9000
 
 
-def get_this_script_dir() -> Path:
-    return Path(__file__).parent.resolve()
-
-
 def is_server_running(host: str, port: int, timeout=60) -> bool:
 
     def try_connection() -> bool:
