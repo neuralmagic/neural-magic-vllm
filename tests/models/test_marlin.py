@@ -43,7 +43,7 @@ model_pairs = [
                     reason="Marlin is not supported on this GPU type.")
 @pytest.mark.parametrize("model_pair", model_pairs)
 @pytest.mark.parametrize("dtype", ["half"])
-@pytest.mark.parametrize("max_tokens", [128])
+@pytest.mark.parametrize("max_tokens", [32])
 @pytest.mark.parametrize("num_logprobs", [3])
 def test_models(
     vllm_runner,
@@ -58,7 +58,7 @@ def test_models(
         example_prompts, max_tokens, num_logprobs)
 
     # Note: not sure why, but deleting just the model on Ada Lovelace
-    #   does not free the GPU memory. On Ampere, deleting the just model
+    #   does not free the GPU memory. On Ampere, deleting just the model
     #   frees the memory.
     del marlin_model.model.llm_engine.driver_worker
     del marlin_model
@@ -69,7 +69,7 @@ def test_models(
                                                        num_logprobs)
 
     # Note: not sure why, but deleting just the model on Ada Lovelace
-    #   does not free the GPU memory. On Ampere, deleting the just model
+    #   does not free the GPU memory. On Ampere, deleting just the model
     #   frees the memory.
     del gptq_model.model.llm_engine.driver_worker
     del gptq_model

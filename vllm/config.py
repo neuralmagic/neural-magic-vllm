@@ -192,9 +192,10 @@ class ModelConfig:
         if hf_quant_config is not None:
             hf_quant_method = str(hf_quant_config["quant_method"]).lower()
             # If the GPTQ model is serialized in marlin format, use marlin.
+            marlin_format_flag = "is_marlin_format"
             if (hf_quant_method == "gptq"
-                    and "is_marlin_format" in hf_quant_config
-                    and hf_quant_config["is_marlin_format"]):
+                    and marlin_format_flag in hf_quant_config
+                    and hf_quant_config[marlin_format_flag]):
                 hf_quant_method = "marlin"
             if self.quantization is None:
                 self.quantization = hf_quant_method
