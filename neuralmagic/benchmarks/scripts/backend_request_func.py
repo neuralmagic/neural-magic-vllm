@@ -36,6 +36,10 @@ class RequestFuncOutput:
     ttft: float = 0
     prompt_len: int = 0
 
+def trim_prefix(text : str, prefix_str : str) -> str:
+    assert len(text) >= len(prefix_str)
+    assert text[:len(prefix_str)] == prefix_str
+    return text[len(prefix_str):]
 
 async def async_request_tgi(
     request_func_input: RequestFuncInput,
@@ -65,13 +69,15 @@ async def async_request_tgi(
         try:
             async with session.post(url=api_url, json=payload) as response:
                 if response.status == 200:
-                    async for data in response.content.iter_any():
+                    data = ""
+                    async for part_data in response.content.iter_any():
                         if ttft == 0:
                             ttft = time.perf_counter() - st
                             output.ttft = ttft
+                        data += part_data
                     output.latency = time.perf_counter() - st
 
-                    body = data.decode("utf-8").lstrip("data:")
+                    body = trim_prefix(data.decode("utf-8"), "data:")
                     output.generated_text = json.loads(body)["generated_text"]
                     output.success = True
                 else:
@@ -111,10 +117,12 @@ async def async_request_vllm(
         try:
             async with session.post(url=api_url, json=payload) as response:
                 if response.status == 200:
-                    async for data in response.content.iter_any():
+                    data = ""
+                    async for part_data in response.content.iter_any():
                         if ttft == 0:
                             ttft = time.perf_counter() - st
                             output.ttft = ttft
+                        data += part_data
                     output.latency = time.perf_counter() - st
 
                     # When streaming, '\0' is appended to the end of the response.
@@ -159,13 +167,15 @@ async def async_request_trt_llm(
         try:
             async with session.post(url=api_url, json=payload) as resp:
                 if resp.status == 200:
-                    async for data in resp.content.iter_any():
+                    data = ""
+                    async for part_data in resp.content.iter_any():
                         if ttft == 0:
                             ttft = time.perf_counter() - st
                             output.ttft = ttft
+                        data += part_data
                     output.latency = time.perf_counter() - st
 
-                    body = data.decode("utf-8").lstrip("data:")
+                    body = trim_prefix(data.decode("utf-8"), "data:")
                     output.generated_text = json.loads(body)["text_output"]
                     output.success = True
 
@@ -262,7 +272,7 @@ async def async_request_openai_completions(
                         if not chunk:
                             continue
 
-                        chunk = chunk.decode("utf-8").lstrip("data: ")
+                        chunk = trim_prefix(chunk.decode("utf-8"), "data: ")
                         if chunk == "[DONE]":
                             latency = time.perf_counter() - st
                         else:
