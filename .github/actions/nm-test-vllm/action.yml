@@ -23,25 +23,14 @@ runs:
   - id: test
     run: |
       SUCCESS=0
-      # TODO: this is a hack ... fix it later
-      # pyenv hardcoded ... python version hardcoded ...
       COMMIT=${{ github.sha }}
       VENV="${{ inputs.venv }}-${COMMIT:0:7}"
       source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
       pip3 install --index-url http://192.168.201.226:8080/ --trusted-host 192.168.201.226 magic-wand
       pip3 install -r requirements-dev.txt
-      # run tests serially
+      # run tests via runner script (serially)
       ./.github/scripts/run-tests -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }}
       SUCCESS=$?
-      # TESTS_DOT_PY=$(find ${{ inputs.test_directory }} -name "*.py")
-      # TESTS_TO_RUN=($TESTS_DOT_PY)
-      # SUCCESS=0
-      # for TEST in "${TESTS_TO_RUN[@]}"
-      # do
-      #   RESULT_XML=$(echo ${TEST} | sed -e 's/${{ inputs.test_directory }}/${{ inputs.test_results }}/' | sed -e 's/.py/.xml/')
-      #   pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
-      #   SUCCESS=$((SUCCESS + CURRENT_SUCCESS))
-      # done
       echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
       exit ${SUCCESS}
     shell: bash

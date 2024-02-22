@@ -4,13 +4,15 @@ inputs:
   hf_home:
     description: 'Hugging Face home'
     required: true
+  Gi_per_thread:
+    description: 'requested GiB to reserve per thread'
+    required: true
 runs:
   using: composite
   steps:
   - run: |
       echo "HF_HOME=${HF_HOME_TOKEN}" >> $GITHUB_ENV
-      # echo "TORCH_CUDA_ARCH_LIST=7.0 7.5 8.0 8.6 8.9+PTX" >> $GITHUB_ENV
-      NUM_THREADS=$(./.github/scripts/determine-threading -G 4)
+      NUM_THREADS=$(./.github/scripts/determine-threading -G ${{ inputs.Gi_per_thread }})
       echo "MAX_JOBS=${NUM_THREADS}" >> $GITHUB_ENV
       echo "VLLM_INSTALL_PUNICA_KERNELS=1" >> $GITHUB_ENV
       echo "PYENV_ROOT=/usr/local/apps/pyenv" >> $GITHUB_ENV
