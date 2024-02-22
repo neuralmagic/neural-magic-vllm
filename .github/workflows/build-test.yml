@@ -97,7 +97,7 @@ jobs:
               uses: ./.github/actions/nm-test-vllm/
               with:
                 test_directory: tests
-                test_xml: test-results/all_tests.xml
+                test_results: test-results
                 python: ${{ inputs.python }}
                 venv: TEST
 
