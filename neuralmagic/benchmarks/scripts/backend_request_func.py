@@ -1,7 +1,8 @@
 """
 Benchmark serving utilities for various end-points.
 
-NOTE: This script is copied from upstream vllm repo (february 13th, 2024).
+NOTE: This script is a version of benchmarks/backend_request_func.py from
+ the upstream vllm repo at commit a4211a4dc.
 """
 
 import json

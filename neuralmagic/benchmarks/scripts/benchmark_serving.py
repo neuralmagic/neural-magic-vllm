@@ -15,7 +15,8 @@ On the client side, run:
         --tokenizer <your_model> --dataset <target_dataset> \
         --request-rate_ <request_rate>
 
-NOTE: This script is copied from upstream vllm repo (february 13th, 2024).
+NOTE: This script is a modified version of benchmarks/benchmark_serving.py from
+ the upstream vllm repo at commit a4211a4dc.
 """
 import argparse
 import asyncio
