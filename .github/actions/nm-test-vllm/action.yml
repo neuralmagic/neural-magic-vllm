@@ -31,7 +31,8 @@ runs:
       pip3 install --index-url http://192.168.201.226:8080/ --trusted-host 192.168.201.226 magic-wand
       pip3 install -r requirements-dev.txt
       # run tests serially
-      SUCCESS=$(./.github/scripts/run-tests -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }})
+      ./.github/scripts/run-tests -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }}
+      SUCCESS=$?
       # TESTS_DOT_PY=$(find ${{ inputs.test_directory }} -name "*.py")
       # TESTS_TO_RUN=($TESTS_DOT_PY)
       # SUCCESS=0
