@@ -9,7 +9,7 @@ runs:
   steps:
   - run: |
       echo "HF_HOME=${HF_HOME_TOKEN}" >> $GITHUB_ENV
-      echo "TORCH_CUDA_ARCH_LIST=7.0 7.5 8.0 8.6 8.9+PTX" >> $GITHUB_ENV
+      # echo "TORCH_CUDA_ARCH_LIST=7.0 7.5 8.0 8.6 8.9+PTX" >> $GITHUB_ENV
       echo "VLLM_INSTALL_PUNICA_KERNELS=1" >> $GITHUB_ENV
       echo "PYENV_ROOT=/usr/local/apps/pyenv" >> $GITHUB_ENV
       echo "XDG_CONFIG_HOME=/usr/local/apps" >> $GITHUB_ENV
