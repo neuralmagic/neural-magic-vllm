@@ -298,6 +298,7 @@ class EngineArgs:
                DeviceConfig, Optional[LoRAConfig]]:
         device_config = DeviceConfig(self.device)
         model_config = ModelConfig(self.model, self.tokenizer,
+                                   
                                    self.tokenizer_mode, self.trust_remote_code,
                                    self.download_dir, self.load_format,
                                    self.dtype, self.seed, self.revision,
