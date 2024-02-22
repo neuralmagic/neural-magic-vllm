@@ -2,16 +2,18 @@
 be similar but not necessarily equal.
 """
 
-def check_logprobs_close(outputs_0, outputs_1, name_0, name_1):
+
+def check_logprobs_close(outputs_0_lst, outputs_1_lst, name_0, name_1):
     # Loop through resonses to each prompt.
-    for prompt_idx, (outputs_0, outputs_1) in enumerate(
-        zip(outputs_0, outputs_1)):
+    for prompt_idx, (outputs_0,
+                     outputs_1) in enumerate(zip(outputs_0_lst,
+                                                 outputs_1_lst)):
         output_ids_0, output_str_0, logprobs_0 = outputs_0
         output_ids_1, output_str_1, logprobs_1 = outputs_1
 
         # Loop through generated tokens.
-        for idx, (output_id_0, output_id_1) in enumerate(
-                zip(output_ids_0, output_ids_1)):
+        for idx, (output_id_0,
+                  output_id_1) in enumerate(zip(output_ids_0, output_ids_1)):
 
             # If generated tokens don't match ...
             if output_id_0 != output_id_1:
