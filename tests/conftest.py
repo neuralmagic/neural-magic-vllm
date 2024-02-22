@@ -155,6 +155,7 @@ class HfRunner:
 def hf_runner():
     return HfRunner
 
+
 class VllmRunner:
 
     def __init__(
