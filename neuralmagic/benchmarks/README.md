@@ -9,6 +9,7 @@
 # Run Benchmark scripts
 
 All `scripts/benchmark_*.py` files can be executed on their own.
+
 Run `python -m neuralmagic/benchmarks/scripts/* --help` for script description and How-To run.
 
 # Benchmarking drivers and Configs
@@ -26,7 +27,7 @@ The following is an example config JSON,
 				"facebook/opt-125m",
 				"TinyLlama/TinyLlama-1.1B-Chat-v1.0",
 			],
-            "sparsity" : [],
+			"sparsity" : [],
 			"script_name": "benchmark_throughput",
 			"script_args": {
 				"dataset": [
@@ -44,9 +45,13 @@ The following is an example config JSON,
 ```
 This config tells the benchmark driver to run benchmark_throughput script on all the listed models with all possible script-args combinations.
 i.e. the config essentially translates to,
+
 python -m neuralmagic.benchmarks.benchmark_throughput.py --model facebook/opt-125m --dataset sharegpt --output-len 128 --num-prompts 1000
+
 python -m neuralmagic.benchmarks.benchmark_throughput.py --model facebook/opt-125m --dataset ultrachat --output-len 128 --num-prompts 1000
+
 python -m neuralmagic.benchmarks.benchmark_throughput.py --model TinyLlama/TinyLlama-1.1B-Chat-v1.0 --dataset sharegpt --output-len 128 --num-prompts 1000
+
 python -m neuralmagic.benchmarks.benchmark_throughput.py --model TinyLlama/TinyLlama-1.1B-Chat-v1.0 --dataset ultrachat --output-len 128 --num-prompts 1000
 
 # Benchmarking with driver
