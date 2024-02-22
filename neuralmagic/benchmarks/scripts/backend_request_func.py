@@ -36,10 +36,12 @@ class RequestFuncOutput:
     ttft: float = 0
     prompt_len: int = 0
 
-def trim_prefix(text : str, prefix_str : str) -> str:
+
+def trim_prefix(text: str, prefix_str: str) -> str:
     assert len(text) >= len(prefix_str)
     assert text[:len(prefix_str)] == prefix_str
     return text[len(prefix_str):]
+
 
 async def async_request_tgi(
     request_func_input: RequestFuncInput,
