@@ -13,7 +13,7 @@ On the client side, run:
     python benchmarks/benchmark_serving.py \
         --backend <backend> \
         --tokenizer <your_model> --dataset <target_dataset> \
-        --request-rate <request_rate>
+        --request-rate_ <request_rate>
 
 NOTE: This script is copied from upstream vllm repo (february 13th, 2024).
 """
@@ -398,7 +398,6 @@ if __name__ == "__main__":
         default=None,
         help="Number of prompts to process.",
     )
-
     parser.add_argument(
         "--request-rate_",
         type=lambda arg: float(arg),
