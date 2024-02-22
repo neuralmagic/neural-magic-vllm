@@ -51,7 +51,7 @@ TESTS_TO_RUN=($TESTS_DOT_PY)
 SUCCESS=0
 for TEST in "${TESTS_TO_RUN[@]}"
 do
-    RESULT_XML=$(echo ${TEST} | sed -e 's/${TEST_DIR}/${RESULTS_DIR}/' | sed -e 's/.py/.xml/')
+    RESULT_XML=$(echo ${TEST} | sed -e "s/${TEST_DIR}/${RESULTS_DIR}/" | sed -e "s/.py/.xml/")
     pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     SUCCESS=$((SUCCESS + CURRENT_SUCCESS))
 done
