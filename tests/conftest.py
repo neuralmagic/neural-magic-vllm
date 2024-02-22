@@ -155,7 +155,6 @@ class HfRunner:
 def hf_runner():
     return HfRunner
 
-
 class VllmRunner:
 
     def __init__(
@@ -256,3 +255,31 @@ class VllmRunner:
 @pytest.fixture
 def vllm_runner():
     return VllmRunner
+
+class VllmRunnerSparse(VllmRunner):
+
+    def __init__(
+        self,
+        model_name: str,
+        sparsity: Optional[str]=None,
+        tokenizer_name: Optional[str] = None,
+        dtype: str = "half",
+        disable_log_stats: bool = True,
+        tensor_parallel_size: int = 1,
+        max_model_len: Optional[int] = None,
+    ) -> None:
+        self.model = LLM(
+            model=model_name,
+            sparsity=sparsity,
+            tokenizer=tokenizer_name,
+            trust_remote_code=True,
+            dtype=dtype,
+            swap_space=0,
+            disable_log_stats=disable_log_stats,
+            tensor_parallel_size=tensor_parallel_size,
+            max_model_len=max_model_len,
+        )
+
+@pytest.fixture
+def vllm_runner_sparse():
+    return VllmRunnerSparse

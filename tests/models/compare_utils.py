@@ -2,7 +2,6 @@
 be similar but not necessarily equal.
 """
 
-
 def check_logprobs_close(outputs_0_lst, outputs_1_lst, name_0, name_1):
     # Loop through resonses to each prompt.
     for prompt_idx, (outputs_0,
