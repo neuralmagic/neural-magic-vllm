@@ -165,12 +165,14 @@ class VllmRunner:
         model_name: str,
         tokenizer_name: Optional[str] = None,
         dtype: str = "half",
+        sparsity: Optional[str] = None,
     ) -> None:
         self.model = LLM(
             model=model_name,
             tokenizer=tokenizer_name,
             trust_remote_code=True,
             dtype=dtype,
+            sparsity=sparsity,
             swap_space=0,
         )
 
