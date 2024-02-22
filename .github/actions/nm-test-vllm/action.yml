@@ -31,15 +31,16 @@ runs:
       pip3 install --index-url http://192.168.201.226:8080/ --trusted-host 192.168.201.226 magic-wand
       pip3 install -r requirements-dev.txt
       # run tests serially
-      TESTS_DOT_PY=$(find ${{ inputs.test_directory }} -name "*.py")
-      TESTS_TO_RUN=($TESTS_DOT_PY)
-      SUCCESS=0
-      for TEST in "${TESTS_TO_RUN[@]}"
-      do
-        RESULT_XML=$(echo ${TEST} | sed -e 's/${{ inputs.test_directory }}/${{ inputs.test_results }}/' | sed -e 's/.py/.xml/')
-        pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
-        SUCCESS=$((SUCCESS + CURRENT_SUCCESS))
-      done
+      SUCCESS=$(./.github/scripts/run-tests -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }})
+      # TESTS_DOT_PY=$(find ${{ inputs.test_directory }} -name "*.py")
+      # TESTS_TO_RUN=($TESTS_DOT_PY)
+      # SUCCESS=0
+      # for TEST in "${TESTS_TO_RUN[@]}"
+      # do
+      #   RESULT_XML=$(echo ${TEST} | sed -e 's/${{ inputs.test_directory }}/${{ inputs.test_results }}/' | sed -e 's/.py/.xml/')
+      #   pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+      #   SUCCESS=$((SUCCESS + CURRENT_SUCCESS))
+      # done
       echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
       exit ${SUCCESS}
     shell: bash
