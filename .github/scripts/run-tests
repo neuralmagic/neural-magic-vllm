@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+# simple helper script to manage concurrency while running tests
+
 usage() {
     echo "Usage: ${0} <options>"
     echo
