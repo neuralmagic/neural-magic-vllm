@@ -2,7 +2,7 @@
 
 #
 # A wrapper around a command that produces uniform time/memory usage results.  Works
-# with /usr/bin/time or builtin bash time.
+# with /usr/bin/time or builtin bash time (linux)
 #
 
 OUTPUT=timing.log
@@ -44,14 +44,12 @@ else
     FILE="${DEP_FILE}"
 fi
 
-GTIME=$(which gtime)
+TIME_OPTIONS="[Timing] ${FILE}: elapsed=%e user=%U system=%S maxrss=%M avgrss=%t avgmem=%K avgdata=%D"
 
-if [ -n "${GTIME}" ] && [ -x "${GTIME}" ]; then
-    ${GTIME} -o "${OUTPUT}" -a -f "[Timing] ${FILE}: elapsed=%e user=%U system=%S maxrss=%M avgrss=%t avgmem=%K avgdata=%D" "$@"
-elif [ -x /usr/bin/time ]; then
-    /usr/bin/time -o "${OUTPUT}" -a -f "[Timing] ${FILE}: elapsed=%e user=%U system=%S maxrss=%M avgrss=%t avgmem=%K avgdata=%D" "$@"
+if [ -x /usr/bin/time ]; then
+    /usr/bin/time -o "${OUTPUT}" -a -f "${TIME_OPTIONS}" "$@"
 else
-    BASH=$(which bash)
+    BASH=$(command -v bash)
     FMT="[Timing] ${FILE}: elapsed=%R user=%U system=%S maxrss=0 avgrss=0 avgmem=0 avgdata=0"
     CMD=$(echo "$@" | sed -e s'/"/\\"/g' | sed -e s'/\$/\\$/g')
     OUT_TMP=$(${BASH} -c "export TIMEFORMAT=\"$FMT\"; time $CMD" 2>&1)
