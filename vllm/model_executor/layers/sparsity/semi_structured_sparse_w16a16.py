@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="torch.*")
+
 import torch
 
 from typing import Any, Dict, List, Type
