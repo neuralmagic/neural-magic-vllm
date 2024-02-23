@@ -13,8 +13,6 @@ jobs:
 
     # TODO: expand python matrix later, once CI system has
     #       matured.
-    # TODO: adjust timeout after we get a bit more experience.
-    #       making it 60 is a bit permissive.
 
     # TODO: enable this later
     AWS-AVX2-32G-A10G-24G:
