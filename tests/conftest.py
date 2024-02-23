@@ -262,7 +262,7 @@ class VllmRunnerSparse(VllmRunner):
     def __init__(
         self,
         model_name: str,
-        sparsity: Optional[str]=None,
+        sparsity: Optional[str] = None,
         tokenizer_name: Optional[str] = None,
         dtype: str = "half",
         disable_log_stats: bool = True,
