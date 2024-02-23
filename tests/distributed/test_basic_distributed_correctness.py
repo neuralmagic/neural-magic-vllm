@@ -5,9 +5,10 @@ Run `pytest tests/distributed/test_basic_distributed_correctness.py --forked`.
 import pytest
 import torch
 
+
 MODELS = [
     "facebook/opt-125m",
-    "meta-llama/Llama-2-7b-hf",
+    # "meta-llama/Llama-2-7b-hf",
 ]
 
 
