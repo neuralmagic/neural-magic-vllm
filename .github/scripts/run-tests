@@ -55,7 +55,7 @@ for TEST in "${TESTS_TO_RUN[@]}"
 do
     LOCAL_SUCCESS=0
     RESULT_XML=$(echo ${TEST} | sed -e "s/${TEST_DIR}/${RESULTS_DIR}/" | sed -e "s/.py/.xml/")
-    pytest --forked --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+    pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
 done
 
