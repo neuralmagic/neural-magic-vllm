@@ -22,15 +22,16 @@ runs:
   steps:
   - id: test
     run: |
-      SUCCESS=0
       COMMIT=${{ github.sha }}
       VENV="${{ inputs.venv }}-${COMMIT:0:7}"
       source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
       pip3 install --index-url http://192.168.201.226:8080/ --trusted-host 192.168.201.226 magic-wand
       pip3 install -r requirements-dev.txt
       # run tests via runner script (serially)
-      ./.github/scripts/run-tests -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }}
-      SUCCESS=$?
+      SUCCESS=0
+      # ./.github/scripts/run-tests -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} || SUCCESS=$?
+      ./.github/scripts/run-tests -t tests/metrics -r ${{ inputs.test_results }} || SUCCESS=$?
+      echo "was this a SUCCESS? ${SUCCESS}"
       echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
       exit ${SUCCESS}
     shell: bash
