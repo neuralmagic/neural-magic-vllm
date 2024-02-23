@@ -11,10 +11,9 @@ concurrency:
 
 jobs:
 
-    # TODO: expand python matrix later, once CI system has
-    #       matured.
+    # TODO: expand python matrix later, once CI system has matured.
 
-    # TODO: enable this later
+    # multi-gpu
     AWS-AVX2-192G-4-A10G-96G:
         strategy:
             matrix:
@@ -22,6 +21,20 @@ jobs:
         uses: ./.github/workflows/build-test.yml
         with:
             label: aws-avx2-192G-4-a10g-96G
+            timeout: 180
+            gitref: '${{ github.ref }}'
+            Gi_per_thread: 4
+            python: ${{ matrix.python }}
+        secrets: inherit
+
+    # single gpu
+    AWS-AVX2-32G-A10G-24G:
+        strategy:
+            matrix:
+                python: [3.11.4]
+        uses: ./.github/workflows/build-test.yml
+        with:
+            label: aws-avx2-32G-a10g-24G
             timeout: 180
             gitref: '${{ github.ref }}'
             Gi_per_thread: 4
