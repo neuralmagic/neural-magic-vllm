@@ -18,7 +18,7 @@ MODELS = [
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("dtype", ["half"])
 @pytest.mark.parametrize("max_tokens", [5])
-def test_models1(
+def test_models(
     hf_runner,
     vllm_runner,
     example_prompts,
