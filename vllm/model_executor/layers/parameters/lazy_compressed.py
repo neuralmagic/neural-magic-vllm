@@ -124,7 +124,7 @@ class LazyCompressedParameter(torch.Tensor):
             if sparsity < 0.45:
                 logger.warning(
                     f"Called compress() on tensor of shape {self.shape} but only has "
-                    f"{sparsity}% sparsity, skipping compression")
+                    f"{sparsity:.2}% sparsity, skipping compression")
                 return
 
         if self.uncompressed_data is None:
