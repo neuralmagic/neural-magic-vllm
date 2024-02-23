@@ -8,7 +8,7 @@ import torch
 
 MODELS = [
     "facebook/opt-125m",
-    # "meta-llama/Llama-2-7b-hf",
+    "meta-llama/Llama-2-7b-hf",
 ]
 
 
@@ -17,7 +17,7 @@ MODELS = [
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("dtype", ["half"])
 @pytest.mark.parametrize("max_tokens", [5])
-def test_models(
+def test_models1(
     hf_runner,
     vllm_runner,
     example_prompts,
