@@ -15,13 +15,13 @@ jobs:
     #       matured.
 
     # TODO: enable this later
-    AWS-AVX2-32G-A10G-24G:
+    AWS-AVX2-192G-4-A10G-96G:
         strategy:
             matrix:
                 python: [3.10.12]
         uses: ./.github/workflows/build-test.yml
         with:
-            label: aws-avx2-32G-a10g-24G
+            label: aws-avx2-192G-4-a10g-96G
             timeout: 180
             gitref: '${{ github.ref }}'
             Gi_per_thread: 4
