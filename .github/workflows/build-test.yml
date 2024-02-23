@@ -143,12 +143,13 @@ jobs:
                 TEST_STATUS: ${{ steps.test.outputs.status }}
               run: |
                   echo "checkout status: ${CHECKOUT}"
-                  if [[ "${CHECKOUT}" != *"success"* ]]; then exit 1; fi
-                  if [ ${LINT_STATUS} -ne 0 ]; then exit 1; fi
-                  if [ ${BUILD_STATUS} -ne 0 ]; then exit 1; fi
+                  echo "lint status: ${LINT_STATUS}"
                   echo "build status: ${BUILD_STATUS}"
-                  if [ ${TEST_STATUS} -ne 0 ]; then exit 1; fi
                   echo "test status: ${TEST_STATUS}"
+                  if [[ "${CHECKOUT}" != *"success"* ]]; then exit 1; fi
+                  if [ -z "${LINT_STATUS}" ] || [ "${LINT_STATUS}" -ne "0" ]; then exit 1; fi
+                  if [ -z "${BUILD_STATUS}" ] || [ "${BUILD_STATUS}" -ne "0" ]; then exit 1; fi
+                  if [ -z "${TEST_STATUS}" ] || [ "${TEST_STATUS}" -ne "0" ]; then exit 1; fi
 
             - name: complete testmo run
               uses: ./.github/actions/nm-testmo-run-complete/
