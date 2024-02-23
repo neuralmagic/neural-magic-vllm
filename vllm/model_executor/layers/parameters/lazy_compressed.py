@@ -17,7 +17,7 @@ class LazyCompressedParameter(torch.Tensor):
     @staticmethod
     def __new__(cls,
                 uncompressed_data: torch.Tensor,
-                is_empty: bool,
+                is_empty: bool = False,
                 storage_format_cls: Type[
                     CompressedStorageFormat] = SparseBitmaskStorageFormat,
                 compress_transposed: bool = False):
@@ -39,12 +39,8 @@ class LazyCompressedParameter(torch.Tensor):
         self.compress_transposed = compress_transposed
         self.compressed_data = None
 
-        if is_empty:
-            self.uncompressed_data = None
-            self.is_empty = True
-        else:
-            self.uncompressed_data = uncompressed_data
-            self.is_empty = False
+        self.is_empty = is_empty
+        self.uncompressed_data = None if self.is_empty else uncompressed_data
 
         return self
 
