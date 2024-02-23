@@ -71,10 +71,9 @@ class LazyCompressedParameter(torch.Tensor):
 
                 if e.is_empty:
                     e.is_empty = False
-                    e.uncompressed_data = torch.rand(size=e.size(),
-                                                     dtype=e.dtype,
-                                                     device=e.device,
-                                                     requires_grad=False)
+                    e.uncompressed_data = torch.empty(size=e.size(),
+                                                      dtype=e.dtype,
+                                                      device=e.device)
 
                 return e.uncompressed_data
             else:
@@ -87,8 +86,8 @@ class LazyCompressedParameter(torch.Tensor):
                           torch.Tensor) and ret_storage_format_cls is not None:
                 return LazyCompressedParameter(
                     e,
-                    is_empty=
-                    False,  # Here, "e" is the output of "func" so it is real data and we store it
+                    # Here, "e" is the output of "func" so it is real data and we store it
+                    is_empty=False,
                     storage_format_cls=ret_storage_format_cls)
             return e
 
