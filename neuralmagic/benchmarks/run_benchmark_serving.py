@@ -15,7 +15,7 @@ BENCH_SERVER_HOST = "localhost"
 BENCH_SERVER_PORT = 9000
 
 
-def is_server_running(host: str, port: int, timeout=60) -> bool:
+def is_server_running(host: str, port: int, timeout=300) -> bool:
 
     def try_connection() -> bool:
         try:
