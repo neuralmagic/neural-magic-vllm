@@ -120,7 +120,7 @@ jobs:
                 retention-days: 15
 
             - name: complete testmo run
-              uses: ./.github/actions/testmo-run-complete/
+              uses: ./.github/actions/nm-testmo-run-complete/
               if: success() || failure()
               with:
                 testmo_url: https://neuralmagic.testmo.net
