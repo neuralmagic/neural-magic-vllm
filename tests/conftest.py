@@ -315,7 +315,7 @@ class VllmRunnerNm(VllmRunner):
             tensor_parallel_size=tensor_parallel_size,
             max_model_len=max_model_len,
         )
-    
+
     def generate_w_logprobs(
         self,
         prompts: List[str],
