@@ -28,6 +28,7 @@ capability = capability[0] * 10 + capability[1]
 marlin_not_supported = (
     capability < _QUANTIZATION_CONFIG_REGISTRY["marlin"].get_min_capability())
 
+
 @dataclass
 class ModelPair:
     model_marlin: str
@@ -59,7 +60,9 @@ def test_models(
     max_tokens: int,
     num_logprobs: int,
 ) -> None:
-    marlin_model = vllm_runner_nm(model_pair.model_marlin, dtype=dtype, max_model_len=MAX_MODEL_LEN)
+    marlin_model = vllm_runner_nm(model_pair.model_marlin,
+                                  dtype=dtype,
+                                  max_model_len=MAX_MODEL_LEN)
     marlin_outputs = marlin_model.generate_greedy_logprobs(
         example_prompts, max_tokens, num_logprobs)
 
@@ -67,9 +70,12 @@ def test_models(
     del marlin_model.model.llm_engine.driver_worker
     del marlin_model
 
-    gptq_model = vllm_runner_nm(model_pair.model_gptq, dtype=dtype, max_model_len=MAX_MODEL_LEN)
-    gptq_outputs = gptq_model.generate_greedy_logprobs(
-        example_prompts, max_tokens, num_logprobs)
+    gptq_model = vllm_runner_nm(model_pair.model_gptq,
+                                dtype=dtype,
+                                max_model_len=MAX_MODEL_LEN)
+    gptq_outputs = gptq_model.generate_greedy_logprobs(example_prompts,
+                                                       max_tokens,
+                                                       num_logprobs)
 
     # Note: deleting just the model does not always free the GPU memory, not sure why.
     del gptq_model.model.llm_engine.driver_worker

@@ -19,6 +19,7 @@ MODEL_FORMAT_PAIRS = [
      "semi_structured_sparse_w16a16"),
 ]
 
+
 @pytest.mark.parametrize("model_format_pairs", MODEL_FORMAT_PAIRS)
 @pytest.mark.parametrize("dtype", ["half"])
 @pytest.mark.parametrize("max_tokens", [32])

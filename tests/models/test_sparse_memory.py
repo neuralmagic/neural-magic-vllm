@@ -14,8 +14,10 @@ import torch
 
 MODEL_FORMAT_EXTRABLOCKS = [
     ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned50", "sparse_w16a16", 2000),
-    ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned2.4", "semi_structured_sparse_w16a16", 2000),
+    ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned2.4",
+     "semi_structured_sparse_w16a16", 2000),
 ]
+
 
 @pytest.mark.parametrize("model_format_extrablocks", MODEL_FORMAT_EXTRABLOCKS)
 @pytest.mark.parametrize("dtype", ["half"])
@@ -57,5 +59,4 @@ def test_models(
     assert sparse_num_kv_blocks > dense_num_kv_blocks + num_extra_blocks, (
         f"Test{model_name}: Sparse model KV cache size {sparse_num_kv_blocks} "
         f"not bigger than dense model KV cache size {dense_num_kv_blocks} + "
-        f"expected num_extra_blocks {num_extra_blocks}"
-    )
+        f"expected num_extra_blocks {num_extra_blocks}")
