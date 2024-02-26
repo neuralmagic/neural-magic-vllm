@@ -257,6 +257,7 @@ class VllmRunner:
 def vllm_runner():
     return VllmRunner
 
+
 class VllmRunnerSparse(VllmRunner):
 
     def __init__(
@@ -280,6 +281,7 @@ class VllmRunnerSparse(VllmRunner):
             tensor_parallel_size=tensor_parallel_size,
             max_model_len=max_model_len,
         )
+
 
 @pytest.fixture
 def vllm_runner_sparse():

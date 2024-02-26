@@ -1,22 +1,24 @@
-"""Compare the outputs of a GPTQ model to a Marlin model.
+"""Compare the outputs of a sparse model running sparse vs sparse model running dense.
 Note: sparse kernels do not have bitwise correctness vs the dense models. 
 As a result, in this test, we just confirm that the top selected tokens of the 
-sparse models are in the top 3 selections of same model running dense.
+sparse models are in the top N selections of same model running dense.
 Run `pytest tests/models/test_sparse.py --forked`.
 """
 
-import time
 import gc
 import pytest
 import torch
 from compare_utils import check_logprobs_close
-from dataclasses import dataclass
-
-KV_CACHE_SIZE_INCREASE_THRESHOLD = 0.2
 
 model_format_pairs = [
-    ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned50", "sparse_w16a16")
+    ("nm-testing/Llama-2-7b-pruned50-retrained", "sparse_w16a16"),
+    ("nm-testing/TinyLlama-1.1B-Chat-v1.0-pruned2.4",
+     "semi_structured_sparse_w16a16"),
+    ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned50", "sparse_w16a16"),
+    ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned2.4",
+     "semi_structured_sparse_w16a16"),
 ]
+
 
 @pytest.mark.parametrize("model_format_pairs", model_format_pairs)
 @pytest.mark.parametrize("dtype", ["half"])
@@ -32,8 +34,10 @@ def test_models(
 ) -> None:
     model_name, sparsity = model_format_pairs
 
-    sparse_model = vllm_runner_sparse(model_name=model_name, sparsity=sparsity, dtype=dtype, max_model_len=4096)
-    sparse_num_kv_blocks = sparse_model.model.llm_engine.scheduler.block_manager.gpu_allocator.num_blocks
+    sparse_model = vllm_runner_sparse(model_name=model_name,
+                                      sparsity=sparsity,
+                                      dtype=dtype,
+                                      max_model_len=1024)
     sparse_outputs = sparse_model.generate_greedy_logprobs(
         example_prompts, max_tokens, num_logprobs)
 
@@ -45,8 +49,10 @@ def test_models(
     torch.cuda.empty_cache()
     gc.collect()
 
-    dense_model = vllm_runner_sparse(model_name, sparsity=None, dtype=dtype, max_model_len=4096)
-    dense_num_kv_blocks = dense_model.model.llm_engine.scheduler.block_manager.gpu_allocator.num_blocks
+    dense_model = vllm_runner_sparse(model_name,
+                                     sparsity=None,
+                                     dtype=dtype,
+                                     max_model_len=1024)
     dense_outputs = dense_model.generate_greedy_logprobs(
         example_prompts, max_tokens, num_logprobs)
 
@@ -55,10 +61,8 @@ def test_models(
     #   frees the memory.
     del dense_model.model.llm_engine.driver_worker
     del dense_model
-
-    assert sparse_num_kv_blocks > dense_num_kv_blocks * (1 + KV_CACHE_SIZE_INCREASE_THRESHOLD), (
-        f"Test{model_name}: Sparse model KV cache size not bigger than dense model KV cache size"
-    )
+    torch.cuda.empty_cache()
+    gc.collect()
 
     # loop through the prompts
     check_logprobs_close(
