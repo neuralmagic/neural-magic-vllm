@@ -65,21 +65,21 @@ jobs:
           python: ${{ inputs.python }}
           venv: TEST
 
-            #- name: run benchmarks
-            #  uses: ./.github/actions/nm-benchmark/
-            #  with:
-            #    benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
-            #    output_directory: benchmark-results
-            #    python: ${{ inputs.python }}
-            #    venv: TEST
+      - name: run benchmarks
+        uses: ./.github/actions/nm-benchmark/
+        with:
+          benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
+          output_directory: benchmark-results
+          python: ${{ inputs.python }}
+          venv: TEST
 
-            #- name: store benchmark result artifacts
-            #  uses: actions/upload-artifact@v4
-            #  if: success() || failure()
-            #  with:
-            #    name: ${{ github.run_id }}-${{ inputs.label }}
-            #    path: benchmark-results
-            #    retention-days: 15
+      - name: store benchmark result artifacts
+        uses: actions/upload-artifact@v4
+        if: success() || failure()
+        with:
+          name: ${{ github.run_id }}-${{ inputs.label }}
+          path: benchmark-results
+          retention-days: 15
 
       #######################################################
       # TODO (Varun) : Remove pause once things are automated
