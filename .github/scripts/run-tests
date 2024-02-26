@@ -58,12 +58,12 @@ do
 
     # this is a bit messy and brittle, but certain tests
     # need to be run with specific options
-    if [[ "${TEST}" == *"kernels"* ]] then
-        CUDA_VISIBLE_DEVICES=0 pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
-    elif [[ "${TEST}" == *"distributed"* ]] then
-        pytest --forked --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+    if [[ "${TEST}" == *"kernels"* ]]; then
+        echo "CUDA_VISIBLE_DEVICES=0 pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?"
+    elif [[ "${TEST}" == *"distributed"* ]]; then
+        echo "pytest --forked --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?"
     else
-        pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        echo "pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?"
     fi
 
     SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
