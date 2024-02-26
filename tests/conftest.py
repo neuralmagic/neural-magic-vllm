@@ -150,7 +150,7 @@ class HfRunner:
             all_logprobs.append(seq_logprobs)
         return all_logprobs
 
-    
+
 @pytest.fixture
 def hf_runner():
     return HfRunner
