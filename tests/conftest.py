@@ -155,7 +155,9 @@ class HfRunner:
 def hf_runner():
     return HfRunner
 
+
 class HfRunnerNM(HfRunner):
+
     def generate_greedy_logprobs_nm(
         self,
         prompts: List[str],
@@ -178,7 +180,7 @@ class HfRunnerNM(HfRunner):
             )
 
             seq_logprobs = []
-            for idx, hidden_states in enumerate(output.hidden_states):
+            for _, hidden_states in enumerate(output.hidden_states):
                 last_hidden_states = hidden_states[-1][0]
                 logits = torch.matmul(
                     last_hidden_states,
@@ -197,7 +199,7 @@ class HfRunnerNM(HfRunner):
             for tok_idx, tok_logprobs in enumerate(seq_logprobs):
                 # drop prompt logprobs
                 if tok_idx == 0:
-                    tok_logprobs = tok_logprobs[-1,:].reshape(1,-1)
+                    tok_logprobs = tok_logprobs[-1, :].reshape(1, -1)
                 topk = tok_logprobs.topk(num_logprobs)
 
                 tok_logprobs_dct = {}
@@ -221,6 +223,7 @@ class HfRunnerNM(HfRunner):
 @pytest.fixture
 def hf_runner_nm():
     return HfRunnerNM
+
 
 class VllmRunner:
 
