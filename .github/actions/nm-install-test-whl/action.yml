@@ -30,7 +30,7 @@ runs:
         pyenv virtualenv ${VENV}
         source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
         pip3 list
-        pip3 install -r requirements-dev.txt
+        # pip3 install -r requirements-dev.txt
         ls -alh dist
         # pip3 install ${{ inputs.whl }}
         # SUCCESS=0
