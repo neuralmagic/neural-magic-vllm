@@ -27,7 +27,7 @@ runs:
       source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
       pip3 install --index-url http://192.168.201.226:8080/ --trusted-host 192.168.201.226 magic-wand
       pip3 install -r requirements-dev.txt
-      # run tests via runner script (serially)
+      # run tests via runner script
       SUCCESS=0
       ./.github/scripts/run-tests -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} || SUCCESS=$?
       echo "was this a SUCCESS? ${SUCCESS}"
