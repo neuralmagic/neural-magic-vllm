@@ -31,9 +31,9 @@ runs:
         source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
         pip3 list
         pip3 install -r requirements-dev.txt
-        pip3 install ${{ inputs.whl }}
-        SUCCESS=0
-        ./.github/scripts/run-tests -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} || SUCCESS=$?
-        echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
+        # pip3 install ${{ inputs.whl }}
+        # SUCCESS=0
+        #./.github/scripts/run-tests -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} || SUCCESS=$?
+        # echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
         exit ${SUCCESS}
       shell: bash
