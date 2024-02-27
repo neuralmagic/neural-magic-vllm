@@ -61,7 +61,7 @@ jobs:
         id: build
         uses: ./.github/actions/nm-build-vllm/
         with:
-          Gi_per_thread: 1
+          Gi_per_thread: 4
           python: ${{ inputs.python }}
           venv: TEST
 
