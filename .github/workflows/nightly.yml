@@ -1,9 +1,16 @@
-name: commit main
-run-name: ${{ github.actor }} commit to main
+name: Nightly
+run-name: ${{ github.actor }} triggered nightly on ${{ github.ref }}
 on:
-  push:
-    branches:
-      - main
+    schedule:
+      # * is a special character in YAML so you have to quote this string
+      - cron: '0 0 * * *'
+      # @andy - I grabbed the cron codes from wand nightly.yml - why do we need the following codes ? 
+      #- cron: '0 0 * * 0'
+      #- cron: '0 0 * * 1,4'
+      #- cron: '0 0 * * 2,5'
+      #- cron: '0 0 * * 3,6'
+
+    workflow_dispatch:
 
 jobs:
 
