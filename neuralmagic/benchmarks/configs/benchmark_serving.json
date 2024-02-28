@@ -8,9 +8,7 @@
 				"mistralai/Mistral-7B-Instruct-v0.2",
 				"NousResearch/Llama-2-7b-chat-hf"
 			],
-			"tensor_parallel_size" : [
-				1
-			],
+			"tensor_parallel_size" : 1,
 			"max_model_lens": [
 				4096
 			],
