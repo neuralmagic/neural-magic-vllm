@@ -37,18 +37,11 @@ jobs:
           ref: ${{ inputs.gitref }}
           submodules: recursive
 
-      - name: workflow info
-        uses: ./.github/actions/nm-workflow-info/
-        with:
-          gitref: ${{ inputs.gitref }}
-          label: ${{ inputs.label }}
-          timeout: ${{ inputs.timeout }}
-
       - name: setenv
         id: setenv
         uses: ./.github/actions/nm-set-env/
         with:
-          hf_home: ${{ secrets.NM_HF_HOME }}
+          hf_token: ${{ secrets.NM_HF_TOKEN }}
           Gi_per_thread: 4
 
       - name: set python
