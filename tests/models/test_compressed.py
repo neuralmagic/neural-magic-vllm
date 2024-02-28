@@ -2,7 +2,7 @@
 Note: sparse kernels do not have bitwise correctness vs the dense models. 
 As a result, in this test, we just confirm that the top selected tokens of the 
 sparse models are in the top N selections of same model running dense.
-Run `pytest tests/models/test_sparse.py --forked`.
+Run `pytest tests/models/test_compressed.py`.
 """
 
 import gc
@@ -23,7 +23,7 @@ MODEL_FORMAT_PAIRS = [
 @pytest.mark.parametrize("model_format_pairs", MODEL_FORMAT_PAIRS)
 @pytest.mark.parametrize("dtype", ["half"])
 @pytest.mark.parametrize("max_tokens", [32])
-@pytest.mark.parametrize("num_logprobs", [3])
+@pytest.mark.parametrize("num_logprobs", [5])
 def test_models(
     vllm_runner_nm,
     example_prompts,
