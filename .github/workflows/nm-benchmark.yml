@@ -8,11 +8,11 @@ on:
         type: string
         required: true
       benchmark_config_list_file:
-        description: "Path to a file containing a list of benchmark-configs to run benchmarks with. For reference look at .github/data/nm_benchmark_configs_list.txt"
+        description: "path to a file containing a list of benchmark-configs to run benchmarks with. For reference look at .github/data/nm_benchmark_configs_list.txt"
         type: string
         required: true
       timeout:
-        description: "approximate number of minutes to keep instance up."
+        description: "maximum time runner will be up"
         type: string
         required: true
       gitref:
@@ -32,11 +32,11 @@ on:
         type: string
         required: true
       benchmark_config_list_file:
-        description: "Path to a file containing a list of benchmark-configs to run benchmarks with. For reference look at .github/data/nm_benchmark_configs_list.txt"
+        description: "path to a file containing a list of benchmark-configs to run benchmarks with. For reference look at .github/data/nm_benchmark_configs_list.txt"
         type: string
         required: true
       timeout:
-        description: "approximate number of minutes to keep instance up."
+        description: "maximum time runner will be up"
         type: string
         required: true
       gitref:
