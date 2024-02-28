@@ -16,7 +16,6 @@ pytest-asyncio
 pytest-rerunfailures
 httpx
 einops # required for MPT
-ai2-olmo # required for olmo
 flash_attn # required for HuggingFace's llama implementation
 openai
 requests
