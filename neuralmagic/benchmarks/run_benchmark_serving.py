@@ -131,8 +131,10 @@ def run_benchmark_serving_script(config: NamedTuple,
 
                 if output_directory:
                     bench_cmd += (["--save-directory", f"{output_directory}"] +
-                                  ["--server-args", f"{server_args}"] +
-                                  ["--server-tensor-parallel-size", f"{tensor_parallel_size}"])
+                                  ["--server-args", f"{server_args}"] + [
+                                      "--server-tensor-parallel-size",
+                                      f"{tensor_parallel_size}"
+                                  ])
 
                 run_bench(server_cmd, bench_cmd, model)
 

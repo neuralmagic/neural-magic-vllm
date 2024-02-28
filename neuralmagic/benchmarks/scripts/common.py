@@ -184,15 +184,13 @@ def warmup_server(server_host: int,
     asyncio.run(process_requests(requests))
 
 
-"""
-instantiate_benchmark_results_dict populates an empty dict with all the must-have
-key-value pairs. These are the key-value pairs that the scripts that process
-the benchmark results rely on.
-"""
-
-
 def instantiate_benchmark_results_dict(benchmarking_script_name: str,
                                        tensor_parallel_size: int) -> dict:
+    """
+    instantiate_benchmark_results_dict populates an empty dict with all the must-have
+    key-value pairs. These are the key-value pairs that the scripts that process
+    the benchmark results rely on.
+    """
     result_dict = {}
     result_dict['script_name'] = benchmarking_script_name
     result_dict['benchmarking_context'] = get_benchmarking_context()
