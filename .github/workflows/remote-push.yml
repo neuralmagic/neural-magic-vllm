@@ -2,7 +2,7 @@ name: remote push
 run-name: ${{ github.actor }} verifying branch '${{ github.ref }}'
 on:
   push:
-    branches:
+    branches-ignore:
       - main
 
 concurrency:
