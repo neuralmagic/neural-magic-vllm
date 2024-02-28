@@ -27,7 +27,6 @@ CUDA_DEVICES = [
 KV_CACHE_DTYPE = ["auto", "fp8_e5m2"]
 
 
-@pytest.mark.skip(reason="speed")
 @pytest.mark.parametrize("num_mappings", NUM_MAPPINGS)
 @pytest.mark.parametrize("num_layers", NUM_LAYERS)
 @pytest.mark.parametrize("num_heads", NUM_HEADS)
@@ -99,7 +98,6 @@ def test_copy_blocks(
         assert torch.allclose(value_cache, cloned_value_cache)
 
 
-@pytest.mark.skip(reason="speed")
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
 @pytest.mark.parametrize("num_heads", NUM_HEADS)
 @pytest.mark.parametrize("head_size", HEAD_SIZES)
@@ -163,7 +161,6 @@ def test_reshape_and_cache(
     assert torch.allclose(value_cache, cloned_value_cache)
 
 
-@pytest.mark.skip(reason="speed")
 @pytest.mark.parametrize("direction", COPYING_DIRECTION)
 @pytest.mark.parametrize("num_mappings", NUM_MAPPINGS)
 @pytest.mark.parametrize("num_heads", NUM_HEADS)
