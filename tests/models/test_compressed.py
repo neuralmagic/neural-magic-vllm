@@ -2,6 +2,7 @@
 Note: sparse kernels do not have bitwise correctness vs the dense models. 
 As a result, in this test, we just confirm that the top selected tokens of the 
 sparse models are in the top N selections of same model running dense.
+
 Run `pytest tests/models/test_compressed.py`.
 """
 
