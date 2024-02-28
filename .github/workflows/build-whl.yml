@@ -142,6 +142,17 @@ jobs:
                 results: ${{ env.WHL_TEST_RESULTS }}
                 step_status: ${{ steps.test.outputs.status }}
 
+            - name: run summary
+              id: summary
+              uses: ./.github/actions/nm-whl-summary/
+              with:
+                label: ${{ inputs.build_label }}
+                gitref: ${{ inputs.gitref }}
+                testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
+                python: ${{ inputs.python }}
+                whl: ${{ steps.build_whl.outputs.whl }}
+                test_status: ${{ steps.test.outputs.status }}
+
             - name: complete testmo run
               uses: ./.github/actions/nm-testmo-run-complete/
               if: success() || failure()
