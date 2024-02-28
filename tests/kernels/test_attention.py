@@ -110,6 +110,7 @@ def ref_single_query_cached_kv_attention(
         out = out.view(num_query_heads, head_size)
         output[i].copy_(out, non_blocking=True)
 
+
 @pytest.mark.skip(reason="speed")
 @pytest.mark.parametrize("version", ["v1", "v2"])
 @pytest.mark.parametrize("num_seqs", NUM_GEN_SEQS)
@@ -300,6 +301,7 @@ def ref_multi_query_kv_attention(
         ref_outputs.append(ref_output)
     ref_output = torch.cat(ref_outputs, dim=0)
     return ref_output
+
 
 
 # TODO(woosuk): Add tests for USE_ALIBI=True.
