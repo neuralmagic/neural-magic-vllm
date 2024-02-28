@@ -18,10 +18,10 @@ from neuralmagic.benchmarks.datasets_registry import get_dataset, DatasetArgs
 
 
 def get_tensor_parallel_size(args: argparse.Namespace) -> int:
-    tensor_parallel_size = num_available_gpus(
-    ) if args.use_all_available_gpus_ else args.tensor_parallel_size_
-    assert tensor_parallel_size > 0 and tensor_parallel_size <= num_available_gpus(
-    )
+    tensor_parallel_size = num_available_gpus() \
+        if args.use_all_available_gpus_ else args.tensor_parallel_size_
+    assert tensor_parallel_size > 0 and \
+           tensor_parallel_size <= num_available_gpus()
     return tensor_parallel_size
 
 

@@ -30,8 +30,8 @@ def get_tensor_parallel_size(config: NamedTuple) -> int:
 
     tensor_parallel_size = config.tensor_parallel_size if hasattr(
         config, 'tensor_parallel_size') else num_available_gpus()
-    assert tensor_parallel_size > 0 and tensor_parallel_size <= num_available_gpus(
-    )
+    assert tensor_parallel_size > 0 and \
+           tensor_parallel_size <= num_available_gpus()
     return tensor_parallel_size
 
 
