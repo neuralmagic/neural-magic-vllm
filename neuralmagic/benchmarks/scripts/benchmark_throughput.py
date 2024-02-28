@@ -135,6 +135,7 @@ def main(args: argparse.Namespace):
 
         # Setup
         current_dt = datetime.now().strftime("%Y%m%d-%H%M%S")
+        result_json["script_name"] = Path(__file__).name
         result_json["date"] = current_dt
         result_json["bench_env"] = get_bench_environment()
         result_json.update(vars(args))
