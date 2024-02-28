@@ -4,7 +4,7 @@ Common functions used in all benchmarking scripts
 import json
 import random
 import asyncio
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from pathlib import Path
 from transformers import PreTrainedTokenizerBase
 
@@ -185,7 +185,9 @@ def warmup_server(server_host: int,
 
 
 def instantiate_benchmark_results_dict(benchmarking_script_name: str,
-                                       tensor_parallel_size: int) -> dict:
+                                       tensor_parallel_size: int, model: str,
+                                       tokenizer: Optional[str],
+                                       dataset: Optional[str]) -> dict:
     """
     instantiate_benchmark_results_dict populates an empty dict with all the must-have
     key-value pairs. These are the key-value pairs that the scripts that process
@@ -195,6 +197,10 @@ def instantiate_benchmark_results_dict(benchmarking_script_name: str,
     result_dict['script_name'] = benchmarking_script_name
     result_dict['benchmarking_context'] = get_benchmarking_context()
     result_dict['tensor_parallel_size'] = tensor_parallel_size
+    result_dict['model'] = model
+    result_dict['tokenizer'] = tokenizer if tokenizer is not None else model
+    result_dict['dataset'] = dataset if dataset is not None else "synthetic"
+
     return result_dict
 
 

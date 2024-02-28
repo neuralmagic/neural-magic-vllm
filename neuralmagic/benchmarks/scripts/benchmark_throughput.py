@@ -135,7 +135,11 @@ def main(args: argparse.Namespace):
         # Setup
         current_dt = datetime.now().strftime("%Y%m%d-%H%M%S")
         result_json = instantiate_benchmark_results_dict(
-            Path(__file__).name, get_tensor_parallel_size(args))
+            benchmarking_script_name=Path(__file__).name,
+            tensor_parallel_size=get_tensor_parallel_size(args),
+            model=args.model,
+            tokenizer=args.tokenizer,
+            dataset=args.dataset)
         result_json["date"] = current_dt
         result_json["script_args"] = vars(args)
         result_json["request_throughput"] = request_throughput
