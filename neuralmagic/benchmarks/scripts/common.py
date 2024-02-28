@@ -16,17 +16,27 @@ from neuralmagic.benchmarks.datasets_registry import SHAREGPT_PATH, SHAREGPT_DOW
 from neuralmagic.benchmarks.scripts.backend_request_func import RequestFuncInput, async_request_vllm
 
 
+def num_available_gpus() -> int:
+    import torch
+    return torch.cuda.device_count()
+
+
 def get_bench_environment() -> dict:
     """
     Return the current python version, pytorch version and CUDA version as a dict
     """
     import sys
     import torch
+
+    cuda_devices = [
+        torch.cuda.get_device_properties(dev_idx)
+        for dev_idx in range(torch.cuda.device_count())
+    ]
     return {
         "python_version": f"{sys.version}",
         "torch_version": f"{torch.__version__}",
         "torch_cuda_version": f"{torch.version.cuda}",
-        "cuda_device(0)": f"{torch.cuda.get_device_properties(0)}"
+        "cuda_devices": f"{cuda_devices}"
     }
 
 

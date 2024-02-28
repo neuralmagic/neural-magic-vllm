@@ -271,18 +271,14 @@ def main(args: argparse.Namespace):
     # Save config and results to json
     save_result = args.save_directory is not None
     if save_result:
-        result_json = {}
 
         # Setup
         current_dt = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+        result_json = vars(args)
         result_json["date"] = current_dt
         result_json["bench_env"] = get_bench_environment()
-        result_json["backend"] = backend
-        result_json["version"] = args.version
-        result_json["model_id"] = model_id
         result_json["tokenizer_id"] = tokenizer_id
-        result_json["best_of"] = args.best_of
-        result_json["use_beam_search"] = args.use_beam_search
         result_json["num_prompts"] = num_prompts
 
         # Traffic
@@ -388,10 +384,6 @@ if __name__ == "__main__":
         action="store_true",
         help="Specify to disbale tqdm progress bar.",
     )
-    parser.add_argument("--save-directory",
-                        type=str,
-                        default=None,
-                        help="Output directory to store result file")
 
     parser.add_argument(
         "--num-prompts_",
@@ -417,6 +409,18 @@ if __name__ == "__main__":
                             the request arrival times.
                             """,
                         default=None)
+
+    parser.add_argument("--save-directory",
+                        type=str,
+                        default=None,
+                        help="Output directory to store result file")
+    parser.add_argument(
+        "--server-args",
+        type=str,
+        default=None,
+        help=
+        "When we are logging the output, it is useful to log the arguments passed to the server"
+    )
 
     def args_sanity_check(args):
         # Sanity check real-dataset vs synthetic-dataset usecase
