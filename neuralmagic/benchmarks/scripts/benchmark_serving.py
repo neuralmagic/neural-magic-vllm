@@ -273,11 +273,12 @@ def main(args: argparse.Namespace):
     if save_result:
 
         current_dt = datetime.now().strftime("%Y%m%d-%H%M%S")
-        result_json = instantiate_benchmark_results_dict(Path(__file__).name, args.server_tensor_parallel_size)
+        result_json = instantiate_benchmark_results_dict(
+            Path(__file__).name, args.server_tensor_parallel_size)
         result_json["date"] = current_dt
         result_json["script_args"] = vars(args)
 
-        # Populate derived-args for convenience 
+        # Populate derived-args for convenience
         result_json["num_prompts"] = num_prompts
         result_json["request_rate"] =  \
             request_rate if request_rate < float("inf") else "inf"
@@ -414,10 +415,13 @@ if __name__ == "__main__":
                         default=None)
 
     # Server command args
-    parser.add_argument("--server-tensor-parallel-size",
-                        type=int,
-                        default=None,
-                        help="tensor-parallel-size that the benchmarking script was invoked with. It is useful to log this information when storing benchmarking results")
+    parser.add_argument(
+        "--server-tensor-parallel-size",
+        type=int,
+        default=None,
+        help=
+        "tensor-parallel-size that the benchmarking script was invoked with. It is useful to log this information when storing benchmarking results"
+    )
     parser.add_argument(
         "--server-args",
         type=str,
@@ -441,7 +445,7 @@ if __name__ == "__main__":
             assert args.num_prompts_ is not None and args.request_rate_ is not None
         else:
             assert args.num_prompts_ is None and args.request_rate_ is None
-        # Sanity check required logging args 
+        # Sanity check required logging args
         if args.save_directory is not None:
             assert args.server_tensor_parallel_size is not None
 
