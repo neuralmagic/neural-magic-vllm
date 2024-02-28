@@ -49,6 +49,7 @@ jobs:
         uses: ./.github/actions/nm-set-env/
         with:
           hf_home: ${{ secrets.NM_HF_HOME }}
+          Gi_per_thread: 4
 
       - name: set python
         id: set_python
@@ -57,6 +58,12 @@ jobs:
           python: ${{ inputs.python }}
           venv: TEST
 
+      - name: hf cache
+        id: hf_cache
+        uses: ./.github/actions/nm-hf-cache/
+        with:
+          fs_cache: ${{ secrets.HF_FS_CACHE }}
+
       - name: build
         id: build
         uses: ./.github/actions/nm-build-vllm/
@@ -64,6 +71,7 @@ jobs:
           Gi_per_thread: 4
           python: ${{ inputs.python }}
           venv: TEST
+          pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
 
       - name: run benchmarks
         uses: ./.github/actions/nm-benchmark/
