@@ -4,29 +4,13 @@ on:
     schedule:
       # * is a special character in YAML so you have to quote this string
       - cron: '0 0 * * *'
-      # @andy - I grabbed the cron codes from wand nightly.yml - why do we need the following codes ? 
-      #- cron: '0 0 * * 0'
-      #- cron: '0 0 * * 1,4'
-      #- cron: '0 0 * * 2,5'
-      #- cron: '0 0 * * 3,6'
 
     workflow_dispatch:
 
 jobs:
 
-    # multi-gpu
-    AWS-AVX2-192G-4-A10G-96G:
-        strategy:
-            matrix:
-                python: [3.10.12]
-        uses: ./.github/workflows/nm-benchmark.yml
-        with:
-            label: aws-avx2-192G-4-a10g-96G
-            benchmark_config_list_file:  ./.github/data/nm_benchmark_configs_list.txt
-            timeout: 300
-            gitref: '${{ github.ref }}'
-            python: ${{ matrix.python }}
-        secrets: inherit
+    # All models we are benchmarking now can fit in a single GPU. Add
+    # multi-gpu job when needed
 
     # single gpu
     AWS-AVX2-32G-A10G-24G:
