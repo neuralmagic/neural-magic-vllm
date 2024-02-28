@@ -16,7 +16,7 @@ jobs:
     AWS-AVX2-32G-A10G-24G:
         strategy:
             matrix:
-                python: [3.11.4]
+                python: [3.10.12]
         uses: ./.github/workflows/nm-benchmark.yml
         with:
             label: aws-avx2-32G-a10g-24G
