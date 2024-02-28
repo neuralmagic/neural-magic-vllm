@@ -21,7 +21,7 @@ def num_available_gpus() -> int:
     return torch.cuda.device_count()
 
 
-def get_bench_environment() -> dict:
+def get_benchmarking_context() -> dict:
     """
     Return the current python version, pytorch version and CUDA version as a dict
     """
@@ -32,11 +32,15 @@ def get_bench_environment() -> dict:
         torch.cuda.get_device_properties(dev_idx)
         for dev_idx in range(torch.cuda.device_count())
     ]
+
+    cuda_device_names = [cuda_device.name for cuda_device in cuda_devices]
+
     return {
         "python_version": f"{sys.version}",
         "torch_version": f"{torch.__version__}",
         "torch_cuda_version": f"{torch.version.cuda}",
         "cuda_devices": f"{cuda_devices}"
+        "cuda_device_names" : f"{cuda_device_names}"
     }
 
 
@@ -179,6 +183,18 @@ def warmup_server(server_host: int,
                                num_output_tokens=num_output_tokens)
     asyncio.run(process_requests(requests))
 
+"""
+instantiate_benchmark_results_dict populates an empty dict with all the must-have
+key-value pairs. These are the key-value pairs that the scripts that process
+the benchmark results rely on.
+"""
+def instantiate_benchmark_results_dict(benchmarking_script_name: str,
+                                       tensor_parallel_size: int) -> dict:
+    result_dict = {}
+    result_dict['script_name'] = benchmarking_script_name
+    result_dict['benchmarking_context'] = get_benchmarking_context()
+    result_dict['tensor_parallel_size'] = tensor_parallel_size
+    return result_dict
 
 def print_benchmark_io(results: List[RequestOutput]) -> None:
     for result in results:

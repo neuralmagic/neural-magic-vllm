@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 from transformers import AutoTokenizer
-from neuralmagic.benchmarks.scripts.common import get_bench_environment, generate_synthetic_requests, warmup_vllm_engine, num_available_gpus
+from neuralmagic.benchmarks.scripts.common import instantiate_benchmark_results_dict, generate_synthetic_requests, warmup_vllm_engine, num_available_gpus
 from neuralmagic.benchmarks.datasets_registry import get_dataset, DatasetArgs
 
 
@@ -131,14 +131,12 @@ def main(args: argparse.Namespace):
     # Save config and results to json
     save_result = args.save_directory is not None
     if save_result:
-        result_json = {}
 
         # Setup
         current_dt = datetime.now().strftime("%Y%m%d-%H%M%S")
-        result_json["script_name"] = Path(__file__).name
+        result_json = instantiate_benchmark_results_dict(Path(__file__).name, get_tensor_parallel_size(args))
         result_json["date"] = current_dt
-        result_json["bench_env"] = get_bench_environment()
-        result_json.update(vars(args))
+        result_json["script_args"] = vars(args)
         result_json["request_throughput"] = request_throughput
         result_json["token_throughput"] = token_throughput
 
