@@ -79,6 +79,12 @@ jobs:
                 python: ${{ inputs.python }}
                 venv: TEST
 
+            - name: hf cache
+              id: hf_cache
+              uses: ./.github/actions/nm-hf-cache/
+              with:
+                fs_cache: ${{ secrets.HF_FS_CACHE }}
+
             # TODO: testmo source is currently hardcoded.
             - name: create testmo run
               id: create_testmo_run
@@ -100,6 +106,7 @@ jobs:
                 Gi_per_thread: ${{ inputs.Gi_per_thread }}
                 python: ${{ inputs.python }}
                 venv: TEST
+                pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
 
             - name: test
               id: test
@@ -109,6 +116,7 @@ jobs:
                 test_results: test-results
                 python: ${{ inputs.python }}
                 venv: TEST
+                pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
 
             - name: report test results
               id: report_test
