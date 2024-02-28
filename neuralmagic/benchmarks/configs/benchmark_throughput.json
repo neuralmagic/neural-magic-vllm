@@ -20,7 +20,7 @@
 				"output-len": [
 					128
 				],
-				"tensor-parallel-size": [
+				"tensor-parallel-size_": [
 					1
 				],
 				"n": [
@@ -64,7 +64,7 @@
 				"output-len": [
 					1
 				],
-				"tensor-parallel-size": [
+				"tensor-parallel-size_": [
 					1
 				],
 				"n": [
@@ -101,7 +101,7 @@
 				"output-len": [
 					128
 				],
-				"tensor-parallel-size": [
+				"tensor-parallel-size_": [
 					1
 				],
 				"n": [
