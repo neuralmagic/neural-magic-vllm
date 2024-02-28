@@ -79,21 +79,4 @@ jobs:
         with:
           name: ${{ github.run_id }}-${{ inputs.label }}
           path: benchmark-results
-          retention-days: 15
-
-      #######################################################
-      # TODO (Varun) : Remove pause once things are automated
-      - name: announce pause
-        if: success() || failure()
-        run: |
-          M=${{ inputs.timeout }}
-          R=$((M - 15))
-          S=$((R * 60))
-          echo "pausing for, ${R} minutes"
-
-      - name: pause workflow
-        run: |
-          M=${{ inputs.timeout }}
-          R=$((M - 15))
-          S=$((R * 60))
-          sleep $S
+          retention-days: 90
