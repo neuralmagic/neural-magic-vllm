@@ -105,4 +105,4 @@ jobs:
         with:
           name: ${{ github.run_id }}-${{ inputs.label }}
           path: benchmark-results
-          retention-days: 90
+          retention-days: 10
