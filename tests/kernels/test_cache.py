@@ -162,6 +162,7 @@ def test_reshape_and_cache(
     assert torch.allclose(key_cache, cloned_key_cache)
     assert torch.allclose(value_cache, cloned_value_cache)
 
+
 @pytest.mark.skip(reason="speed")
 @pytest.mark.parametrize("direction", COPYING_DIRECTION)
 @pytest.mark.parametrize("num_mappings", NUM_MAPPINGS)
