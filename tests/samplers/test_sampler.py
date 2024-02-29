@@ -30,8 +30,7 @@ class MockLogitsSampler(Sampler):
 
 
 def _prepare_test(
-    batch_size: int,
-    device: str
+    batch_size: int, device: str
 ) -> Tuple[torch.Tensor, torch.Tensor, MockLogitsSampler, ModelRunner]:
     vocab_size = 32000
     input_tensor = torch.rand((batch_size, 1024), dtype=torch.float16)
@@ -39,7 +38,8 @@ def _prepare_test(
                              1e-2,
                              dtype=input_tensor.dtype)
     sampler = MockLogitsSampler(32000, fake_logits)
-    model_runner = ModelRunner(None, None, None, DeviceConfig(device=device), None)
+    model_runner = ModelRunner(None, None, None, DeviceConfig(device=device),
+                               None)
     return input_tensor, fake_logits, sampler, model_runner
 
 
