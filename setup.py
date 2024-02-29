@@ -439,7 +439,7 @@ def get_requirements() -> List[str]:
 _sparsity_deps = ["magic_wand"]
 
 
-def get_extra_requirements() -> Dict:
+def get_extra_requirements() -> dict:
     return {
         "sparse": _sparsity_deps,
         "sparsity": _sparsity_deps,
