@@ -435,7 +435,9 @@ def get_requirements() -> List[str]:
             requirements = f.read().strip().split("\n")
     return requirements
 
+
 _sparsity_deps = ["magic_wand"]
+
 
 def get_extra_requirements() -> Dict:
     return {
