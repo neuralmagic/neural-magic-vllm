@@ -28,6 +28,7 @@ wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/r
 python3 ../../benchmarks/benchmark_serving.py \
     --model mistralai/Mistral-7B-v0.1 \
     --tokenizer mistralai/Mistral-7B-v0.1 \
+    --backend openai \
     --endpoint /v1/completions \
     --dataset ShareGPT_V3_unfiltered_cleaned_split.json \
     --request-rate 3.0
