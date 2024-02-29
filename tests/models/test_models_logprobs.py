@@ -24,6 +24,7 @@ MODELS = [
     # "allenai/OLMo-1B",                # Failing on the hf_runner, ignore for now. (Wait for https://github.com/allenai/OLMo/pull/451 to land in transformers) # noqa
 ]
 
+
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("dtype", ["bfloat16", "half"])
 @pytest.mark.parametrize("max_tokens", [32])
