@@ -58,18 +58,16 @@ do
 
     # this is a bit messy and brittle, but certain tests
     # need to be run with specific options
-    if [[ "${TEST}" == *"kernels"* ]]; then
-            CUDA_VISIBLE_DEVICES=0,1 pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
-        fi
+    if [[ "${TEST}" == *"kernels/test_pos_encoding"* ]]; then
+            CUDA_VISIBLE_DEVICES=0,1 pytest --forked --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+    elif [[ "${TEST}" == *"kernels"* ]]; then
+        CUDA_VISIBLE_DEVICES=0,1 pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     elif [[ "${TEST}" == *"samplers"* ]]; then
-        echo "pass"
-        # CUDA_VISIBLE_DEVICES=0,1 pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        CUDA_VISIBLE_DEVICES=0,1 pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     elif [[ "${TEST}" == *"distributed"* ]]; then
-        echo "pass"
-        # pytest --forked --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        pytest --forked --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     else
-        echo "pass"
-        # pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     fi
 
     SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
