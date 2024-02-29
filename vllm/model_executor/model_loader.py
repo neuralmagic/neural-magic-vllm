@@ -41,8 +41,6 @@ def _get_model_architecture(model_config: ModelConfig) -> Type[nn.Module]:
 def get_model(model_config: ModelConfig,
               device_config: DeviceConfig,
               lora_config: Optional[LoRAConfig] = None) -> nn.Module:
-    torch.cuda.reset_peak_memory_stats(device=None)
-    start_memory = torch.cuda.max_memory_allocated(device=None)
     model_class = _get_model_architecture(model_config)
 
     # Get the (maybe sparse or quantized) linear method.
@@ -105,6 +103,4 @@ def get_model(model_config: ModelConfig,
             # Load the weights from the cached or downloaded files.
             model.load_weights(model_config.model, model_config.download_dir,
                                model_config.load_format, model_config.revision)
-    end_memory = torch.cuda.max_memory_allocated(device=None)
-    print(f"memory delta: {(end_memory - start_memory) / 1024 / 1024} MB")
     return model.eval()
