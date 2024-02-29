@@ -8,7 +8,6 @@ Run `pytest tests/models/test_compressed.py`.
 
 import gc
 import pytest
-import torch
 from compare_utils import check_logprobs_close
 
 MAX_MODEL_LEN = 1024
@@ -45,7 +44,6 @@ def test_models(
     # Note: deleting just the model does not always free the GPU memory, not sure why.
     del sparse_model.model.llm_engine.driver_worker
     del sparse_model
-    torch.cuda.empty_cache()
     gc.collect()
 
     dense_model = vllm_runner_nm(model_name=model_name,
@@ -58,7 +56,6 @@ def test_models(
     # Note: deleting just the model does not always free the GPU memory, not sure why.
     del dense_model.model.llm_engine.driver_worker
     del dense_model
-    torch.cuda.empty_cache()
     gc.collect()
 
     # loop through the prompts

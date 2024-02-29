@@ -18,15 +18,14 @@ MODELS = [
     "EleutherAI/gpt-j-6b",
     "EleutherAI/pythia-1b",  # Switched to 1b model, 70m model logits too unstable.          # noqa
     "bigscience/bloom-1b1",  # Switched to 1b model, 560m model logits too unstable.         # noqa
-    # "mosaicml/mpt-7b",                # Failing on the hf_runner, ignore for now.                     # noqa
+    # "mosaicml/mpt-7b",     # Failing on the hf_runner, ignore for now.                     # noqa
     "microsoft/phi-2",
     # "stabilityai/stablelm-3b-4e1t",   # vLLM bug looking up model in ModelRegistry, ignore for now.   # noqa
     # "allenai/OLMo-1B",                # Failing on the hf_runner, ignore for now. (Wait for https://github.com/allenai/OLMo/pull/451 to land in transformers) # noqa
 ]
 
-
 @pytest.mark.parametrize("model", MODELS)
-@pytest.mark.parametrize("dtype", ["half", "bfloat16"])
+@pytest.mark.parametrize("dtype", ["bfloat16", "half"])
 @pytest.mark.parametrize("max_tokens", [32])
 @pytest.mark.parametrize("num_logprobs", [3])
 def test_models(
