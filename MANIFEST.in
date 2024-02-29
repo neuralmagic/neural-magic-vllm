@@ -3,3 +3,6 @@ include requirements.txt
 
 recursive-include licenses *
 recursive-include csrc *
+
+recursive-exclude neuralmagic *
+recursive-exclude tests *
