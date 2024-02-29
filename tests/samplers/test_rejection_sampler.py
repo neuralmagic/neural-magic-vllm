@@ -381,4 +381,8 @@ class _CorrectnessTestHelper:
         # Estimate probability density function
         hist = torch.histogram(output_token_ids.to(dtype=torch.float,
                                                    device="cpu"),
-                               bins=se
+                               bins=self.vocab_size,
+                               range=self.vocab_range,
+                               density=True)
+
+        return hist.hist
