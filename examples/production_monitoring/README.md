@@ -21,7 +21,7 @@ Launch Prometheus and Grafana servers with `docker compose`:
 docker compose up
 ```
 
-Submit some sample requests to the server:
+Submit some sample requests to the server (after `pip install aiohttp`):
 ```bash
 wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
 
