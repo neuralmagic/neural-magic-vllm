@@ -28,7 +28,7 @@ def test_contexted_kv_attention(
     device: str,
 ) -> None:
     if device != "cuda:0":
-        pytest.skip(f"Skipping context fwd attention for cuda > 0 for MVP")
+        pytest.skip("Skipping context fwd attention for cuda > 0 for MVP")
 
     random.seed(0)
     torch.manual_seed(0)
