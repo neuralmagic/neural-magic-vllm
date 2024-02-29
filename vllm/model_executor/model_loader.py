@@ -106,5 +106,5 @@ def get_model(model_config: ModelConfig,
             model.load_weights(model_config.model, model_config.download_dir,
                                model_config.load_format, model_config.revision)
     end_memory = torch.cuda.max_memory_allocated(device=None)
-    print(f"memory delta: {end_memory - start_memory}")
+    print(f"memory delta: {(end_memory - start_memory) / 1024 / 1024} MB")
     return model.eval()
