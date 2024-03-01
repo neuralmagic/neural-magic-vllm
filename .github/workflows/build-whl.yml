@@ -113,16 +113,6 @@ jobs:
                 python: ${{ inputs.python }}
                 venv: ${{ env.VENV_BUILD_BASE }}
 
-            # - name: install and test whl
-            #   id: test
-            #   uses: ./.github/actions/nm-install-test-whl/
-            #   with:
-            #     python: ${{ inputs.python }}
-            #     venv: ${{ env.VENV_WHL_BASE }}
-            #     whl: dist/${{ steps.build_whl.outputs.whl }}
-            #     test_directory: tests
-            #     test_results: ${{ env.WHL_TEST_RESULTS }}
-
             - name: upload whl
               uses: actions/upload-artifact@v4
               if: success() || failure()
@@ -131,27 +121,14 @@ jobs:
                 path: dist/${{ steps.build_whl.outputs.whl }}
                 retention-days: 15
 
-            # - name: report test results
-            #   id: report_test
-            #   uses: ./.github/actions/nm-testmo-run-submit-thread/
-            #   if: success() || failure()
-            #   with:
-            #     testmo_url: https://neuralmagic.testmo.net
-            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-            #     testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
-            #     results: ${{ env.WHL_TEST_RESULTS }}
-            #     step_status: ${{ steps.test.outputs.status }}
-
-            # - name: run summary
-            #   id: summary
-            #   uses: ./.github/actions/nm-whl-summary/
-            #   with:
-            #     label: ${{ inputs.build_label }}
-            #     gitref: ${{ inputs.gitref }}
-            #     testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
-            #     python: ${{ inputs.python }}
-            #     whl: ${{ steps.build_whl.outputs.whl }}
-            #     test_status: ${{ steps.test.outputs.status }}
+            - name: summary
+              uses: ./.github/actions/nm-whl-summary/
+              with:
+                label: ${{ inputs.build_label }}
+                gitref: ${{ inputs.gitref }}
+                testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
+                python: ${{ inputs.python }}
+                whl: ${{ steps.build_whl.outputs.whl }}
 
             - name: complete testmo run
               uses: ./.github/actions/nm-testmo-run-complete/
