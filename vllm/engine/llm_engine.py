@@ -4,6 +4,8 @@ import copy
 from collections import defaultdict
 import os
 import time
+import torch
+
 import pickle
 from typing import (TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple,
                     Union)
@@ -860,7 +862,11 @@ class LLMEngine:
         num_running = len(self.scheduler.running)
         num_swapped = len(self.scheduler.swapped)
         num_waiting = len(self.scheduler.waiting)
-
+        
+        # gpu memory usage
+        free_gpu_memory, total_gpu_memory = torch.cuda.mem_get_info()
+        gpu_memory_usage = (total_gpu_memory - free_gpu_memory) / total_gpu_memory
+ 
         # Iteration stats if we have scheduler output.
         num_prompt_tokens = 0
         num_generation_tokens = 0
@@ -903,6 +909,7 @@ class LLMEngine:
             time_to_first_tokens=time_to_first_tokens,
             time_per_output_tokens=time_per_output_tokens,
             time_e2e_requests=time_e2e_requests,
+            # gpu_memory_usage=gpu_memory_usage,
         )
 
     def _decode_sequence(self, seq: Sequence, prms: SamplingParams) -> None:

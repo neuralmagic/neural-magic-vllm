@@ -253,3 +253,22 @@ if __name__ == "__main__":
                 timeout_keep_alive=TIMEOUT_KEEP_ALIVE,
                 ssl_keyfile=args.ssl_keyfile,
                 ssl_certfile=args.ssl_certfile)
+
+"""
+python -m vllm.entrypoints.openai.api_server \
+    --model meta-llama/Llama-2-7b-hf \
+    --enable-lora \
+    --lora-modules \
+        arc-easy=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_arc_easy\
+        arc-hard=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_arc_hard\
+        law=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_law\
+        mc=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_mc\
+        obqa=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_obqa\
+        race=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_race\
+        sci-ele=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_science_elementary\
+        sci-middle=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_science_middle\
+    --max-loras=8\
+    --max-cpu-loras=9
+        
+        
+"""

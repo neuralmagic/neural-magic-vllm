@@ -44,6 +44,11 @@ gauge_cpu_cache_usage = Gauge(
     "vllm:cpu_cache_usage_perc",
     "CPU KV-cache usage. 1 means 100 percent usage.")
 
+
+gauge_gpu_memory_usage = Gauge(
+    "vllm:gpu_memory_usage_perc",
+    "GPU memory usage. 1 means 100 percent usage.")
+
 histogram_time_to_first_token = Histogram(
     "vllm:time_to_first_token_seconds",
     "Histogram of time to first token in seconds.",
@@ -75,6 +80,8 @@ class Stats:
     num_swapped: int
     gpu_cache_usage: float
     cpu_cache_usage: float
+    
+    # gpu_memory_usage: float
 
     # Raw stats from last model iteration.
     num_prompt_tokens: int
@@ -110,6 +117,7 @@ class StatLogger:
         gauge_scheduler_waiting.set(labels, stats.num_waiting)
         gauge_gpu_cache_usage.set(labels, stats.gpu_cache_usage)
         gauge_cpu_cache_usage.set(labels, stats.cpu_cache_usage)
+        # gauge_gpu_memory_usage.set(labels, stats.gpu_memory_usage)
 
         # Add to token counters.
         counter_prompt_tokens.add(labels, stats.num_prompt_tokens)

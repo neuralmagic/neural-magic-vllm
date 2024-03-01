@@ -1,0 +1,44 @@
+
+server
+```
+python -m vllm.entrypoints.openai.api_server \
+    --model meta-llama/Llama-2-7b-hf \
+    --enable-lora \
+    --lora-modules \
+        arc-easy=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_arc_easy\
+        arc-hard=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_arc_hard\
+        law=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_law\
+        mc=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_mc\
+        obqa=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_obqa\
+        race=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_race\
+        sci-ele=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_science_elementary\
+        sci-middle=/network/abhinav/hackathon/models/mistral-7b-open_platypus_orca_mistral_pretrain-pruned70/PEFT-mmlu_science_middle\
+    --max-loras=8\
+    --max-cpu-loras=9\
+    --max-num-seqs=256
+        
+```
+
+client
+```
+curl http://localhost:8000/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{
+        "model": "arc-easy",
+        "messages": [
+            {"role": "user", "content": "[Question]:\n{Name me cold-blooded animals}\n\n[Response]:"}
+        ],
+        "stream": true,
+        "max_tokens": 16
+    }'
+
+curl http://localhost:8000/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{
+        "model": "arc-easy",
+        "messages": [
+            {"role": "user", "content": "[Question]:\n{Name me cold-blooded animals}\n\n[Response]:"}
+        ],
+        "max_tokens": 256
+    }'
+```

@@ -1,0 +1,26 @@
+
+proc1
+python3 -m vllm.entrypoints.openai.api_server \
+    --model mistralai/Mistral-7B-v0.1 \
+    --max-model-len 2048 \
+    --disable-log-requests
+# http://localhost:8000/metrics
+
+proc2
+cd examples/production_monitoring/
+docker compose up
+# http://localhost:3000/dashboard/new?orgId=1
+
+
+proc3
+wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
+
+python3 benchmarks/benchmark_serving.py \
+    --model mistralai/Mistral-7B-v0.1 \
+    --tokenizer mistralai/Mistral-7B-v0.1 \
+    --endpoint /v1/completions \
+    --dataset ShareGPT_V3_unfiltered_cleaned_split.json \
+    --request-rate 3.0
+
+proc4 fron local 
+ssh george@192.168.201.137 -L 3000:localhost:3000
