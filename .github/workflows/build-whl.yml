@@ -110,6 +110,7 @@ jobs:
               uses: ./.github/actions/nm-build-vllm-whl/
               with:
                 python: ${{ inputs.python }}
+                venv: ${{ env.VENV_BASE }}
 
             - name: upload whl
               uses: actions/upload-artifact@v4
