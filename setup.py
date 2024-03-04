@@ -446,16 +446,6 @@ def get_extra_requirements() -> dict:
     }
 
 
-_sparsity_deps = ["nm-magic-wand"]
-
-
-def get_extra_requirements() -> dict:
-    return {
-        "sparse": _sparsity_deps,
-        "sparsity": _sparsity_deps,
-    }
-
-
 package_data = {
     "vllm": ["py.typed", "model_executor/layers/fused_moe/configs/*.json"]
 }

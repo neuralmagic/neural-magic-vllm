@@ -2,12 +2,13 @@ import json
 import os
 import sys
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-
 from vllm.model_executor.layers.fused_moe import fused_moe
 import torch
 import torch.nn.functional as F
 import triton
+
+
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 
 def main():
@@ -64,7 +65,7 @@ def run_grid(bs, method):
         print(f'{tp_size=} {bs=}')
         print(f'{config}')
         # warmup
-        print(f'warming up')
+        print('warming up')
         try:
             for _ in range(num_warmup_trials):
                 run_timing(
@@ -82,7 +83,7 @@ def run_grid(bs, method):
             continue
 
         # trial
-        print(f'benchmarking')
+        print('benchmarking')
         for _ in range(num_trials):
             kernel_dur_ms = run_timing(
                 num_calls=num_calls,
