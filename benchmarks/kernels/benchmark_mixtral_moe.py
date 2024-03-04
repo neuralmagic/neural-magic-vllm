@@ -7,7 +7,6 @@ import torch
 import torch.nn.functional as F
 import triton
 
-
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 
