@@ -35,7 +35,7 @@ Here is a smoke test using a small test `llama2-110M` model train on storytellin
 from vllm import LLM, SamplingParams
 
 model = LLM(
-    "nm-testing/llama2.c-stories110M-pruned2.4", 
+    "nm-testing/llama2.c-stories110M-pruned2.4",
     sparsity="sparse_w16a16",   # If left off, model will be loaded as dense
 )
 
