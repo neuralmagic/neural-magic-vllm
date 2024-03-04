@@ -24,6 +24,8 @@ from vllm.logger import init_logger
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
 
+from vllm.engine.server_metrics import INFERENCE_REQUEST_SUCCESS_COUNTER, INFERENCE_REQUEST_ABORTED_COUNTER
+
 TIMEOUT_KEEP_ALIVE = 5  # seconds
 
 openai_serving_chat: OpenAIServingChat = None
@@ -146,15 +148,23 @@ async def show_available_models():
 @app.post("/v1/chat/completions")
 async def create_chat_completion(request: ChatCompletionRequest,
                                  raw_request: Request):
+
     generator = await openai_serving_chat.create_chat_completion(
         request, raw_request)
+    label = {"endpoint": "/v1/chat/completions"}
+    if hasattr(request, "model"):
+        label["model"] = request.model
+        
     if isinstance(generator, ErrorResponse):
+        INFERENCE_REQUEST_ABORTED_COUNTER.inc(label)
         return JSONResponse(content=generator.model_dump(),
                             status_code=generator.code)
     if request.stream:
+        INFERENCE_REQUEST_SUCCESS_COUNTER.inc(label)
         return StreamingResponse(content=generator,
                                  media_type="text/event-stream")
     else:
+        INFERENCE_REQUEST_SUCCESS_COUNTER.inc(label)
         return JSONResponse(content=generator.model_dump())
 
 
@@ -162,13 +172,20 @@ async def create_chat_completion(request: ChatCompletionRequest,
 async def create_completion(request: CompletionRequest, raw_request: Request):
     generator = await openai_serving_completion.create_completion(
         request, raw_request)
+    label = {"endpoint": "/v1/completions"}
+    if hasattr(request, "model"):
+        label["model"] = request.model
     if isinstance(generator, ErrorResponse):
+        INFERENCE_REQUEST_ABORTED_COUNTER.inc(label)
+        
         return JSONResponse(content=generator.model_dump(),
                             status_code=generator.code)
     if request.stream:
+        INFERENCE_REQUEST_SUCCESS_COUNTER.inc(label)
         return StreamingResponse(content=generator,
                                  media_type="text/event-stream")
     else:
+        INFERENCE_REQUEST_SUCCESS_COUNTER.inc(label)
         return JSONResponse(content=generator.model_dump())
 
 

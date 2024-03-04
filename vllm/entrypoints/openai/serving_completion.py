@@ -299,6 +299,7 @@ class OpenAIServingCompletion(OpenAIServing):
                                          sampling_params,
                                          f"{request_id}-{i}",
                                          prompt_token_ids=input_ids))
+#######################################################################################
         except ValueError as e:
             return self.create_error_response(str(e))
 

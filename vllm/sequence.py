@@ -7,6 +7,8 @@ from vllm.block import LogicalTokenBlock
 from vllm.prefix import Prefix
 from vllm.sampling_params import SamplingParams
 from vllm.lora.request import LoRARequest
+import time
+# from vllm.engine.server_metrics import INFERENCE_STATE_DURATION_HISTOGRAM
 
 PromptLogprobs = List[Optional[Dict[int, float]]]
 SampleLogprobs = List[Dict[int, float]]
@@ -129,17 +131,40 @@ class Sequence:
         self.logical_token_blocks: List[LogicalTokenBlock] = []
         # Initialize the logical token blocks with the prompt token ids.
         self._append_tokens_to_blocks(prompt_token_ids)
-        self.status = SequenceStatus.WAITING
+        self._status = SequenceStatus.WAITING
 
         # Used for incremental detokenization
         self.prefix_offset = 0
         self.read_offset = 0
         # Input + output tokens
         self.tokens: Optional[List[str]] = None
+        self.start_time = time.perf_counter()
+        self.status_dwell_time = {}
+
 
     @property
     def lora_int_id(self) -> int:
         return self.lora_request.lora_int_id if self.lora_request else 0
+    
+    @property
+    def status(self) -> SequenceStatus:
+        """Get the status of the sequence."""
+        return self._status
+    
+    @status.setter
+    def status(self, new_status: SequenceStatus) -> None:
+        """Set the status of the sequence."""
+        # self.status_dwell_time[self.status] = time.perf_counter() - self.start_time
+        dwell_time = time.perf_counter() - self.start_time
+        # INFERENCE_STATE_DURATION_HISTOGRAM.labels(state=self.status).observe(dwell_time)
+        # INFERENCE_STATE_DURATION_HISTOGRAM.observe(dwell_time, state=self.state)
+
+        # if self.status == SequenceStatus.WAITING:
+        #     INFERENCE_STATE_DURATION_HISTOGRAM(self.status_dwell_time[self.status])
+        print()
+        print(new_status)
+        print()
+        self._status = new_status
 
     def _append_logical_block(self) -> None:
         block = LogicalTokenBlock(
@@ -305,7 +330,7 @@ class SequenceGroup:
             return list(self.seqs_dict.values())
         else:
             return [
-                seq for seq in self.seqs_dict.values() if seq.status == status
+                seq for seq in self.seqs_dict.values() if seq._status == status
             ]
 
     def get_unfinished_seqs(self) -> List[Sequence]:
