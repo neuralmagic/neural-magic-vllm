@@ -13,9 +13,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 from transformers import AutoTokenizer
-from .common import instantiate_benchmark_results_dict, generate_synthetic_requests, warmup_vllm_engine, num_available_gpus
+from .common import instantiate_benchmark_results_dict, generate_synthetic_requests, warmup_vllm_engine, num_available_gpus, print_benchmark_io
 from .datasets_registry import get_dataset, DatasetArgs
-
 
 def get_tensor_parallel_size(args: argparse.Namespace) -> int:
     tensor_parallel_size = num_available_gpus() \
@@ -39,6 +38,8 @@ def run_vllm(
     max_model_len: Optional[int],
     enforce_eager: bool,
     sparsity: Optional[str],
+    num_warmup_prompts: int,
+    log_model_io : bool = False
 ) -> float:
     from vllm import LLM, SamplingParams
     llm = LLM(
@@ -74,8 +75,11 @@ def run_vllm(
 
     start = time.perf_counter()
     # FIXME(woosuk): Do not use internal method.
-    llm._run_engine(use_tqdm=True)
+    outputs = llm._run_engine(use_tqdm=True)
     end = time.perf_counter()
+
+    if log_model_io:
+        print_benchmark_io(outputs)
 
     return end - start
 
@@ -114,7 +118,9 @@ def main(args: argparse.Namespace):
                             args.dtype,
                             args.max_model_len,
                             args.enforce_eager,
-                            sparsity=args.sparsity)
+                            sparsity=args.sparsity,
+                            num_warmup_prompts = args.num_warmup_prompts,
+                            log_model_io = args.log_model_io)
 
     total_prompt_tokens = sum(prompt_len for _, prompt_len, _ in requests)
     total_output_tokens = sum(output_len for _, _, output_len in requests)
@@ -189,10 +195,15 @@ if __name__ == "__main__":
                         type=int,
                         default=1000,
                         help="Number of prompts to process.")
+    parser.add_argument("--num-warmup-prompts",
+                        type=int,
+                        default=1000,
+                        help="Number of prompts to do warmups with.")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument('--trust-remote-code',
                         action='store_true',
                         help='trust remote code from huggingface')
+    parser.add_argument("--log-model-io", action="store_true")
     parser.add_argument(
         '--max-model-len',
         type=int,
