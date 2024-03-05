@@ -54,7 +54,7 @@ def run_vllm(
         enforce_eager=enforce_eager,
     )
 
-    warmup_vllm_engine(engine=llm, model=model, num_prompts=1000)
+    warmup_vllm_engine(engine=llm, model=model, num_prompts=num_warmup_prompts)
 
     # Add the requests to the engine.
     for prompt, _, output_len in requests:
