@@ -100,7 +100,8 @@ def calculate_metrics(
             total_output += output_len
             total_input += input_requests[i][1]
             latencies.append(outputs[i].latency)
-            tpots.append((outputs[i].latency - outputs[i].ttft) / output_len)
+            if output_len > 1:
+                tpots.append((outputs[i].latency - outputs[i].ttft) / (output_len - 1))
             ttfts.append(outputs[i].ttft)
             completed += 1
 
