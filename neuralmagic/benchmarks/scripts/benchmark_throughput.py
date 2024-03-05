@@ -60,7 +60,9 @@ def run_vllm(
     for prompt, _, output_len in requests:
         sampling_params = SamplingParams(
             n=n,
-            temperature=0.0 if use_beam_search else 1.0,
+            # TODO (varun) Make temperature configurable
+            #temperature=0.0 if use_beam_search else 1.0,
+            temperature=0.0
             top_p=1.0,
             use_beam_search=use_beam_search,
             ignore_eos=True,
@@ -100,6 +102,7 @@ def main(args: argparse.Namespace):
                                    num_samples=args.num_prompts,
                                    max_len=2048,
                                    seed=42,
+                                   fixed_output_len = args.output_len
                                ))
     else:
         # Make a synthetic dataset.
