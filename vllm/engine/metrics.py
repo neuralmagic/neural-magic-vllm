@@ -78,9 +78,7 @@ gauge_gpu_temperature = Gauge("vllm:gpu_temperature",
                               "GPU temperature in celcius")
 gauge_gpu_power_usage = Gauge("vllm:gpu_power_usage",
                               "GPU power usage in milli Watts")
-# ---
 gauge_gpu_utilization = Gauge("vllm:gpu_utilization", "Used GPU")
-# ---
 gauge_gpu_memory_total_bytes = Gauge("vllm:gpu_memory_total_bytes",
                                      "GPU memory capacity in Bytes")
 gauge_gpu_memory_used_bytes = Gauge("vllm:gpu_memory_used_bytes",
