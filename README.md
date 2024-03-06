@@ -36,7 +36,7 @@ A collection of ready-to-use SparseGPT and GPTQ models in inference optimized ma
 Marlin is an extremely optimized FP16xINT4 matmul kernel aimed at LLM inference that can deliver close to ideal (4x) speedups up to batchsizes of 16-32 tokens.
 To use Marlin within nm-vllm, simply pass the Marlin quantized directly to the engine. It will detect the quantization from the model's config.
 
-Here is a demonstraiton with a [4-bit quantized OpenHermes Mistral](neuralmagic/OpenHermes-2.5-Mistral-7B-marlin) model:
+Here is a demonstraiton with a [4-bit quantized OpenHermes Mistral](https://huggingface.co/neuralmagic/OpenHermes-2.5-Mistral-7B-marlin) model:
 
 ```python
 from vllm import LLM, SamplingParams
