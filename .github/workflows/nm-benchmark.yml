@@ -27,6 +27,13 @@ on:
         description: "python version, e.g. 3.10.12"
         type: string
         required: true
+      push_results_to_gh_pages:
+        description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI "
+        required: true
+        type: choice
+        options:
+            - 'true'
+            - 'false'
 
   # makes workflow manually callable
   workflow_dispatch:
@@ -55,6 +62,13 @@ on:
         description: "python version, e.g. 3.10.12"
         type: string
         required: true
+      push_results_to_gh_pages:
+        description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI "
+        type: choice
+        options:
+            - 'true'
+            - 'false'
+        default: 'false'
 
 jobs:
   BENCHMARK:
@@ -68,16 +82,17 @@ jobs:
         run: |
           echo "event name is:" ${{ github.event_name }}
           echo "event type is:" ${{ github.event.action }}
+          echo "push result to gh pages : " ${{ input.push_results_to_gh_pages }}
 
-      - name: run iff
-        if: ${{ github.event_name == 'workflow_call' }}
+      - name: run push
+        if: ${{ input.push_results_to_gh_pages == 'true' }}
         run: |
-          echo "This will run only on a workflow_call event"
+          echo "evaled to true : Okay ! I am pushing to gh pages now"
 
-      - name: run iff
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+      - name: stay put
+        if: ${{ input.push_results_to_gh_pages == 'false' }}
         run: |
-          echo "This will run only on a workflow_dispatch event"
+          echo "evaled to false : not pushing"
 
           #- name: checkout repository code
           #  uses: actions/checkout@v4

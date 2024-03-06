@@ -6,6 +6,19 @@ on:
       - cron: '0 0 * * *'
 
     workflow_dispatch:
+      inputs:
+        push_results_to_gh_pages:
+          description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI "
+          type: choice
+          options:
+              - 'true'
+              - 'false'
+          default: 'false'
+
+# The scheduled job can't take inputs, but the workflow_dispatch jobs can. Resolve that
+# discrepancy and store all the input arguments as environment variables.
+env:
+  push_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_results_to_gh_pages }}"
 
 jobs:
 
@@ -19,6 +32,7 @@ jobs:
             gitref: '${{ github.ref }}'
             Gi_per_thread: 4
             python: "3.10.12"
+            push_results_to_gh_pages: '${{ env.push_results_to_gh_pages }}'
         secrets: inherit
 
     # single gpu
@@ -31,4 +45,5 @@ jobs:
             gitref: '${{ github.ref }}'
             Gi_per_thread: 12
             python: "3.10.12"
+            push_results_to_gh_pages: '${{ env.push_results_to_gh_pages }}'
         secrets: inherit
