@@ -1,4 +1,4 @@
-# Neural Magic vLLM
+# nm-vllm
 
 ## Overview
 
@@ -15,7 +15,7 @@ pip install nm-vllm
 
 For utilizing weight-sparsity kernels, such as through `sparsity="sparse_w16a16"`, you can extend the installation with the `sparsity` extras:
 ```bash
-pip install nm-vllm[sparsity]
+pip install nm-vllm[sparse]
 ```
 
 You can also build and install `nm-vllm` from source (this will take ~10 minutes):
@@ -27,7 +27,9 @@ pip install -e .
 
 ## Quickstart
 
-Neural Magic maintains a variety of sparse models on our Hugging Face organization profiles, [neuralmagic](https://huggingface.co/neuralmagic) and [nm-testing](https://huggingface.co/nm-testing). A collection of ready-to-use SparseGPT models is available [here](https://huggingface.co/collections/nm-testing/sparsegpt-llms-65ca6def5495933ab05cd439).
+Neural Magic maintains a variety of sparse models on our Hugging Face organization profiles, [neuralmagic](https://huggingface.co/neuralmagic) and [nm-testing](https://huggingface.co/nm-testing). 
+
+A collection of ready-to-use SparseGPT and GPTQ models in inference optimized marlin format are [available on Hugging Face](https://huggingface.co/collections/neuralmagic/compressed-llms-for-nm-vllm-65e73e3d51d3200e34b77431)
 
 #### Model Inference with Marlin (4-bit Quantization)
 
@@ -53,7 +55,7 @@ For a quick demonstration, here's how to run a small [50% sparse llama2-110M](ht
 from vllm import LLM, SamplingParams
 
 model = LLM(
-    "nm-testing/llama2.c-stories110M-pruned50", 
+    "neuralmagic/llama2.c-stories110M-pruned50", 
     sparsity="sparse_w16a16",   # If left off, model will be loaded as dense
 )
 
@@ -68,7 +70,7 @@ Here is a more realistic example of running a 50% sparse OpenHermes 2.5 Mistral 
 from vllm import LLM, SamplingParams
 
 model = LLM(
-    "nm-testing/OpenHermes-2.5-Mistral-7B-pruned50",
+    "neuralmagic/OpenHermes-2.5-Mistral-7B-pruned50",
     sparsity="sparse_w16a16",
     max_model_len=1024
 )
@@ -82,7 +84,7 @@ There is also support for semi-structured 2:4 sparsity using the `sparsity="semi
 ```python
 from vllm import LLM, SamplingParams
 
-model = LLM("nm-testing/llama2.c-stories110M-pruned2.4", sparsity="semi_structured_sparse_w16a16")
+model = LLM("neuralmagic/llama2.c-stories110M-pruned2.4", sparsity="semi_structured_sparse_w16a16")
 sampling_params = SamplingParams(max_tokens=100, temperature=0)
 outputs = model.generate("Once upon a time, ", sampling_params=sampling_params)
 print(outputs[0].outputs[0].text)
@@ -93,11 +95,12 @@ print(outputs[0].outputs[0].text)
 You can also quickly use the same flow with an OpenAI-compatible model server:
 ```bash
 python -m vllm.entrypoints.openai.api_server \
-    --model nm-testing/OpenHermes-2.5-Mistral-7B-pruned50 \
-    --sparsity sparse_w16a16
+    --model neuralmagic/OpenHermes-2.5-Mistral-7B-pruned50 \
+    --sparsity sparse_w16a16 \
+    --max-model-len 4096
 ```
 
-## Quantized Inference
+## Quantized Inference Performance
 
 Developed in collaboration with IST-Austria, [GPTQ](https://arxiv.org/abs/2210.17323) is the leading quantization algorithm for LLMs, which enables compressing the model weights from 16 bits to 4 bits with limited impact on accuracy. nm-vllm includes support for the recently-developed Marlin kernels for accelerating GPTQ models. Prior to Marlin, the existing kernels for INT4 inference failed to scale in scenarios with multiple concurrent users.
 
@@ -105,7 +108,7 @@ Developed in collaboration with IST-Austria, [GPTQ](https://arxiv.org/abs/2210.1
    <img alt="Marlin Performance" src="https://github.com/neuralmagic/nm-vllm/assets/3195154/6ac9f5b0-667a-41f3-8e6d-ca51c268bec5" width="60%" />
 </p>
 
-## Sparse Inference
+## Sparse Inference Performance
 
 Developed in collaboration with IST-Austria, [SparseGPT](https://arxiv.org/abs/2301.00774) and [Sparse Fine-tuning](https://arxiv.org/abs/2310.06927) are the leading algorithms for pruning LLMs, which enables removing at least half of model weights with limited impact on accuracy.
 
