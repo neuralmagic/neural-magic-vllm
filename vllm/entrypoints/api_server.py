@@ -59,11 +59,11 @@ async def generate(request: Request) -> Response:
 
     if stream:
         response = StreamingResponse(stream_results())
-        if response.status_code == 201:
+        if response.status_code == 200:
             return response
         else:
-            msg_label = {"status": response.status_code}
-            counter_inference_request_aborted.inc({**labels, **msg_label})
+            status_label = {"status": response.status_code}
+            counter_inference_request_aborted.inc({**labels, **status_label})
             raise HTTPException(status_code=response.status_code,
                                 detail="Failed to generate output tokens.")
 
