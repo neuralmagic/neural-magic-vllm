@@ -2,7 +2,7 @@
 
 ## Overview
 
-[vLLM](https://github.com/vllm-project/vllm) is a fast and easy-to-use library for LLM inference that Neural Magic regularly contributes upstream improvements to. This fork, `nm-vllm` is our opinionated focus on incorporating the latest LLM optimizations like quantization and sparsity for enhanced performance. 
+[vLLM](https://github.com/vllm-project/vllm) is a fast and easy-to-use library for LLM inference that Neural Magic regularly contributes upstream improvements to. This fork, `nm-vllm` is our opinionated focus on incorporating the latest LLM optimizations like quantization and sparsity for enhanced performance.
 
 ## Installation
 
@@ -33,8 +33,8 @@ A collection of ready-to-use SparseGPT and GPTQ models in inference optimized ma
 
 #### Model Inference with Marlin (4-bit Quantization)
 
-Marlin is an extremely optimized FP16xINT4 matmul kernel aimed at LLM inference that can deliver close to ideal (4x) speedups up to batchsizes of 16-32 tokens. 
-To use Marlin within nm-vllm, simply pass the Marlin quantized directly to the engine. It will detect the quantization from the model's config. 
+Marlin is an extremely optimized FP16xINT4 matmul kernel aimed at LLM inference that can deliver close to ideal (4x) speedups up to batchsizes of 16-32 tokens.
+To use Marlin within nm-vllm, simply pass the Marlin quantized directly to the engine. It will detect the quantization from the model's config.
 
 Here is a demonstraiton with a [4-bit quantized OpenHermes Mistral](neuralmagic/OpenHermes-2.5-Mistral-7B-marlin) model:
 
