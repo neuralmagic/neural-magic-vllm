@@ -11,7 +11,6 @@ import lm_eval.evaluator
 import lm_eval.models.utils
 from lm_eval import tasks, utils
 
-
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 eval_logger = utils.eval_logger
 
@@ -31,13 +30,13 @@ def calculate_z_value(res1: Dict, res2: Dict) -> Tuple[float, float]:
     return Z, p_value
 
 
-def print_results(
-    data_to_print: List = None, results_dict: Dict = None, alpha: float = None
-):
+def print_results(data_to_print: List = None,
+                  results_dict: Dict = None,
+                  alpha: float = None):
     model1_data = data_to_print[0]
     model2_data = data_to_print[1]
     table_data = []
-    for task in model1_data.keys():
+    for task in model1_data:
         row = {
             "Task": task,
             "HF Accuracy": model1_data[task]["acc,none"],
@@ -48,26 +47,25 @@ def print_results(
         table_data.append(row)
     comparison_df = pd.DataFrame(table_data)
     comparison_df["Z-Score"] = comparison_df["Task"].apply(
-        lambda task: results_dict[task]["z"]
-    )
+        lambda task: results_dict[task]["z"])
     comparison_df["P-Value"] = comparison_df["Task"].apply(
-        lambda task: results_dict[task]["p_value"]
-    )
+        lambda task: results_dict[task]["p_value"])
     comparison_df[f"p > {alpha}"] = comparison_df["P-Value"].apply(
-        lambda p: "✓" if p > alpha else "×"
-    )
+        lambda p: "pass" if p > alpha else "fail")
     return comparison_df
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--pretrained", default="EleutherAI/pythia-70m", help="name of model to compare"
-    )
-    parser.add_argument(
-        "--hf_args", help="huggingface model args <arg>=<value>", default=""
-    )
-    parser.add_argument("--vllm_args", help="vllm model args <arg>=<value>", default="")
+    parser.add_argument("--pretrained",
+                        default="EleutherAI/pythia-70m",
+                        help="name of model to compare")
+    parser.add_argument("--hf_args",
+                        help="huggingface model args <arg>=<value>",
+                        default="")
+    parser.add_argument("--vllm_args",
+                        help="vllm model args <arg>=<value>",
+                        default="")
     parser.add_argument("--tasks", type=str, default="arc_easy,hellaswag")
     parser.add_argument(
         "--limit",
@@ -126,13 +124,11 @@ if __name__ == "__main__":
         batch_size=args.batch,
     )
     all_res = {}
-    for task1, task2 in zip(
-        results_hf["results"].items(), results_vllm["results"].items()
-    ):
+    for task1, task2 in zip(results_hf["results"].items(),
+                            results_vllm["results"].items()):
         assert task1[0] == task2[0]
         z, p_value = calculate_z_value(task1[1], task2[1])
         all_res[task1[0]] = {"z": z, "p_value": p_value}
-    df = print_results(
-        [results_hf["results"], results_vllm["results"]], all_res, args.alpha
-    )
+    df = print_results([results_hf["results"], results_vllm["results"]],
+                       all_res, args.alpha)
     print(df)
