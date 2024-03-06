@@ -32,8 +32,8 @@ on:
         required: true
         type: choice
         options:
-            - 'true'
-            - 'false'
+          - 'true'
+          - 'false'
 
   # makes workflow manually callable
   workflow_dispatch:
@@ -66,8 +66,8 @@ on:
         description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI "
         type: choice
         options:
-            - 'true'
-            - 'false'
+          - 'true'
+          - 'false'
         default: 'false'
 
 jobs:
