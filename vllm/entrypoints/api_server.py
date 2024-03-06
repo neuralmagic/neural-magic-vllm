@@ -2,7 +2,7 @@ import argparse
 import json
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 import uvicorn
 
@@ -44,24 +44,28 @@ async def generate(request: Request) -> Response:
                                         request_id,
                                         prefix_pos=prefix_pos)
 
-    label = {"endpoint": "/generate"}
+    labels = {"endpoint": "/generate"}
 
     # Streaming case
     async def stream_results() -> AsyncGenerator[bytes, None]:
         async for request_output in results_generator:
-            if request_output.finished:
-                counter_inference_request_success.inc(label)
-                prompt = request_output.prompt
-                text_outputs = [
-                    prompt + output.text for output in request_output.outputs
-                ]
-                ret = {"text": text_outputs}
-                yield (json.dumps(ret) + "\0").encode("utf-8")
-            else:
-                counter_inference_request_aborted.inc(label)
+            prompt = request_output.prompt
+            text_outputs = [
+                prompt + output.text for output in request_output.outputs
+            ]
+            ret = {"text": text_outputs}
+            yield (json.dumps(ret) + "\0").encode("utf-8")
+        counter_inference_request_success.inc(labels)
 
     if stream:
-        return StreamingResponse(stream_results())
+        response = StreamingResponse(stream_results())
+        if response.status_code == 201:
+            return response
+        else:
+            msg_label = {"status": response.status_code}
+            counter_inference_request_aborted.inc({**labels, **msg_label})
+            raise HTTPException(status_code=response.status_code,
+                                detail="Failed to generate output tokens.")
 
     # Non-streaming case
     final_output = None
@@ -69,6 +73,7 @@ async def generate(request: Request) -> Response:
         if await request.is_disconnected():
             # Abort the request if the client disconnects.
             await engine.abort(request_id)
+            counter_inference_request_aborted.inc(labels)
             return Response(status_code=499)
         final_output = request_output
 
@@ -76,6 +81,7 @@ async def generate(request: Request) -> Response:
     prompt = final_output.prompt
     text_outputs = [prompt + output.text for output in final_output.outputs]
     ret = {"text": text_outputs}
+    counter_inference_request_success.inc(labels)
     return JSONResponse(ret)
 
 
