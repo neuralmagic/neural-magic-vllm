@@ -2,7 +2,7 @@ import argparse
 import json
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 import uvicorn
 
@@ -55,6 +55,7 @@ async def generate(request: Request) -> Response:
             ]
             ret = {"text": text_outputs}
             yield (json.dumps(ret) + "\0").encode("utf-8")
+
         counter_inference_request_success.inc(labels)
 
     if stream:
@@ -64,8 +65,10 @@ async def generate(request: Request) -> Response:
         else:
             status_label = {"status": response.status_code}
             counter_inference_request_aborted.inc({**labels, **status_label})
-            raise HTTPException(status_code=response.status_code,
-                                detail="Failed to generate output tokens.")
+
+            # raise exception to exit
+            raise RuntimeError(status_code=response.status_code,
+                               detail="Failed to generate output tokens.")
 
     # Non-streaming case
     final_output = None
