@@ -16,6 +16,7 @@ from transformers import AutoTokenizer
 from .common import instantiate_benchmark_results_dict, generate_synthetic_requests, warmup_vllm_engine, num_available_gpus, print_benchmark_io
 from .datasets_registry import get_dataset, DatasetArgs
 
+
 def get_tensor_parallel_size(args: argparse.Namespace) -> int:
     tensor_parallel_size = num_available_gpus() \
         if args.use_all_available_gpus_ else args.tensor_parallel_size_
@@ -24,23 +25,21 @@ def get_tensor_parallel_size(args: argparse.Namespace) -> int:
     return tensor_parallel_size
 
 
-def run_vllm(
-    requests: List[Tuple[str, int, int]],
-    model: str,
-    tokenizer: str,
-    quantization: Optional[str],
-    tensor_parallel_size: int,
-    seed: int,
-    n: int,
-    use_beam_search: bool,
-    trust_remote_code: bool,
-    dtype: str,
-    max_model_len: Optional[int],
-    enforce_eager: bool,
-    sparsity: Optional[str],
-    num_warmup_prompts: int,
-    log_model_io : bool = False
-) -> float:
+def run_vllm(requests: List[Tuple[str, int, int]],
+             model: str,
+             tokenizer: str,
+             quantization: Optional[str],
+             tensor_parallel_size: int,
+             seed: int,
+             n: int,
+             use_beam_search: bool,
+             trust_remote_code: bool,
+             dtype: str,
+             max_model_len: Optional[int],
+             enforce_eager: bool,
+             sparsity: Optional[str],
+             num_warmup_prompts: int,
+             log_model_io: bool = False) -> float:
     from vllm import LLM, SamplingParams
     llm = LLM(
         model=model,
@@ -62,7 +61,7 @@ def run_vllm(
             n=n,
             # TODO (varun) Make temperature configurable
             #temperature=0.0 if use_beam_search else 1.0,
-            temperature=0.0
+            temperature=0.0,
             top_p=1.0,
             use_beam_search=use_beam_search,
             ignore_eos=True,
@@ -102,8 +101,7 @@ def main(args: argparse.Namespace):
                                    num_samples=args.num_prompts,
                                    max_len=2048,
                                    seed=42,
-                                   fixed_output_len = args.output_len
-                               ))
+                                   fixed_output_len=args.output_len))
     else:
         # Make a synthetic dataset.
         requests = generate_synthetic_requests(args.input_len, args.output_len,
@@ -122,8 +120,8 @@ def main(args: argparse.Namespace):
                             args.max_model_len,
                             args.enforce_eager,
                             sparsity=args.sparsity,
-                            num_warmup_prompts = args.num_warmup_prompts,
-                            log_model_io = args.log_model_io)
+                            num_warmup_prompts=args.num_warmup_prompts,
+                            log_model_io=args.log_model_io)
 
     total_prompt_tokens = sum(prompt_len for _, prompt_len, _ in requests)
     total_output_tokens = sum(output_len for _, _, output_len in requests)
