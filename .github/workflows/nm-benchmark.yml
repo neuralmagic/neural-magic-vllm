@@ -27,6 +27,10 @@ on:
         description: "python version, e.g. 3.10.12"
         type: string
         required: true
+      trigger_type:
+        description: "A string describing the caller of this workflow"
+        type: string
+        required: true
 
   # makes workflow manually callable
   workflow_dispatch:
@@ -55,6 +59,10 @@ on:
         description: "python version, e.g. 3.10.12"
         type: string
         required: true
+      trigger_type:
+        description: "A string describing the caller of this workflow"
+        default: "user_dispatch"
+        type: string
 
 jobs:
   BENCHMARK:
