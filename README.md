@@ -36,14 +36,22 @@ A collection of ready-to-use SparseGPT and GPTQ models in inference optimized ma
 Marlin is an extremely optimized FP16xINT4 matmul kernel aimed at LLM inference that can deliver close to ideal (4x) speedups up to batchsizes of 16-32 tokens. 
 To use Marlin within nm-vllm, simply pass the Marlin quantized directly to the engine. It will detect the quantization from the model's config. 
 
-Here is a demonstraiton with a [4-bit quantized Llama-2 7B chat](https://huggingface.co/neuralmagic/llama-2-7b-chat-marlin) model:
+Here is a demonstraiton with a [4-bit quantized OpenHermes Mistral](neuralmagic/OpenHermes-2.5-Mistral-7B-marlin) model:
 
 ```python
 from vllm import LLM, SamplingParams
+from transformers import AutoTokenizer
 
-model = LLM("neuralmagic/llama-2-7b-chat-marlin")
+model_id = "neuralmagic/OpenHermes-2.5-Mistral-7B-marlin"
+model = LLM(model_id, max_model_len=4096)
+tokenizer = AutoTokenizer.from_pretrained(model_id)
 sampling_params = SamplingParams(max_tokens=100, temperature=0.8, top_p=0.95)
-outputs = model.generate("Who is the president?", sampling_params)
+
+messages = [
+    {"role": "user", "content": "What is synthetic data in machine learning?"},
+]
+formatted_prompt =  tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+outputs = model.generate(formatted_prompt, sampling_params=sampling_params)
 print(outputs[0].outputs[0].text)
 ```
 
@@ -68,15 +76,18 @@ Here is a more realistic example of running a 50% sparse OpenHermes 2.5 Mistral 
 
 ```python
 from vllm import LLM, SamplingParams
+from transformers import AutoTokenizer
 
-model = LLM(
-    "neuralmagic/OpenHermes-2.5-Mistral-7B-pruned50",
-    sparsity="sparse_w16a16",
-    max_model_len=1024
-)
+model_id = "neuralmagic/OpenHermes-2.5-Mistral-7B-pruned50"
+model = LLM(model_id, sparsity="sparse_w16a16", max_model_len=4096)
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+sampling_params = SamplingParams(max_tokens=100, temperature=0.8, top_p=0.95)
 
-sampling_params = SamplingParams(max_tokens=100, temperature=0)
-outputs = model.generate("Hello my name is", sampling_params=sampling_params)
+messages = [
+    {"role": "user", "content": "What is sparsity in deep learning?"},
+]
+formatted_prompt =  tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+outputs = model.generate(formatted_prompt, sampling_params=sampling_params)
 print(outputs[0].outputs[0].text)
 ```
 
