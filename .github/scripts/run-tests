@@ -59,17 +59,17 @@ do
     # this is a bit messy and brittle, but certain tests
     # need to be run with specific options
     if [[ "${TEST}" == *"kernels/test_pos_encoding"* ]]; then
-        CUDA_VISIBLE_DEVICES=0,1 coverage run --parallel-mode -m pytest --forked --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+	CUDA_VISIBLE_DEVICES=0,1 coverage run --data-file=.coverage-$(basename ${TEST}) -m pytest --forked --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     elif [[ "${TEST}" == *"kernels"* ]]; then
-        CUDA_VISIBLE_DEVICES=0,1 coverage run --parallel-mode -m pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        CUDA_VISIBLE_DEVICES=0,1 coverage run --data-file=.coverage-$(basename ${TEST}) -m pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     elif [[ "${TEST}" == *"samplers"* ]]; then
-        CUDA_VISIBLE_DEVICES=0,1 coverage run --parallel-mode -m pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        CUDA_VISIBLE_DEVICES=0,1 coverage run --data-file=.coverage-$(basename ${TEST}) -m pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     elif [[ "${TEST}" == *"distributed"* ]]; then
-        coverage run --parallel-mode -m pytest --forked --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        coverage run --data-file=.coverage-$(basename ${TEST}) -m pytest --forked --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     elif [[ "${TEST}" == *"models_logprobs"* ]]; then
-        coverage run --parallel-mode -m pytest --forked --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        coverage run --data-file=.coverage-$(basename ${TEST}) -m pytest --forked --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     else
-        coverage run --parallel-mode -m pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        coverage run --data-file=.coverage-$(basename ${TEST}) -m pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     fi
 
     SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
