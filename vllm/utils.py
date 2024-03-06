@@ -292,11 +292,11 @@ class measure_cuda_memory:
 
     def memory_usage(self) -> float:
         # Return the memory usage in MB.
+        torch.cuda.reset_peak_memory_stats(self.device)
         mem = torch.cuda.max_memory_allocated(self.device) / float(2**20)
         return mem
 
     def __enter__(self):
-        torch.cuda.reset_peak_memory_stats(self.device)
         self.initial_memory = self.memory_usage()
         # This allows us to call methods of the context manager if needed
         return self

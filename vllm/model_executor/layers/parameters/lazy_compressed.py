@@ -1,3 +1,4 @@
+import gc
 import numpy
 import torch
 from torch.utils._pytree import tree_map
@@ -135,3 +136,4 @@ class LazyCompressedParameter(torch.Tensor):
             ) if self.compress_transposed else self.uncompressed_data)
         del self.uncompressed_data  # free memory
         self.uncompressed_data = None
+        gc.collect()
