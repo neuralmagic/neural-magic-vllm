@@ -28,12 +28,9 @@ on:
         type: string
         required: true
       push_results_to_gh_pages:
-        description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI "
+        description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI"
+        type: string
         required: true
-        type: choice
-        options:
-          - 'true'
-          - 'false'
 
   # makes workflow manually callable
   workflow_dispatch:
@@ -63,7 +60,7 @@ on:
         type: string
         required: true
       push_results_to_gh_pages:
-        description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI "
+        description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI"
         type: choice
         options:
           - 'true'
@@ -82,15 +79,15 @@ jobs:
         run: |
           echo "event name is:" ${{ github.event_name }}
           echo "event type is:" ${{ github.event.action }}
-          echo "push result to gh pages : " ${{ input.push_results_to_gh_pages }}
+          echo "push result to gh pages : " ${{ inputs.push_results_to_gh_pages }}
 
       - name: run push
-        if: ${{ input.push_results_to_gh_pages == 'true' }}
+        if: ${{ inputs.push_results_to_gh_pages == 'true' }}
         run: |
           echo "evaled to true : Okay ! I am pushing to gh pages now"
 
       - name: stay put
-        if: ${{ input.push_results_to_gh_pages == 'false' }}
+        if: ${{ inputs.push_results_to_gh_pages == 'false' }}
         run: |
           echo "evaled to false : not pushing"
 

@@ -18,7 +18,7 @@ on:
 # The scheduled job can't take inputs, but the workflow_dispatch jobs can. Resolve that
 # discrepancy and store all the input arguments as environment variables.
 env:
-  push_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_results_to_gh_pages }}"
+  PUSH_RESULTS_TO_GH_PAGES: "${{ github.event_name == 'schedule' || inputs.push_results_to_gh_pages }}"
 
 jobs:
 
@@ -32,7 +32,7 @@ jobs:
             gitref: '${{ github.ref }}'
             Gi_per_thread: 4
             python: "3.10.12"
-            push_results_to_gh_pages: '${{ env.push_results_to_gh_pages }}'
+            push_results_to_gh_pages: $PUSH_RESULTS_TO_GH_PAGES
         secrets: inherit
 
     # single gpu
@@ -45,5 +45,5 @@ jobs:
             gitref: '${{ github.ref }}'
             Gi_per_thread: 12
             python: "3.10.12"
-            push_results_to_gh_pages: '${{ env.push_results_to_gh_pages }}'
+            push_results_to_gh_pages: $PUSH_RESULTS_TO_GH_PAGES
         secrets: inherit
