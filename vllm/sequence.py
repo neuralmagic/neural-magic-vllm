@@ -153,7 +153,7 @@ class Sequence:
         status_change_time = time.perf_counter()
         labels = {"from": self._status, "to": new_status, "units": "s"}
 
-        # from WATING to RUNNING
+        # from WAITING to RUNNING
         if new_status == SequenceStatus.RUNNING:
             dwell_time = status_change_time - self.start_time
             self.dwell_time[self._status] = dwell_time

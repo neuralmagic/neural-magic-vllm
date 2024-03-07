@@ -10,7 +10,7 @@ from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
-from vllm.engine.metrics import counter_inference_request_success, counter_inference_request_aborted
+from vllm.engine.metrics import counter_inference_request_success, counter_inference_request_aborted, counter_num_requests
 
 TIMEOUT_KEEP_ALIVE = 5  # seconds.
 app = FastAPI()
@@ -32,6 +32,10 @@ async def generate(request: Request) -> Response:
     - stream: whether to stream the results or not.
     - other fields: the sampling parameters (See `SamplingParams` for details).
     """
+    labels = {"endpoint": "/generate"}
+    # increment number of requests
+    counter_num_requests.inc(labels)
+
     request_dict = await request.json()
     prompt = request_dict.pop("prompt")
     prefix_pos = request_dict.pop("prefix_pos", None)
@@ -43,8 +47,6 @@ async def generate(request: Request) -> Response:
                                         sampling_params,
                                         request_id,
                                         prefix_pos=prefix_pos)
-
-    labels = {"endpoint": "/generate"}
 
     # Streaming case
     async def stream_results() -> AsyncGenerator[bytes, None]:
@@ -66,7 +68,7 @@ async def generate(request: Request) -> Response:
             status_label = {"status": response.status_code}
             counter_inference_request_aborted.inc({**labels, **status_label})
 
-            # raise exception to exit
+            # raise exception to exit, no calls to downstream yield logics
             raise RuntimeError(status_code=response.status_code,
                                detail="Failed to generate output tokens.")
 

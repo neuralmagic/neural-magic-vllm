@@ -1,5 +1,20 @@
 # vLLM + Prometheus/Grafana 
 
+## Log Frequency and General Info
+By default, FastAPI server that vLLM is hosted on logs at a defined frequency `t`, described in `vllm/entrypoints/openai/api_server.py` (currently set at 10 s). The async call will invoke both python logger logs and prometheus logs. 
+Metric info per `t` interval are shown in both. Python logger shows instataneous info, and prometheus + graphana can show its history with more custom user-defined metrics (eg. queries per second). 
+
+Example python log:
+```
+INFO 03-07 21:49:49 metrics.py:211] Avg prompt throughput: 603.9 tokens/s, Avg generation throughput: 377.9 tokens/s, Running: 17 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 1.8%, CPU KV cache usage: 0.0%
+```
+
+Example promethus + graphana log visualization:
+![Grafana Dashboard Image](./assets/overview.png)
+
+
+### Quick Start
+
 This is a simple example that shows you how to connect vLLM metric logging to the Prometheus/Grafana stack. For this example, we launch Prometheus and Grafana via Docker. You can checkout other methods through [Prometheus](https://prometheus.io/) and [Grafana](https://grafana.com/) websites. 
 
 Install: 
@@ -47,8 +62,7 @@ On Prometheus configuration page, we need to add the `Prometheus Server URL` in 
 
 Click `Save & Test`. You should get a green check saying "Successfully queried the Prometheus API.".
 
-#### Import Dashboard 
+#### Dashboard Loading from json
 
-Navigate to [`http://localhost:3000/dashboard/import`](http://localhost:3000/dashboard/import), upload `grafana.json`, and select the `prometheus` datasource. You should see a screen that looks like the following:
+Dashboards can be loaded from `json` config files. Navigate to [`http://localhost:3000/dashboard/import`](http://localhost:3000/dashboard/import), upload `vllm-metrics-overview.json` for overview metrics, and select the `prometheus` datasource. 
 
-![Grafana Dashboard Image](https://i.imgur.com/R2vH9VW.png)
