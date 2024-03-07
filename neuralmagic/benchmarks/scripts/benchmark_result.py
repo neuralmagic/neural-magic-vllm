@@ -93,6 +93,7 @@ class BenchmarkResult:
     VLLM_VERSION_KEY_ = "vllm_version"
     METADATA_KEY_ = "metadata"
     METRICS_KEY_ = "metrics"
+    DESCRIPTION_KEY_ = "description"
     DATE_KEY_ = "date"
     DATE_EPOCH_KEY_ = "epoch_time"
     SCRIPT_NAME_KEY_ = "script_name"
@@ -107,8 +108,8 @@ class BenchmarkResult:
     def datetime_as_string(date: datetime):
         return date.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
 
-    def __init__(self, date: datetime, script_name: str, script_args: dict,
-                 tensor_parallel_size: int, model: str,
+    def __init__(self, description: str, date: datetime, script_name: str,
+                 script_args: dict, tensor_parallel_size: int, model: str,
                  tokenizer: Optional[str], dataset: Optional[str]):
         # TODO (varun) Add vllm version & githash
         self.result_dict = {
@@ -116,6 +117,7 @@ class BenchmarkResult:
             BENCHMARK_RESULTS_SCHEMA_VERSION,
             self.VLLM_VERSION_KEY_: __vllm_version__,
             self.BENCHMARKING_CONTEXT_KEY_: get_benchmarking_context(),
+            self.DESCRIPTION_KEY_: description,
             self.DATE_KEY_: BenchmarkResult.datetime_as_string(date),
             self.DATE_EPOCH_KEY_: date.timestamp(),
             self.SCRIPT_NAME_KEY_: script_name,

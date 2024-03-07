@@ -145,6 +145,7 @@ def main(args: argparse.Namespace):
         current_dt = datetime.now()
 
         result = BenchmarkResult(
+            description=args.description,
             date=current_dt,
             script_name=Path(__file__).name,
             script_args=vars(args),
@@ -168,6 +169,13 @@ def main(args: argparse.Namespace):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark the throughput.")
+    parser.add_argument(
+        "--description",
+        type=str,
+        default="benchmark-throughput",
+        help=
+        "Benchmark description. This is primarily useful when we log the benchmark results and process them for plotting charts"
+    )
     parser.add_argument("--backend",
                         type=str,
                         choices=["vllm"],
