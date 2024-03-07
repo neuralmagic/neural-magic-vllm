@@ -1,4 +1,5 @@
 import copy
+import numpy as np
 from collections import defaultdict
 import os
 import time
@@ -117,6 +118,11 @@ class LLMEngine:
 
         self._init_tokenizer()
         self.seq_counter = Counter()
+        
+        self.t_schedule = []
+        self.t_run_workers = []
+        self.t_process_output = []
+        self.t_iteration = 0
 
         # Create the parallel GPU workers.
         if self.parallel_config.worker_use_ray:
@@ -852,7 +858,9 @@ class LLMEngine:
             >>>     if not (engine.has_unfinished_requests() or example_inputs):
             >>>         break
         """
+        t_0 = time.perf_counter()
         seq_group_metadata_list, scheduler_outputs = self.scheduler.schedule()
+        t_1 = time.perf_counter()
 
         if not scheduler_outputs.is_empty():
             # Execute the model.
@@ -871,7 +879,32 @@ class LLMEngine:
         else:
             output = []
 
-        return self._process_model_outputs(output, scheduler_outputs)
+        t_2 = time.perf_counter()
+        
+        outputs = self._process_model_outputs(output, scheduler_outputs)
+        
+        t_3 = time.perf_counter()
+
+        self.t_schedule.append(t_1-t_0)
+        self.t_run_workers.append(t_2-t_1)
+        self.t_process_output.append(t_3-t_2)
+
+        self.t_iteration += 1
+
+        if self.t_iteration == 100:
+            self.t_iteration = 0
+
+            avg_schedule = np.mean(self.t_schedule)
+            avg_run_workers = np.mean(self.t_run_workers)
+            avg_process_output = np.mean(self.t_process_output)
+
+            self.t_schedule = []
+            self.t_run_workers = []
+            self.t_process_output = []
+
+            logger.info(f"\n\n\navg schedule / run_workers / process_outputs: {avg_schedule: 0.2f} // {avg_run_workers: 0.2f} // {avg_run_workers: 0.2f}\n\n\n")
+
+        return outputs
 
     def do_log_stats(self) -> None:
         """Forced log when no requests active."""

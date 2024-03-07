@@ -238,8 +238,9 @@ if __name__ == "__main__":
                 f"Invalid middleware {middleware}. Must be a function or a class."
             )
 
-    logger.info(f"vLLM API server version {vllm.__version__}")
+    # logger.info(f"vLLM API server version {vllm.__version__}")
     logger.info(f"args: {args}")
+    logger.info(f"\n\n\n I'm Alive \n\n\n")
 
     if args.served_model_name is not None:
         served_model = args.served_model_name

@@ -1,5 +1,6 @@
 import asyncio
 import os
+import numpy as np
 import time
 from functools import partial
 from typing import (Any, Dict, Iterable, List, Optional, Set, Tuple, Type,
@@ -202,7 +203,9 @@ class _AsyncLLMEngine(LLMEngine):
         and updates the scheduler with the model outputs. Finally, it decodes
         the sequences and returns the newly generated results.
         """
+        t0 = time.perf_counter()
         seq_group_metadata_list, scheduler_outputs = self.scheduler.schedule()
+        t1 = time.perf_counter()
 
         if not scheduler_outputs.is_empty():
             # Execute the model.
@@ -220,7 +223,30 @@ class _AsyncLLMEngine(LLMEngine):
         else:
             output = []
 
-        return self._process_model_outputs(output, scheduler_outputs)
+        t2 = time.perf_counter()
+        results = self._process_model_outputs(output, scheduler_outputs)
+        t3 = time.perf_counter()
+
+        self.t_schedule.append(t1-t0)
+        self.t_run_workers.append(t2-t1)
+        self.t_process_output.append(t3-t2)
+
+        self.t_iteration += 1
+
+        if self.t_iteration == 1000:
+            self.t_iteration = 0
+
+            avg_schedule = np.mean(self.t_schedule)
+            avg_run_workers = np.mean(self.t_run_workers)
+            avg_process_output = np.mean(self.t_process_output)
+
+            self.t_schedule = []
+            self.t_run_workers = []
+            self.t_process_output = []
+
+            logger.info(f"\n\n\nts: {avg_schedule: 0.4f} // {avg_run_workers: 0.4f} // {avg_process_output: 0.4f}\n\n\n")
+
+        return results
 
     async def encode_request_async(
         self,

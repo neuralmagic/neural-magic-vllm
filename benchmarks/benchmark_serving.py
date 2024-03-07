@@ -69,6 +69,7 @@ def sample_requests(
     # some of these will be filtered out, so sample more than we need
     sampled_indices = random.sample(range(len(dataset)),
                                     int(num_requests * 1.2))
+
     dataset = [dataset[i] for i in sampled_indices]
 
     # Tokenize the prompts and completions.
@@ -112,7 +113,8 @@ async def get_request(
             # If the request rate is infinity, then we don't need to wait.
             continue
         # Sample the request interval from the exponential distribution.
-        interval = np.random.exponential(1.0 / request_rate)
+        # interval = np.random.exponential(1.0 / request_rate)
+        interval = 1.0 / request_rate
         # The next request will be sent after the interval.
         await asyncio.sleep(interval)
 
