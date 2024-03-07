@@ -135,7 +135,7 @@ class Sequence:
         prompt: str,
         prompt_token_ids: List[int],
         block_size: int,
-        is_decoder_encoder: bool,
+        is_encoder_decoder: bool,
         lora_request: Optional[LoRARequest] = None,
     ) -> None:
         self.seq_id = seq_id
@@ -149,7 +149,7 @@ class Sequence:
 
         self.logical_token_blocks: List[LogicalTokenBlock] = []
         initial_token_ids = prompt_token_ids
-        if is_decoder_encoder:
+        if is_encoder_decoder:
             # We need to separate the prompt and generated tokens for encoder-decoder models.
             num_prompt_blocks = (len(prompt_token_ids) + block_size -
                                  1) // block_size
