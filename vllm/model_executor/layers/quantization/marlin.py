@@ -52,9 +52,10 @@ class MarlinConfig(QuantizationConfig):
 
     @classmethod
     def get_supported_act_dtypes(cls) -> List[torch.dtype]:
-        return [torch.float16]
+        return [torch.half]
 
     @classmethod
+    # Need to figure it out
     def get_min_capability(cls) -> int:
         return 80
 
@@ -92,6 +93,8 @@ class MarlinLinearMethod(LinearMethodBase):
         output_size: int,
         params_dtype: torch.dtype,
     ) -> Dict[str, Any]:
+        del output_size  # Unused.
+
         if params_dtype != torch.float16:
             raise ValueError(
                 f"The params dtype must be float16, but got {params_dtype}")
