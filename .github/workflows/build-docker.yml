@@ -1,0 +1,19 @@
+name: Manual Docker Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-docker-image:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          load: true  # Ensures image is loaded into Docker daemon but not pushed
