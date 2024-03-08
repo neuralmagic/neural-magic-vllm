@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 from transformers import AutoTokenizer
-from .common import instantiate_benchmark_results_dict, generate_synthetic_requests, warmup_vllm_engine, num_available_gpus, print_benchmark_io
+from .common import instantiate_benchmark_results_dict, generate_synthetic_requests, warmup_vllm_engine, num_available_gpus, print_request_outputs
 from .datasets_registry import get_dataset, DatasetArgs
 
 
@@ -80,7 +80,7 @@ def run_vllm(requests: List[Tuple[str, int, int]],
     end = time.perf_counter()
 
     if log_model_io:
-        print_benchmark_io(outputs)
+        print_request_outputs(outputs)
 
     return end - start
 
