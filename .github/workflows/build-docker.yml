@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-docker-image:
+  AWS-AVX2-32G-A10G-24G:
     name: Build Docker Image
     runs-on: ubuntu-latest
 
