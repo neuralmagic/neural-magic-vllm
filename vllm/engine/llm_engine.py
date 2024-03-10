@@ -1,5 +1,5 @@
 # This file has been modified by Neural Magic
-
+import numpy as np
 import copy
 from collections import defaultdict
 import os
@@ -160,6 +160,16 @@ class LLMEngine:
         self.forward_dag = None
         if USE_RAY_COMPILED_DAG:
             self.forward_dag = self._compiled_ray_dag()
+        
+        self.scheduler_times = []
+        self.run_workers_times = []
+        self.process_outputs_times = []
+        self.total_step_times = []
+
+        self.prefix_cleanup_times = []
+        self.process_seq_group_output_times = []
+        self.free_seq_group_times = []
+        self.create_output_times = []
 
     def get_tokenizer_for_seq(self, sequence: Sequence):
         return self.tokenizer.get_lora_tokenizer(sequence.lora_request)
@@ -770,6 +780,8 @@ class LLMEngine:
             self, output: SamplerOutput,
             scheduler_outputs: SchedulerOutputs) -> List[RequestOutput]:
         now = time.time()
+        
+        t0 = time.perf_counter()
         # Update the scheduled sequence groups with the model outputs.
         scheduled_seq_groups = scheduler_outputs.scheduled_seq_groups
 
@@ -778,13 +790,16 @@ class LLMEngine:
         if self.cache_config.enable_prefix_caching:
             for seq_group in scheduled_seq_groups:
                 self.scheduler.mark_blocks_as_computed(seq_group)
-
+        
+        t1 = time.perf_counter()
         for seq_group, outputs in zip(scheduled_seq_groups, output):
             self._process_sequence_group_outputs(seq_group, outputs)
 
+        t2 = time.perf_counter()
         # Free the finished sequence groups.
         self.scheduler.free_finished_seq_groups()
 
+        t3 = time.perf_counter()
         # Create the outputs.
         request_outputs: List[RequestOutput] = []
         for seq_group in scheduled_seq_groups:
@@ -794,10 +809,17 @@ class LLMEngine:
         for seq_group in scheduler_outputs.ignored_seq_groups:
             request_output = RequestOutput.from_seq_group(seq_group)
             request_outputs.append(request_output)
-
+        
+        t4 = time.perf_counter()
         # Log stats.
         if self.log_stats:
             self.stat_logger.log(self._get_stats(scheduler_outputs))
+
+        time_prefix_mark_blocks_as_computer = t1 - t0
+        time_process_sequence_group_outputs = t2 - t1
+        time_free = t3 - t2
+        time_create_output = t4 - t3
+
 
         return request_outputs
 
@@ -852,8 +874,11 @@ class LLMEngine:
             >>>     if not (engine.has_unfinished_requests() or example_inputs):
             >>>         break
         """
-        seq_group_metadata_list, scheduler_outputs = self.scheduler.schedule()
+        engine_step_start = time.perf_counter()
 
+        seq_group_metadata_list, scheduler_outputs = self.scheduler.schedule()
+        
+        run_workers_start = time.perf_counter()
         if not scheduler_outputs.is_empty():
             # Execute the model.
             all_outputs = self._run_workers(
@@ -870,8 +895,26 @@ class LLMEngine:
             output = all_outputs[0]
         else:
             output = []
+        
+        run_workers_end = time.perf_counter()
 
-        return self._process_model_outputs(output, scheduler_outputs)
+        results = self._process_model_outputs(output, scheduler_outputs)
+        
+        engine_step_end = time.perf_counter()
+
+        self.engine_step_times.append(engine_step_end - engine_step_start)
+        self.run_workers_times.append(run_workers_end - run_workers_start)
+
+        if len(self.engine_step_times) == 100:
+            avg_engine_step_time = np.average(self.engine_step_times)
+            avg_run_workers_time = np.average(self.run_workers_times)
+
+            print(f"\n\nrun_workers_time / engine_step_time: {avg_run_workers_time: 0.3f} / {avg_engine_step_time: 0.3f} = {100 * avg_run_workers_time / avg_engine_step_time: 0.1f}%\n\n")
+
+            self.engine_step_times = []
+            self.run_workers_times = []
+
+        return results
 
     def do_log_stats(self) -> None:
         """Forced log when no requests active."""
