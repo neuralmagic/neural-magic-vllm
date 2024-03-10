@@ -184,9 +184,6 @@ class RequestTracker:
 class _AsyncLLMEngine(LLMEngine):
     """Extension of LLMEngine to add async methods."""
 
-    def p(self, metric_avg, total_avg, metric_name):
-        print(f"{metric_name}: \t{100 * metric_avg / total_avg: 0.1f}%")
-
     async def step_async(self) -> List[RequestOutput]:
         """Performs one decoding iteration and returns newly generated results.
         The workers are ran asynchronously if possible.
@@ -236,11 +233,11 @@ class _AsyncLLMEngine(LLMEngine):
             avg_process_output_times = np.average(self.process_outputs_times)
             avg_total_step_time = np.average(self.total_step_times)
 
-            print("\n\n")
+            print("\n\n------------------ step_async:")
             self.p(avg_scheduler_times, avg_total_step_time, "schedule")
             self.p(avg_run_workers_time, avg_total_step_time, "run model")
             self.p(avg_process_output_times, avg_total_step_time, "process")
-            print("\n\n")
+            print("------------------\n\n")
 
             self.scheduler_times = []
             self.run_workers_times = []
@@ -424,8 +421,6 @@ class AsyncLLMEngine:
 
         Returns True if there are in-progress requests."""
 
-        step_start = time.perf_counter()
-
         new_requests, finished_requests = (
             self._request_tracker.get_new_and_finished_requests())
 
@@ -461,20 +456,7 @@ class AsyncLLMEngine:
         for request_output in request_outputs:
             self._request_tracker.process_request_output(
                 request_output, verbose=self.log_requests)
-
-        step_end = time.perf_counter()
-
-        self.step_times.append(step_end - step_start)
-        self.engine_times.append(engine_end - engine_start)
-        if len(self.step_times) == 100:
-            avg_step_time = np.average(self.step_times)
-            avg_engine_time = np.average(self.engine_times)
-
-            # print(f"\n\nengine_time / step_time: {avg_engine_time: 0.3f} / {avg_step_time: 0.3f} = {100 * avg_engine_time / avg_step_time: 0.1f}%\n\n")
-
-            self.step_times = []
-            self.engine_times = []
-
+            
         return len(request_outputs) > 0
 
     async def _engine_abort(self, request_ids: Iterable[str]):
@@ -487,33 +469,11 @@ class AsyncLLMEngine:
         # Initialize the RequestTracker here so it uses the right event loop.
         has_requests_in_progress = False
         while True:
-
-            loop_start = time.perf_counter()
             if not has_requests_in_progress:
                 await self._request_tracker.wait_for_new_requests()
             has_requests_in_progress = await self.engine_step()
             
-            sleep_start = time.perf_counter()
             await asyncio.sleep(0)
-            sleep_end = time.perf_counter()
-
-            loop_end = time.perf_counter()
-
-            self.sleep_times.append(sleep_end - sleep_start)
-            self.loop_times.append(loop_end - loop_start)
-
-            if len(self.sleep_times) == 100:
-                avg_sleep_time = np.average(self.sleep_times)
-                max_sleep_time = np.max(self.sleep_times)
-
-                avg_loop_time = np.average(self.loop_times)
-
-                # print(f"\nsleep_time / loop_time: {avg_sleep_time: 0.4f} / {avg_loop_time: 0.4f} = {100 * avg_sleep_time / avg_loop_time: 0.1f}%")
-                # print(f"max_sleep_time: {max_sleep_time: 0.4f}\n")
-
-                self.sleep_times = []
-                self.loop_times = []
-
 
     async def add_request(
         self,

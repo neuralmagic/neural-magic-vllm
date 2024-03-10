@@ -170,6 +170,13 @@ class LLMEngine:
         self.process_seq_group_output_times = []
         self.free_seq_group_times = []
         self.create_output_times = []
+        self.total_process_model_outputs_times = []
+
+        self.logprobs_times = []
+        self.parent_child_times = []
+        self.decode_times = []
+        self.fork_free_times = []
+        self.p_seq_group_total_times = []
 
     def get_tokenizer_for_seq(self, sequence: Sequence):
         return self.tokenizer.get_lora_tokenizer(sequence.lora_request)
@@ -599,6 +606,7 @@ class LLMEngine:
 
     def _process_sequence_group_outputs(self, seq_group: SequenceGroup,
                                         outputs: SequenceGroupOutput) -> None:
+        t0 = time.perf_counter()
 
         # Process prompt logprobs
         prompt_logprobs = outputs.prompt_logprobs
@@ -611,6 +619,8 @@ class LLMEngine:
                                       prompt_logprobs_for_token,
                                       all_token_ids[:i])
             seq_group.prompt_logprobs = prompt_logprobs
+        
+        t1 = time.perf_counter()
 
         # Process samples
         samples = outputs.samples
@@ -652,9 +662,13 @@ class LLMEngine:
                                    last_child_sample.logprobs)
             child_seqs.append((parent, parent))
 
+        t2 = time.perf_counter()
+
         for seq, _ in child_seqs:
             self._decode_sequence(seq, seq_group.sampling_params)
             self._check_stop(seq, seq_group.sampling_params)
+        
+        t3 = time.perf_counter()
 
         # Non-beam search case
         if not seq_group.sampling_params.use_beam_search:
@@ -673,7 +687,18 @@ class LLMEngine:
             for seq, parent in child_seqs:
                 if seq is parent and seq.is_finished():
                     self.scheduler.free_seq(seq)
+
+            t4 = time.perf_counter()
+
+            self.logprobs_times.append(t1 - t0)
+            self.parent_child_times.append(t2 - t1)
+            self.decode_times.append(t3 - t2)
+            self.fork_free_times.append(t4 - t3)
+            self.p_seq_group_total_times.append(t4 - t0)
+                
             return
+
+        assert False, "TODO: support beam search for timings"
 
         # Beam search case
         # Select the child sequences to keep in the sequence group.
@@ -776,6 +801,9 @@ class LLMEngine:
                 seq_group.remove(seq.seq_id)
                 self.scheduler.free_seq(seq)
 
+    def p(self, metric_avg, total_avg, metric_name):
+        print(f"{metric_name}: \t{100 * metric_avg / total_avg: 0.1f}%")
+
     def _process_model_outputs(
             self, output: SamplerOutput,
             scheduler_outputs: SchedulerOutputs) -> List[RequestOutput]:
@@ -815,11 +843,51 @@ class LLMEngine:
         if self.log_stats:
             self.stat_logger.log(self._get_stats(scheduler_outputs))
 
-        time_prefix_mark_blocks_as_computer = t1 - t0
-        time_process_sequence_group_outputs = t2 - t1
-        time_free = t3 - t2
-        time_create_output = t4 - t3
+        self.prefix_cleanup_times.append(t1 - t0)
+        self.process_seq_group_output_times.append(t2 - t1)
+        self.free_seq_group_times.append(t3 - t2)
+        self.create_output_times.append(t4 - t3)
+        self.total_process_model_outputs_times.append(t4 - t0)
 
+        if len(self.prefix_cleanup_times) == 100:
+            avg_prefix_cleanup_time = np.average(self.prefix_cleanup_times)
+            avg_process_seq_group_output_time = np.average(self.process_seq_group_output_times)
+            avg_free_seq_group_time = np.average(self.free_seq_group_times)
+            avg_create_output_time = np.average(self.create_output_times)
+            avg_total_process_model_outputs_time = np.average(self.total_process_model_outputs_times)
+
+            print("------------------ _process_model_outputs:")
+            self.p(avg_prefix_cleanup_time, avg_total_process_model_outputs_time, "prefix_clean")
+            self.p(avg_process_seq_group_output_time, avg_total_process_model_outputs_time, "p_seq_group")
+            self.p(avg_free_seq_group_time, avg_total_process_model_outputs_time, "f_seq_group")
+            self.p(avg_create_output_time, avg_total_process_model_outputs_time, "create_output")
+            print("------------------\n\n")
+
+
+            self.prefix_cleanup_times = []
+            self.process_seq_group_output_times = []
+            self.free_seq_group_times = []
+            self.create_output_times = []
+            self.total_process_model_outputs_times = []
+
+            avg_logprobs_time = np.average(self.logprobs_times)
+            avg_parent_child_time = np.average(self.parent_child_times)
+            avg_decode_time = np.average(self.decode_times)
+            avg_fork_free_time = np.average(self.fork_free_times)
+            avg_p_seq_group_total_time = np.average(self.p_seq_group_total_times)
+
+            print("------------------ _process_sequence_group_outputs:")
+            self.p(avg_logprobs_time, avg_p_seq_group_total_time, "logprobs")
+            self.p(avg_parent_child_time, avg_p_seq_group_total_time, "parent_child")
+            self.p(avg_decode_time, avg_p_seq_group_total_time, "decode")
+            self.p(avg_fork_free_time, avg_p_seq_group_total_time, "fork_free")
+            print("------------------\n\n")
+
+            self.logprobs_times = []
+            self.parent_child_times = []
+            self.decode_times = []
+            self.fork_free_times = []
+            self.p_seq_group_total_times = []
 
         return request_outputs
 
