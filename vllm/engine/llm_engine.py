@@ -942,11 +942,8 @@ class LLMEngine:
             >>>     if not (engine.has_unfinished_requests() or example_inputs):
             >>>         break
         """
-        engine_step_start = time.perf_counter()
-
         seq_group_metadata_list, scheduler_outputs = self.scheduler.schedule()
         
-        run_workers_start = time.perf_counter()
         if not scheduler_outputs.is_empty():
             # Execute the model.
             all_outputs = self._run_workers(
@@ -963,26 +960,8 @@ class LLMEngine:
             output = all_outputs[0]
         else:
             output = []
-        
-        run_workers_end = time.perf_counter()
-
-        results = self._process_model_outputs(output, scheduler_outputs)
-        
-        engine_step_end = time.perf_counter()
-
-        self.engine_step_times.append(engine_step_end - engine_step_start)
-        self.run_workers_times.append(run_workers_end - run_workers_start)
-
-        if len(self.engine_step_times) == 100:
-            avg_engine_step_time = np.average(self.engine_step_times)
-            avg_run_workers_time = np.average(self.run_workers_times)
-
-            print(f"\n\nrun_workers_time / engine_step_time: {avg_run_workers_time: 0.3f} / {avg_engine_step_time: 0.3f} = {100 * avg_run_workers_time / avg_engine_step_time: 0.1f}%\n\n")
-
-            self.engine_step_times = []
-            self.run_workers_times = []
-
-        return results
+    
+        return self._process_model_outputs(output, scheduler_outputs)
 
     def do_log_stats(self) -> None:
         """Forced log when no requests active."""

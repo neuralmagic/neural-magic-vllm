@@ -1,3 +1,4 @@
+import numpy as np
 from collections import deque
 import enum
 import time
@@ -103,6 +104,10 @@ class Scheduler:
         self.running: Deque[SequenceGroup] = deque()
         # Sequence groups in the SWAPPED state.
         self.swapped: Deque[SequenceGroup] = deque()
+
+        self._schedule_times = []
+        self.metadata_times = []
+        self.total_schedule_times = []
 
     @property
     def lora_enabled(self) -> bool:
@@ -357,11 +362,16 @@ class Scheduler:
         )
         return scheduler_outputs
 
+    def p(self, metric_avg, total_avg, metric_name):
+        print(f"{metric_name}: \t{100 * metric_avg / total_avg: 0.1f}%")
+
     def schedule(self) -> Tuple[List[SequenceGroupMetadata], SchedulerOutputs]:
         # Schedule sequence groups.
         # This function call changes the internal states of the scheduler
         # such as self.running, self.swapped, and self.waiting.
+        t0 = time.perf_counter()
         scheduler_outputs = self._schedule()
+        t1 = time.perf_counter()
         now = time.time()
 
         # Create input data structures.
@@ -390,6 +400,27 @@ class Scheduler:
                 state=seq_group.state,
             )
             seq_group_metadata_list.append(seq_group_metadata)
+        
+        t2 = time.perf_counter()
+
+        self._schedule_times.append(t1-t0)
+        self.metadata_times.append(t2-t1)
+        self.total_schedule_times.append(t2-t0)
+
+        if len(self._schedule_times) == 100:
+            avg__schedule_time = np.average(self._schedule_times)
+            avg_metadata_time = np.average(self.metadata_times)
+            avg_total_schedule_time = np.average(self.total_schedule_times)
+
+            print("------------------ schedule:")
+            self.p(avg__schedule_time, avg_total_schedule_time, "_schedule")
+            self.p(avg_metadata_time, avg_total_schedule_time, "metadata")
+            print("------------------\n\n")
+
+            self._schedule_times = []
+            self.metadata_times = []
+            self.total_schedule_times = []
+
         return seq_group_metadata_list, scheduler_outputs
 
     def fork_seq(self, parent_seq: Sequence, child_seq: Sequence) -> None:

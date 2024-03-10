@@ -370,11 +370,14 @@ class AsyncLLMEngine:
         self.start_engine_loop = start_engine_loop
         self._request_tracker = RequestTracker()
 
-        self.sleep_times = []
-        self.loop_times  = []
+        self.sleep_times  = []
+        self.engine_step_times = []
+        self.total_loop_times = []
 
-        self.step_times = []
-        self.engine_times = []
+        self.get_new_times = []
+        self.core_engine_step_times = []
+        self.process_output_times = []
+        self.engine_step_total_times = []
 
     @property
     def is_running(self) -> bool:
@@ -420,6 +423,7 @@ class AsyncLLMEngine:
         """Kick the engine to process the waiting requests.
 
         Returns True if there are in-progress requests."""
+        t0 = time.perf_counter()
 
         new_requests, finished_requests = (
             self._request_tracker.get_new_and_finished_requests())
@@ -442,21 +446,42 @@ class AsyncLLMEngine:
 
         if finished_requests:
             await self._engine_abort(finished_requests)
-
-        engine_start = time.perf_counter()
         
+        t1 = time.perf_counter()
         if self.engine_use_ray:
             request_outputs = await self.engine.step.remote()
         else:
             request_outputs = await self.engine.step_async()
 
-        engine_end = time.perf_counter()
-
+        t2 = time.perf_counter()
         # Put the outputs into the corresponding streams.
         for request_output in request_outputs:
             self._request_tracker.process_request_output(
                 request_output, verbose=self.log_requests)
+        t3 = time.perf_counter()
+
+        self.get_new_times.append(t1-t0)
+        self.core_engine_step_times.append(t2-t1)
+        self.process_output_times.append(t3-t2)
+        self.engine_step_total_times.append(t3-t0)
+
+        if len(self.get_new_times) == 100:
+            avg_get_new_times = np.average(self.get_new_times)
+            avg_core_engine_step_times = np.average(self.core_engine_step_times)
+            avg_process_output_times = np.average(self.process_output_times)
+            avg_engine_step_total_times = np.average(self.engine_step_total_times)
             
+            # print("------------------ engine_step:")
+            # self.p(avg_get_new_times, avg_engine_step_total_times, "get_new")
+            # self.p(avg_core_engine_step_times, avg_engine_step_total_times, "engine.step")
+            # self.p(avg_process_output_times, avg_engine_step_total_times, "process_o")
+            # print("------------------\n\n")
+
+            self.get_new_times = []
+            self.core_engine_step_times = []
+            self.process_output_times = []
+            self.engine_step_total_times = []
+
         return len(request_outputs) > 0
 
     async def _engine_abort(self, request_ids: Iterable[str]):
@@ -465,15 +490,38 @@ class AsyncLLMEngine:
         else:
             self.engine.abort_request(request_ids)
 
+    def p(self, metric_avg, total_avg, metric_name):
+        print(f"{metric_name}: \t{100 * metric_avg / total_avg: 0.1f}%")
+
     async def run_engine_loop(self):
         # Initialize the RequestTracker here so it uses the right event loop.
         has_requests_in_progress = False
         while True:
+            t0 = time.perf_counter()
             if not has_requests_in_progress:
                 await self._request_tracker.wait_for_new_requests()
             has_requests_in_progress = await self.engine_step()
-            
+            t1 = time.perf_counter()
             await asyncio.sleep(0)
+            t2 = time.perf_counter()
+
+            self.engine_step_times.append(t1-t0)
+            self.sleep_times.append(t2-t1)
+            self.total_loop_times.append(t2-t0)
+
+            if len(self.total_loop_times) == 100:
+                avg_engine_step_time = np.average(self.engine_step_times)
+                avg_sleep_time = np.average(self.sleep_times)
+                avg_total_loop_time = np.average(self.total_loop_times)
+                
+                # print("\n\n------------------ run_engine_loop:")
+                # self.p(avg_engine_step_time, avg_total_loop_time, "step")
+                # self.p(avg_sleep_time, avg_total_loop_time, "sleep")
+                # print("------------------\n\n")
+
+                self.engine_step_times = []
+                self.sleep_times = []
+                self.total_loop_times = []
 
     async def add_request(
         self,
