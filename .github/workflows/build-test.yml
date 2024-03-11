@@ -135,10 +135,9 @@ jobs:
                 COMMIT=${{ github.sha }}
                 VENV="TEST-${COMMIT:0:7}"
                 source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
-                coverage --help
-                # coverage combine --keep ${COVERAGE_REPORTS}
-                # coverage html
-                # ls -alh
+                coverage combine --keep ${COVERAGE_REPORTS}
+                coverage html
+                ls -alh
 
             - name: report test results
               id: report_test
