@@ -127,6 +127,14 @@ jobs:
                 venv: TEST
                 pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
 
+            - name: take a look
+              run: |
+                ls -alh
+                COVERAGE_REPORTS=$(find . -type f -iname ".coverage*")
+                coverage combine --keep ${COVERAGE_REPORTS}
+                coverage html
+                ls -alh
+
             - name: report test results
               id: report_test
               uses: ./.github/actions/nm-testmo-run-submit-thread/
