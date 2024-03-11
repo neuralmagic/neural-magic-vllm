@@ -32,6 +32,7 @@ runs:
         VENV="${{ inputs.venv }}-${COMMIT:0:7}"
         pyenv virtualenv ${VENV}
         source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
+        pip3 install coverage
         pip3 list
         ls -alh dist
         pip3 install ${{ inputs.whl }}
