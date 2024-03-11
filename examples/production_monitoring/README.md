@@ -62,7 +62,7 @@ On Prometheus configuration page, we need to add the `Prometheus Server URL` in 
 
 Click `Save & Test`. You should get a green check saying "Successfully queried the Prometheus API.".
 
-#### Dashboard Loading from json
+#### Dashboard Setup - Importing from json
 
-Dashboards can be loaded from `json` config files. Navigate to [`http://localhost:3000/dashboard/import`](http://localhost:3000/dashboard/import), upload `vllm-metrics-overview.json` for overview metrics, and select the `prometheus` datasource. 
+Dashboards can be imported from `json` config files. Navigate to [`http://localhost:3000/dashboard/import`](http://localhost:3000/dashboard/import), upload `vllm-metrics-overview.json` for overview metrics, and select the `prometheus` datasource. 
 

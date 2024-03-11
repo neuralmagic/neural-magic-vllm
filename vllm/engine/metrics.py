@@ -57,12 +57,16 @@ histogram_time_per_output_tokens = Histogram(
     "vllm:time_per_output_token_seconds",
     "Histogram of time per output token in seconds.",
     buckets=[
-        0.01, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 2.5
+        0.01, 0.02, 0.03, 0.04, 0.05, 0.075, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75,
+        1.0, 2.5
     ])
 histogram_e2e_request_latency = Histogram(
     "vllm:e2e_request_latency_seconds",
     "Histogram of end to end request latency in seconds.",
-    buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0])
+    buckets=[
+        0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0,
+        120.0
+    ])
 # end-metrics-definitions
 
 counter_inference_request_success = Counter(
