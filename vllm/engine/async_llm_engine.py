@@ -380,9 +380,6 @@ class AsyncLLMEngine:
         else:
             return self.engine.get_tokenizer()
 
-    def get_tokenizer(self):
-        return self.engine.tokenizer.tokenizer
-
     def start_background_loop(self) -> None:
         """Start the background loop."""
         if self.errored:

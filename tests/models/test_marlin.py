@@ -17,7 +17,6 @@ Run `pytest tests/models/test_marlin.py`.
 
 import pytest
 import torch
-from compare_utils import check_logprobs_close
 from dataclasses import dataclass
 from vllm.model_executor.layers.quantization import _QUANTIZATION_CONFIG_REGISTRY
 
