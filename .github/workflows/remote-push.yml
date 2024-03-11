@@ -25,5 +25,5 @@ jobs:
             gitref: '${{ github.ref }}'
             Gi_per_thread: 4
             python: ${{ matrix.python }}
-            test_runner: "run-30min-tests"
+            test_runner: "run-skipping-slow-tests"
         secrets: inherit
