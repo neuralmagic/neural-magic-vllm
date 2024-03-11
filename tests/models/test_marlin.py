@@ -86,7 +86,7 @@ def test_models(
     del gptq_model
 
     # loop through the prompts
-    # use logprobs or else this will consistenly run out of memory
+    # use logprobs or else this will consistently run out of memory
     check_logprobs_close(
         outputs_0_lst=gptq_outputs,
         outputs_1_lst=marlin_outputs,
