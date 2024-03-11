@@ -10,7 +10,7 @@ from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
-from vllm.engine.metrics import counter_inference_request_success, counter_inference_request_aborted, counter_num_requests
+from vllm.engine.metrics import counter_inference_request_success, counter_inference_request_aborted
 
 TIMEOUT_KEEP_ALIVE = 5  # seconds.
 app = FastAPI()
@@ -34,7 +34,6 @@ async def generate(request: Request) -> Response:
     """
     labels = {"endpoint": "/generate"}
     # increment number of requests
-    counter_num_requests.inc(labels)
 
     request_dict = await request.json()
     prompt = request_dict.pop("prompt")

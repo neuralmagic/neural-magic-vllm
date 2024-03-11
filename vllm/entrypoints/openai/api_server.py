@@ -23,7 +23,7 @@ from vllm.entrypoints.openai.protocol import CompletionRequest, ChatCompletionRe
 from vllm.logger import init_logger
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
-from vllm.engine.metrics import counter_inference_request_success, counter_inference_request_aborted, counter_num_requests
+from vllm.engine.metrics import counter_inference_request_success, counter_inference_request_aborted
 
 TIMEOUT_KEEP_ALIVE = 5  # seconds
 
@@ -151,7 +151,6 @@ async def create_chat_completion(request: ChatCompletionRequest,
     if hasattr(request, "model"):
         label["model"] = request.model
     # increment number of requests
-    counter_num_requests.inc(label)
 
     generator = await openai_serving_chat.create_chat_completion(
         request, raw_request)
@@ -175,7 +174,6 @@ async def create_completion(request: CompletionRequest, raw_request: Request):
     if hasattr(request, "model"):
         label["model"] = request.model
     # increment number of requests
-    counter_num_requests.inc(label)
 
     generator = await openai_serving_completion.create_completion(
         request, raw_request)

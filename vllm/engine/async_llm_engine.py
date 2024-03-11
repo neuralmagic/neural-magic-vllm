@@ -12,6 +12,7 @@ from vllm.engine.ray_utils import initialize_cluster, ray
 from vllm.logger import init_logger
 from vllm.outputs import RequestOutput
 from vllm.sampling_params import SamplingParams
+from vllm.engine.metrics import counter_num_prompts
 
 logger = init_logger(__name__)
 
@@ -550,6 +551,8 @@ class AsyncLLMEngine:
             >>> # Process and return the final output
             >>> ...
         """
+        counter_num_prompts.inc({"attr": "AsyncLLMEngine.generate"})
+
         # Preprocess the request.
         # This should not be used for logging, as it is monotonic time.
         arrival_time = time.monotonic()

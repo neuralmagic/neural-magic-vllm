@@ -7,7 +7,6 @@ from typing import List, Dict
 from dataclasses import dataclass
 import pynvml
 from collections import defaultdict
-import ast
 
 logger = init_logger(__name__)
 
@@ -86,12 +85,8 @@ gauge_gpu_memory_total_bytes = Gauge("vllm:gpu_memory_total_bytes",
 gauge_gpu_memory_used_bytes = Gauge("vllm:gpu_memory_used_bytes",
                                     "Bytes that occupy the GPU memory")
 
-gauge_query_per_sec = Gauge(
-    "vllm:query_per_sec",
-    "Number of request over time. Value is reset at intervals")
-
-counter_num_requests = Counter("vllm:num_requests",
-                               "Number of total requests/queries")
+counter_num_prompts = Counter("vllm:num_prompts_count",
+                              "Number of total queries")
 
 
 @dataclass
@@ -130,17 +125,6 @@ class StatLogger:
     def _get_throughput(self, tracked_stats: List[int], now: float) -> float:
         return float(np.sum(tracked_stats) / (now - self.last_local_log))
 
-    def _get_qps(self, now: float) -> Dict[str, float]:
-        """Get query per sec and update number of observed queries"""
-        queries = {}
-        for label, counts in counter_num_requests.get_all():
-            # convert dict into string for dict hashing
-            label_str = str(label)
-            queries[label_str] = (counts - self.num_query[label_str]) / (
-                now - self.last_local_log)
-            self.num_query[label_str] = counts
-        return queries
-
     def _local_interval_elapsed(self, now: float) -> bool:
         elapsed_time = now - self.last_local_log
         return elapsed_time > self.local_interval
@@ -167,9 +151,11 @@ class StatLogger:
 
         self._log_gpu_metrics(labels)
 
-    def _log_prometheus_interval(self, prompt_throughput: float,
-                                 generation_throughput: float,
-                                 query_per_sec: Dict[str, float]) -> None:
+    def _log_prometheus_interval(
+        self,
+        prompt_throughput: float,
+        generation_throughput: float,
+    ) -> None:
         # Logs metrics to prometheus that are computed every logging_interval.
         # Support legacy gauge metrics that make throughput calculations on the vLLM side.
         # Moving forward, we should use counters like counter_prompt_tokens, counter_generation_tokens
@@ -177,8 +163,6 @@ class StatLogger:
         # See https://github.com/vllm-project/vllm/pull/2316#discussion_r1464204666
         gauge_avg_prompt_throughput.set(labels, prompt_throughput)
         gauge_avg_generation_throughput.set(labels, generation_throughput)
-        for qps_labels, rate in query_per_sec.items():
-            gauge_query_per_sec.set(ast.literal_eval(qps_labels), rate)
 
     def log(self, stats: Stats) -> None:
         """Called by LLMEngine.
@@ -200,11 +184,11 @@ class StatLogger:
                                                      now=stats.now)
             generation_throughput = self._get_throughput(
                 self.num_generation_tokens, now=stats.now)
-            query_per_sec = self._get_qps(stats.now, )
+
             self._log_prometheus_interval(
                 prompt_throughput=prompt_throughput,
                 generation_throughput=generation_throughput,
-                query_per_sec=query_per_sec)
+            )
 
             # Log to stdout.
             logger.info(
