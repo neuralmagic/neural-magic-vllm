@@ -131,9 +131,10 @@ jobs:
               run: |
                 ls -alh
                 COVERAGE_REPORTS=$(find . -type f -iname ".coverage*")
-                coverage combine --keep ${COVERAGE_REPORTS}
-                coverage html
-                ls -alh
+                echo "... ${COVERAGE_REPORTS}"
+                # coverage combine --keep ${COVERAGE_REPORTS}
+                # coverage html
+                # ls -alh
 
             - name: report test results
               id: report_test

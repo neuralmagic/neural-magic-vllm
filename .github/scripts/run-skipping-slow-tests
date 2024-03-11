@@ -128,10 +128,12 @@ do
     LOCAL_SUCCESS=0
     RESULT_XML=$(echo ${TEST} | sed -e "s/${TEST_DIR}/${RESULTS_DIR}/" | sed -e "s/.py/.xml/")
 
+    echo "planning to generate ... .coverage-$(basename ${TEST})"
+
     # this is a bit messy and brittle, but certain tests
     # need to be run with specific options
     if [[ "${TEST}" == *"kernels/test_pos_encoding"* ]]; then
-	CUDA_VISIBLE_DEVICES=0,1 coverage run --data-file=.coverage-$(basename ${TEST}) -m pytest --forked --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        CUDA_VISIBLE_DEVICES=0,1 coverage run --data-file=.coverage-$(basename ${TEST}) -m pytest --forked --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     elif [[ "${TEST}" == *"kernels"* ]]; then
         CUDA_VISIBLE_DEVICES=0,1 coverage run --data-file=.coverage-$(basename ${TEST}) -m pytest --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     elif [[ "${TEST}" == *"samplers"* ]]; then
