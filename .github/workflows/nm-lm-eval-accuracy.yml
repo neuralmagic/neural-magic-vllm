@@ -1,4 +1,4 @@
-name: lm-eval-accuracy 
+name: nm-lm-eval-accuracy
 on:
   # makes workflow reusable
   workflow_call:
@@ -92,7 +92,7 @@ jobs:
           pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
 
       - name: run benchmarks
-        uses: ./.github/actions/nm-nm-lm-eval-accuracy/
+        uses: ./.github/actions/nm-lm-eval-accuracy/
         with:
           python: ${{ inputs.python }}
           venv: TEST

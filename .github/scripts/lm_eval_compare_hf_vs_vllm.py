@@ -4,7 +4,6 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import scipy.stats
-import torch
 
 import lm_eval
 import lm_eval.models.utils
@@ -37,9 +36,9 @@ def print_results(data_to_print: List = None,
         print(f"Z-Score: {z}, P-Value: {p_value}, p > {alpha}: {result}\n")
 
 
-def check_passing_score(results_dict: Dict = None, alpha: float = None) -> bool:
+def check_passing_score(results_dict: Dict = None,
+                        alpha: float = None) -> bool:
     for task in results_dict:
-        z = task["z"]
         p_value = task["p_value"]
         if p_value <= alpha:
             return False
@@ -120,8 +119,8 @@ if __name__ == "__main__":
         assert task1[0] == task2[0]
         z, p_value = calculate_z_value(task1[1], task2[1])
         all_res[task1[0]] = {"z": z, "p_value": p_value}
-    print_results([results_hf["results"], results_vllm["results"]],
-                       all_res, args.alpha)
+    print_results([results_hf["results"], results_vllm["results"]], all_res,
+                  args.alpha)
     if not check_passing_score:
         print("Accuracy test failed!")
         exit(1)
