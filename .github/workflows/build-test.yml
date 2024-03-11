@@ -132,6 +132,10 @@ jobs:
                 ls -alh
                 COVERAGE_REPORTS=$(find . -type f -iname ".coverage*")
                 echo "... ${COVERAGE_REPORTS}"
+                COMMIT=${{ github.sha }}
+                VENV="TEST-${COMMIT:0:7}"
+                source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
+                coverage --help
                 # coverage combine --keep ${COVERAGE_REPORTS}
                 # coverage html
                 # ls -alh
