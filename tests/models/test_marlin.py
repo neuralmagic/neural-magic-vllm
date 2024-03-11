@@ -17,6 +17,7 @@ Run `pytest tests/models/test_marlin.py`.
 
 import pytest
 import torch
+from compare_utils import check_logprobs_close
 from dataclasses import dataclass
 from vllm.model_executor.layers.quantization import _QUANTIZATION_CONFIG_REGISTRY
 
@@ -85,23 +86,10 @@ def test_models(
     del gptq_model
 
     # loop through the prompts
-    for prompt_idx in range(len(example_prompts)):
-        gptq_output_ids, gptq_output_str, gptq_logprobs = gptq_outputs[
-            prompt_idx]
-        marlin_output_ids, marlin_output_str, marlin_logprobs = marlin_outputs[
-            prompt_idx]
-
-        for idx, (gptq_output_id, marlin_output_id) in enumerate(
-                zip(gptq_output_ids, marlin_output_ids)):
-            # If sequence is not an exact match,
-            if marlin_output_id != gptq_output_id:
-                # Each predicted token must be in top 5 of the other's
-                assert gptq_output_id in marlin_logprobs[idx], (
-                    f"Test{prompt_idx}:\nGPTQ:\t{gptq_output_str!r}\n"
-                    f"Marlin:\t{marlin_output_str!r}")
-                assert marlin_output_id in gptq_logprobs[idx], (
-                    f"Test{prompt_idx}:\nGPTQ:\t{gptq_output_str!r}\n"
-                    f"Marlin:\t{marlin_output_str!r}")
-
-                # Break out since sequences will now diverge.
-                break
+    # use logprobs or else this will consistenly run out of memory
+    check_logprobs_close(
+        outputs_0_lst=gptq_outputs,
+        outputs_1_lst=marlin_outputs,
+        name_0="gptq",
+        name_1="marlin",
+    )
