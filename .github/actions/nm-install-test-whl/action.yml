@@ -10,6 +10,9 @@ inputs:
   whl:
     description: 'filepath for magic_wand whl file'
     required: true
+  test_runner:
+    description: "name of test runner script relative to .github/scripts, e.g. 'run-all-tests'"
+    required: true
   test_directory:
     description: 'directory to test files'
     required: true
@@ -34,7 +37,7 @@ runs:
         pip3 install ${{ inputs.whl }}
         pip3 install -r requirements-dev.txt
         SUCCESS=0
-        ./.github/scripts/run-tests -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} || SUCCESS=$?
+        ./.github/scripts/${{ inputs.test_runner }} -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} || SUCCESS=$?
         echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
         exit ${SUCCESS}
       shell: bash
