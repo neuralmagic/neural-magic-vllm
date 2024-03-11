@@ -12,18 +12,23 @@ on:
   workflow_dispatch:
 
 jobs:
-  AWS-AVX2-32G-A10G-24G:
-    name: Build Docker Image
-    runs-on: ubuntu-latest
-    with:
-      label: aws-avx2-32G-a10g-24G
+    build-docker-image:
 
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v3
+        runs-on: aws-avx2-32G-a10g-24G
+        timeout-minutes: 60
 
-        - name: Build Docker Image
-          uses: docker/build-push-action@v2
-          with:
-            context: .
-            load: true  # Ensures image is loaded into Docker daemon but not pushed
+        steps:
+
+          - name: checkout
+            id: checkout
+            uses: actions/checkout@v4
+            with:
+              fetch-depth: 0
+              ref: ${{ inputs.gitref }}
+              submodules: recursive
+
+          - name: Build Docker Image
+            uses: docker/build-push-action@v2
+            with:
+              context: .
+              load: true  # Ensures image is loaded into Docker daemon but not pushed
