@@ -24,17 +24,16 @@ def mock_causal_accepted_tensor(k: int, last_accepted_indices: torch.Tensor,
     """
     batch_size = last_accepted_indices.shape[0]
 
-    accepted = (torch.arange(k).expand(batch_size, k)
-                <= last_accepted_indices.unsqueeze(-1).broadcast_to(
+    accepted = (torch.arange(k).expand(batch_size, k) <=
+                last_accepted_indices.unsqueeze(-1).broadcast_to(
                     batch_size, k)).to(device=device)
 
     # Sprinkle accepted values after the contiguous initial accepted values.
     # This replicates the behavior of rejection sampling, which may "accept"
     # a token that cannot be accepted because of causality.
-    sprinkle_candidates = (torch.arange(k).expand(
-        batch_size,
-        k) > last_accepted_indices.unsqueeze(-1).broadcast_to(batch_size, k) +
-                           1)
+    sprinkle_candidates = (
+        torch.arange(k).expand(batch_size, k) >
+        last_accepted_indices.unsqueeze(-1).broadcast_to(batch_size, k) + 1)
     sprinkle = torch.rand(batch_size, k, device=device) > 0.5
     accepted[sprinkle_candidates] = sprinkle[sprinkle_candidates]
     return accepted
@@ -277,8 +276,8 @@ def test_rejection_sampling_approximates_target_distribution(
         distance_wrt_reference)
 
     expected_improvement_multiplier = 20
-    assert (relative_change_in_distance_wrt_target
-            > relative_change_in_distance_wrt_reference *
+    assert (relative_change_in_distance_wrt_target >
+            relative_change_in_distance_wrt_reference *
             expected_improvement_multiplier)
 
 
