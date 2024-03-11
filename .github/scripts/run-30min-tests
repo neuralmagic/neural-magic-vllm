@@ -54,20 +54,21 @@ TESTS_FOUND=($TESTS_DOT_PY)
 echo "found:"
 echo "${TESTS_FOUND[@]}"
 
-TESTS_UNDER_30=(
-    "tests/basic_correctness/test_basic_correctness.py"
-    "tests/models/test_marlin.py"
-    "tests/lora/test_layers.py"
+TESTS_TO_EXCLUDE=(
+    "tests/kernels/test_attention.py"
+    "tests/models/test_models_logprobs.py"
 )
 
-echo "requested:"
-echo "${TESTS_UNDER_30[@]}"
+echo "excluded:"
+echo "${TESTS_TO_EXCLUDE[@]}"
 
 TESTS_TO_RUN=()
 for FOUND in "${TESTS_FOUND[@]}"; do
-    for UNDER in "${TESTS_UNDER_30[@]}"; do
-        if [[ ${FOUND} == ${UNDER} ]]; then
-            TESTS_TO_RUN+=("${UNDER}")
+    for EXCLUDE in "${TESTS_TO_EXCLUDE[@]}"; do
+        if [[ ${FOUND} == ${EXCLUDE} ]]; then
+            echo "excluding: ${EXCLUDE}"
+        else
+            TESTS_TO_RUN+=("${FOUND}")
         fi
     done
 done
