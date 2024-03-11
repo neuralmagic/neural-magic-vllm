@@ -58,7 +58,6 @@ echo "${TESTS_FOUND[@]}"
 #    "tests/lora/test_layers.py"
 #    "tests/models/test_marlin.py"
 
-
 TESTS_TO_EXCLUDE=(
     "tests/models/test_mistral.py"
     "tests/metrics/test_metrics.py"
@@ -108,18 +107,19 @@ echo "excluded:"
 echo "${TESTS_TO_EXCLUDE[@]}"
 
 TESTS_TO_RUN=()
-for FOUND in "${TESTS_FOUND[@]}"; do
-    for EXCLUDE in "${TESTS_TO_EXCLUDE[@]}"; do
-        if [[ ${FOUND} == ${EXCLUDE} ]]; then
+for EXCLUDE in "${TESTS_TO_EXCLUDE[@]}"; do
+    for JJ in "${!TESTS_FOUND[@]}"; do
+        if [[ ${TESTS_FOUND[$JJ]} = ${EXCLUDE} ]]; then
             echo "excluding: ${EXCLUDE}"
-        else
-            TESTS_TO_RUN+=("${FOUND}")
+            unset 'TESTS_FOUND[$JJ]'
         fi
     done
 done
 
 echo "running:"
-echo "${TESTS_TO_RUN[@]}"
+echo "${TESTS_FOUND[@]}"
+
+# exit 0
 
 # TESTS_TO_RUN=($TESTS_DOT_PY)
 SUCCESS=0
