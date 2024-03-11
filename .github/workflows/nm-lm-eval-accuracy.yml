@@ -91,7 +91,7 @@ jobs:
           venv: TEST
           pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
 
-      - name: run benchmarks
+      - name: run lm-eval-accuracy
         uses: ./.github/actions/nm-lm-eval-accuracy/
         with:
           python: ${{ inputs.python }}
