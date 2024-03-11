@@ -38,7 +38,7 @@ def _is_neuron() -> bool:
     torch_neuronx_installed = True
     try:
         subprocess.run(["neuron-ls"], capture_output=True, check=True)
-    except FileNotFoundError:
+    except (FileNotFoundError, PermissionError):
         torch_neuronx_installed = False
     return torch_neuronx_installed
 
@@ -436,7 +436,19 @@ def get_requirements() -> List[str]:
     return requirements
 
 
-package_data = {"vllm": ["py.typed"]}
+_sparsity_deps = ["nm-magic-wand"]
+
+
+def get_extra_requirements() -> dict:
+    return {
+        "sparse": _sparsity_deps,
+        "sparsity": _sparsity_deps,
+    }
+
+
+package_data = {
+    "vllm": ["py.typed", "model_executor/layers/fused_moe/configs/*.json"]
+}
 if os.environ.get("VLLM_USE_PRECOMPILED"):
     ext_modules = []
     package_data["vllm"].append("*.so")
@@ -451,9 +463,9 @@ setuptools.setup(
                  "serving engine for LLMs"),
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    url="https://github.com/neuralmagic",
+    url="https://github.com/neuralmagic/nm-vllm",
     project_urls={
-        "Homepage": "https://github.com/neuralmagic",
+        "Homepage": "https://github.com/neuralmagic/nm-vllm",
         "Documentation": "https://vllm.readthedocs.io/en/latest/",
     },
     classifiers=[
@@ -461,13 +473,20 @@ setuptools.setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
-        "License :: OSI Approved :: Apache Software License",
+        "License :: Other/Proprietary License",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
+    license_files=('LICENSE', 'licenses/LICENSE.apache',
+                   'licenses/LICENSE.awq',
+                   'licenses/LICENSE.fastertransformer',
+                   'licenses/LICENSE.gptq', 'licenses/LICENSE.marlin',
+                   'licenses/LICENSE.punica', 'licenses/LICENSE.squeezellm',
+                   'licenses/LICENSE.tensorrtllm', 'licenses/LICENSE.vllm'),
     packages=setuptools.find_packages(exclude=("benchmarks", "csrc", "docs",
                                                "examples", "tests")),
     python_requires=">=3.8",
     install_requires=get_requirements(),
+    extras_require=get_extra_requirements(),
     ext_modules=ext_modules,
     cmdclass={"build_ext": BuildExtension} if not _is_neuron() else {},
     package_data=package_data,

@@ -5,7 +5,7 @@ from transformers import PreTrainedTokenizerBase
 from datasets import load_dataset
 from typing import List, Tuple, Optional
 from pathlib import Path
-from neuralmagic.tools.call_cmd import call_cmd
+from ...tools.call_cmd import call_cmd
 
 
 @dataclass
@@ -64,7 +64,7 @@ def get_ultrachat(tokenizer: PreTrainedTokenizerBase,
     completions = []
     system_message = {
         "content":
-        "You are a chatbot with the explict goal of helping the user as best as possible",
+        "You are a chatbot with the explicit goal of helping the user as best as possible",
         "role": "system",
     }
     for messages in ds["messages"]:

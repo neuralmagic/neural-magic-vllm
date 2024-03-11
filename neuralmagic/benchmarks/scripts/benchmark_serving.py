@@ -33,8 +33,9 @@ import numpy as np
 from tqdm.asyncio import tqdm
 from transformers import PreTrainedTokenizerBase
 from vllm.transformers_utils.tokenizer import get_tokenizer
-from neuralmagic.benchmarks.scripts.common import instantiate_benchmark_results_dict, generate_synthetic_requests, print_benchmark_io
-from neuralmagic.benchmarks.datasets_registry import get_dataset, DatasetArgs
+from .common import instantiate_benchmark_results_dict, generate_synthetic_requests, print_benchmark_io
+# TODO (move this to scripts)
+from .datasets_registry import get_dataset, DatasetArgs
 
 from neuralmagic.benchmarks.scripts.backend_request_func import (
     ASYNC_REQUEST_FUNCS,
@@ -384,7 +385,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--disable-tqdm",
         action="store_true",
-        help="Specify to disbale tqdm progress bar.",
+        help="Specify to disable tqdm progress bar.",
     )
 
     parser.add_argument("--save-directory",
