@@ -9,7 +9,7 @@ source .hack/bin/activate
 pip3 install -e .
 pip install nm-magic-wand
 
-# install packages to use peft in vllm, takes about 3-5 mins
+# install packages to use peft in vllm, takes a while. Let it do not interrupt
 VLLM_INSTALL_PUNICA_KERNELS=1 python3 setup.py build_ext --inplace
 
 
