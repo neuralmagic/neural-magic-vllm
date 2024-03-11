@@ -3,22 +3,13 @@ import os
 from typing import Dict, List, Tuple
 
 import numpy as np
-import pandas as pd
 import scipy.stats
 import torch
 
-import lm_eval.evaluator
+import lm_eval
 import lm_eval.models.utils
-from lm_eval import tasks, utils
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-eval_logger = utils.eval_logger
-
-
-def memory_stats():
-    eval_logger.info(
-        f"Memory allocated: {torch.cuda.memory_allocated() / 1024 ** 2}, reserved: {torch.cuda.memory_reserved() // 1024 ** 2}"
-    )
 
 
 def calculate_z_value(res1: Dict, res2: Dict) -> Tuple[float, float]:
@@ -33,33 +24,36 @@ def calculate_z_value(res1: Dict, res2: Dict) -> Tuple[float, float]:
 def print_results(data_to_print: List = None,
                   results_dict: Dict = None,
                   alpha: float = None):
-    model1_data = data_to_print[0]
-    model2_data = data_to_print[1]
-    table_data = []
+    model1_data, model2_data = data_to_print
     for task in model1_data:
-        row = {
-            "Task": task,
-            "HF Accuracy": model1_data[task]["acc,none"],
-            "vLLM Accuracy": model2_data[task]["acc,none"],
-            "HF StdErr": model1_data[task]["acc_stderr,none"],
-            "vLLM StdErr": model2_data[task]["acc_stderr,none"],
-        }
-        table_data.append(row)
-    comparison_df = pd.DataFrame(table_data)
-    comparison_df["Z-Score"] = comparison_df["Task"].apply(
-        lambda task: results_dict[task]["z"])
-    comparison_df["P-Value"] = comparison_df["Task"].apply(
-        lambda task: results_dict[task]["p_value"])
-    comparison_df[f"p > {alpha}"] = comparison_df["P-Value"].apply(
-        lambda p: "pass" if p > alpha else "fail")
-    return comparison_df
+        print(f"Task: {task}")
+        print(f"HF Accuracy: {model1_data[task]['acc,none']}")
+        print(f"vLLM Accuracy: {model2_data[task]['acc,none']}")
+        print(f"HF StdErr: {model1_data[task]['acc_stderr,none']}")
+        print(f"vLLM StdErr: {model2_data[task]['acc_stderr,none']}")
+        z = results_dict[task]["z"]
+        p_value = results_dict[task]["p_value"]
+        result = "PASS" if p_value > alpha else "FAIL"
+        print(f"Z-Score: {z}, P-Value: {p_value}, p > {alpha}: {result}\n")
+
+
+def check_passing_score(results_dict: Dict = None, alpha: float = None) -> bool:
+    for task in results_dict:
+        z = task["z"]
+        p_value = task["p_value"]
+        if p_value <= alpha:
+            return False
+    return True
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pretrained",
+    parser.add_argument("--hf_pretrained",
                         default="EleutherAI/pythia-70m",
-                        help="name of model to compare")
+                        help="name of model to compare as baseline")
+    parser.add_argument("--vllm_pretrained",
+                        default="EleutherAI/pythia-70m",
+                        help="name of model to compare as difference")
     parser.add_argument("--hf_args",
                         help="huggingface model args <arg>=<value>",
                         default="")
@@ -86,7 +80,7 @@ def parse_args():
     parser.add_argument(
         "--batch",
         type=str,
-        default=8,
+        default=4,
     )
     parser.add_argument(
         "--verbosity",
@@ -98,26 +92,23 @@ def parse_args():
 
 
 if __name__ == "__main__":
-    tasks.initialize_tasks()
     args = parse_args()
     tasks = args.tasks.split(",")
-    print(tasks)
+    print("Tasks:", tasks)
     hf_args, vllm_args = "," + args.hf_args, "," + args.vllm_args
-    results_vllm = lm_eval.evaluator.simple_evaluate(
-        model="vllm",
-        model_args=f"pretrained={args.pretrained}" + vllm_args,
+    results_hf = lm_eval.simple_evaluate(
+        model="hf",
+        model_args=f"pretrained={args.hf_pretrained}" + hf_args,
         tasks=tasks,
         limit=args.limit,
         device=args.device,
         batch_size=args.batch,
     )
-    memory_stats()
     lm_eval.models.utils.clear_torch_cache()
-    eval_logger.info("Memory stats cleared")
-    memory_stats()
-    results_hf = lm_eval.evaluator.simple_evaluate(
-        model="hf",
-        model_args=f"pretrained={args.pretrained}" + hf_args,
+    print("Memory stats cleared")
+    results_vllm = lm_eval.simple_evaluate(
+        model="vllm",
+        model_args=f"pretrained={args.vllm_pretrained}" + vllm_args,
         tasks=tasks,
         limit=args.limit,
         device=args.device,
@@ -129,6 +120,8 @@ if __name__ == "__main__":
         assert task1[0] == task2[0]
         z, p_value = calculate_z_value(task1[1], task2[1])
         all_res[task1[0]] = {"z": z, "p_value": p_value}
-    df = print_results([results_hf["results"], results_vllm["results"]],
+    print_results([results_hf["results"], results_vllm["results"]],
                        all_res, args.alpha)
-    print(df)
+    if not check_passing_score:
+        print("Accuracy test failed!")
+        exit(1)
