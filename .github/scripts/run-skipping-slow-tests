@@ -123,7 +123,7 @@ echo "${TESTS_FOUND[@]}"
 
 # TESTS_TO_RUN=($TESTS_DOT_PY)
 SUCCESS=0
-for TEST in "${TESTS_TO_RUN[@]}"
+for TEST in "${TESTS_FOUND[@]}"
 do
     LOCAL_SUCCESS=0
     RESULT_XML=$(echo ${TEST} | sed -e "s/${TEST_DIR}/${RESULTS_DIR}/" | sed -e "s/.py/.xml/")
