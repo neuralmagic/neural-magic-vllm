@@ -81,64 +81,73 @@ jobs:
           echo "event type is:" ${{ github.event.action }}
           echo "push result to gh pages : " ${{ inputs.push_results_to_gh_pages }}
 
-      - name: run push
+            #- name: run push
+            #  if: ${{ inputs.push_results_to_gh_pages == 'true' }}
+            #  run: |
+            #    echo "evaled to true : Okay ! I am pushing to gh pages now"
+
+            #- name: stay put
+            #  if: ${{ inputs.push_results_to_gh_pages == 'false' }}
+            #  run: |
+            #    echo "evaled to false : not pushing"
+
+      - name: checkout repository code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.gitref }}
+          submodules: recursive
+
+      - name: setenv
+        id: setenv
+        uses: ./.github/actions/nm-set-env/
+        with:
+          hf_token: ${{ secrets.NM_HF_TOKEN }}
+          Gi_per_thread: ${{ inputs.Gi_per_thread }}
+
+      - name: set python
+        id: set_python
+        uses: ./.github/actions/nm-set-python/
+        with:
+          python: ${{ inputs.python }}
+          venv: TEST
+
+      - name: hf cache
+        id: hf_cache
+        uses: ./.github/actions/nm-hf-cache/
+        with:
+          fs_cache: ${{ secrets.HF_FS_CACHE }}
+
+      - name: build
+        id: build
+        uses: ./.github/actions/nm-build-vllm/
+        with:
+          Gi_per_thread: ${{ inputs.Gi_per_thread }}
+          python: ${{ inputs.python }}
+          venv: TEST
+          pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
+
+      - name: run benchmarks
+        uses: ./.github/actions/nm-benchmark/
+        with:
+          benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
+          output_directory: benchmark-results
+          python: ${{ inputs.python }}
+          venv: TEST
+
+      - name: store benchmark result artifacts
+        uses: actions/upload-artifact@v4
+        if: success() || failure()
+        with:
+          name: ${{ github.run_id }}-${{ inputs.label }}
+          path: benchmark-results
+          retention-days: 10
+
+
+      # Produce GHA benchmark JSONs and push to gh-pages
+      - name: make GHA JSONs 
+
+      - name: push benchmark results to gh pages
         if: ${{ inputs.push_results_to_gh_pages == 'true' }}
         run: |
           echo "evaled to true : Okay ! I am pushing to gh pages now"
-
-      - name: stay put
-        if: ${{ inputs.push_results_to_gh_pages == 'false' }}
-        run: |
-          echo "evaled to false : not pushing"
-
-          #- name: checkout repository code
-          #  uses: actions/checkout@v4
-          #  with:
-          #    fetch-depth: 0
-          #    ref: ${{ inputs.gitref }}
-          #    submodules: recursive
-
-          #- name: setenv
-          #  id: setenv
-          #  uses: ./.github/actions/nm-set-env/
-          #  with:
-          #    hf_token: ${{ secrets.NM_HF_TOKEN }}
-          #    Gi_per_thread: ${{ inputs.Gi_per_thread }}
-
-          #- name: set python
-          #  id: set_python
-          #  uses: ./.github/actions/nm-set-python/
-          #  with:
-          #    python: ${{ inputs.python }}
-          #    venv: TEST
-
-          #- name: hf cache
-          #  id: hf_cache
-          #  uses: ./.github/actions/nm-hf-cache/
-          #  with:
-          #    fs_cache: ${{ secrets.HF_FS_CACHE }}
-
-          #- name: build
-          #  id: build
-          #  uses: ./.github/actions/nm-build-vllm/
-          #  with:
-          #    Gi_per_thread: ${{ inputs.Gi_per_thread }}
-          #    python: ${{ inputs.python }}
-          #    venv: TEST
-          #    pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
-
-          #- name: run benchmarks
-          #  uses: ./.github/actions/nm-benchmark/
-          #  with:
-          #    benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
-          #    output_directory: benchmark-results
-          #    python: ${{ inputs.python }}
-          #    venv: TEST
-
-          #- name: store benchmark result artifacts
-          #  uses: actions/upload-artifact@v4
-          #  if: success() || failure()
-          #  with:
-          #    name: ${{ github.run_id }}-${{ inputs.label }}
-          #    path: benchmark-results
-          #    retention-days: 10
