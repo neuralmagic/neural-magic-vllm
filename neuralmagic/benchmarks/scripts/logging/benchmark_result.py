@@ -157,7 +157,7 @@ def describe_gpu(result_json: dict) -> str:
     """
     Return a string that describes the gpus used in benchmarking
     """
-    # The fallback exists so we don't error out incase there is a mismatch
+    # The fallback exists so we don't error out in case there is a mismatch
     # between the result_json and the current version of the BenchmarkResult object
     fall_back = "gpu_description: unknown"
 
