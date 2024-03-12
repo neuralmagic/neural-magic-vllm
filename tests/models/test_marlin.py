@@ -45,6 +45,7 @@ model_pairs = [
 ]
 
 
+@pytest.mark.skip(reason="out of memory")
 @pytest.mark.flaky(reruns=2)
 @pytest.mark.skipif(marlin_not_supported,
                     reason="Marlin is not supported on this GPU type.")
