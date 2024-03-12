@@ -138,10 +138,8 @@ class DecoderAttention(EncDecAttention):
         # profiling run.
         if key_cache is not None and value_cache is not None:
 
-            PagedAttentionImpl.reshape_and_cache(
-                key, value, key_cache, value_cache,
-                input_metadata.slot_mapping[:, -1].flatten().contiguous(),
-                input_metadata.kv_cache_dtype)
+            PagedAttentionImpl.reshape_and_cache(key, value, key_cache,
+                                                 value_cache, input_metadata)
 
         max_prompt_len = input_metadata.prompt_lens.max().item()
         block_size = value_cache.shape[3]
@@ -206,14 +204,8 @@ class CrossAttention(EncDecAttention):
         if (input_metadata.is_prompt and key_cache is not None
                 and value_cache is not None):
             assert key is not None and value is not None
-            PagedAttentionImpl.reshape_and_cache(
-                key,
-                value,
-                key_cache,
-                value_cache,
-                input_metadata.slot_mapping[:, :-1].flatten().contiguous(),
-                input_metadata.kv_cache_dtype,
-            )
+            PagedAttentionImpl.reshape_and_cache(key, value, key_cache,
+                                                 value_cache, input_metadata)
 
         max_prompt_len = input_metadata.prompt_lens.int().max().item()
         block_size = value_cache.shape[3]
