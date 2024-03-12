@@ -85,11 +85,14 @@ class ModelRunner:
             self.model_config.enforce_eager = True
 
         # Unpack HF is_encoder_decoder config attribute
-        # NOTE: must handle "self.model_config is None" case imposed by certain tests i.e. test_prepare_prompt()
-        # In the None case, default to is_encoder_decoder == False since vLLM decoder-only mode is known to handle
+        # NOTE: must handle "self.model_config is None" case imposed by
+        # certain tests i.e. test_prepare_prompt()
+        # In the None case, default to is_encoder_decoder == False
+        # since vLLM decoder-only mode is known to handle
         # the None case correctly.
         self.is_encoder_decoder = False if self.model_config is None else \
-                                        getattr(self.model_config.hf_config, "is_encoder_decoder", False)
+                                        getattr(self.model_config.hf_config, \
+                                                "is_encoder_decoder", False)
 
     def load_model(self) -> None:
         with measure_cuda_memory() as m:
@@ -162,7 +165,8 @@ class ModelRunner:
             computed_block_nums = seq_group_metadata.computed_block_nums
             if self.is_encoder_decoder:
                 # Encoder/decoder mode does not support prefix cache
-                assert computed_block_nums is None or len(computed_block_nums) == 0, \
+                assert computed_block_nums is None or \
+                       len(computed_block_nums) == 0, \
                        "Encoder decoder models do not support Prefix Cache yet"
                 # Context length == 1 due to decoder_start token
                 context_lens.append(1)
@@ -267,7 +271,8 @@ class ModelRunner:
                                            device=self.device)
         if self.is_encoder_decoder:
             padded_block_tables = []
-            # Pad the encoder block tables to the same length and then add a decoder block table in the end
+            # Pad the encoder block tables to the same length
+            # and then add a decoder block table in the end
             for block_table in block_tables:
                 block_table = block_table[:-1] + [0] * (
                     max_block_table_len - len(block_table)) + block_table[-1:]
@@ -353,11 +358,13 @@ class ModelRunner:
                 prompt_lens.append(prompt_len)
 
                 if self.is_encoder_decoder:
-                    # Encoder-decoder model stores prompt and generation tokens separately,
+                    # Encoder-decoder model stores
+                    # prompt and generation tokens separately,
                     # so we need to adjust to the pad.
                     prompt_blocks_num = (prompt_len + self.block_size -
                                          1) // self.block_size
-                    prompt_pad = prompt_blocks_num * self.block_size - prompt_len
+                    prompt_pad = prompt_blocks_num * \
+                                 self.block_size - prompt_len
                     position += prompt_pad + 1  # One extra for decoder_start_id
 
                 if self.is_encoder_decoder:
@@ -385,7 +392,8 @@ class ModelRunner:
                 block_tables.append(block_table)
         if self.is_encoder_decoder:
             padded_block_tables = []
-            # Pad the encoder block tables to the same length and then add a decoder block table in the end
+            # Pad the encoder block tables to the same length
+            # and then add a decoder block table in the end
             for block_table in block_tables:
                 block_table = block_table[:-1] + [0] * (
                     max_block_table_len - len(block_table)) + block_table[-1:]

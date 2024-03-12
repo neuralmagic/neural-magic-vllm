@@ -53,16 +53,20 @@ class T5LayerNorm(nn.Module):
 
     def __init__(self, hidden_size, eps=1e-6):
         """
-        Construct a layernorm module in the T5 style. No bias and no subtraction of mean.
+        Construct a layernorm module in the T5 style. 
+        No bias and no subtraction of mean.
         """
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
         self.variance_epsilon = eps
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        # T5 uses a layer_norm which only scales and doesn't shift, which is also known as Root Mean
-        # Square Layer Normalization https://arxiv.org/abs/1910.07467 thus variance is calculated
-        # w/o mean and there is no bias. Additionally we want to make sure that the accumulation for
+        # T5 uses a layer_norm which only scales and doesn't shift,
+        # which is also known as Root Mean
+        # Square Layer Normalization https://arxiv.org/abs/1910.07467
+        # thus variance is calculated
+        # w/o mean and there is no bias. Additionally we want
+        # to make sure that the accumulation for
         # half-precision inputs is done in fp32
 
         variance = hidden_states.to(torch.float32).pow(2).mean(-1,
@@ -143,8 +147,10 @@ class T5Attention(nn.Module):
     ):
         super().__init__()
         self.is_decoder = config.is_decoder
-        self.relative_attention_num_buckets = config.relative_attention_num_buckets
-        self.relative_attention_max_distance = config.relative_attention_max_distance
+        self.relative_attention_num_buckets = \
+            config.relative_attention_num_buckets
+        self.relative_attention_max_distance = \
+            config.relative_attention_max_distance
         self.d_model = config.d_model
         self.key_value_proj_dim = config.d_kv
         total_num_heads = config.num_heads
@@ -184,12 +190,18 @@ class T5Attention(nn.Module):
         Adapted from Mesh Tensorflow:
         https://github.com/tensorflow/mesh/blob/0cb87fe07da627bf0b7e60475d59f95ed6b5be3d/mesh_tensorflow/transformer/transformer_layers.py#L593
 
-        Translate relative position to a bucket number for relative attention. The relative position is defined as
-        memory_position - query_position, i.e. the distance in tokens from the attending position to the attended-to
-        position. If bidirectional=False, then positive relative positions are invalid. We use smaller buckets for
-        small absolute relative_position and larger buckets for larger absolute relative_positions. All relative
-        positions >=max_distance map to the same bucket. All relative positions <=-max_distance map to the same bucket.
-        This should allow for more graceful generalization to longer sequences than the model has been trained on
+        Translate relative position to a bucket number for relative 
+        attention. The relative position is defined as
+        memory_position - query_position, i.e. the distance 
+        in tokens from the attending position to the attended-to
+        position. If bidirectional=False, then positive relative 
+        positions are invalid. We use smaller buckets for
+        small absolute relative_position and larger buckets for 
+        larger absolute relative_positions. All relative
+        positions >=max_distance map to the same bucket. All 
+        relative positions <=-max_distance map to the same bucket.
+        This should allow for more graceful generalization to 
+        longer sequences than the model has been trained on
 
         Args:
             relative_position: an int32 Tensor
@@ -198,7 +210,8 @@ class T5Attention(nn.Module):
             max_distance: an integer
 
         Returns:
-            a Tensor with the same shape as relative_position, containing int32 values in the range [0, num_buckets)
+            a Tensor with the same shape as relative_position, 
+             containing int32 values in the range [0, num_buckets)
         """
         relative_buckets = 0
         if bidirectional:
@@ -215,7 +228,8 @@ class T5Attention(nn.Module):
         max_exact = num_buckets // 2
         is_small = relative_position < max_exact
 
-        # The other half of the buckets are for logarithmically bigger bins in positions up to max_distance
+        # The other half of the buckets are for logarithmically
+        # bigger bins in positions up to max_distance
         relative_position_if_large = max_exact + (
             torch.log(relative_position.float() / max_exact) /
             math.log(max_distance / max_exact) *
@@ -296,9 +310,9 @@ class T5Attention(nn.Module):
                     1 if input_metadata.is_prompt else context_len,
                     (context_len + block_size - 1) // block_size *
                     block_size).repeat(batch_size, 1, 1, 1)
-                input_metadata.attn_bias = position_bias[:, :,
-                                                         -seq_len:, :].contiguous(
-                                                         )
+                input_metadata.attn_bias = \
+                    position_bias[:, :,-seq_len:, :] \
+                        .contiguous()
 
             key_cache, value_cache = kv_cache
 

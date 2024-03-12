@@ -37,17 +37,17 @@ class PagedAttentionImpl:
 
     @staticmethod
     def forward_decode(
-        query: torch.Tensor,
-        key_cache: torch.Tensor,
-        value_cache: torch.Tensor,
-        input_metadata: InputMetadata,
-        num_kv_heads: int,
-        scale: float,
-        alibi_slopes: Optional[torch.Tensor],
-        apply_attn_bias: bool = False,
-        override_context_lens: Optional[torch.Tensor] = None,
-        override_max_context_len: Optional[int] = None,
-        override_block_tables: Optional[torch.Tensor] = None
+            query: torch.Tensor,
+            key_cache: torch.Tensor,
+            value_cache: torch.Tensor,
+            input_metadata: InputMetadata,
+            num_kv_heads: int,
+            scale: float,
+            alibi_slopes: Optional[torch.Tensor],
+            apply_attn_bias: bool = False,
+            override_context_lens: Optional[torch.Tensor] = None,
+            override_max_context_len: Optional[int] = None,
+            override_block_tables: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         output = torch.empty_like(query)
 
@@ -56,7 +56,7 @@ class PagedAttentionImpl:
         max_num_partitions = (
             (input_metadata.max_context_len + _PARTITION_SIZE - 1) //
             _PARTITION_SIZE)
-        
+
         attn_bias = input_metadata.attn_bias
         if apply_attn_bias and attn_bias is not None:
             attn_bias = attn_bias.to(torch.float32)
@@ -79,10 +79,13 @@ class PagedAttentionImpl:
                 value_cache,
                 num_kv_heads,
                 scale,
-                input_metadata.block_tables if override_block_tables is None else override_block_tables,
-                input_metadata.context_lens if override_context_lens is None else override_context_lens,
+                input_metadata.block_tables
+                if override_block_tables is None else override_block_tables,
+                input_metadata.context_lens
+                if override_context_lens is None else override_context_lens,
                 block_size,
-                input_metadata.max_context_len if override_max_context_len is None else override_max_context_len,
+                input_metadata.max_context_len if
+                override_max_context_len is None else override_max_context_len,
                 alibi_slopes,
                 attn_bias if apply_attn_bias else None,
                 input_metadata.kv_cache_dtype,
@@ -111,10 +114,13 @@ class PagedAttentionImpl:
                 value_cache,
                 num_kv_heads,
                 scale,
-                input_metadata.block_tables if override_block_tables is None else override_block_tables,
-                input_metadata.context_lens if override_context_lens is None else override_context_lens,
+                input_metadata.block_tables
+                if override_block_tables is None else override_block_tables,
+                input_metadata.context_lens
+                if override_context_lens is None else override_context_lens,
                 block_size,
-                input_metadata.max_context_len if override_max_context_len is None else override_max_context_len,
+                input_metadata.max_context_len if
+                override_max_context_len is None else override_max_context_len,
                 alibi_slopes,
                 attn_bias if apply_attn_bias else None,
                 input_metadata.kv_cache_dtype,
