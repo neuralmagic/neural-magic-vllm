@@ -26,4 +26,5 @@ jobs:
             Gi_per_thread: 4
             python: ${{ matrix.python }}
             test_runner: "run-skipping-slow-tests"
+            test_skip_list: neuralmagic/tests/skip-for-remote-push.txt
         secrets: inherit

@@ -54,10 +54,12 @@ fi
 
 # find tests
 TESTS_DOT_PY=$(find ${TEST_DIR} -type f -name "test*.py")
-TESTS_FOUND=($TESTS_DOT_PY)
+TESTS_FOUND=(${TESTS_DOT_PY})
 
 echo "found:"
-echo "${TESTS_FOUND[@]}"
+for FOUND in "${TESTS_FOUND[@]}"; do
+    echo "${FOUND}"
+done
 
 # build the skip list from provided file
 declare -a TESTS_TO_EXCLUDE
@@ -82,12 +84,12 @@ for EXCLUDE in "${TESTS_TO_EXCLUDE[@]}"; do
     done
 done
 
-echo "running:"
-for FOUND in "${TESTS_FOUND[@]}"; do
-    echo "... ${FOUND} ..."
-done
+# echo "running:"
+# for FOUND in "${TESTS_FOUND[@]}"; do
+#     echo "... ${FOUND} ..."
+# done
 
-exit 0
+# exit 0
 
 SUCCESS=0
 for TEST in "${TESTS_FOUND[@]}"

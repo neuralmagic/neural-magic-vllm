@@ -27,6 +27,10 @@ on:
         description: "name of test runner script relative to .github/scripts, e.g. 'run-all-tests'"
         type: string
         required: true
+      test_skip_list:
+        description: 'file containing tests to skip'
+        type: string
+        required: true
 
   # makes workflow manually callable
   workflow_dispatch:
@@ -53,6 +57,10 @@ on:
         required: true
       test_runner:
         description: "name of test runner script relative to .github/scripts, e.g. 'run-all-tests'"
+        type: string
+        required: true
+      test_skip_list:
+        description: 'file containing tests to skip'
         type: string
         required: true
 
@@ -121,24 +129,12 @@ jobs:
               uses: ./.github/actions/nm-test-vllm/
               with:
                 test_runner: ${{ inputs.test_runner }}
+                test_skip_list: ${{ inputs.test_skip_list }}
                 test_directory: tests
                 test_results: test-results
                 python: ${{ inputs.python }}
                 venv: TEST
                 pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
-
-            # TODO: DELETE
-            # - name: take a look
-            #   run: |
-            #     ls -alh
-            #     COVERAGE_REPORTS=$(find . -type f -iname ".coverage*")
-            #     echo "... ${COVERAGE_REPORTS}"
-            #     COMMIT=${{ github.sha }}
-            #     VENV="TEST-${COMMIT:0:7}"
-            #     source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
-            #     coverage combine --keep ${COVERAGE_REPORTS}
-            #     coverage html
-            #     ls -alh
 
             - name: generate code coverage
               uses: ./.github/actions/nm-code-coverage/
