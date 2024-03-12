@@ -1,9 +1,6 @@
 name: test nm-vllm
 description: "test nm-vllm via, 'pytest tests/'"
 inputs:
-  test_runner:
-    description: "name of test runner script relative to .github/scripts, e.g. 'run-all-tests'"
-    required: true
   test_skip_list:
     description: 'file containing tests to skip'
     required: true
@@ -39,7 +36,7 @@ runs:
       pip3 install coverage
       # run tests via runner script
       SUCCESS=0
-      ./.github/scripts/${{ inputs.test_runner }} -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} -f ${{ inputs.test_skip_list }} || SUCCESS=$?
+      ./.github/scripts/run-tests -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} -f ${{ inputs.test_skip_list }} || SUCCESS=$?
       echo "was this a SUCCESS? ${SUCCESS}"
       echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
       exit ${SUCCESS}
