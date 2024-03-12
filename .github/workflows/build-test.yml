@@ -127,17 +127,33 @@ jobs:
                 venv: TEST
                 pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
 
-            - name: take a look
-              run: |
-                ls -alh
-                COVERAGE_REPORTS=$(find . -type f -iname ".coverage*")
-                echo "... ${COVERAGE_REPORTS}"
-                COMMIT=${{ github.sha }}
-                VENV="TEST-${COMMIT:0:7}"
-                source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
-                coverage combine --keep ${COVERAGE_REPORTS}
-                coverage html
-                ls -alh
+            # TODO: DELETE
+            # - name: take a look
+            #   run: |
+            #     ls -alh
+            #     COVERAGE_REPORTS=$(find . -type f -iname ".coverage*")
+            #     echo "... ${COVERAGE_REPORTS}"
+            #     COMMIT=${{ github.sha }}
+            #     VENV="TEST-${COMMIT:0:7}"
+            #     source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
+            #     coverage combine --keep ${COVERAGE_REPORTS}
+            #     coverage html
+            #     ls -alh
+
+            - name: generate code coverage
+              uses: ./.github/actions/nm-code-coverage/
+              with:
+                python: ${{ inputs.python }}
+                venv: TEST
+                reports_directory: cc-nm-vllm-html
+
+            - name: upload code coverage html
+              uses: actions/upload-artifact@v4
+              if: success() || failure()
+              with:
+                name: cc-nm-vllm-html
+                path: cc-nm-vllm-html
+                retention-days: 15
 
             - name: report test results
               id: report_test
