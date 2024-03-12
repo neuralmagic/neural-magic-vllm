@@ -22,5 +22,5 @@ runs:
       source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
       coverage combine --keep ${COVERAGE_REPORTS}
       ls -alh
-      coverage html --directory=${{ inputs.reports_directory }}
+      coverage html --ignore-errors --directory=${{ inputs.reports_directory }}
     shell: bash

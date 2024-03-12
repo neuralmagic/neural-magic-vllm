@@ -138,6 +138,7 @@ jobs:
 
             - name: generate code coverage
               uses: ./.github/actions/nm-code-coverage/
+              if: success() || failure()
               with:
                 python: ${{ inputs.python }}
                 venv: TEST
