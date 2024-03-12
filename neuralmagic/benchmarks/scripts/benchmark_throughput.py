@@ -15,8 +15,8 @@ from transformers import AutoTokenizer
 from .common import generate_synthetic_requests, warmup_vllm_engine, num_available_gpus, print_request_outputs
 from .datasets_registry import get_dataset, DatasetArgs
 from .logging.benchmark_result import (BenchmarkResult,
-                               BenchmarkThroughputResultMetricTemplates as
-                               ResultMetricTemplates)
+                                       BenchmarkThroughputResultMetricTemplates
+                                       as ResultMetricTemplates)
 
 
 def get_tensor_parallel_size(args: argparse.Namespace) -> int:

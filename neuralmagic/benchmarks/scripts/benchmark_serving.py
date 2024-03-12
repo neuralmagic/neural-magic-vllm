@@ -34,10 +34,10 @@ from vllm.transformers_utils.tokenizer import get_tokenizer
 from .common import generate_synthetic_requests, print_serving_request_io
 from .datasets_registry import get_dataset, DatasetArgs
 from .logging.benchmark_result import (BenchmarkResult,
-                               BenchmarkServingResultMetadataKeys as
-                               ResultMetadataKeys,
-                               BenchmarkServingResultMetricTemplates as
-                               ResultMetricTemplates)
+                                       BenchmarkServingResultMetadataKeys as
+                                       ResultMetadataKeys,
+                                       BenchmarkServingResultMetricTemplates as
+                                       ResultMetricTemplates)
 
 from neuralmagic.benchmarks.scripts.backend_request_func import (
     ASYNC_REQUEST_FUNCS,
