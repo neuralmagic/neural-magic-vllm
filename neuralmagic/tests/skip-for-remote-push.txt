@@ -40,10 +40,8 @@ tests/lora/test_tokenizer.py
 tests/lora/test_layer_variation.py
 tests/lora/test_gemma.py
 tests/lora/test_lora_manager.py
-tests/lora/test_layers.py
 tests/lora/test_worker.py
 tests/lora/test_mixtral.py
-tests/lora/test_punica.py
 tests/lora/test_lora.py
 tests/worker/test_model_runner.py
 tests/engine/test_detokenize.py
