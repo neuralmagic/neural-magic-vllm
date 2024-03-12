@@ -135,7 +135,7 @@ class BenchmarkResult:
     def __setitem__(self, key: str, item: any):
         self.result_dict[key] = item
 
-    def __getitem__(self, key: str, default:any = None) -> any:
+    def __getitem__(self, key: str, default: any = None) -> any:
         return self.result_dict.get(key, default)
 
     def add_metric(self, metric_template: MetricTemplate,
@@ -148,10 +148,12 @@ class BenchmarkResult:
         with open(store_path, "w") as outfile:
             json.dump(self.result_dict, outfile, indent=4)
 
+
 # Utilities that process a result_json, that is the JSON version of some
 # BenchmarkResult object.
 
-def describe_gpu(result_json:dict) -> str:
+
+def describe_gpu(result_json: dict) -> str:
     """
     Return a string that describes the gpus used in benchmarking
     """
@@ -161,7 +163,8 @@ def describe_gpu(result_json:dict) -> str:
 
     cuda_device_names_key = "cuda_device_names"
     bench_context = result_json.get(BenchmarkResult.BENCHMARKING_CONTEXT_KEY_)
-    if bench_context is None or bench_context.get(cuda_device_names_key) is None:
+    if bench_context is None or bench_context.get(
+            cuda_device_names_key) is None:
         return fall_back
 
     gpu_names = bench_context.get(cuda_device_names_key)
@@ -176,15 +179,18 @@ def describe_gpu(result_json:dict) -> str:
 
     return f"{gpu_name} x {num_gpus_used}"
 
-def short_description(result_json:dict) -> str:
+
+def short_description(result_json: dict) -> str:
     """
     Given a result_json, that is the JSON version for some
     BenchmarkResult object, return a string that captures a few key high
     level information like the user given benchmark description, GPU name etc.
     """
-    nl='\n'
-    return (f"Description: {result_json.get(BenchmarkResult.DESCRIPTION_KEY_)}{nl}"
-            f"GPU : {describe_gpu(result_json)}")
+    nl = '\n'
+    return (
+        f"Description: {result_json.get(BenchmarkResult.DESCRIPTION_KEY_)}{nl}"
+        f"GPU : {describe_gpu(result_json)}")
+
 
 def long_description(result_json: dict) -> str:
     """
@@ -192,8 +198,9 @@ def long_description(result_json: dict) -> str:
     BenchmarkResult object, eeturn a string that is fully-descriptive of this benchmark run.
     """
     short_desc = short_description(result_json)
-    nl='\n'
-    return (f"Short Description: {short_desc} {nl}" 
-          f"Context : {result_json.get(BenchmarkResult.BENCHMARKING_CONTEXT_KEY_)}{nl}"
-          f"script name : {result_json.get(BenchmarkResult.SCRIPT_NAME_KEY_)}{nl}"
-          f"script args : {result_json.get(BenchmarkResult.SCRIPT_ARGS_KEY_)}")
+    nl = '\n'
+    return (
+        f"Short Description: {short_desc} {nl}"
+        f"Context : {result_json.get(BenchmarkResult.BENCHMARKING_CONTEXT_KEY_)}{nl}"
+        f"script name : {result_json.get(BenchmarkResult.SCRIPT_NAME_KEY_)}{nl}"
+        f"script args : {result_json.get(BenchmarkResult.SCRIPT_ARGS_KEY_)}")

@@ -12,6 +12,7 @@ from typing import List, Iterable, NamedTuple
 
 from .benchmark_result import GHABenchmarkToolName, BenchmarkResult, MetricTemplate, short_description, long_description
 
+
 @dataclass
 class GHARecord:
     """
@@ -47,13 +48,15 @@ class GHARecord:
                              extra: str = "",
                              short_description: str = "",
                              long_description: str = ""):
-        nl='\n'
-        return GHARecord(name=f"{short_description} - {metric_template.key}{nl}{long_description} - {metric_template.key}",
-                         unit=metric_template.unit,
-                         value=metric_template.value,
-                         extra=extra,
-                         short_description = short_description,
-                         long_description = long_description)
+        nl = '\n'
+        return GHARecord(
+            name=
+            f"{short_description} - {metric_template.key}{nl}{long_description} - {metric_template.key}",
+            unit=metric_template.unit,
+            value=metric_template.value,
+            extra=extra,
+            short_description=short_description,
+            long_description=long_description)
 
 
 class Tool_Record_T(NamedTuple):
@@ -65,7 +68,7 @@ def process(json_file_path: Path) -> Iterable[Tool_Record_T]:
 
     assert json_file_path.exists()
 
-    json_data:dict = None
+    json_data: dict = None
     with open(json_file_path, "r") as f:
         json_data = json.load(f)
     assert json_data is not None
@@ -81,8 +84,10 @@ def process(json_file_path: Path) -> Iterable[Tool_Record_T]:
         lambda metric: Tool_Record_T(
             metric.tool,
             GHARecord.from_metric_template(
-                metric, extra=hover_data, short_description = short_description(json_data), long_description = long_description(json_data))),
-        metrics)
+                metric,
+                extra=hover_data,
+                short_description=short_description(json_data),
+                long_description=long_description(json_data))), metrics)
 
 
 def main(input_directory: Path, output_directory: Path) -> None:
