@@ -144,31 +144,6 @@ class BenchmarkResult:
         self.result_dict[self.METRICS_KEY_][
             metric_template.key] = metric_template.__dict__
 
-    def short_description(self) -> None:
-        """
-        Return a string that captures a few key high level information
-        like the user given benchmark description, GPU name etc.
-        """
-
-        # TODO (varun) : Hoist "cuda_device_names" to a string
-        gpu_names = self.result_dict[
-            BenchmarkResult.BENCHMARKING_CONTEXT_KEY_]["cuda_device_names"]
-        gpu_name = gpu_names[0]
-        num_gpus_used = json_data[BenchmarkResult.TENSOR_PARALLEL_SIZE_KEY_]
-        # Make sure all gpus are the same before we report
-        assert all(map(lambda x: x == gpu_name, gpu_names[:num_gpus_used]))
-
-        return f"{self.result_dict[self.DESCRIPTION_KEY_]}\n GPU: {gpu_name} x {num_gpus_used}" 
-
-    def long_description(self) -> None:
-        """
-        Return a string that is fully-descriptive of this benchmark run.
-        """
-        pass (f"{self.result_dict[self.DESCRIPTION_KEY_]}\n" 
-              f"context : {self.result_dict[BenchmarkResult.BENCHMARKING_CONTEXT_KEY_]}\n"
-              f"script name : {self.result_dict[BenchmarkResult.SCRIPT_NAME_KEY_]}\n"
-              f"script args : {self.result_dict[BenchmarkResult.SCRIPT_ARGS_KEY_]}")
-
     def store(self, store_path: Path) -> None:
         with open(store_path, "w") as outfile:
             json.dump(self.result_dict, outfile, indent=4)

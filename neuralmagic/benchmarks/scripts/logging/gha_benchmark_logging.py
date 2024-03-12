@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import List, Iterable, NamedTuple
 
 from .benchmark_result import GHABenchmarkToolName, BenchmarkResult, MetricTemplate
-
+from .common import short_description, long_description
 
 @dataclass
 class GHARecord:
@@ -27,6 +27,8 @@ class GHARecord:
     unit: str
     value: float
     extra: str
+    short_description: str
+    long_description: str
 
     @staticmethod
     def extra_from_benchmark_result(br: BenchmarkResult) -> str:
@@ -43,13 +45,15 @@ class GHARecord:
 
     @staticmethod
     def from_metric_template(metric_template: MetricTemplate,
-                             name_prefix: str = "",
-                             extra: str = ""):
-        return GHARecord(name=f"{name_prefix} - {metric_template.key}" if
-                         len(name_prefix) != 0 else f"{metric_template.key}",
+                             extra: str = "",
+                             short_description: str = "",
+                             long_description: str = "") -> GHARecord:
+        return GHARecord(name=f"{short_description} - {metric_template.key}\n{long_description} - {metric_template.key}",
                          unit=metric_template.unit,
                          value=metric_template.value,
-                         extra=extra)
+                         extra=extra,
+                         short_description = short_description,
+                         long_description = long_description)
 
 
 class Tool_Record_T(NamedTuple):
@@ -61,14 +65,15 @@ def process(json_file_path: Path) -> Iterable[Tool_Record_T]:
 
     assert json_file_path.exists()
 
-    json_data = None
+    json_data:dict = None
     with open(json_file_path, "r") as f:
         json_data = json.load(f)
     assert json_data is not None
 
     print(f"processing file : {json_file_path}")
 
-    short_description = json_data[BenchmarkResult.DESCRIPTION_KEY_]
+    short_description = short_description(json_data)
+    long_description = long_description(json_data)
     hover_data = GHARecord.extra_from_benchmark_result(json_data)
     metrics: Iterable[dict] = json_data.get(BenchmarkResult.METRICS_KEY_)
     metrics: Iterable[MetricTemplate] = map(
@@ -78,7 +83,7 @@ def process(json_file_path: Path) -> Iterable[Tool_Record_T]:
         lambda metric: Tool_Record_T(
             metric.tool,
             GHARecord.from_metric_template(
-                metric, name_prefix=benchmark_description, extra=hover_data)),
+                metric, extra=hover_data, short_description = short_description(json_data), long_description = long_description(json_data))),
         metrics)
 
 
