@@ -104,9 +104,15 @@ echo "${TESTS_FOUND[@]}"
 # TODO: make this file driven and merge this script with
 # TODO: the other one
 TESTS_TO_EXCLUDE=(
+    "tests/kernels/test_cache.py"
+    "tests/lora/test_llama.py"
+    "tests/models/test_compressed_memory.py"
+    "tests/entrypoints/test_openai_server.py"
     "tests/models/test_mistral.py"
     "tests/kernels/test_activation.py"
     "tests/kernels/test_attention.py"
+    "tests/models/test_compressed.py"
+    "tests/models/test_marlin.py"
     "tests/models/test_models_logprobs.py"
     "tests/models/test_models.py")
 
