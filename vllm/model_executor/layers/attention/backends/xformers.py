@@ -184,6 +184,7 @@ class XFormersBackend:
         # Reshape the output tensor.
         return output.view(batch_size, seq_len, hidden_size)
 
+
 def _make_alibi_bias(
     alibi_slopes: torch.Tensor,
     num_kv_heads: int,
@@ -217,12 +218,14 @@ def _make_alibi_bias(
     attn_bias = LowerTriangularMaskWithTensorBias(bias)
     return attn_bias
 
+
 def _check_use_ref_attention() -> bool:
     if not is_hip():
         return False
     # For ROCm, check whether flash attention is installed or not.
     # if not, use_ref_attention needs to be True
     return importlib.util.find_spec("flash_attn") is None
+
 
 def _ref_masked_attention(
     query: torch.Tensor,
