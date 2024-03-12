@@ -159,7 +159,7 @@ def describe_gpu(result_json: dict) -> str:
     """
     # The fallback exists so we don't error out incase there is a mismatch
     # between the result_json and the current version of the BenchmarkResult object
-    fallback = "gpu_description: unknown"
+    fall_back = "gpu_description: unknown"
 
     cuda_device_names_key = "cuda_device_names"
     bench_context = result_json.get(BenchmarkResult.BENCHMARKING_CONTEXT_KEY_)
