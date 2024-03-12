@@ -27,7 +27,7 @@ from transformers import T5Config
 
 from vllm.model_executor.input_metadata import InputMetadata
 from vllm.model_executor.layers.activation import get_act_fn
-from vllm.model_executor.layers.enc_dec_attention import (
+from vllm.model_executor.layers.attention.enc_dec_attention import (
     EncoderAttention,
     DecoderAttention,
     CrossAttention,

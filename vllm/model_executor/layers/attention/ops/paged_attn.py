@@ -44,6 +44,7 @@ class PagedAttentionImpl:
         num_kv_heads: int,
         scale: float,
         alibi_slopes: Optional[torch.Tensor],
+        apply_attn_bias: bool = False
     ) -> torch.Tensor:
         output = torch.empty_like(query)
 
@@ -52,6 +53,9 @@ class PagedAttentionImpl:
         max_num_partitions = (
             (input_metadata.max_context_len + _PARTITION_SIZE - 1) //
             _PARTITION_SIZE)
+        
+        attn_bias = input_metadata.attn_bias
+
         # NOTE(woosuk): We use a simple heuristic to decide whether to use
         # PagedAttention V1 or V2. If the number of partitions is 1, we use
         # V1 to avoid the overhead of reduction. Also, if the number of
@@ -75,6 +79,7 @@ class PagedAttentionImpl:
                 block_size,
                 input_metadata.max_context_len,
                 alibi_slopes,
+                attn_bias if apply_attn_bias else None,
                 input_metadata.kv_cache_dtype,
             )
         else:
@@ -106,6 +111,7 @@ class PagedAttentionImpl:
                 block_size,
                 input_metadata.max_context_len,
                 alibi_slopes,
+                attn_bias if apply_attn_bias else None,
                 input_metadata.kv_cache_dtype,
             )
         return output
