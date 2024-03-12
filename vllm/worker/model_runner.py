@@ -159,13 +159,18 @@ class ModelRunner:
             prompt_lens.append(prompt_len)
 
             computed_len = 0
+            computed_block_nums = seq_group_metadata.computed_block_nums
             if self.is_encoder_decoder:
+                # Encoder/decoder mode does not support prefix cache
+                assert computed_block_nums is None or len(computed_block_nums) == 0, \
+                       "Encoder decoder models do not support Prefix Cache yet"
+                # Context length == 1 due to decoder_start token
                 context_lens.append(1)
             else:
                 # NOTE: This only works for oooooooxxx style attention.
-                computed_block_nums = seq_group_metadata.computed_block_nums
                 if computed_block_nums is not None and len(
-                        computed_block_nums) > 0 and self.sliding_window is None:
+                        computed_block_nums
+                ) > 0 and self.sliding_window is None:
                     # Prefix is not supported with sliding_window
                     computed_len = len(computed_block_nums) * self.block_size
                     prompt_tokens = prompt_tokens[computed_len:]
