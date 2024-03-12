@@ -6,9 +6,7 @@ tests/kernels/test_activation.py
 tests/kernels/test_moe.py
 tests/kernels/test_layernorm.py
 tests/kernels/test_attention.py
-tests/kernels/test_cache.py
 tests/core/test_block_manager.py
-tests/core/test_scheduler.py
 tests/distributed/test_custom_all_reduce.py
 tests/distributed/test_comm_ops.py
 tests/prefix_caching/test_prefix_caching.py
