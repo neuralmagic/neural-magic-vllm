@@ -171,13 +171,6 @@ class XFormersBackend:
                 )
         else:
             # Decoding run.
-<<<<<<< HEAD:vllm/model_executor/layers/attention.py
-            output = paged_attention(
-                query, key_cache, value_cache, input_metadata.block_tables,
-                input_metadata.context_lens, input_metadata.max_context_len,
-                self.num_kv_heads, self.scale, self.alibi_slopes, None,
-                input_metadata.kv_cache_dtype)
-=======
             output = PagedAttentionImpl.forward_decode(
                 query,
                 key_cache,
@@ -187,11 +180,9 @@ class XFormersBackend:
                 self.scale,
                 self.alibi_slopes,
             )
->>>>>>> upstream-main:vllm/model_executor/layers/attention/backends/xformers.py
 
         # Reshape the output tensor.
         return output.view(batch_size, seq_len, hidden_size)
-
 
 def _make_alibi_bias(
     alibi_slopes: torch.Tensor,
@@ -226,94 +217,12 @@ def _make_alibi_bias(
     attn_bias = LowerTriangularMaskWithTensorBias(bias)
     return attn_bias
 
-
-<<<<<<< HEAD:vllm/model_executor/layers/attention.py
-def paged_attention(
-    query: torch.Tensor,
-    key_cache: torch.Tensor,
-    value_cache: torch.Tensor,
-    block_tables: torch.Tensor,
-    context_lens: torch.Tensor,
-    max_context_len: int,
-    num_kv_heads: int,
-    scale: float,
-    alibi_slopes: Optional[torch.Tensor],
-    custom_bias: Optional[torch.Tensor],
-    kv_cache_dtype: torch.dtype,
-) -> torch.Tensor:
-    output = torch.empty_like(query)
-
-    block_size = value_cache.shape[3]
-    num_seqs, num_heads, head_size = query.shape
-    max_num_partitions = ((max_context_len + _PARTITION_SIZE - 1) //
-                          _PARTITION_SIZE)
-    # NOTE(woosuk): We use a simple heuristic to decide whether to use
-    # PagedAttention V1 or V2. If the number of partitions is 1, we use
-    # V1 to avoid the overhead of reduction. Also, if the number of
-    # sequences or heads is large, we use V1 since there is enough work
-    # to parallelize.
-    # TODO(woosuk): Tune this heuristic.
-    # For context len > 8192, use V2 kernel to avoid shared memory shortage.
-    use_v1 = max_context_len <= 8192 and (max_num_partitions == 1
-                                          or num_seqs * num_heads > 512)
-    if use_v1:
-        # Run PagedAttention V1.
-        ops.paged_attention_v1(
-            output,
-            query,
-            key_cache,
-            value_cache,
-            num_kv_heads,
-            scale,
-            block_tables,
-            context_lens,
-            block_size,
-            max_context_len,
-            alibi_slopes,
-            custom_bias,
-            kv_cache_dtype,
-        )
-    else:
-        # Run PagedAttention V2.
-        assert _PARTITION_SIZE % block_size == 0
-        tmp_output = torch.empty(
-            size=(num_seqs, num_heads, max_num_partitions, head_size),
-            dtype=output.dtype,
-            device=output.device,
-        )
-        exp_sums = torch.empty(
-            size=(num_seqs, num_heads, max_num_partitions),
-            dtype=torch.float32,
-            device=output.device,
-        )
-        max_logits = torch.empty_like(exp_sums)
-        ops.paged_attention_v2(
-            output,
-            exp_sums,
-            max_logits,
-            tmp_output,
-            query,
-            key_cache,
-            value_cache,
-            num_kv_heads,
-            scale,
-            block_tables,
-            context_lens,
-            block_size,
-            max_context_len,
-            alibi_slopes,
-            custom_bias,
-            kv_cache_dtype,
-        )
-    return output
-=======
 def _check_use_ref_attention() -> bool:
     if not is_hip():
         return False
     # For ROCm, check whether flash attention is installed or not.
     # if not, use_ref_attention needs to be True
     return importlib.util.find_spec("flash_attn") is None
-
 
 def _ref_masked_attention(
     query: torch.Tensor,
@@ -341,4 +250,3 @@ def _ref_masked_attention(
     attn_weights = torch.softmax(attn_weights, dim=-1).to(value.dtype)
     out = torch.einsum("hqk,khd->qhd", attn_weights, value)
     return out
->>>>>>> upstream-main:vllm/model_executor/layers/attention/backends/xformers.py

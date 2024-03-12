@@ -152,7 +152,7 @@ class LLMEngine:
     def get_tokenizer_for_seq(self,
                               sequence: Sequence) -> "PreTrainedTokenizer":
         return self.tokenizer.get_lora_tokenizer(sequence.lora_request)
-        
+
     def _init_tokenizer(self, **tokenizer_init_kwargs):
         init_kwargs = dict(
             enable_lora=bool(self.lora_config),
@@ -259,7 +259,7 @@ class LLMEngine:
         seq_id = next(self.seq_counter)
         eos_token_id = self.tokenizer.get_lora_tokenizer(
             lora_request).eos_token_id
-        seq = Sequence(seq_id, prompt, prompt_token_ids, block_size, 
+        seq = Sequence(seq_id, prompt, prompt_token_ids, block_size,
                        self.is_encoder_decoder, eos_token_id, lora_request)
 
         # Defensive copy of SamplingParams, which are used by the sampler,
