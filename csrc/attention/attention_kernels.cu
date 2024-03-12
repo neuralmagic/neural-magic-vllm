@@ -16,9 +16,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifdef USE_ROCM
-#include <hip/hip_runtime.h>
-#endif
 
 #include <ATen/cuda/CUDAContext.h>
 #include <c10/cuda/CUDAGuard.h>
@@ -33,11 +30,6 @@
 #include "../quantization/fp8_e5m2_kvcache/quant_utils.cuh"
 #endif
 
-#ifndef USE_ROCM
-#define WARP_SIZE 32
-#else
-#define WARP_SIZE warpSize
-#endif
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define DIVIDE_ROUND_UP(a, b) (((a) + (b)-1) / (b))
