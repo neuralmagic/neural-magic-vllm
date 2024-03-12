@@ -144,7 +144,7 @@ class DecoderAttention(EncDecAttention):
         max_prompt_len = input_metadata.prompt_lens.max().item()
         block_size = value_cache.shape[3]
         prompt_table_len = (max_prompt_len + block_size - 1) // block_size
-        block_tables = input_metadata.block_tables[:,
+        self_attn_block_tables = input_metadata.block_tables[:,
                                                    prompt_table_len:].contiguous(
                                                    )
         
@@ -156,6 +156,10 @@ class DecoderAttention(EncDecAttention):
             self.num_heads,
             self.scale,
             None, # No alibi slopes
+            apply_attn_bias=True, # Relative positional encoding (utilized i.e. by T5),
+            override_context_lens=input_metadata.context_lens,
+            override_max_context_len=input_metadata.max_context_len,
+            override_block_tables=self_attn_block_tables
         )
         return output.view(batch_size, seq_len, hidden_size)
 
@@ -210,11 +214,11 @@ class CrossAttention(EncDecAttention):
         max_prompt_len = input_metadata.prompt_lens.int().max().item()
         block_size = value_cache.shape[3]
         prompt_table_len = (max_prompt_len + block_size - 1) // block_size
-        block_tables = input_metadata.block_tables[:, :
+        cross_attn_block_tables = input_metadata.block_tables[:, :
                                                    prompt_table_len].contiguous(
                                                    )
 
-        # Decoding run.
+        # Cross-attention decode run.
         output = PagedAttentionImpl.forward_decode(
             query,
             key_cache,
@@ -223,6 +227,10 @@ class CrossAttention(EncDecAttention):
             self.num_heads,
             self.scale,
             None, # No alibi slopes
+            apply_attn_bias=False,
+            override_context_lens=input_metadata.prompt_lens.int(),
+            override_max_context_len=max_prompt_len,
+            override_block_tables=cross_attn_block_tables
         )
 
         return output.view(batch_size, seq_len, hidden_size)

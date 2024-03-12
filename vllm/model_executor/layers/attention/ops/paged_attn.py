@@ -44,7 +44,10 @@ class PagedAttentionImpl:
         num_kv_heads: int,
         scale: float,
         alibi_slopes: Optional[torch.Tensor],
-        apply_attn_bias: bool = False
+        apply_attn_bias: bool = False,
+        override_context_lens: Optional[torch.Tensor] = None,
+        override_max_context_len: Optional[int] = None,
+        override_block_tables: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         output = torch.empty_like(query)
 
@@ -55,6 +58,8 @@ class PagedAttentionImpl:
             _PARTITION_SIZE)
         
         attn_bias = input_metadata.attn_bias
+        if apply_attn_bias and attn_bias is not None:
+            attn_bias = attn_bias.to(torch.float32)
 
         # NOTE(woosuk): We use a simple heuristic to decide whether to use
         # PagedAttention V1 or V2. If the number of partitions is 1, we use
@@ -74,10 +79,10 @@ class PagedAttentionImpl:
                 value_cache,
                 num_kv_heads,
                 scale,
-                input_metadata.block_tables,
-                input_metadata.context_lens,
+                input_metadata.block_tables if override_block_tables is None else override_block_tables,
+                input_metadata.context_lens if override_context_lens is None else override_context_lens,
                 block_size,
-                input_metadata.max_context_len,
+                input_metadata.max_context_len if override_max_context_len is None else override_max_context_len,
                 alibi_slopes,
                 attn_bias if apply_attn_bias else None,
                 input_metadata.kv_cache_dtype,
@@ -106,10 +111,10 @@ class PagedAttentionImpl:
                 value_cache,
                 num_kv_heads,
                 scale,
-                input_metadata.block_tables,
-                input_metadata.context_lens,
+                input_metadata.block_tables if override_block_tables is None else override_block_tables,
+                input_metadata.context_lens if override_context_lens is None else override_context_lens,
                 block_size,
-                input_metadata.max_context_len,
+                input_metadata.max_context_len if override_max_context_len is None else override_max_context_len,
                 alibi_slopes,
                 attn_bias if apply_attn_bias else None,
                 input_metadata.kv_cache_dtype,
