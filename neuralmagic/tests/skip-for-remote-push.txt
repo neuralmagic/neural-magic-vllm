@@ -27,14 +27,11 @@ tests/async_engine/test_async_llm_engine.py
 tests/async_engine/test_api_server.py
 tests/async_engine/test_chat_template.py
 tests/async_engine/test_request_tracker.py
-tests/samplers/test_beam_search.py
-tests/samplers/test_logprobs.py
 tests/samplers/test_seeded_generate.py
 tests/samplers/test_rejection_sampler.py
 tests/samplers/test_sampler.py
 tests/entrypoints/test_guided_processors.py
 tests/entrypoints/test_openai_server.py
-tests/lora/test_llama.py
 tests/lora/test_utils.py
 tests/lora/test_tokenizer.py
 tests/lora/test_layer_variation.py
