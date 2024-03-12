@@ -5,9 +5,6 @@ tests/kernels/test_activation.py
 tests/kernels/test_moe.py
 tests/kernels/test_layernorm.py
 tests/kernels/test_attention.py
-tests/kernels/test_cache.py
-tests/core/test_block_manager.py
-tests/core/test_scheduler.py
 tests/distributed/test_custom_all_reduce.py
 tests/distributed/test_comm_ops.py
 tests/prefix_caching/test_prefix_caching.py
@@ -16,7 +13,6 @@ tests/models/test_compressed_memory.py
 tests/models/test_marlin.py
 tests/models/test_compressed.py
 tests/models/test_models_logprobs.py
-tests/models/test_models.py
 tests/spec_decode/test_utils.py
 tests/spec_decode/test_spec_decode_worker.py
 tests/spec_decode/test_metrics.py
@@ -34,7 +30,6 @@ tests/entrypoints/test_guided_processors.py
 tests/entrypoints/test_openai_server.py
 tests/lora/test_utils.py
 tests/lora/test_tokenizer.py
-tests/lora/test_layer_variation.py
 tests/lora/test_gemma.py
 tests/lora/test_lora_manager.py
 tests/lora/test_worker.py
