@@ -30,9 +30,12 @@ def run_benchmark_throughput_script(config: NamedTuple,
         for max_model_len in max_model_lens:
             for script_args in script_args_to_cla(config):
 
+                description = (f"{config.description}\n"
+                               f"{config.script_name} "
+                               + " ".join(script_args))
                 bench_cmd = (["python3", "-m", f"{script_path}"] +
                              script_args +
-                             ["--description", f"{config.description}"] +
+                             ["--description", f"{description}"] +
                              ["--model", f"{model}"] +
                              ["--tokenizer", f"{model}"] +
                              ["--max-model-len", f"{max_model_len}"])

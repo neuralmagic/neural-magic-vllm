@@ -68,16 +68,7 @@ def process(json_file_path: Path) -> Iterable[Tool_Record_T]:
 
     print(f"processing file : {json_file_path}")
 
-    # TODO (varun) : Hoist "cuda_device_names" to a string
-    gpu_names = json_data[
-        BenchmarkResult.BENCHMARKING_CONTEXT_KEY_]["cuda_device_names"]
-    gpu_name = gpu_names[0]
-    num_gpus_used = json_data[BenchmarkResult.TENSOR_PARALLEL_SIZE_KEY_]
-    # Make sure all gpus are the same before we report
-    assert all(map(lambda x: x == gpu_name, gpu_names[:num_gpus_used]))
-
-    # TODO (varun) : Have a short name and a long name
-    benchmark_description = json_data[BenchmarkResult.DESCRIPTION_KEY_]
+    short_description = json_data[BenchmarkResult.DESCRIPTION_KEY_]
     hover_data = GHARecord.extra_from_benchmark_result(json_data)
     metrics: Iterable[dict] = json_data.get(BenchmarkResult.METRICS_KEY_)
     metrics: Iterable[MetricTemplate] = map(
