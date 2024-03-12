@@ -90,10 +90,9 @@ def process(json_file_path: Path) -> Iterable[Tool_Record_T]:
                 long_description=long_description(json_data))), metrics)
 
 
-def main(input_directory: Path, output_directory: Path) -> None:
-
-    BIGGER_IS_BETTER_OUTPUT_JSON_FILE_NAME = "bigger_is_better.json"
-    SMALLER_IS_BETTER_OUTPUT_JSON_FILE_NAME = "smaller_is_better.json"
+def main(input_directory: Path,
+         bigger_is_better_output_json_file_name : Path,
+         smaller_is_better_output_json_file_name : Path) -> None:
 
     def dump_to_json(gha_records: List[GHARecord], output_path: Path):
         # Make data JSON serializable
@@ -121,10 +120,8 @@ def main(input_directory: Path, output_directory: Path) -> None:
                 lambda tool_record: tool_record.tool == GHABenchmarkToolName.
                 SmallerIsBetter, tool_records)))
 
-    dump_to_json(bigger_is_better,
-                 output_directory / BIGGER_IS_BETTER_OUTPUT_JSON_FILE_NAME)
-    dump_to_json(smaller_is_better,
-                 output_directory / SMALLER_IS_BETTER_OUTPUT_JSON_FILE_NAME)
+    dump_to_json(bigger_is_better, bigger_is_better_output_json_file_name)
+    dump_to_json(smaller_is_better, smaller_is_better_output_json_file_name)
 
 
 if __name__ == '__main__':
@@ -143,15 +140,23 @@ if __name__ == '__main__':
             This is typically the output directory passed to the benchmark
             runner scripts like neuralmagic/benchmarks/run_benchmarks.py.
         """)
-    parser.add_argument("-o",
-                        "--output-directory",
+
+    parser.add_argument("--bigger-is-better-output-file-path",
                         type=str,
-                        default=None,
+                        required=True,
                         help="""
-            Path to the output directory where the JSONs that would be consumed
-            `github-action-benchmark` are stored.
-        """)
+            An output file path, where the GHABenchmarkToolName BiggerIsBetter metrics are to be stored.
+                        """)
+
+    parser.add_argument("--smaller-is-better-output-file-path",
+                        type=str,
+                        required=True,
+                        help="""
+            An output file path, where the GHABenchmarkToolName SmallerIsBetter metrics are to be stored
+                        """)
 
     args = parser.parse_args()
 
-    main(Path(args.input_json_directory), Path(args.output_directory))
+    main(Path(args.input_json_directory),
+         Path(args.bigger_is_better_output_file_path),
+         Path(args.smaller_is_better_output_file_path))
