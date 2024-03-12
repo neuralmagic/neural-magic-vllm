@@ -1,4 +1,4 @@
-name: test nm-vllm
+name: code coverage report
 description: "test nm-vllm via, 'pytest tests/'"
 inputs:
   python:
