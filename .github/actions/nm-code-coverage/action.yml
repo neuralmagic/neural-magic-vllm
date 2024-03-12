@@ -21,5 +21,6 @@ runs:
       VENV="${{ inputs.venv }}-${COMMIT:0:7}"
       source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
       coverage combine --keep ${COVERAGE_REPORTS}
+      ls -alh
       coverage html --directory=${{ inputs.reports_directory }}
     shell: bash

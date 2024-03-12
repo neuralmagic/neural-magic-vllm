@@ -71,11 +71,6 @@ if [ -f "${SKIP_LIST}" ]; then
 fi
 
 for EXCLUDE in "${TESTS_TO_EXCLUDE[@]}"; do
-    echo "... ${EXCLUDE} ..."
-done
-
-TESTS_TO_RUN=()
-for EXCLUDE in "${TESTS_TO_EXCLUDE[@]}"; do
     for JJ in "${!TESTS_FOUND[@]}"; do
         if [[ ${TESTS_FOUND[$JJ]} = ${EXCLUDE} ]]; then
             echo "excluding: ${EXCLUDE}"
@@ -84,13 +79,7 @@ for EXCLUDE in "${TESTS_TO_EXCLUDE[@]}"; do
     done
 done
 
-# echo "running:"
-# for FOUND in "${TESTS_FOUND[@]}"; do
-#     echo "... ${FOUND} ..."
-# done
-
-# exit 0
-
+# run selected tests
 SUCCESS=0
 for TEST in "${TESTS_FOUND[@]}"
 do
