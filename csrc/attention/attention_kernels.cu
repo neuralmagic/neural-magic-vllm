@@ -22,13 +22,13 @@
 #include <stdio.h>
 #include <torch/extension.h>
 
-#include <algorithm>
-
 #include "attention_dtypes.h"
 #include "attention_utils.cuh"
 #ifdef ENABLE_FP8_E5M2
 #include "../quantization/fp8_e5m2_kvcache/quant_utils.cuh"
 #endif
+
+#include <algorithm>
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))

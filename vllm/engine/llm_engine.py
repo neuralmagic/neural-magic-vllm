@@ -98,6 +98,9 @@ class LLMEngine:
         self._init_tokenizer()
         self.seq_counter = Counter()
 
+        self.is_encoder_decoder = getattr(self.model_config.hf_config,
+                                          "is_encoder_decoder", False)
+
         self.model_executor = executor_class(model_config, cache_config,
                                              parallel_config, scheduler_config,
                                              device_config, lora_config)
@@ -121,12 +124,6 @@ class LLMEngine:
         engine_configs = engine_args.create_engine_configs()
         parallel_config = engine_configs[2]
 
-<<<<<<< HEAD
-        self.is_encoder_decoder = getattr(self.model_config.hf_config,
-                                          "is_encoder_decoder", False)
-
-    def get_tokenizer_for_seq(self, sequence: Sequence):
-=======
         # Initialize the cluster and specify the executor class.
         if parallel_config.worker_use_ray:
             initialize_ray_cluster(parallel_config)
@@ -154,9 +151,8 @@ class LLMEngine:
 
     def get_tokenizer_for_seq(self,
                               sequence: Sequence) -> "PreTrainedTokenizer":
->>>>>>> upstream-main
         return self.tokenizer.get_lora_tokenizer(sequence.lora_request)
-
+        
     def _init_tokenizer(self, **tokenizer_init_kwargs):
         init_kwargs = dict(
             enable_lora=bool(self.lora_config),
@@ -263,17 +259,8 @@ class LLMEngine:
         seq_id = next(self.seq_counter)
         eos_token_id = self.tokenizer.get_lora_tokenizer(
             lora_request).eos_token_id
-        seq = Sequence(seq_id, prompt, prompt_token_ids, block_size,
-<<<<<<< HEAD
-                       self.is_encoder_decoder, lora_request)
-
-        # Check whether the input specifies prefix
-        prefix = self.scheduler.prefix_pool.add_or_get_prefix(
-            prompt_token_ids[:prefix_pos], lora_request.lora_int_id
-            if lora_request else 0) if prefix_pos is not None else None
-=======
-                       eos_token_id, lora_request)
->>>>>>> upstream-main
+        seq = Sequence(seq_id, prompt, prompt_token_ids, block_size, 
+                       self.is_encoder_decoder, eos_token_id, lora_request)
 
         # Defensive copy of SamplingParams, which are used by the sampler,
         # this doesn't deep-copy LogitsProcessor objects
