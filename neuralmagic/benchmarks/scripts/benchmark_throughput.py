@@ -14,7 +14,7 @@ from typing import List, Optional, Tuple
 from transformers import AutoTokenizer
 from .common import generate_synthetic_requests, warmup_vllm_engine, num_available_gpus, print_request_outputs
 from .datasets_registry import get_dataset, DatasetArgs
-from .benchmark_result import (BenchmarkResult,
+from .logging.benchmark_result import (BenchmarkResult,
                                BenchmarkThroughputResultMetricTemplates as
                                ResultMetricTemplates)
 

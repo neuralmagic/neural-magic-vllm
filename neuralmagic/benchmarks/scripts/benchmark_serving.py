@@ -33,7 +33,7 @@ from transformers import PreTrainedTokenizerBase
 from vllm.transformers_utils.tokenizer import get_tokenizer
 from .common import generate_synthetic_requests, print_serving_request_io
 from .datasets_registry import get_dataset, DatasetArgs
-from .benchmark_result import (BenchmarkResult,
+from .logging.benchmark_result import (BenchmarkResult,
                                BenchmarkServingResultMetadataKeys as
                                ResultMetadataKeys,
                                BenchmarkServingResultMetricTemplates as
