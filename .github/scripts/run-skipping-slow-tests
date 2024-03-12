@@ -7,6 +7,7 @@ usage() {
     echo
     echo "  -t    - test directory, i.e. location of *.py test files. (default 'tests/')"
     echo "  -r    - desired results base directory. xml results will mirror provided tests directory structure. (default 'test-results/')"
+    echo "  -f    - file with test skip list, e.g. ' neuralmagic/tests/skip-for-remote-push.txt'. (default is to run all found tests)"
     echo "  -h    - this list of options"
     echo
     echo "note: all paths are relative to 'nm-vllm' root"
@@ -16,8 +17,9 @@ usage() {
 
 TEST_DIR=tests
 RESULTS_DIR=test-results
+SKIP_LIST=
 
-while getopts "ht:r:" OPT; do
+while getopts "ht:r:f:" OPT; do
     case "${OPT}" in
 	h)
 	    usage
@@ -27,6 +29,9 @@ while getopts "ht:r:" OPT; do
 	    ;;
     r)
         RESULTS_DIR="${OPTARG}"
+        ;;
+    f)
+        SKIP_LIST="${OPTARG}"
         ;;
     esac
 done
@@ -103,21 +108,38 @@ echo "${TESTS_FOUND[@]}"
 
 # TODO: make this file driven and merge this script with
 # TODO: the other one
-TESTS_TO_EXCLUDE=(
-    "tests/kernels/test_cache.py"
-    "tests/lora/test_llama.py"
-    "tests/models/test_compressed_memory.py"
-    "tests/entrypoints/test_openai_server.py"
-    "tests/models/test_mistral.py"
-    "tests/kernels/test_activation.py"
-    "tests/kernels/test_attention.py"
-    "tests/models/test_compressed.py"
-    "tests/models/test_marlin.py"
-    "tests/models/test_models_logprobs.py"
-    "tests/models/test_models.py")
+# TESTS_TO_EXCLUDE=(
+#     "tests/kernels/test_cache.py"
+#     "tests/lora/test_llama.py"
+#     "tests/models/test_compressed_memory.py"
+#     "tests/entrypoints/test_openai_server.py"
+#     "tests/models/test_mistral.py"
+#     "tests/kernels/test_activation.py"
+#     "tests/kernels/test_attention.py"
+#     "tests/models/test_compressed.py"
+#     "tests/models/test_marlin.py"
+#     "tests/models/test_models_logprobs.py"
+#     "tests/models/test_models.py")
 
-echo "excluded:"
-echo "${TESTS_TO_EXCLUDE[@]}"
+# SKIP_LIST="neuralmagic/tests/tests-to-skip.txt"
+
+# build the skip list from provided file
+declare -a TESTS_TO_EXCLUDE
+if [ -f "${SKIP_LIST}" ]; then
+    while IFS= read -r line
+    do
+        TESTS_TO_EXCLUDE+=("${line}")
+    done < "${SKIP_LIST}"
+fi
+
+for EXCLUDE in "${TESTS_TO_EXCLUDE[@]}"; do
+    echo "... ${EXCLUDE} ..."
+done
+
+# exit 0
+
+# echo "excluded:"
+# echo "${TESTS_TO_EXCLUDE[@]}"
 
 TESTS_TO_RUN=()
 for EXCLUDE in "${TESTS_TO_EXCLUDE[@]}"; do
@@ -130,9 +152,13 @@ for EXCLUDE in "${TESTS_TO_EXCLUDE[@]}"; do
 done
 
 echo "running:"
-echo "${TESTS_FOUND[@]}"
+for FOUND in "${TESTS_FOUND[@]}"; do
+    echo "... ${FOUND} ..."
+done
 
-# exit 0
+# echo "${TESTS_FOUND[@]}"
+
+exit 0
 
 # TESTS_TO_RUN=($TESTS_DOT_PY)
 SUCCESS=0
