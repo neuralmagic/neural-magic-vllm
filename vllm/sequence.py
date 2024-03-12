@@ -158,11 +158,8 @@ class Sequence:
         prompt: str,
         prompt_token_ids: List[int],
         block_size: int,
-<<<<<<< HEAD
         is_encoder_decoder: bool,
-=======
         eos_token_id: Optional[int] = None,
->>>>>>> upstream-main
         lora_request: Optional[LoRARequest] = None,
     ) -> None:
         self.seq_id = seq_id
