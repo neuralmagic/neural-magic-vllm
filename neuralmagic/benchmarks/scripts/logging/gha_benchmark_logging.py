@@ -10,8 +10,7 @@ from functools import reduce
 from dataclasses import dataclass
 from typing import List, Iterable, NamedTuple
 
-from .benchmark_result import GHABenchmarkToolName, BenchmarkResult, MetricTemplate
-from .common import short_description, long_description
+from .benchmark_result import GHABenchmarkToolName, BenchmarkResult, MetricTemplate, short_description, long_description
 
 @dataclass
 class GHARecord:
@@ -47,7 +46,7 @@ class GHARecord:
     def from_metric_template(metric_template: MetricTemplate,
                              extra: str = "",
                              short_description: str = "",
-                             long_description: str = "") -> GHARecord:
+                             long_description: str = ""):
         return GHARecord(name=f"{short_description} - {metric_template.key}\n{long_description} - {metric_template.key}",
                          unit=metric_template.unit,
                          value=metric_template.value,
@@ -72,8 +71,6 @@ def process(json_file_path: Path) -> Iterable[Tool_Record_T]:
 
     print(f"processing file : {json_file_path}")
 
-    short_description = short_description(json_data)
-    long_description = long_description(json_data)
     hover_data = GHARecord.extra_from_benchmark_result(json_data)
     metrics: Iterable[dict] = json_data.get(BenchmarkResult.METRICS_KEY_)
     metrics: Iterable[MetricTemplate] = map(
