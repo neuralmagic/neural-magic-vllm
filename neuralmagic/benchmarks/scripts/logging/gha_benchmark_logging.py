@@ -47,7 +47,8 @@ class GHARecord:
                              extra: str = "",
                              short_description: str = "",
                              long_description: str = ""):
-        return GHARecord(name=f"{short_description} - {metric_template.key}\n{long_description} - {metric_template.key}",
+        nl='\n'
+        return GHARecord(name=f"{short_description} - {metric_template.key}{nl}{long_description} - {metric_template.key}",
                          unit=metric_template.unit,
                          value=metric_template.value,
                          extra=extra,

@@ -164,7 +164,7 @@ def describe_gpu(result_json:dict) -> str:
     if bench_context is None or bench_context.get(cuda_device_names_key) is None:
         return fall_back
 
-    gpu_names = bench_context[cuda_device_names_key]
+    gpu_names = bench_context.get(cuda_device_names_key)
     gpu_name = gpu_names[0]
 
     num_gpus_used = result_json.get(BenchmarkResult.TENSOR_PARALLEL_SIZE_KEY_)
@@ -182,14 +182,18 @@ def short_description(result_json:dict) -> str:
     BenchmarkResult object, return a string that captures a few key high
     level information like the user given benchmark description, GPU name etc.
     """
-    return f"Description: {result_json.get(BenchmarkResult.DESCRIPTION_KEY_)\n GPU : {describe_gpu(result_json)}"
+    nl='\n'
+    return (f"Description: {result_json.get(BenchmarkResult.DESCRIPTION_KEY_)}{nl}"
+            f"GPU : {describe_gpu(result_json)}")
 
 def long_description(result_json: dict) -> str:
     """
     Given a result_json, that is the JSON version for some
     BenchmarkResult object, eeturn a string that is fully-descriptive of this benchmark run.
     """
-    return (f"Short Description: short_description(result_json)\n" 
-          f"Context : {result_json.get(BenchmarkResult.BENCHMARKING_CONTEXT_KEY_)}\n"
-          f"script name : {result_json.get(BenchmarkResult.SCRIPT_NAME_KEY_)}\n"
+    short_desc = short_description(result_json)
+    nl='\n'
+    return (f"Short Description: {short_desc} {nl}" 
+          f"Context : {result_json.get(BenchmarkResult.BENCHMARKING_CONTEXT_KEY_)}{nl}"
+          f"script name : {result_json.get(BenchmarkResult.SCRIPT_NAME_KEY_)}{nl}"
           f"script args : {result_json.get(BenchmarkResult.SCRIPT_ARGS_KEY_)}")
