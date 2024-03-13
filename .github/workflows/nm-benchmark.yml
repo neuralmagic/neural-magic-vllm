@@ -158,7 +158,7 @@ jobs:
 
     needs: BENCHMARK 
     runs-on: ubuntu-latest
-    timeout-minutes: "20"
+    timeout-minutes: 20
     permissions:
       # Permissions required to be able to push to the nm-gh-pages branch 
       contents: write
