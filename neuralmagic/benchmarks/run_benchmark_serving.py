@@ -123,9 +123,14 @@ def run_benchmark_serving_script(config: NamedTuple,
 
             for script_args in script_args_to_cla(config):
 
-                description = (f"{config.description}\n"
+                description = (f"{config.description}\n" +
+                               f"model - {model}\n" +
+                               f"sparsity - {sparsity}\n" +
+                               f"max_model_len - {max_model_len}\n" +
                                f"{config.script_name} " +
-                               " ".join(script_args))
+                               " ".join(script_args) + "\n"+
+                               f"server-cmd : {server_cmd}" )
+
                 bench_cmd = (["python3", "-m"
                               f"{script_path}"] + script_args +
                              ["--description", f"{description}"] +

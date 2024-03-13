@@ -54,7 +54,7 @@ class GHARecord:
         nl = '\n'
         return GHARecord(
             name=
-            f"{short_description} - {metric_template.key}{nl}{long_description} - {metric_template.key}",
+            f"{metric_template.key}{nl}{short_description}",
             unit=metric_template.unit,
             value=metric_template.value,
             extra=extra,
