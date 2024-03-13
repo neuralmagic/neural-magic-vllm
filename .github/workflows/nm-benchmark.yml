@@ -123,7 +123,7 @@ jobs:
       - name: set artifact name
         id: set_artifact_name
         run: |
-          ARTIFACT_NAME=`echo "${{ github.run_id }}-${{ inputs.label }}"
+          ARTIFACT_NAME= "${{ github.run_id }}-${{ inputs.label }}"
           echo "artifact_name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
 
       - name: store benchmark result artifacts
