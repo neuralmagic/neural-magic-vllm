@@ -47,6 +47,20 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R ./downloads
 
+      - name: setenv
+        id: setenv
+        uses: ./.github/actions/nm-set-env/
+        with:
+          hf_token: ${{ secrets.NM_HF_TOKEN }}
+          Gi_per_thread: ${{ inputs.Gi_per_thread }}
+
+      - name: set python
+        id: set_python
+        uses: ./.github/actions/nm-set-python/
+        with:
+          python: ${{ inputs.python }}
+          venv: TEST
+
       # Produce GHA benchmark JSONs
       - name: make github-action-benchmark JSONs 
         uses: ./.github/actions/nm-produce-gha-benchmark-json
