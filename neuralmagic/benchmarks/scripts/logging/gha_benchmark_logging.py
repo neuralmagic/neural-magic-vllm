@@ -17,11 +17,14 @@ from .benchmark_result import GHABenchmarkToolName, BenchmarkResult, MetricTempl
 class GHARecord:
     """
     GHARecord is what actually goes into the output JSON.
-        - name : Chart name.
+        - name : Chart title. Unique names map to a unique chart. This should
+                 most information that long_description has.
         - unit : Y-axis label.
         - value : Value to plot.
         - extra : This information shows up when you hover
                   over a data-point in the chart.
+        - short_description : For UI to display succinct a chart title.
+        - long_description : For UI to display a long chart title. 
     """
     name: str
     unit: str
