@@ -1,6 +1,6 @@
 """
-Scripts to process GHA benchmarking JSONs produced by BenchmarkResult and
-output JSONs that could be consumed by `github-action-benchmark`
+Scripts to process GHA benchmarking JSONs produced by BenchmarkResult
+that could be consumed by `github-action-benchmark`.
 Reference : https://github.com/benchmark-action/github-action-benchmark
 """
 import argparse
