@@ -156,77 +156,77 @@ jobs:
     #             path: dist/${{ steps.build.outputs.tarfile }}
     #             retention-days: 5
 
-    #         # - name: test
-    #         #   id: test
-    #         #   uses: ./.github/actions/nm-test-vllm/
-    #         #   with:
-    #         #     test_skip_list: ${{ inputs.test_skip_list }}
-    #         #     test_directory: tests
-    #         #     test_results: test-results
-    #         #     python: ${{ inputs.python }}
-    #         #     venv: TEST
-    #         #     pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
+            # # - name: test
+            # #   id: test
+            # #   uses: ./.github/actions/nm-test-vllm/
+            # #   with:
+            # #     test_skip_list: ${{ inputs.test_skip_list }}
+            # #     test_directory: tests
+            # #     test_results: test-results
+            # #     python: ${{ inputs.python }}
+            # #     venv: TEST
+            # #     pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
 
-    #         # - name: generate code coverage
-    #         #   uses: ./.github/actions/nm-code-coverage/
-    #         #   if: success() || failure()
-    #         #   with:
-    #         #     python: ${{ inputs.python }}
-    #         #     venv: TEST
-    #         #     reports_directory: cc-nm-vllm-html
+            # # - name: generate code coverage
+            # #   uses: ./.github/actions/nm-code-coverage/
+            # #   if: success() || failure()
+            # #   with:
+            # #     python: ${{ inputs.python }}
+            # #     venv: TEST
+            # #     reports_directory: cc-nm-vllm-html
 
-    #         # - name: upload code coverage html
-    #         #   uses: actions/upload-artifact@v4
-    #         #   if: success() || failure()
-    #         #   with:
-    #         #     name: cc-nm-vllm-html
-    #         #     path: cc-nm-vllm-html
-    #         #     retention-days: 15
+            # # - name: upload code coverage html
+            # #   uses: actions/upload-artifact@v4
+            # #   if: success() || failure()
+            # #   with:
+            # #     name: cc-nm-vllm-html
+            # #     path: cc-nm-vllm-html
+            # #     retention-days: 15
 
-    #         # - name: report test results
-    #         #   id: report_test
-    #         #   uses: ./.github/actions/nm-testmo-run-submit-thread/
-    #         #   if: success() || failure()
-    #         #   with:
-    #         #     testmo_url: https://neuralmagic.testmo.net
-    #         #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-    #         #     testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
-    #         #     results: test-results
-    #         #     step_status: ${{ steps.test.outputs.status }}
+            # # - name: report test results
+            # #   id: report_test
+            # #   uses: ./.github/actions/nm-testmo-run-submit-thread/
+            # #   if: success() || failure()
+            # #   with:
+            # #     testmo_url: https://neuralmagic.testmo.net
+            # #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+            # #     testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
+            # #     results: test-results
+            # #     step_status: ${{ steps.test.outputs.status }}
 
-    #         - name: summary
-    #           uses: ./.github/actions/nm-summary-build/
-    #           if: success() || failure()
-    #           with:
-    #             label: ${{ inputs.label }}
-    #             gitref: ${{ inputs.gitref }}
-    #             testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
-    #             python: ${{ steps.set_python.outputs.version }}
-    #             lint_status: ${{ steps.lint.outputs.status }}
-    #             build_status: ${{ steps.build.outputs.build_status }}
-    #             whl_status: ${{ steps.build.outputs.whl_status }}
+            # - name: summary
+            #   uses: ./.github/actions/nm-summary-build/
+            #   if: success() || failure()
+            #   with:
+            #     label: ${{ inputs.label }}
+            #     gitref: ${{ inputs.gitref }}
+            #     testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
+            #     python: ${{ steps.set_python.outputs.version }}
+            #     lint_status: ${{ steps.lint.outputs.status }}
+            #     build_status: ${{ steps.build.outputs.build_status }}
+            #     whl_status: ${{ steps.build.outputs.whl_status }}
 
-    #         - name: run status
-    #           id: run_status
-    #           if: success() || failure()
-    #           env:
-    #             CHECKOUT: ${{ steps.checkout.outcome }}
-    #             LINT_STATUS: ${{ steps.lint.outputs.status }}
-    #             BUILD_STATUS: ${{ steps.build.outputs.status }}
-    #           run: |
-    #               echo "checkout status: ${CHECKOUT}"
-    #               echo "lint status: ${LINT_STATUS}"
-    #               echo "build status: ${BUILD_STATUS}"
-    #               echo "test status: ${TEST_STATUS}"
-    #               if [[ "${CHECKOUT}" != *"success"* ]]; then exit 1; fi
-    #               if [ -z "${LINT_STATUS}" ] || [ "${LINT_STATUS}" -ne "0" ]; then exit 1; fi
-    #               if [ -z "${BUILD_STATUS}" ] || [ "${BUILD_STATUS}" -ne "0" ]; then exit 1; fi
-    #               if [ -z "${TEST_STATUS}" ] || [ "${TEST_STATUS}" -ne "0" ]; then exit 1; fi
+            # - name: run status
+            #   id: run_status
+            #   if: success() || failure()
+            #   env:
+            #     CHECKOUT: ${{ steps.checkout.outcome }}
+            #     LINT_STATUS: ${{ steps.lint.outputs.status }}
+            #     BUILD_STATUS: ${{ steps.build.outputs.status }}
+            #   run: |
+            #       echo "checkout status: ${CHECKOUT}"
+            #       echo "lint status: ${LINT_STATUS}"
+            #       echo "build status: ${BUILD_STATUS}"
+            #       echo "test status: ${TEST_STATUS}"
+            #       if [[ "${CHECKOUT}" != *"success"* ]]; then exit 1; fi
+            #       if [ -z "${LINT_STATUS}" ] || [ "${LINT_STATUS}" -ne "0" ]; then exit 1; fi
+            #       if [ -z "${BUILD_STATUS}" ] || [ "${BUILD_STATUS}" -ne "0" ]; then exit 1; fi
+            #       if [ -z "${TEST_STATUS}" ] || [ "${TEST_STATUS}" -ne "0" ]; then exit 1; fi
 
-    #         - name: complete testmo run
-    #           uses: ./.github/actions/nm-testmo-run-complete/
-    #           if: success() || failure()
-    #           with:
-    #             testmo_url: https://neuralmagic.testmo.net
-    #             testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-    #             testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
+            # - name: complete testmo run
+            #   uses: ./.github/actions/nm-testmo-run-complete/
+            #   if: success() || failure()
+            #   with:
+            #     testmo_url: https://neuralmagic.testmo.net
+            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+            #     testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
