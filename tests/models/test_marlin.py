@@ -68,6 +68,7 @@ def test_models(
         example_prompts, max_tokens, num_logprobs)
 
     # vllm memory cleanup is poor. This seems to fix things.
+    # NOTE: upstream sync should use downstream version.
     del marlin_model.model.llm_engine.driver_worker
     del marlin_model
 
@@ -82,6 +83,7 @@ def test_models(
                                                        num_logprobs)
 
     # vllm memory cleanup is poor. This seems to fix things.
+    # NOTE: upstream sync should use downstream version.
     del gptq_model.model.llm_engine.driver_worker
     del gptq_model
     gc.collect()
