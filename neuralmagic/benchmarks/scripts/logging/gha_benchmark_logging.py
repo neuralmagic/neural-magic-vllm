@@ -90,9 +90,8 @@ def process(json_file_path: Path) -> Iterable[Tool_Record_T]:
                 long_description=long_description(json_data))), metrics)
 
 
-def main(input_directory: Path,
-         bigger_is_better_output_json_file_name : Path,
-         smaller_is_better_output_json_file_name : Path) -> None:
+def main(input_directory: Path, bigger_is_better_output_json_file_name: Path,
+         smaller_is_better_output_json_file_name: Path) -> None:
 
     def dump_to_json(gha_records: List[GHARecord], output_path: Path):
         # Make data JSON serializable
