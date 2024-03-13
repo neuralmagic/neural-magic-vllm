@@ -109,11 +109,14 @@ jobs:
                 name: ${{ inputs.whl }}
                 path: ${{ inputs.whl }}
 
-            - name: take a look
-              run: |
-                BASE=$(./.github/scripts/convert-version ${{ inputs.python }})
-                WHL=$(find . -type f -iname "*${BASE}*.whl")
-                echo "whl: ${WHL}"
+            - name: install and test whl
+              uses: ./.github/actions/nm-install-test-whl/
+              with:
+                pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
+                python: ${{ inputs.python }}
+                test_skip_list: ${{ inputs.test_skip_list }}
+                parent_test_directory: tests
+                test_results: test-results
 
             - name: summary
               uses: ./.github/actions/nm-summary-test/
