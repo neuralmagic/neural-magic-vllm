@@ -110,13 +110,42 @@ jobs:
                 path: ${{ inputs.whl }}
 
             - name: install and test whl
+              id: test
               uses: ./.github/actions/nm-install-test-whl/
               with:
                 pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
                 python: ${{ inputs.python }}
+                venv: TEST
                 test_skip_list: ${{ inputs.test_skip_list }}
                 test_directory: tests
                 test_results: test-results
+
+            - name: generate code coverage
+              uses: ./.github/actions/nm-code-coverage/
+              if: success() || failure()
+              with:
+                python: ${{ inputs.python }}
+                venv: TEST
+                reports_directory: cc-nm-vllm-html
+
+            - name: upload code coverage html
+              uses: actions/upload-artifact@v4
+              if: success() || failure()
+              with:
+                name: cc-nm-vllm-html
+                path: cc-nm-vllm-html
+                retention-days: 15
+
+            - name: report test results
+              id: report_test
+              uses: ./.github/actions/nm-testmo-run-submit-thread/
+              if: success() || failure()
+              with:
+                testmo_url: https://neuralmagic.testmo.net
+                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+                testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
+                results: test-results
+                step_status: ${{ steps.test.outputs.status }}
 
             - name: summary
               uses: ./.github/actions/nm-summary-test/
@@ -126,8 +155,8 @@ jobs:
                 gitref: ${{ inputs.gitref }}
                 testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
                 python: ${{ steps.set_python.outputs.version }}
-                whl: will-be-updated
-                test_status: 0
+                whl: ${{ steps.test.outputs.whl }}
+                test_status: ${{ steps.test.outputs.status }}
 
             - name: complete testmo run
               uses: ./.github/actions/nm-testmo-run-complete/

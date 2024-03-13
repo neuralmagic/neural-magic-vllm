@@ -23,6 +23,9 @@ outputs:
   status:
     description: 'return test result'
     value: ${{ steps.whl_install_test.outputs.status }}
+  whl:
+    description: 'whl used for testing'
+    value: ${{ steps.whl_install.test.outputs.whl }}
 runs:
   using: composite
   steps:
@@ -41,6 +44,7 @@ runs:
         pip3 list
         BASE=$(./.github/scripts/convert-version ${{ inputs.python }})
         WHL=$(find . -type f -iname "*${BASE}*.whl")
+        echo "whl=${WHL}" >> "$GITHUB_OUTPUT"
         pip3 install ${WHL}
         pip3 install -r requirements-dev.txt
         SUCCESS=0
