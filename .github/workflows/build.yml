@@ -126,7 +126,7 @@ jobs:
               uses: ./.github/actions/nm-summary-build/
               if: success() || failure()
               with:
-                label: ${{ inputs.label }}
+                label: ${{ inputs.build_label }}
                 gitref: ${{ inputs.gitref }}
                 testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
                 python: ${{ steps.set_python.outputs.version }}
@@ -138,14 +138,11 @@ jobs:
               id: run_status
               if: success() || failure()
               env:
-                CHECKOUT: ${{ steps.checkout.outcome }}
                 LINT_STATUS: ${{ steps.lint.outputs.status }}
                 BUILD_STATUS: ${{ steps.build.outputs.status }}
               run: |
-                echo "checkout status: ${CHECKOUT}"
                 echo "lint status: ${LINT_STATUS}"
                 echo "build status: ${BUILD_STATUS}"
-                if [[ "${CHECKOUT}" != *"success"* ]]; then exit 1; fi
                 if [ -z "${LINT_STATUS}" ] || [ "${LINT_STATUS}" -ne "0" ]; then exit 1; fi
                 if [ -z "${BUILD_STATUS}" ] || [ "${BUILD_STATUS}" -ne "0" ]; then exit 1; fi
 
