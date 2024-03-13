@@ -37,7 +37,6 @@ runs:
         # activate venv, install and test
         COMMIT=${{ github.sha }}
         VENV="${{ inputs.venv }}-${COMMIT:0:7}"
-        pyenv virtualenv ${VENV}
         source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
         pip3 install coverage
         pip3 install --index-url http://${{ inputs.pypi }}:8080/ --trusted-host ${{ inputs.pypi }} nm-magic-wand-nightly
