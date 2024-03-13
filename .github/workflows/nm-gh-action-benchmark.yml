@@ -15,6 +15,13 @@ on:
         description: "maximum time runner will be up"
         type: string
         required: true
+      push_benchmark_results_to_gh_pages:
+        description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI "
+        type: choice
+        options:
+            - 'true'
+            - 'false'
+        default: 'false'
       python:
         description: "python version, e.g. 3.10.12"
         type: string
@@ -69,7 +76,7 @@ jobs:
           gh_action_benchmark_tool: "customBiggerIsBetter"
           # TODO (varun) - Switch this to `nm-gh-pages` after testing
           gh_pages_branch: "varun/generate-bench-results-test"
-          auto_push: "true"
+          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: nm-github-action-benchmark(smaller_is_better.json)
@@ -79,5 +86,5 @@ jobs:
           gh_action_benchmark_tool: "customSmallerIsBetter"
           # TODO (varun) - Switch this to `nm-gh-pages` after testing
           gh_pages_branch: "varun/generate-bench-results-test"
-          auto_push: "true"
+          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

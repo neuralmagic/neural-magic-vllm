@@ -27,7 +27,7 @@ on:
         description: "python version, e.g. 3.10.12"
         type: string
         required: true
-      push_results_to_gh_pages:
+      push_benchmark_results_to_gh_pages:
         description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI"
         type: string
         required: true
@@ -59,7 +59,7 @@ on:
         description: "python version, e.g. 3.10.12"
         type: string
         required: true
-      push_results_to_gh_pages:
+      push_benchmark_results_to_gh_pages:
         description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI"
         type: choice
         options:
@@ -135,10 +135,10 @@ jobs:
           retention-days: 10
 
   NM_GH_ACTION_BENCHMARK:
-    if: ${{ inputs.push_results_to_gh_pages == 'true'}}
     needs: BENCHMARK 
     uses: ./.github/workflows/nm-gh-action-benchmark.yml
     with:
       benchmark_results_artifact_name: ${{ needs.BENCHMARK.outputs.artifact_name }}
       gitref: ${{ inputs.gitref }}
       timeout: "20"
+      push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
