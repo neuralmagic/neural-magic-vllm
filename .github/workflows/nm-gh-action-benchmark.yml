@@ -18,12 +18,11 @@ on:
       python:
         description: "python version, e.g. 3.10.12"
         type: string
-        required: true
+        default: "3.10.12"
 
 jobs:
-  PUSH_TO_GH_PAGES:
+  NM_GH_ACTION_BENCHMARK:
 
-    name: push to gh pages
     runs-on: ubuntu-latest
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     permissions:
@@ -44,22 +43,14 @@ jobs:
           name: ${{ inputs.benchmark_results_artifact_name }}
           path: downloads
 
-      - name: Display structure of downloaded files
+      - name: display structure of downloaded files
         run: ls -R ./downloads
 
-      - name: setenv
-        id: setenv
-        uses: ./.github/actions/nm-set-env/
+      - name: setup python
+        id: setup_python
+        uses: actions/setup-python@v4
         with:
-          hf_token: ${{ secrets.NM_HF_TOKEN }}
-          Gi_per_thread: ${{ inputs.Gi_per_thread }}
-
-      - name: set python
-        id: set_python
-        uses: ./.github/actions/nm-set-python/
-        with:
-          python: ${{ inputs.python }}
-          venv: TEST
+            python-version: ${{ inputs.python }} 
 
       # Produce GHA benchmark JSONs
       - name: make github-action-benchmark JSONs 
@@ -70,8 +61,6 @@ jobs:
           bigger_is_better_output_file_path: bigger_is_better.json
           # Metrics that are "better" when the value is smaller are stored here
           smaller_is_better_output_file_path: smaller_is_better.json
-          python: ${{ inputs.python }}
-          venv: TEST
 
       - name: nm-github-action-benchmark(bigger_is_better.json)
         uses: ./.github/actions/nm-github-action-benchmark
