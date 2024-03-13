@@ -97,6 +97,9 @@ def main(input_directory: Path, bigger_is_better_output_json_file_name: Path,
          smaller_is_better_output_json_file_name: Path) -> None:
 
     def dump_to_json(gha_records: List[GHARecord], output_path: Path):
+        # Make output directory if it doesn't exist
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
         # Make data JSON serializable
         gha_record_dicts = list(map(lambda x: x.__dict__, gha_records))
         with open(output_path, 'w+') as f:
