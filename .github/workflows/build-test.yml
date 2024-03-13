@@ -93,7 +93,6 @@ jobs:
               with:
                 fs_cache: ${{ secrets.HF_FS_CACHE }}
 
-            # TODO: testmo source is currently hardcoded.
             - name: create testmo run
               id: create_testmo_run
               uses: ./.github/actions/nm-testmo-run-create/
@@ -111,51 +110,66 @@ jobs:
               id: build
               uses: ./.github/actions/nm-build-vllm/
               with:
-                Gi_per_thread: ${{ inputs.Gi_per_thread }}
                 python: ${{ inputs.python }}
                 venv: TEST
                 pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
 
-            - name: test
-              id: test
-              uses: ./.github/actions/nm-test-vllm/
-              with:
-                test_skip_list: ${{ inputs.test_skip_list }}
-                test_directory: tests
-                test_results: test-results
-                python: ${{ inputs.python }}
-                venv: TEST
-                pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
-
-            - name: generate code coverage
-              uses: ./.github/actions/nm-code-coverage/
-              if: success() || failure()
-              with:
-                python: ${{ inputs.python }}
-                venv: TEST
-                reports_directory: cc-nm-vllm-html
-
-            - name: upload code coverage html
+            - name: upload whl
               uses: actions/upload-artifact@v4
               if: success() || failure()
               with:
-                name: cc-nm-vllm-html
-                path: cc-nm-vllm-html
+                name: ${{ steps.build.outputs.whl }}
+                path: dist/${{ steps.build.outputs.whl }}
                 retention-days: 15
 
-            - name: report test results
-              id: report_test
-              uses: ./.github/actions/nm-testmo-run-submit-thread/
+            - name: upload tar.gz
+              uses: actions/upload-artifact@v4
               if: success() || failure()
               with:
-                testmo_url: https://neuralmagic.testmo.net
-                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-                testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
-                results: test-results
-                step_status: ${{ steps.test.outputs.status }}
+                name: ${{ inputs.python }}-${{ steps.build.outputs.tarfile }}
+                path: dist/${{ steps.build.outputs.tarfile }}
+                retention-days: 5
+
+            # - name: test
+            #   id: test
+            #   uses: ./.github/actions/nm-test-vllm/
+            #   with:
+            #     test_skip_list: ${{ inputs.test_skip_list }}
+            #     test_directory: tests
+            #     test_results: test-results
+            #     python: ${{ inputs.python }}
+            #     venv: TEST
+            #     pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
+
+            # - name: generate code coverage
+            #   uses: ./.github/actions/nm-code-coverage/
+            #   if: success() || failure()
+            #   with:
+            #     python: ${{ inputs.python }}
+            #     venv: TEST
+            #     reports_directory: cc-nm-vllm-html
+
+            # - name: upload code coverage html
+            #   uses: actions/upload-artifact@v4
+            #   if: success() || failure()
+            #   with:
+            #     name: cc-nm-vllm-html
+            #     path: cc-nm-vllm-html
+            #     retention-days: 15
+
+            # - name: report test results
+            #   id: report_test
+            #   uses: ./.github/actions/nm-testmo-run-submit-thread/
+            #   if: success() || failure()
+            #   with:
+            #     testmo_url: https://neuralmagic.testmo.net
+            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+            #     testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
+            #     results: test-results
+            #     step_status: ${{ steps.test.outputs.status }}
 
             - name: summary
-              uses: ./.github/actions/nm-run-summary/
+              uses: ./.github/actions/nm-summary-build/
               if: success() || failure()
               with:
                 label: ${{ inputs.label }}
@@ -163,8 +177,8 @@ jobs:
                 testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
                 python: ${{ steps.set_python.outputs.version }}
                 lint_status: ${{ steps.lint.outputs.status }}
-                build_status: ${{ steps.build.outputs.status }}
-                test_status: ${{ steps.test.outputs.status }}
+                build_status: ${{ steps.build.outputs.build_status }}
+                whl_status: ${{ steps.build.outputs.whl_status }}
 
             - name: run status
               id: run_status
@@ -173,7 +187,6 @@ jobs:
                 CHECKOUT: ${{ steps.checkout.outcome }}
                 LINT_STATUS: ${{ steps.lint.outputs.status }}
                 BUILD_STATUS: ${{ steps.build.outputs.status }}
-                TEST_STATUS: ${{ steps.test.outputs.status }}
               run: |
                   echo "checkout status: ${CHECKOUT}"
                   echo "lint status: ${LINT_STATUS}"

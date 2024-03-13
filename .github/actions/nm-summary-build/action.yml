@@ -19,8 +19,8 @@ inputs:
   build_status:
     description: 'status from build step'
     required: true
-  test_status:
-    description: 'status from test step'
+  whl_status:
+    description: 'status from build step'
     required: true
 runs:
   using: composite
@@ -30,8 +30,8 @@ runs:
       LINT_EMOJI=$(./.github/scripts/step-status ${LINT_STATUS})
       BUILD_STATUS=${{ inputs.build_status }}
       BUILD_EMOJI=$(./.github/scripts/step-status ${BUILD_STATUS})
-      TEST_STATUS=${{ inputs.test_status }}
-      TEST_EMOJI=$(./.github/scripts/step-status ${TEST_STATUS})
+      WHL_STATUS=${{ inputs.whl_status }}
+      WHL_EMOJI=$(./.github/scripts/step-status ${WHL_STATUS})
       echo "testmo URL: ${{ inputs.testmo_run_url }}" >> $GITHUB_STEP_SUMMARY
       echo ""
       echo "| Parameter | |" >> $GITHUB_STEP_SUMMARY
@@ -44,5 +44,5 @@ runs:
       echo "| python: | ${{ inputs.python }} |" >> $GITHUB_STEP_SUMMARY
       echo "| lint: | ${LINT_EMOJI} |" >> $GITHUB_STEP_SUMMARY
       echo "| build: | ${BUILD_EMOJI} |" >> $GITHUB_STEP_SUMMARY
-      echo "| test: | ${TEST_EMOJI} |" >> $GITHUB_STEP_SUMMARY
+      echo "| whl: | ${WHL_EMOJI} |" >> $GITHUB_STEP_SUMMARY
     shell: bash
