@@ -534,6 +534,7 @@ async def test_guided_json_chat(server, client: openai.AsyncOpenAI):
     assert json1["name"] != json2["name"]
     assert json1["age"] != json2["age"]
 
+
 async def test_guided_regex_completion(server, client: openai.AsyncOpenAI):
     completion = await client.completions.create(
         model=MODEL_NAME,
@@ -548,6 +549,7 @@ async def test_guided_regex_completion(server, client: openai.AsyncOpenAI):
     for i in range(3):
         assert completion.choices[i].text is not None
         assert re.fullmatch(TEST_REGEX, completion.choices[i].text) is not None
+
 
 # *** UPSTREAM SYNC ***
 # This test covers an experimental feature in vLLM, guided generation.
