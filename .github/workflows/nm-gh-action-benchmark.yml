@@ -64,8 +64,8 @@ jobs:
         with:
           gh_action_benchmark_json_file_path:  "downloads/bigger_is_better.json"
           gh_action_benchmark_tool: "customBiggerIsBetter"
-          # TODO
-          gh_pages_branch: ""
+          # TODO (varun) - Switch this to `nm-gh-pages` after testing
+          gh_pages_branch: "varun/generate-bench-results-test"
           auto_push: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -74,7 +74,7 @@ jobs:
         with:
           gh_action_benchmark_json_file_path:  "downloads/smaller_is_better.json"
           gh_action_benchmark_tool: "customSmallerIsBetter"
-          # TODO
-          gh_pages_branch: ""
+          # TODO (varun) - Switch this to `nm-gh-pages` after testing
+          gh_pages_branch: "varun/generate-bench-results-test"
           auto_push: "true"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
