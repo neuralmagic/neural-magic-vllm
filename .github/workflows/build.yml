@@ -64,12 +64,13 @@ jobs:
                 fetch-depth: 0
                 ref: ${{ inputs.gitref }}
                 submodules: recursive
-                - name: setenv
-                id: setenv
-                uses: ./.github/actions/nm-set-env/
-                with:
-                  hf_token: ${{ secrets.NM_HF_TOKEN }}
-                  Gi_per_thread: ${{ inputs.Gi_per_thread }}
+
+            - name: setenv
+              id: setenv
+              uses: ./.github/actions/nm-set-env/
+              with:
+                hf_token: ${{ secrets.NM_HF_TOKEN }}
+                Gi_per_thread: ${{ inputs.Gi_per_thread }}
 
             - name: set python
               id: set_python
