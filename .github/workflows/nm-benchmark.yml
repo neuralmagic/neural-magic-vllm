@@ -139,6 +139,8 @@ jobs:
           smaller_is_better_output_file_name: smaller_is_better.json
           # *is_better_output_file_name jsons are stored here
           output_directory: gh-action-benchmark-jsons
+          python: ${{ inputs.python }}
+          venv: TEST
 
       - name: set gh action benchmark input artifact name
         id: set_gh_action_benchmark_input_artifact_name

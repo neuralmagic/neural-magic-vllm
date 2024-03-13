@@ -13,16 +13,25 @@ inputs:
   output_directory:
     description: 'Output directory where *_is_better_output_file_name are stored'
     required: true
+  python:
+    description: 'python version, e.g. 3.10.12'
+    required: true
+  venv:
+    description: 'name for python virtual environment'
+    required: true
 runs:
   using: composite
   steps:
   - id: produce_gha_benchmark_jsons 
     run: |
-      SUCCESS=0
       mkdir -p ${{ inputs.output_directory }}
+      COMMIT=${{ github.sha }}
+      VENV="${{ inputs.venv }}-${COMMIT:0:7}"
+      source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
+      SUCCESS=0
       bigger_is_better_path=${{ inputs.output_directory }}/${{ inputs.bigger_is_better_output_file_name }}
       smaller_is_better_path=${{ inputs.output_directory }}/${{ inputs.smaller_is_better_output_file_name }}
-      python -m neuralmagic.benchmarks.scripts.logging.gha_benchmark_logging -i ${{inputs.vllm_benchmark_jsons_path}} --bigger-is-better-output-file-path $bigger_is_better_path --smaller-is-better-output-file-path $smaller_is_better_path || SUCCESS=$?
+      python3 -m neuralmagic.benchmarks.scripts.logging.gha_benchmark_logging -i ${{inputs.vllm_benchmark_jsons_path}} --bigger-is-better-output-file-path $bigger_is_better_path --smaller-is-better-output-file-path $smaller_is_better_path || SUCCESS=$?
       echo "test=${SUCCESS}" >> "$GITHUB_OUTPUT"
       exit ${SUCCESS}
     shell: bash
