@@ -102,6 +102,19 @@ jobs:
                 testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
                 source: 'build-test'
 
+            - name: download whl
+              id: download
+              uses: actions/download-artifact@v4
+              with:
+                name: ${{ inputs.whl }}
+                path: ${{ inputs.whl }}
+
+            - name: take a look
+              run: |
+                BASE=$(./.github/scripts/convert-version ${{ inputs.python }})
+                WHL=$(find . -type f -iname "*${BASE}*.whl")
+                echo "whl: ${WHL}"
+
             - name: summary
               uses: ./.github/actions/nm-summary-test/
               if: success() || failure()
