@@ -144,7 +144,7 @@ jobs:
         id: set_gh_action_benchmark_input_artifact_name
         run: |
           GH_ACTION_BENCHMARK_INPUT_ARTIFACT_NAME=`echo "gh_action_benchmark_jsons-${{ github.run_id }}-${{ inputs.label }}"`
-          echo "gh_action_benchmark_input_artifact_name=$GH_ACTION_BENCHMARK_INPUT_ARTIFACT_NAME"
+          echo "gh_action_benchmark_input_artifact_name=$GH_ACTION_BENCHMARK_INPUT_ARTIFACT_NAME" >> $GITHUB_OUTPUT
 
       - name: store gh action benchmark input artifacts
         if: success()
