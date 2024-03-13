@@ -73,7 +73,7 @@ jobs:
     runs-on: ${{ inputs.label }}
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     outputs:
-      artifact_name: ${{ steps.set_artifact_name.outputs.artifact_name}}
+      gh_action_benchmark_input_artifact_name: ${{ steps.set_gh_action_benchmark_input_artifact_name.outputs.gh_action_benchmark_input_artifact_name}}
 
     steps:
       - name: checkout repository code
@@ -120,29 +120,39 @@ jobs:
           python: ${{ inputs.python }}
           venv: TEST
 
+      - name: store benchmark result artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.run_id }}-${{ inputs.label }}
+          path: benchmark-results
+          retention-days: 10
+
       # Produce GHA benchmark JSONs
       - name: make github-action-benchmark JSONs 
         uses: ./.github/actions/nm-produce-gha-benchmark-json
         with:
           vllm_benchmark_jsons_path: benchmark-results 
           # Metrics that are "better" when the value is greater are stored here
-          bigger_is_better_output_file_path: bigger_is_better.json
+          bigger_is_better_output_file_name: bigger_is_better.json
           # Metrics that are "better" when the value is smaller are stored here
-          smaller_is_better_output_file_path: smaller_is_better.json
+          smaller_is_better_output_file_name: smaller_is_better.json
+          # *is_better_output_file_name jsons are stored here
+          output_directory: gh-action-benchmark-jsons
 
-      - name: set artifact name
-        id: set_artifact_name
+      - name: set gh action benchmark input artifact name
+        id: set_gh_action_benchmark_input_artifact_name
         run: |
-          ARTIFACT_NAME=`echo "${{ github.run_id }}-${{ inputs.label }}"`
-          echo "artifact_name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
+          GH_ACTION_BENCHMARK_INPUT_ARTIFACT_NAME=`echo "gh_action_benchmark_jsons-${{ github.run_id }}-${{ inputs.label }}"`
+          echo "gh_action_benchmark_input_artifact_name=$GH_ACTION_BENCHMARK_INPUT_ARTIFACT_NAME"
 
-      - name: store benchmark result artifacts
-        if: success() || failure()
+      - name: store gh action benchmark input artifacts
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.set_artifact_name.outputs.artifact_name}}
-          path: benchmark-results
-          retention-days: 10
+          name: ${{ steps.set_gh_action_benchmark_input_artifact_name.outputs.gh_action_benchmark_input_artifact_name}}
+          path: gh-action-benchmark-jsons 
+          retention-days: 1
 
   NM_GH_ACTION_BENCHMARK:
 
@@ -164,7 +174,7 @@ jobs:
       - name: download benchmark results artifact
         uses: actions/download-artifact@v4
         with:
-          name: ${{ inputs.benchmark_results_artifact_name }}
+          name: ${{ needs.BENCHMARK.outputs.gh_action_benchmark_input_artifact_name }}
           path: downloads
 
       - name: display structure of downloaded files

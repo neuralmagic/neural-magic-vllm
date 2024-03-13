@@ -4,11 +4,14 @@ inputs:
   vllm_benchmark_jsons_path:
     description: 'Path to a directory containing a list of BenchmarkResult JSONs'
     required: true
-  bigger_is_better_output_file_path:
+  bigger_is_better_output_file_name:
     description: 'Path to a file where the GHA CustomBiggerIsBetter JSON is to be stored'
     required: true
-  smaller_is_better_output_file_path:
+  smaller_is_better_output_file_name:
     description: 'Path to a file where the GHA CustomSmallerIsBetter JSON is to be stored'
+    required: true
+  output_directory:
+    description: 'Output directory where *_is_better_output_file_name are stored'
     required: true
 runs:
   using: composite
@@ -16,7 +19,10 @@ runs:
   - id: produce_gha_benchmark_jsons 
     run: |
       SUCCESS=0
-      python -m neuralmagic.benchmarks.scripts.logging.gha_benchmark_logging -i ${{inputs.vllm_benchmark_jsons_path}} --bigger-is-better-output-file-path ${{inputs.bigger_is_better_output_file_path}} --smaller-is-better-output-file-path ${{inputs.smaller_is_better_output_file_path}} || SUCCESS=$?
+      mkdir -p ${{ inputs.output_directory }}
+      bigger_is_better_path=${{ inputs.output_directory }}/${{ inputs.bigger_is_better_output_file_name }}
+      smaller_is_better_path=${{ inputs.output_directory }}/${{ inputs.smaller_is_better_output_file_name }}
+      python -m neuralmagic.benchmarks.scripts.logging.gha_benchmark_logging -i ${{inputs.vllm_benchmark_jsons_path}} --bigger-is-better-output-file-path $bigger_is_better_path --smaller-is-better-output-file-path $smaller_is_better_path || SUCCESS=$?
       echo "test=${SUCCESS}" >> "$GITHUB_OUTPUT"
       exit ${SUCCESS}
     shell: bash
