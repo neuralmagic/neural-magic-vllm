@@ -123,33 +123,37 @@ def calculate_metrics(
     dur_s: float,
     tokenizer: PreTrainedTokenizerBase,
 ) -> BenchmarkMetrics:
-    total_output = 0
+    actual_output_lens = []
     total_input = 0
     completed = 0
-    per_token_latencies = []
+    inter_token_latencies = []
     ttfts = []
     for i in range(len(outputs)):
         if outputs[i].success:
             output_len = len(tokenizer.encode(outputs[i].generated_text))
-            total_output += output_len
+            actual_output_lens.append(output_len)
             total_input += input_requests[i][1]
-            per_token_latencies.append(outputs[i].latency / output_len)
+            if output_len > 1:
+                inter_token_latencies.append(
+                    (outputs[i].latency - outputs[i].ttft) / (output_len - 1))
             ttfts.append(outputs[i].ttft)
             completed += 1
+        else:
+            actual_output_lens.append(0)
 
     metrics = BenchmarkMetrics(
         completed=completed,
         total_input=total_input,
-        total_output=total_output,
+        total_output=sum(actual_output_lens),
         request_throughput=completed / dur_s,
         input_throughput=total_input / dur_s,
-        output_throughput=total_output / dur_s,
+        output_throughput=sum(actual_output_lens) / dur_s,
         mean_ttft_ms=np.mean(ttfts) * 1000,
         median_ttft_ms=np.median(ttfts) * 1000,
         p99_ttft_ms=np.percentile(ttfts, 99) * 1000,
-        mean_tpot_ms=np.mean(per_token_latencies) * 1000,
-        median_tpot_ms=np.median(per_token_latencies) * 1000,
-        p99_tpot_ms=np.percentile(per_token_latencies, 99) * 1000,
+        mean_tpot_ms=np.mean(inter_token_latencies) * 1000,
+        median_tpot_ms=np.median(inter_token_latencies) * 1000,
+        p99_tpot_ms=np.percentile(inter_token_latencies, 99) * 1000,
     )
 
     return metrics
