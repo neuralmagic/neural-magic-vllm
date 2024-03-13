@@ -33,6 +33,7 @@ python3 -m vllm.entrypoints.openai.api_server \
 
 Launch Prometheus and Grafana servers with `docker compose`:
 ```bash
+cd examples/production_monitoring/
 docker compose up
 ```
 
@@ -40,15 +41,19 @@ Submit some sample requests to the server:
 ```bash
 wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
 
-python3 ../../benchmarks/benchmark_serving.py \
+python3 benchmarks/benchmark_serving.py \
     --model mistralai/Mistral-7B-v0.1 \
     --tokenizer mistralai/Mistral-7B-v0.1 \
     --endpoint /v1/completions \
     --dataset ShareGPT_V3_unfiltered_cleaned_split.json \
-    --request-rate 3.0
+    --request-rate 3.0 \
+    --backend openai
+
 ```
 
 Navigating to [`http://localhost:8000/metrics`](http://localhost:8000/metrics) will show the raw Prometheus metrics being exposed by vLLM.
+Note: If using a remote machine, some servers may not be tunneled into the local machine. Run 
+`ssh {user}@{ip} -L {port}:localhost:{port}`
 
 ### Grafana Dashboard
 
@@ -64,5 +69,5 @@ Click `Save & Test`. You should get a green check saying "Successfully queried t
 
 #### Dashboard Setup - Importing from json
 
-Dashboards can be imported from `json` config files. Navigate to [`http://localhost:3000/dashboard/import`](http://localhost:3000/dashboard/import), upload `vllm-metrics-overview.json` for overview metrics, and select the `prometheus` datasource. 
+Dashboards can be imported from `json` config files. Navigate to [`http://localhost:3000/dashboard/import`](http://localhost:3000/dashboard/import), upload `vllm-metrics-overview.json` for overview metrics; `vllm-metrics-realtime.json` for real-time metrics and select the `prometheus` datasource. 
 
