@@ -115,7 +115,7 @@ jobs:
                 pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
                 python: ${{ inputs.python }}
                 test_skip_list: ${{ inputs.test_skip_list }}
-                parent_test_directory: tests
+                test_directory: tests
                 test_results: test-results
 
             - name: summary
