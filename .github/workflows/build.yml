@@ -54,6 +54,8 @@ jobs:
 
         runs-on: ${{ inputs.build_label }}
         timeout-minutes: ${{ fromJson(inputs.timeout) }}
+        outputs:
+            whl: ${{ steps.build.outputs.whl }}
 
         steps:
 
@@ -139,12 +141,15 @@ jobs:
               if: success() || failure()
               env:
                 LINT_STATUS: ${{ steps.lint.outputs.status }}
-                BUILD_STATUS: ${{ steps.build.outputs.status }}
+                BUILD_STATUS: ${{ steps.build.outputs.build_status }}
+                WHL_STATUS: ${{ steps.build.outputs.whl_status }}
               run: |
                 echo "lint status: ${LINT_STATUS}"
                 echo "build status: ${BUILD_STATUS}"
+                echo "build status: ${WHL_STATUS}"
                 if [ -z "${LINT_STATUS}" ] || [ "${LINT_STATUS}" -ne "0" ]; then exit 1; fi
                 if [ -z "${BUILD_STATUS}" ] || [ "${BUILD_STATUS}" -ne "0" ]; then exit 1; fi
+                if [ -z "${WHL_STATUS}" ] || [ "${WHL_STATUS}" -ne "0" ]; then exit 1; fi
 
             - name: complete testmo run
               uses: ./.github/actions/nm-testmo-run-complete/
