@@ -75,10 +75,13 @@ counter_inference_request_aborted = Counter(
     'vllm:inference_request_aborted', 'Number of aborted inference calls')
 histogram_infernce_queue_duration = Histogram(
     'vllm:inference_queue_duration',
-    'Histogram of wait time. From WAITING state to RUNNING state')
-histogram_infernce_compute_duration = Histogram(
+    'Histogram of wait time. From WAITING state to RUNNING state',
+)
+
+histogram_inference_compute_duration = Histogram(
     'vllm:inference_compute_duration',
-    'Histogram of compute time. From RUNINNG state to the next state')
+    'Histogram of wait time. From RUNNING state to FINISH state',
+    buckets=[0.1, 0.5, 1, 2, 5, 10, 20, 30, 40, 50, 60, 120])
 gauge_gpu_temperature = Gauge("vllm:gpu_temperature",
                               "GPU temperature in celcius")
 gauge_gpu_power_usage = Gauge("vllm:gpu_power_usage",

@@ -9,7 +9,7 @@ from vllm.block import LogicalTokenBlock
 from vllm.prefix import Prefix
 from vllm.sampling_params import SamplingParams
 from vllm.lora.request import LoRARequest
-from vllm.engine.metrics import histogram_infernce_queue_duration, histogram_infernce_compute_duration
+from vllm.engine.metrics import histogram_infernce_queue_duration, histogram_inference_compute_duration
 from collections import defaultdict
 
 PromptLogprobs = List[Optional[Dict[int, float]]]
@@ -142,6 +142,7 @@ class Sequence:
         self.tokens: Optional[List[str]] = None
         self.start_time = time.perf_counter()  # unit of seconds
         self.dwell_time = defaultdict(float)
+        self.dwell_time[SequenceStatus.WAITING] = self.start_time
 
     @property
     def status(self):
@@ -151,7 +152,7 @@ class Sequence:
     def status(self, new_status: SequenceStatus) -> None:
         """Set the status of the sequence."""
         status_change_time = time.perf_counter()
-        labels = {"from": self._status, "to": new_status, "units": "s"}
+        labels = {"from": self._status.name, "to": new_status, "units": "s"}
 
         # from WAITING to RUNNING
         if new_status == SequenceStatus.RUNNING:
@@ -161,9 +162,11 @@ class Sequence:
 
         # from RUNNING to SWAPPED/FINISHED_*
         if self._status == SequenceStatus.RUNNING:
+            labels["to"] = "FINISHED"
             dwell_time = status_change_time - self.dwell_time[
                 SequenceStatus.WAITING] - self.start_time
-            histogram_infernce_compute_duration.observe(labels, dwell_time)
+
+            histogram_inference_compute_duration.observe(labels, dwell_time)
 
         self._status = new_status
 
