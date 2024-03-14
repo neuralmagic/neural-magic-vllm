@@ -94,6 +94,7 @@ class BenchmarkResult:
     METADATA_KEY_ = "metadata"
     METRICS_KEY_ = "metrics"
     DESCRIPTION_KEY_ = "description"
+    GPU_DESCRIPTION_KEY_ = "gpu_description"
     DATE_KEY_ = "date"
     DATE_EPOCH_KEY_ = "epoch_time"
     SCRIPT_NAME_KEY_ = "script_name"
@@ -108,24 +109,55 @@ class BenchmarkResult:
     def datetime_as_string(date: datetime):
         return date.astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
 
+    @staticmethod
+    def describe_gpu(bench_ctx: dict, num_gpus_used: int) -> str:
+        """
+        Return a string that describes the gpus used in benchmarking
+        """
+        cuda_device_names_key = "cuda_device_names"
+        gpu_names = bench_ctx.get(cuda_device_names_key)
+        assert gpu_names is not None
+        gpu_name = gpu_names[0]
+
+        # Make sure all gpus are the same before we report.
+        assert all(map(lambda x: x == gpu_name, gpu_names[:num_gpus_used]))
+
+        return f"{gpu_name} x {num_gpus_used}"
+
     def __init__(self, description: str, date: datetime, script_name: str,
                  script_args: dict, tensor_parallel_size: int, model: str,
                  tokenizer: Optional[str], dataset: Optional[str]):
-        # TODO (varun) Add vllm version & githash
+
+        bench_ctx = get_benchmarking_context()
+
+        # TODO (varun) Add githash
         self.result_dict = {
             self.BENCHMARK_RESULT_SCHEMA_VERSION_KEY_:
             BENCHMARK_RESULTS_SCHEMA_VERSION,
-            self.VLLM_VERSION_KEY_: __vllm_version__,
-            self.BENCHMARKING_CONTEXT_KEY_: get_benchmarking_context(),
-            self.DESCRIPTION_KEY_: description,
-            self.DATE_KEY_: BenchmarkResult.datetime_as_string(date),
-            self.DATE_EPOCH_KEY_: date.timestamp(),
-            self.SCRIPT_NAME_KEY_: script_name,
-            self.TENSOR_PARALLEL_SIZE_KEY_: tensor_parallel_size,
-            self.MODEL_KEY_: model,
-            self.TOKENIZER_KEY_: tokenizer if tokenizer is not None else model,
-            self.DATASET_KEY_: dataset if dataset is not None else "synthetic",
-            self.SCRIPT_ARGS_KEY_: script_args,
+            self.VLLM_VERSION_KEY_:
+            __vllm_version__,
+            self.BENCHMARKING_CONTEXT_KEY_:
+            bench_ctx,
+            self.DESCRIPTION_KEY_:
+            description,
+            self.GPU_DESCRIPTION_KEY_:
+            BenchmarkResult.describe_gpu(bench_ctx, tensor_parallel_size),
+            self.DATE_KEY_:
+            BenchmarkResult.datetime_as_string(date),
+            self.DATE_EPOCH_KEY_:
+            date.timestamp(),
+            self.SCRIPT_NAME_KEY_:
+            script_name,
+            self.TENSOR_PARALLEL_SIZE_KEY_:
+            tensor_parallel_size,
+            self.MODEL_KEY_:
+            model,
+            self.TOKENIZER_KEY_:
+            tokenizer if tokenizer is not None else model,
+            self.DATASET_KEY_:
+            dataset if dataset is not None else "synthetic",
+            self.SCRIPT_ARGS_KEY_:
+            script_args,
             # Any metadata that the caller script wants to store should be stored here.
             self.METADATA_KEY_: {},
             # Any benchmarking metrics should be stored here.
@@ -147,34 +179,3 @@ class BenchmarkResult:
     def store(self, store_path: Path) -> None:
         with open(store_path, "w") as outfile:
             json.dump(self.result_dict, outfile, indent=4)
-
-
-# Utilities that process a result_json, that is the JSON version of some
-# BenchmarkResult object.
-
-
-def describe_gpu(result_json: dict) -> str:
-    """
-    Return a string that describes the gpus used in benchmarking
-    """
-    # The fallback exists so we don't error out in case there is a mismatch
-    # between the result_json and the current version of the BenchmarkResult object
-    fall_back = "gpu_description: unknown"
-
-    cuda_device_names_key = "cuda_device_names"
-    bench_context = result_json.get(BenchmarkResult.BENCHMARKING_CONTEXT_KEY_)
-    if bench_context is None or bench_context.get(
-            cuda_device_names_key) is None:
-        return fall_back
-
-    gpu_names = bench_context.get(cuda_device_names_key)
-    gpu_name = gpu_names[0]
-
-    num_gpus_used = result_json.get(BenchmarkResult.TENSOR_PARALLEL_SIZE_KEY_)
-    if num_gpus_used is None:
-        return fall_back
-
-    # Make sure all gpus are the same before we report.
-    assert all(map(lambda x: x == gpu_name, gpu_names[:num_gpus_used]))
-
-    return f"{gpu_name} x {num_gpus_used}"

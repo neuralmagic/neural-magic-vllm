@@ -10,7 +10,7 @@ from functools import reduce
 from dataclasses import dataclass
 from typing import List, Iterable, NamedTuple
 
-from .benchmark_result import GHABenchmarkToolName, BenchmarkResult, MetricTemplate, describe_gpu
+from .benchmark_result import GHABenchmarkToolName, BenchmarkResult, MetricTemplate
 
 
 @dataclass
@@ -38,8 +38,8 @@ class GHARecord:
             br.get(BenchmarkResult.SCRIPT_NAME_KEY_),
             BenchmarkResult.SCRIPT_ARGS_KEY_:
             br.get(BenchmarkResult.SCRIPT_ARGS_KEY_),
-            "gpu_description":
-            describe_gpu(br),
+            BenchmarkResult.GPU_DESCRIPTION_KEY_:
+            br.get(BenchmarkResult.GPU_DESCRIPTION_KEY_)
         }
 
         return f"{json.dumps(extra_as_dict, indent=2)}"
