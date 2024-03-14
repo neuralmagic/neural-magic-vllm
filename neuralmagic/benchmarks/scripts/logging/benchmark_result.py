@@ -178,29 +178,3 @@ def describe_gpu(result_json: dict) -> str:
     assert all(map(lambda x: x == gpu_name, gpu_names[:num_gpus_used]))
 
     return f"{gpu_name} x {num_gpus_used}"
-
-
-def short_description(result_json: dict) -> str:
-    """
-    Given a result_json, that is the JSON version for some
-    BenchmarkResult object, return a string that captures a few key high
-    level information like the user given benchmark description, GPU name etc.
-    """
-    nl = '\n'
-    return (
-        f"Description: {result_json.get(BenchmarkResult.DESCRIPTION_KEY_)}{nl}"
-        f"GPU : {describe_gpu(result_json)}{nl}"
-        f"Context : {result_json.get(BenchmarkResult.BENCHMARKING_CONTEXT_KEY_)}")
-
-
-def long_description(result_json: dict) -> str:
-    """
-    Given a result_json, that is the JSON version for some
-    BenchmarkResult object, eeturn a string that is fully-descriptive of this benchmark run.
-    """
-    short_desc = short_description(result_json)
-    nl = '\n'
-    return (
-        f"Short Description: {short_desc} {nl}"
-        f"script name : {result_json.get(BenchmarkResult.SCRIPT_NAME_KEY_)}{nl}"
-        f"script args : {result_json.get(BenchmarkResult.SCRIPT_ARGS_KEY_)}")

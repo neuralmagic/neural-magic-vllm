@@ -1,4 +1,5 @@
 import argparse
+import json
 from pathlib import Path
 from typing import NamedTuple, Optional
 
@@ -34,14 +35,18 @@ def run_benchmark_throughput_script(config: NamedTuple,
                                f"model - {model}\n" +
                                f"max_model_len - {max_model_len}\n" +
                                f"{config.script_name} " +
-                               " ".join(script_args))
+                               f"{json.dumps(script_args, indent=2)}")
 
                 bench_cmd = (["python3", "-m", f"{script_path}"] +
-                             script_args +
                              ["--description", f"{description}"] +
                              ["--model", f"{model}"] +
                              ["--tokenizer", f"{model}"] +
                              ["--max-model-len", f"{max_model_len}"])
+                # Add script args
+                for k, v in script_args.items():
+                    bench_cmd.append(f"--{k}")
+                    if v != "":
+                        bench_cmd.append(f"{v}")
 
                 if output_directory:
                     bench_cmd = bench_cmd + [
