@@ -172,7 +172,8 @@ class ModelConfig:
             raise ValueError("Both sparsity and quantization detected. Only "
                              "one or the other is supported at a time.")
 
-        if self.sparsity is not None and self.sparsity not in supported_sparsity:
+        if (self.sparsity is not None
+                and self.sparsity not in supported_sparsity):
             raise ValueError(f"Unknown sparse method: {self.sparsity}. Must "
                              f"be one of {supported_sparsity}.")
 
