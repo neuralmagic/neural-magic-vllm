@@ -2,6 +2,7 @@ import argparse
 import subprocess
 import requests
 import time
+import json
 import itertools
 
 from typing import NamedTuple, Optional
@@ -125,19 +126,23 @@ def run_benchmark_serving_script(config: NamedTuple,
 
                 description = (f"{config.description}\n" +
                                f"model - {model}\n" +
+                               f"max-model-len - {max_model_len}\n" +
                                f"sparsity - {sparsity}\n" +
-                               f"max_model_len - {max_model_len}\n" +
                                f"{config.script_name} " +
-                               " ".join(script_args) + "\n" +
-                               f"server-cmd : {server_cmd}")
+                               f"{json.dumps(script_args, indent=2)}")
 
                 bench_cmd = (["python3", "-m"
-                              f"{script_path}"] + script_args +
+                              f"{script_path}"] +
                              ["--description", f"{description}"] +
                              ["--model", f"{model}"] +
                              ["--tokenizer", f"{model}"] +
                              ["--port", f"{BENCH_SERVER_PORT}"] +
                              ["--host", f"{BENCH_SERVER_HOST}"])
+                # Add script args
+                for k, v in script_args.items():
+                    bench_cmd.append(f"--{k}")
+                    if v != "":
+                        bench_cmd.append(f"{v}")
 
                 if output_directory:
                     bench_cmd += (["--save-directory", f"{output_directory}"] +

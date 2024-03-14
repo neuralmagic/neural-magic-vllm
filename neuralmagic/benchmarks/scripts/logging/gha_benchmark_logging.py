@@ -10,28 +10,22 @@ from functools import reduce
 from dataclasses import dataclass
 from typing import List, Iterable, NamedTuple
 
-from .benchmark_result import GHABenchmarkToolName, BenchmarkResult, MetricTemplate, short_description, long_description
+from .benchmark_result import GHABenchmarkToolName, BenchmarkResult, MetricTemplate, describe_gpu
 
 
 @dataclass
 class GHARecord:
     """
     GHARecord is what actually goes into the output JSON.
-        - name : Chart title. Unique names map to a unique chart. This should
-                 most information that long_description has.
+        - name : Chart title. Unique names map to a unique chart.
         - unit : Y-axis label.
         - value : Value to plot.
-        - extra : This information shows up when you hover
-                  over a data-point in the chart.
-        - short_description : For UI to display succinct a chart title.
-        - long_description : For UI to display a long chart title. 
+        - extra : Any extra information that is passed as a JSON string.
     """
     name: str
     unit: str
     value: float
     extra: str
-    short_description: str
-    long_description: str
 
     @staticmethod
     def extra_from_benchmark_result(br: BenchmarkResult) -> str:
@@ -44,20 +38,17 @@ class GHARecord:
             br[BenchmarkResult.SCRIPT_ARGS_KEY_],
         }
 
-        return f"{extra_as_dict}"
+        return f"{json.dumps(extra_as_dict, indent=2)}"
 
     @staticmethod
     def from_metric_template(metric_template: MetricTemplate,
                              extra: str = "",
-                             short_description: str = "",
-                             long_description: str = ""):
+                             description: str = ""):
         nl = '\n'
-        return GHARecord(name=f"{metric_template.key}{nl}{short_description}",
+        return GHARecord(name=f"{metric_template.key}{nl}{description}",
                          unit=metric_template.unit,
                          value=metric_template.value,
-                         extra=extra,
-                         short_description=short_description,
-                         long_description=long_description)
+                         extra=extra)
 
 
 class Tool_Record_T(NamedTuple):
@@ -76,6 +67,8 @@ def process(json_file_path: Path) -> Iterable[Tool_Record_T]:
 
     print(f"processing file : {json_file_path}")
 
+    description = describe_gpu(json_data) + "\n" + json_data.get(
+        BenchmarkResult.DESCRIPTION_KEY_)
     hover_data = GHARecord.extra_from_benchmark_result(json_data)
     metrics: Iterable[dict] = json_data.get(BenchmarkResult.METRICS_KEY_)
     metrics: Iterable[MetricTemplate] = map(
@@ -85,10 +78,7 @@ def process(json_file_path: Path) -> Iterable[Tool_Record_T]:
         lambda metric: Tool_Record_T(
             metric.tool,
             GHARecord.from_metric_template(
-                metric,
-                extra=hover_data,
-                short_description=short_description(json_data),
-                long_description=long_description(json_data))), metrics)
+                metric, extra=hover_data, description=description)), metrics)
 
 
 def main(input_directory: Path, bigger_is_better_output_json_file_name: Path,
