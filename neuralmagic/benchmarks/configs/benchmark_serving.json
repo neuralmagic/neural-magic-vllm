@@ -28,7 +28,7 @@
 			}
 		},
                 {
-			"description": "Benchmark vllm serving - Sparse",
+			"description": "VLLM Serving - Sparse",
 			"models": [
                           "neuralmagic/OpenHermes-2.5-Mistral-7B-pruned50"
 			],
@@ -52,7 +52,7 @@
 			}
 		},
                 {
-			"description": "Benchmark vllm serving - 2:4 Sparse",
+			"description": "VLLM Serving - 2:4 Sparse",
 			"models": [
                           "neuralmagic/OpenHermes-2.5-Mistral-7B-pruned2.4"
 			],

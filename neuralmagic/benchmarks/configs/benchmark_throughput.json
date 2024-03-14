@@ -24,7 +24,7 @@
 			}
 		},
 		{
-			"description": "Benchmark vllm engine throughput - with dataset - Sparse",
+			"description": "VLLM Engine throughput - Sparse (with dataset)",
 			"models": [
                           "neuralmagic/OpenHermes-2.5-Mistral-7B-pruned50"
 			],
@@ -45,7 +45,7 @@
 			}
 		},
 		{
-			"description": "Benchmark vllm engine throughput - with dataset - 2:4 Sparse",
+			"description": "VLLM Engine throughput - 2:4 Sparse (with dataset)",
 			"models": [
                           "neuralmagic/OpenHermes-2.5-Mistral-7B-pruned2.4"
 			],
