@@ -128,8 +128,8 @@ def run_benchmark_serving_script(config: NamedTuple,
                                f"sparsity - {sparsity}\n" +
                                f"max_model_len - {max_model_len}\n" +
                                f"{config.script_name} " +
-                               " ".join(script_args) + "\n"+
-                               f"server-cmd : {server_cmd}" )
+                               " ".join(script_args) + "\n" +
+                               f"server-cmd : {server_cmd}")
 
                 bench_cmd = (["python3", "-m"
                               f"{script_path}"] + script_args +

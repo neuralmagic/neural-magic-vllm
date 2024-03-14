@@ -52,14 +52,12 @@ class GHARecord:
                              short_description: str = "",
                              long_description: str = ""):
         nl = '\n'
-        return GHARecord(
-            name=
-            f"{metric_template.key}{nl}{short_description}",
-            unit=metric_template.unit,
-            value=metric_template.value,
-            extra=extra,
-            short_description=short_description,
-            long_description=long_description)
+        return GHARecord(name=f"{metric_template.key}{nl}{short_description}",
+                         unit=metric_template.unit,
+                         value=metric_template.value,
+                         extra=extra,
+                         short_description=short_description,
+                         long_description=long_description)
 
 
 class Tool_Record_T(NamedTuple):
@@ -99,7 +97,7 @@ def main(input_directory: Path, bigger_is_better_output_json_file_name: Path,
     def dump_to_json(gha_records: List[GHARecord], output_path: Path):
         # Make output directory if it doesn't exist
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         # Make data JSON serializable
         gha_record_dicts = list(map(lambda x: x.__dict__, gha_records))
         with open(output_path, 'w+') as f:

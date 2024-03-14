@@ -190,7 +190,8 @@ def short_description(result_json: dict) -> str:
     return (
         f"Description: {result_json.get(BenchmarkResult.DESCRIPTION_KEY_)}{nl}"
         f"GPU : {describe_gpu(result_json)}{nl}"
-        f"Context : {result_json.get(BenchmarkResult.BENCHMARKING_CONTEXT_KEY_)}")
+        f"Context : {result_json.get(BenchmarkResult.BENCHMARKING_CONTEXT_KEY_)}"
+    )
 
 
 def long_description(result_json: dict) -> str:
