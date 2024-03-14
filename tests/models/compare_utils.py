@@ -21,13 +21,11 @@ def check_logprobs_close(outputs_0_lst, outputs_1_lst, name_0, name_1):
                 assert output_id_0 in logprobs_1[idx], (
                     f"Test{prompt_idx}:"
                     f"\n{name_0}:\t{output_str_0!r}"
-                    f"\n{name_1}:\t{output_str_1!r}"
-                )
+                    f"\n{name_1}:\t{output_str_1!r}")
                 assert output_id_1 in logprobs_0[idx], (
                     f"Test{prompt_idx}:"
                     f"\n{name_0}:\t{output_str_0!r}"
-                    f"\n{name_1}:\t{output_str_1!r}"
-                )
+                    f"\n{name_1}:\t{output_str_1!r}")
 
                 # Break out since sequences will now diverge.
                 break

@@ -21,8 +21,7 @@ import gc
 from compare_utils import check_logprobs_close
 from dataclasses import dataclass
 from vllm.model_executor.layers.quantization import (
-    _QUANTIZATION_CONFIG_REGISTRY
-)
+    _QUANTIZATION_CONFIG_REGISTRY)
 
 MAX_MODEL_LEN = 1024
 
