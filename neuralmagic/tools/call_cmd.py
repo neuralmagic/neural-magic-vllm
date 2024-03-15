@@ -1,8 +1,8 @@
 #
-# Run cmd as a sub-process.  
+# Run cmd as a sub-process.
 #
 # Capture stdout, stderr, return status, elapsed time and
-# optionally process statistics 
+# optionally process statistics
 # (user time, system time, peak memory usage, etc.)
 #
 import os
@@ -15,7 +15,7 @@ import sys
 
 def parse_process_stats(str):
     exp = (
-        "\[Timing\].*: elapsed=([0-9\.]+) user=([0-9\.]+) system=([0-9\.]+) "       # noqa: E501
+        "\[Timing\].*: elapsed=([0-9\.]+) user=([0-9\.]+) system=([0-9\.]+) "  # noqa: E501
         "maxrss=([0-9\.]+) avgrss=([0-9\.]+) avgmem=([0-9\.]+) avgdata=([0-9\.]+)"  # noqa: E501
     )
     results = re.search(exp, str)

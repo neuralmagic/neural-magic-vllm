@@ -10,9 +10,8 @@ from functools import reduce
 from dataclasses import dataclass
 from typing import List, Iterable, NamedTuple
 
-from .benchmark_result import (
-    GHABenchmarkToolName, BenchmarkResult, MetricTemplate
-)
+from .benchmark_result import (GHABenchmarkToolName, BenchmarkResult,
+                               MetricTemplate)
 
 
 @dataclass

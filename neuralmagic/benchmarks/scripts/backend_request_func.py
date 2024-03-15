@@ -220,7 +220,7 @@ async def async_request_deepspeed_mii(
         output = RequestFuncOutput()
         output.prompt_len = request_func_input.prompt_len
 
-        # DeepSpeed-MII doesn't support streaming as of Jan 28 2024, 
+        # DeepSpeed-MII doesn't support streaming as of Jan 28 2024,
         # will use 0 as placeholder.
         # https://github.com/microsoft/DeepSpeed-MII/pull/311
         output.ttft = 0

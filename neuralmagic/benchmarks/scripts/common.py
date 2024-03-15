@@ -12,8 +12,8 @@ from vllm import (LLM, SamplingParams, __version__ as __vllm_version__)
 from vllm.outputs import RequestOutput
 from vllm.transformers_utils.tokenizer import get_tokenizer
 from .datasets_registry import SHAREGPT_PATH, SHAREGPT_DOWNLOAD_STR
-from .backend_request_func import (
-    RequestFuncInput, RequestFuncOutput, async_request_vllm)
+from .backend_request_func import (RequestFuncInput, RequestFuncOutput,
+                                   async_request_vllm)
 from ...tools.call_cmd import call_cmd
 
 
@@ -188,7 +188,7 @@ def warmup_server(server_host: int,
 
 def format_io_log(prompt: str, output_text: str, n_prompt_tokens: int,
                   n_output_tokens: int) -> str:
-    return f"\n=== Prompt ({n_prompt_tokens}) ==\n{prompt}\n==== output({n_output_tokens}) ==\n{output_text}\n" # noqa: E501
+    return f"\n=== Prompt ({n_prompt_tokens}) ==\n{prompt}\n==== output({n_output_tokens}) ==\n{output_text}\n"  # noqa: E501
 
 
 def print_request_outputs(results: List[RequestOutput]) -> None:

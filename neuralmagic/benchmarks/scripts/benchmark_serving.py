@@ -346,8 +346,7 @@ def main(args: argparse.Namespace):
 
         # Add information about the derived variables as metadata
         metadata_key = BenchmarkResult.METADATA_KEY_
-        result[metadata_key][
-            ResultMetadataKeys.num_prompts] = num_prompts
+        result[metadata_key][ResultMetadataKeys.num_prompts] = num_prompts
         result[metadata_key][ResultMetadataKeys.request_rate] = \
             request_rate if request_rate < float("inf") else "inf"
 
@@ -384,10 +383,8 @@ if __name__ == "__main__":
         "--description",
         type=str,
         default="benchmark-serving",
-        help=
-        "Benchmark description. This is primarily useful when "
-        "we log the benchmark results and process them for plotting charts"
-    )
+        help="Benchmark description. This is primarily useful when "
+        "we log the benchmark results and process them for plotting charts")
     parser.add_argument(
         "--backend",
         type=str,
@@ -436,7 +433,7 @@ if __name__ == "__main__":
         "--tokenizer",
         type=str,
         help="Name or path of the tokenizer, "
-             "if not using the default model tokenizer.",
+        "if not using the default model tokenizer.",
     )
     parser.add_argument(
         "--best-of",
@@ -480,15 +477,14 @@ if __name__ == "__main__":
         "Otherwise, we use Poisson process to synthesize "
         "the request arrival times.",
     )
-    parser.add_argument(
-        "--nr-qps-pair_",
-        type=NumPrompts_RequestRate_T.from_str,
-        help="""
+    parser.add_argument("--nr-qps-pair_",
+                        type=NumPrompts_RequestRate_T.from_str,
+                        help="""
         First argument in the pair is num_prompts to process.
         Second argument in the pair is request_rate per second.
             If this is inf, then all the requests are sent at time 0. 
             Otherwise, we use Poisson process to synthesize""",
-        default=None)
+                        default=None)
 
     # Server command args
     parser.add_argument(
@@ -503,27 +499,25 @@ if __name__ == "__main__":
         "--server-args",
         type=str,
         default=None,
-        help=
-        "When we are logging the output, it is useful to log the "
-        "arguments passed to the server"
-    )
+        help="When we are logging the output, it is useful to log the "
+        "arguments passed to the server")
 
     def args_sanity_check(args):
         # Sanity check real-dataset vs synthetic-dataset usecase
         if args.dataset is None:
-            assert (args.num_input_tokens is not None and 
-                    args.num_output_tokens is not None)
+            assert (args.num_input_tokens is not None
+                    and args.num_output_tokens is not None)
         else:
-            assert (args.num_input_tokens is None and 
-                    args.num_output_tokens is None)
+            assert (args.num_input_tokens is None
+                    and args.num_output_tokens is None)
         # Sanity check num_prompts, request_rate as separate args vs joint args
         assert not all([
             args.num_prompts_ is None, args.request_rate_ is None,
             args.nr_qps_pair_ is None
         ])
         if args.nr_qps_pair_ is None:
-            assert (args.num_prompts_ is not None and 
-                    args.request_rate_ is not None)
+            assert (args.num_prompts_ is not None
+                    and args.request_rate_ is not None)
         else:
             assert args.num_prompts_ is None and args.request_rate_ is None
         # Sanity check required logging args

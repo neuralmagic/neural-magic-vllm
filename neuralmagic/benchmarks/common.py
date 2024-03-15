@@ -27,7 +27,7 @@ def max_model_length_from_model_id(model: str,
 
 
 def script_args_to_cla(config: NamedTuple) -> Iterable[dict]:
-    # config is a NamedTuple constructed from some JSON 
+    # config is a NamedTuple constructed from some JSON
     # in neuralmagic/benchmarks/configs
     kv = vars(config.script_args)
 
