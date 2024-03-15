@@ -1,3 +1,7 @@
+# flake8: noqa
+# UPSTREAM SYNC: noqa is required for passing ruff.
+# This file has been modified by Neural Magic
+
 # code borrowed from https://github.com/pytorch/pytorch/blob/main/torch/utils/collect_env.py
 
 # Unlike the rest of the PyTorch this file must be python2 compliant.
