@@ -44,6 +44,18 @@ void code2x8_matvec_cuda(
   const int codebook_stride // as int4.
 );
 
+void code1x16_dequant(
+        void* weights,
+  const void* a,
+  const void* codebook,
+  const void* scales,
+  const int a_rows, // code rows in element space, so k
+  const int a_cols, // code columns in element space, so n
+  const int4 codebook_a_sizes,  // cumulative sizes of A spanning each codebook, at most 3 long, sums to m.
+  const int codebook_stride // as int4
+);
+
+
 void code1x16_matvec(
   const torch::Tensor& A,
   const torch::Tensor& B,
@@ -169,18 +181,9 @@ torch::Tensor code2x8_matmat(
   return output;
 }
 
-torch::Tensor aqlm_gemm(
-  const torch::Tensor& input,
-  const torch::Tensor& codes,
-  const torch::Tensor& codebooks,
-  const torch::Tensor& scales,
-  const torch::Tensor& codebook_partition_sizes,
-  const std::optional<torch::Tensor>& bias
-)
+// Accumulate the partition sizes.
+int4 accumulate_sizes (const torch::Tensor& codebook_partition_sizes)
 {
-  int const nbooks = codebooks.size(0) / codebook_partition_sizes.size(0);
-  int const entries = codebooks.size(1);
-
   int4 cumulative_sizes;
   auto cumulative_size = &cumulative_sizes.x;
   int i = 0;
@@ -196,6 +199,22 @@ torch::Tensor aqlm_gemm(
   {
     *cumulative_size = last*10;
   }
+  return cumulative_sizes;
+}
+
+torch::Tensor aqlm_gemm(
+  const torch::Tensor& input,
+  const torch::Tensor& codes,
+  const torch::Tensor& codebooks,
+  const torch::Tensor& scales,
+  const torch::Tensor& codebook_partition_sizes,
+  const std::optional<torch::Tensor>& bias
+)
+{
+  int4 cumulative_sizes = accumulate_sizes(codebook_partition_sizes);
+
+  int const nbooks = codebooks.size(0) / codebook_partition_sizes.size(0);
+  int const entries = codebooks.size(1);
 
   if (nbooks == 1 && entries == (1 << 16))
   { 
@@ -209,3 +228,54 @@ torch::Tensor aqlm_gemm(
   TORCH_CHECK(false, "AQLM with ", nbooks, " codebooks and ", entries, " entries is not currently supported.")
   return {};
 }
+
+torch::Tensor aqlm_dequant(
+  const torch::Tensor& codes,
+  const torch::Tensor& codebooks,
+  const torch::Tensor& scales,
+  const torch::Tensor& codebook_partition_sizes
+)
+{
+  int4 cumulative_sizes = accumulate_sizes(codebook_partition_sizes);
+
+  int const nbooks = codebooks.size(0) / codebook_partition_sizes.size(0);
+  int const entries = codebooks.size(1);
+
+  const at::cuda::OptionalCUDAGuard device_guard(device_of(codes));
+  int rows = codes.size(0);
+  int cols = scales.size(0);
+
+  auto weights = torch::empty({rows * 8, cols},
+    torch::TensorOptions()
+      .dtype(codes.dtype())
+      .device(codes.device())
+  );  
+
+  if (nbooks == 1 && entries == (1 << 16))
+  { 
+     code1x16_dequant(weights.data_ptr(), codes.data_ptr(), codebooks.data_ptr(), scales.data_ptr(), rows, cols, cumulative_sizes, 2 * codebook.stride(0) * codebook.element_size() / sizeof(int4));
+     return weights;
+  }
+
+  /*
+  if (nbooks == 2 && entries == (1 << 8))
+  {
+    return code2x8_matmat(input, codes, codebooks, scales, cumulative_sizes, bias);
+  }
+  */
+
+  TORCH_CHECK(false, "AQLM with ", nbooks, " codebooks and ", entries, " entries is not currently supported.")
+  return {};
+}
+
+void code1x16_dequant(
+        void* weights,
+  const void* a,
+  const void* codebook,
+  const void* scales,
+  const int a_rows, // code rows in element space, so k
+  const int a_cols, // code columns in element space, so n
+  const int4 codebook_a_sizes,  // cumulative sizes of A spanning each codebook, at most 3 long, sums to m.
+  const int codebook_stride // as int4
+);
+

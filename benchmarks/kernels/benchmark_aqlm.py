@@ -10,10 +10,21 @@ from vllm._C import ops
 import torch
 import torch.nn.functional as F
 
+
+def torch_mult(
+        input: torch.Tensor,  #  [..., in_features]
+        weights: torch.Tensor,
+        scales: torch.Tensor,  #  [num_out_groups, 1, 1, 1]
+) -> torch.Tensor:
+    output = F.linear(input, weights)
+    # todo scales.
+    #flat_output *= scales.flatten().unsqueeze(0);
+
+    return output
+
+
 def main():
-    methods = [
-        dequantize_partioned_gemm, ops.aqlm_gemm
-    ]
+    methods = [dequantize_partioned_gemm, ops.aqlm_gemm, torch_mult]
 
     filename = "./benchmark.csv"
     print(f"writing benchmarks to file {filename}")
@@ -104,12 +115,19 @@ def run_timing(num_calls: int, m: int, k: int, parts: torch.tensor,
 
     scales = torch.randn(size=(n, 1, 1, 1), dtype=torch.float16, device=device)
 
+    weights = torch.randn((n, k), dtype=torch.float16, device=device)
+
     start_event = torch.cuda.Event(enable_timing=True)
     end_event = torch.cuda.Event(enable_timing=True)
 
     start_event.record()
-    for i in range(num_calls):
-        output = method(input, codes, codebooks, scales, parts, None)
+
+    if method is torch_mult:
+        for i in range(num_calls):
+            output = torch_mult(input, weights, scales)
+    else:
+        for i in range(num_calls):
+            output = method(input, codes, codebooks, scales, parts, None)
 
     end_event.record()
     end_event.synchronize()
