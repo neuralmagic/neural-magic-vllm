@@ -58,7 +58,7 @@ class GHARecord:
             BenchmarkResult.BENCHMARKING_CONTEXT_KEY_:
             extra.get(BenchmarkResult.BENCHMARKING_CONTEXT_KEY_)
         }
-        return GHARecord(name=f"{json.dumps(name, indent=2)}",
+        return GHARecord(name=f"{json.dumps(name)}",
                          unit=metric_template.unit,
                          value=metric_template.value,
                          extra=f"{json.dumps(extra, indent=2)}")
