@@ -1,9 +1,11 @@
 import os
 import sys
+from typing import Optional
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
-from vllm.model_executor.layers.quantization.aqlm import dequantize_partioned_gemm
+from vllm.model_executor.layers.quantization.aqlm import (
+    dequantize_partioned_gemm, dequantize_weight)
 from vllm._C import ops
 
 import torch
@@ -16,21 +18,97 @@ def torch_mult(
         scales: torch.Tensor,  #  [num_out_groups, 1, 1, 1]
 ) -> torch.Tensor:
     output = F.linear(input, weights)
-    # todo scales.
-    #flat_output *= scales.flatten().unsqueeze(0);
-
     return output
 
 
+def dequant_torch_mult(
+    input: torch.Tensor,  #  [..., in_features]
+    codes: torch.IntTensor,  #  [num_out_groups, num_in_groups, num_codebooks]
+    codebooks: torch.
+    Tensor,  #  [num_codebooks, codebook_size, out_group_size, in_group_size]
+    scales: torch.Tensor,  #  [num_out_groups, 1, 1, 1]
+    output_partition_sizes: torch.IntTensor,
+    bias: Optional[torch.Tensor],
+) -> torch.Tensor:
+
+    #print("input shape:", input.shape, "codes", codes.shape, "scale", scales.shape, "parts", output_partition_sizes)
+
+    weights = ops.aqlm_dequant(codes, codebooks, scales,
+                               output_partition_sizes)
+
+    if False: #bias is None:
+        output = F.linear(input, weights, bias)
+        orig_shape = output.shape
+   #     print("ouutput is ", output.shape)
+  #      print("scales shape is ", scales.shape)
+        flattened_output = output.view(-1, output.size(-1))
+ #       print("flate output ", flattened_output.shape)
+        f_scales = scales.view(-1, scales.shape[0]) 
+        b_scales = f_scales.expand(flattened_output.shape[0], -1)
+#        print("b scales ", b_scales.shape)
+                
+        flattened_output *= b_scales
+        return flattened_output.view(orig_shape)
+    else:
+        #b_scales = scales.view(scales.shape[:-3] + (-1,)).expand(-1, weights.shape[1])
+        #weights *= b_scales
+        return F.linear(input, weights, bias)
+
+
+# Compare my kernel against the gold standard.
+def dequant_test(k: int, parts: torch.tensor) -> float:
+
+    n = parts.sum().item()
+
+    device = torch.device('cuda:0')
+
+    codes = torch.randint(-32768,
+                          32768,
+                          size=(n, k // 8, 1),
+                          dtype=torch.int16,
+                          device=device)
+
+    codebooks = torch.randn(size=(parts.shape[0], 65536, 1, 8),
+                            dtype=torch.float16,
+                            device=device)
+
+    # ones.
+    scales = torch.randn(size=(n, 1, 1, 1), dtype=torch.float16, device=device)
+
+    weights = dequantize_weight(codes, codebooks, scales)
+    print("weights are:", weights)
+
+    weights2 = ops.aqlm_dequant(codes, codebooks, scales, parts)
+    print("weights2 shape:", weights2.shape)
+    print("weights2 are:", weights2)
+
+    flattened_scales = scales.view(scales.shape[:-3] + (-1,))
+    print("f scales", flattened_scales.shape)    
+    broadcast_scales  = flattened_scales.expand(-1, weights2.shape[1])
+    print("b scales", broadcast_scales.shape)
+
+    weights2 *= broadcast_scales
+    print("weights2 scaled are:", weights2)
+
+
 def main():
-    methods = [dequantize_partioned_gemm, ops.aqlm_gemm, torch_mult]
+
+    timing = run_timing(100, 16, 4096, torch.tensor((4096, )),
+                        dequant_torch_mult)
+    print("timing was ", timing * 1000, "us")
+
+    return
+    methods = [
+        dequantize_partioned_gemm, ops.aqlm_gemm, torch_mult,
+        dequant_torch_mult
+    ]
 
     filename = "./benchmark.csv"
     print(f"writing benchmarks to file {filename}")
     with open(filename, "a") as f:
         sys.stdout = f
 
-        print('m | k | n', end='')
+        print('m | k | n | n parts', end='')
         for method in methods:
             print(f' | {method.__name__}', end='')
         print('')
@@ -70,7 +148,7 @@ def run_grid(m: int, k: int, parts: torch.tensor, methods):
             )
 
     n = parts.sum().item()
-    print(f'{m} | {k} | {n}:{parts.tolist()}', end='')
+    print(f'{m} | {k} | {n} | {parts.tolist()}', end='')
 
     for method in methods:
         best_time_us = 1e20

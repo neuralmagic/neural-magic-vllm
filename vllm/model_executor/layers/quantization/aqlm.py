@@ -34,10 +34,15 @@ def dequantize_weight(codes: torch.Tensor,
                       scales: Optional[torch.Tensor] = None) -> torch.Tensor:
     """
     Decode float weights from quantization codes. Differentiable.
-    :param codes: tensor of integer quantization codes, shape [*dims, num_out_groups, num_in_groups, num_codebooks]
-    :param codebooks: tensor of vectors for each quantization code, [num_codebooks, codebook_size, out_group_size, in_group_size]
-    :param scales: weight will be multiplied by this factor, must be broadcastble with [*dims, out_groups, num_in_groups, out_group_size, in_group_size]
-    :return: reconstructed weight tensor of shape [*dims, num_in_groups*group_size]
+    :param codes: tensor of integer quantization codes, shape 
+        [*dims, num_out_groups, num_in_groups, num_codebooks]
+    :param codebooks: tensor of vectors for each quantization code, 
+        [num_codebooks, codebook_size, out_group_size, in_group_size]
+    :param scales: weight will be multiplied by this factor, must be 
+        broadcastble with 
+        [*dims, out_groups, num_in_groups, out_group_size, in_group_size]
+    :return: reconstructed weight tensor of shape 
+        [*dims, num_in_groups*group_size]
     """
     num_out_groups, num_in_groups, num_codebooks = codes.shape[-3:]
     num_codebooks, codebook_size, out_group_size, in_group_size = codebooks.shape
@@ -92,7 +97,8 @@ def dequantize_partioned_gemm(
     num_outputs = len(output_partition_sizes)
 
     # break the inputs and codebooks apart then combine the outputs.
-    # Surprisingly (to me) this is faster than doing 3 de-quants and 1 big multiply at the end.
+    # Surprisingly (to me) this is faster than doing 3 de-quants and 1 big 
+    # multiply at the end.
     num_codebooks = codebooks.shape[0] // num_outputs
     assert (scales.shape[0] == codes.shape[0])
     assert (sum(output_partition_sizes) == scales.shape[0])
@@ -111,6 +117,32 @@ def dequantize_partioned_gemm(
         output_offset += output_size
         codebooks_offset += num_codebooks
     return output
+
+# This uses the new kernel.
+def dequant_torch_mult(
+    input: torch.Tensor,  #  [..., in_features]
+    codes: torch.IntTensor,  #  [num_out_groups, num_in_groups, num_codebooks]
+    codebooks: torch.
+    Tensor,  #  [num_codebooks, codebook_size, out_group_size, in_group_size]
+    scales: torch.Tensor,  #  [num_out_groups, 1, 1, 1]
+    output_partition_sizes: torch.IntTensor,
+    bias: Optional[torch.Tensor],
+) -> torch.Tensor:
+    weights = ops.aqlm_dequant(codes, codebooks, scales,
+                               output_partition_sizes)
+
+    if bias is None:
+        output = F.linear(input, weights, bias)
+        orig_shape = output.shape
+        flattened_output = output.view(-1, output.size(-1))
+        f_scales = scales.view(-1, scales.shape[0]) 
+        b_scales = f_scales.expand(flattened_output.shape[0], -1)
+        flattened_output *= b_scales
+        return output.view(orig_shape)
+    else:
+        b_scales = scales.view(scales.shape[:-3] + (-1,)).expand(-1, weights.shape[1])
+        weights *= b_scales
+        return F.linear(input, weights, bias)
 
 
 class AQLMConfig(QuantizationConfig):
@@ -211,10 +243,10 @@ class AQLMLinearMethod(LinearMethodBase):
 
         codes = Parameter(
             torch.empty(
-                # There could actually be two pack factors, one along input and one along output,
-                # but we don't currently support out_group_size,
-                # and only the one along output needs to be marked with "packed_dim".
-                # in order for QKVLinear to work.
+                # There could actually be two pack factors, one along input and 
+                # one along output, but we don't currently support 
+                # out_group_size, and only the one along output needs to be 
+                # marked with "packed_dim" in order for QKVLinear to work.
                 output_size_per_partition,
                 input_size_per_partition // self.quant_config.pack_factor,
                 self.quant_config.num_codebooks,
@@ -304,7 +336,7 @@ class AQLMLinearMethod(LinearMethodBase):
             scales,
             output_partition_sizes,
             bias,
-        ) if use_gemv else dequantize_partioned_gemm(
+        ) if use_gemv else dequant_torch_mult(
             x,
             codes,
             codebooks,

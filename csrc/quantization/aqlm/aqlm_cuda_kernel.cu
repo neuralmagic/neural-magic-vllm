@@ -207,6 +207,10 @@ __global__ void Code1x16Dequant(
   int a_col = blockDim.x * 32 + threadIdx.x;
   int a_row = blockDim.y * 32 + threadIdx.y;
 
+  // out of range, can happen.
+  if (a_row >= a_rows)
+    return;
+
   const int weight_stride = a_rows * 8; // as int4
   weights += a_col * weight_stride + a_row * 8;
 
@@ -227,7 +231,7 @@ __global__ void Code1x16Dequant(
   #pragma unroll
   for (int i = 0; i < 8; i++) {
     //  it's one lookup and one write of size int4
-    weights[i] = codebook[enc[i]]
+    weights[i] = codebook[enc[i]];
 
 /*
         uint32_t dec[4]; <- note that this adds up to an int4
@@ -355,64 +359,26 @@ void code1x16_dequant(
   );
   */
 
+// each thread does one int4 worth.
   assert(a_rows % 8 == 0);
 
+  const int rows = a_rows/8;
+  assert(a_cols %32 == 0); 
+
+  dim3 threads(32, 32, 1);
+  dim3 blocks(ceildiv(a_cols, 32), ceildiv(rows, 32), 1);
+
   cudaStream_t stream = at::cuda::getCurrentCUDAStream().stream();
-  Code1x16Dequant<<<blocks, threads, shared, stream>>>(
-    (int4*) weights
+  Code1x16Dequant<<<blocks, threads, 0, stream>>>(
+    (int4*) weights,
     (const int4*) a,
     (const int4*) codebook,
     (const int4*) scales,
-    a_rows / 8, // into int4 space.
+    rows, // into int4 space.
     a_cols,
     codebook_a_sizes,
     codebook_stride
   );
 
-
-
-
-
-
-  // 
-  // Each thread decodes one int4 worth of codebook.
-  int a_col = blockDim.x * 32 + threadIdx.x;
-  int a_row = blockDim.y * 32 + threadIdx.y;
-
-  const int weight_stride = a_rows * 8; // as int4
-  weights += a_col * weight_stride + a_row * 8;
-
-  // advance to the correct codebook, this easy because we only multiply one column of the codebook.
-  auto codebook_size = &codebook_a_sizes.x;
-  while (a_col >= *codebook_size)
-  {
-      codebook += codebook_stride;
-      ++codebook_size;
-  }
-
-  // todo fill in scales, which can be shared across thread y and only read by one x unless it makes sense to distribute it.
-  // surely there's some sort of wide register we could load this into?
-
-  // do one int4 read to get it into local memory, hopefully maxing out bandwidth.
-  int4 code_block = a[a_row + a_col * a_rows];
-  const uint16_t* enc = reinterpret_cast<const uint16_t*>(&code_block);
-  #pragma unroll
-  for (int i = 0; i < 8; i++) {
-    //  it's one lookup and one write of size int4
-    weights[i] = codebook[enc[i]]
-
-/*
-        uint32_t dec[4]; <- note that this adds up to an int4
-        // We bypass the L1 cache to avoid massive amounts of memory streaming that doesn't
-        // actually help us; this brings > 2x speedup.
-        asm volatile (
-          "ld.cg.global.v4.u32 {%0, %1, %2, %3}, [%4];"
-          : "=r"(dec[0]), "=r"(dec[1]), "=r"(dec[2]), "=r"(dec[3])
-          : "l"((void*) &codebook[enc[i]])
-        );
-*/
-  // TODO also apply the scale, which is the same scalar across all these float16.  Is there an instrinsic to do that?
-
-  }
 }
 

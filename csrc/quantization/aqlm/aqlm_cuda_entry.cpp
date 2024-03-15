@@ -51,10 +51,15 @@ void code1x16_dequant(
   const void* scales,
   const int a_rows, // code rows in element space, so k
   const int a_cols, // code columns in element space, so n
-  const int4 codebook_a_sizes,  // cumulative sizes of A spanning each codebook, at most 3 long, sums to m.
+  const int4 codebook_a_sizes,  // cumulative sizes of A spanning each codebook, at most 3 long, corresponds to cols.
   const int codebook_stride // as int4
 );
 
+
+int codebook_stride(const torch::Tensor& codebooks)
+{
+  return codebooks.stride(0) * codebooks.element_size() / sizeof(int4);
+}
 
 void code1x16_matvec(
   const torch::Tensor& A,
@@ -75,7 +80,7 @@ void code1x16_matvec(
     prob_m,
     prob_k,
     codebook_a_sizes,
-    codebook.stride(0) * codebook.element_size() / sizeof(int4)
+    codebook_stride(codebook)
   );
 }
 
@@ -137,7 +142,7 @@ void code2x8_matvec(
     prob_m,
     prob_k,
     codebook_a_sizes,
-    2 * codebook.stride(0) * codebook.element_size() / sizeof(int4)
+    2 * codebook_stride(codebook)
   );
 }
 
@@ -242,18 +247,18 @@ torch::Tensor aqlm_dequant(
   int const entries = codebooks.size(1);
 
   const at::cuda::OptionalCUDAGuard device_guard(device_of(codes));
-  int rows = codes.size(0);
-  int cols = scales.size(0);
+  int rows = codes.size(1) * codes.size(2);
+  int cols = codes.size(0);
 
-  auto weights = torch::empty({rows * 8, cols},
+  auto weights = torch::empty({cols, rows * 8},
     torch::TensorOptions()
-      .dtype(codes.dtype())
-      .device(codes.device())
-  );  
+      .dtype(codebooks.dtype())
+      .device(codebooks.device())
+  );
 
   if (nbooks == 1 && entries == (1 << 16))
   { 
-     code1x16_dequant(weights.data_ptr(), codes.data_ptr(), codebooks.data_ptr(), scales.data_ptr(), rows, cols, cumulative_sizes, 2 * codebook.stride(0) * codebook.element_size() / sizeof(int4));
+     code1x16_dequant(weights.data_ptr(), codes.data_ptr(), codebooks.data_ptr(), scales.data_ptr(), rows, cols, cumulative_sizes, codebook_stride(codebooks));
      return weights;
   }
 
@@ -267,15 +272,3 @@ torch::Tensor aqlm_dequant(
   TORCH_CHECK(false, "AQLM with ", nbooks, " codebooks and ", entries, " entries is not currently supported.")
   return {};
 }
-
-void code1x16_dequant(
-        void* weights,
-  const void* a,
-  const void* codebook,
-  const void* scales,
-  const int a_rows, // code rows in element space, so k
-  const int a_cols, // code columns in element space, so n
-  const int4 codebook_a_sizes,  // cumulative sizes of A spanning each codebook, at most 3 long, sums to m.
-  const int codebook_stride // as int4
-);
-
