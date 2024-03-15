@@ -47,18 +47,21 @@ class GHARecord:
     @staticmethod
     def from_metric_template(metric_template: MetricTemplate, extra: dict):
         # Unique names map to unique charts / benchmarks. Pass it as a JSON string
-        # with enough information so we may deconstruct it at the UI.  
+        # with enough information so we may deconstruct it at the UI.
         name = {
-            "name" : metric_template.key,
-            BenchmarkResult.DESCRIPTION_KEY_ : extra.get(BenchmarkResult.DESCRIPTION_KEY_), 
-            BenchmarkResult.GPU_DESCRIPTION_KEY_ : extra.get(BenchmarkResult.GPU_DESCRIPTION_KEY_),
-            BenchmarkResult.BENCHMARKING_CONTEXT_KEY_ : extra.get(BenchmarkResult.BENCHMARKING_CONTEXT_KEY_)
+            "name":
+            metric_template.key,
+            BenchmarkResult.DESCRIPTION_KEY_:
+            extra.get(BenchmarkResult.DESCRIPTION_KEY_),
+            BenchmarkResult.GPU_DESCRIPTION_KEY_:
+            extra.get(BenchmarkResult.GPU_DESCRIPTION_KEY_),
+            BenchmarkResult.BENCHMARKING_CONTEXT_KEY_:
+            extra.get(BenchmarkResult.BENCHMARKING_CONTEXT_KEY_)
         }
-        return GHARecord(
-            name=f"{json.dumps(name, indent=2)}",
-            unit=metric_template.unit,
-            value=metric_template.value,
-            extra=f"{json.dumps(extra, indent=2)}")
+        return GHARecord(name=f"{json.dumps(name, indent=2)}",
+                         unit=metric_template.unit,
+                         value=metric_template.value,
+                         extra=f"{json.dumps(extra, indent=2)}")
 
 
 class Tool_Record_T(NamedTuple):
