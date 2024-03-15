@@ -48,7 +48,6 @@ model_pairs = [
 
 
 @pytest.mark.flaky(reruns=2)
-@pytest.mark.skip(reason="OOM Again in Automation")
 @pytest.mark.skipif(marlin_not_supported,
                     reason="Marlin is not supported on this GPU type.")
 @pytest.mark.parametrize("model_pair", model_pairs)
@@ -69,11 +68,7 @@ def test_models(
     marlin_outputs = marlin_model.generate_greedy_logprobs(
         example_prompts, max_tokens, num_logprobs)
 
-    # vllm memory cleanup is poor. This seems to fix things.
-    # NOTE: upstream sync should use downstream version.
-    del marlin_model.model.llm_engine.driver_worker
     del marlin_model
-
     gc.collect()
     torch.cuda.empty_cache()
 
@@ -84,9 +79,6 @@ def test_models(
                                                        max_tokens,
                                                        num_logprobs)
 
-    # vllm memory cleanup is poor. This seems to fix things.
-    # NOTE: upstream sync should use downstream version.
-    del gptq_model.model.llm_engine.driver_worker
     del gptq_model
     gc.collect()
     torch.cuda.empty_cache()

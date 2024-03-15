@@ -39,8 +39,6 @@ def test_models(
     dense_num_kv_blocks = (dense_model.model.llm_engine.scheduler.
                            block_manager.gpu_allocator.num_blocks)
 
-    # Deleting just the model does not always free the GPU memory.
-    del dense_model.model.llm_engine.driver_worker
     del dense_model
     torch.cuda.empty_cache()
     gc.collect()
@@ -52,8 +50,6 @@ def test_models(
     sparse_num_kv_blocks = (sparse_model.model.llm_engine.scheduler.
                             block_manager.gpu_allocator.num_blocks)
 
-    # Deleting just the model does not always free the GPU memory.
-    del sparse_model.model.llm_engine.driver_worker
     del sparse_model
     torch.cuda.empty_cache()
     gc.collect()

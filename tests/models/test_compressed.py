@@ -41,8 +41,6 @@ def test_models(
     sparse_outputs = sparse_model.generate_greedy_logprobs(
         example_prompts, max_tokens, num_logprobs)
 
-    # Deleting just the model does not always free the GPU memory.
-    del sparse_model.model.llm_engine.driver_worker
     del sparse_model
     gc.collect()
 
@@ -53,8 +51,6 @@ def test_models(
     dense_outputs = dense_model.generate_greedy_logprobs(
         example_prompts, max_tokens, num_logprobs)
 
-    # Deleting just the model does not always free the GPU memory.
-    del dense_model.model.llm_engine.driver_worker
     del dense_model
     gc.collect()
 
