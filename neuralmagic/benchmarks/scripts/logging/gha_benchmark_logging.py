@@ -46,8 +46,8 @@ class GHARecord:
 
     @staticmethod
     def from_metric_template(metric_template: MetricTemplate, extra: dict):
-        # Unique names map to unique charts / benchmarks. Pass it as a JSON string
-        # with enough information so we may deconstruct it at the UI.
+        # Unique names map to unique charts / benchmarks. Pass it as a JSON
+        # string with enough information so we may deconstruct it at the UI.
         name = {
             "name":
             metric_template.key,
