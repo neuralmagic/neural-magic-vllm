@@ -72,7 +72,7 @@ for native_output, vllm_output in zip(native_outputs, vllm_outputs):
     vllm_generated_text = vllm_output.outputs[0].text
     print(
         f"Prompt: {prompt!r}, Native PyTorch generated text: " \
-        "{native_generated_text!r}, " \
-        "vLLM generated text: {vllm_generated_text!r}"
+        f"{native_generated_text!r}, " \
+        f"vLLM generated text: {vllm_generated_text!r}"
     )
     i += 1
