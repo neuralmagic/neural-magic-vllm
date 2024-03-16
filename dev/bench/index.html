@@ -71,6 +71,14 @@
         word-break: break-word;
         text-align: center;
       }
+      .query-tool {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-around;
+        align-items: center;
+        flex-wrap: wrap;
+        width: 50%;
+      }
       .benchmark-graphs {
         display: flex;
         flex-direction: row;
@@ -162,10 +170,30 @@
           };
 
           // Prepare data points for charts
-          return Object.keys(data.entries).map(name => ({
-            name,
-            dataSet: collectBenchesPerTestCase(data.entries[name]),
-          }));
+          let allDataSets = Object.keys(data.entries).map(name => 
+            collectBenchesPerTestCase(data.entries[name])
+          );
+
+          // Combine all datasets
+          let allDataSetsMap = new Map()
+          for (const DataSet of allDataSets) {
+            for (const [name, bench] of DataSet) {
+              allDataSetsMap.set(name, bench)
+            }
+          }
+          return new Array({name: "Benchmarks", dataSet: allDataSetsMap});
+        }
+
+        function short_python_version(long_py_version_str) {
+          // long_py_version_str = "3.10.12 (main, Mar  7 2024, 18:39:53) [GCC 9.4.0]"
+          // to short_python_version  3.10.12
+          return long_py_version_str.slice(0, long_py_version_str.indexOf(" ")).trim()
+        }
+
+        function short_date(long_date_str) {
+          // long_date_str = 2024-03-19 03:26:26 UTC 
+          // to short_date 2024-03-19
+          return long_date_str.slice(0, long_date_str.indexOf(" ")).trim()
         }
 
         function renderAllChars(dataSets) {
@@ -180,14 +208,32 @@
               labels: dataset.map(d => d.commit.id.slice(0, 7)),
               datasets: [
                 {
-                  label: name,
+                  label: JSON.parse(name).name,
                   data: dataset.map(d => d.bench.value),
                   borderColor: color,
                   backgroundColor: color + '60', // Add alpha for #rrggbbaa
                 }
               ],
             };
+
+            function chart_title() {
+              const name_json = JSON.parse(name)
+              const metric_name = name_json.name
+              const description = name_json.description
+              const gpu_description = name_json.gpu_description
+              const vllm_version = name_json.vllm_version
+              const python_version = short_python_version(name_json.python_version)
+              const torch_version = name_json.torch_version
+
+              const title = [metric_name, description, `GPU : ${gpu_description}`, `vllm : ${vllm_version}`, `py_version : ${python_version}`, `torch : ${torch_version}`]
+              return title
+            }
+
             const options = {
+              title : {
+                display: true,
+                text: chart_title(data)
+              },
               scales: {
                 xAxes: [
                   {
@@ -226,8 +272,13 @@
                     return label;
                   },
                   afterLabel: item => {
-                    const { extra } = dataset[item.index].bench;
-                    return extra ? '\n' + extra : '';
+                    const extra = dataset[item.index].bench.extra;
+                    if (!extra) {
+                      return ''
+                    }
+                    const extra_json = JSON.parse(extra)
+                    const extra_str = `\n script-name ${extra_json.script_name} \n script-args : ${JSON.stringify(extra_json.script_args, null, 2)})`
+                    return extra_str;
                   }
                 }
               },
@@ -250,8 +301,15 @@
           }
 
           function renderBenchSet(name, benchSet, main) {
+
+            const prev_bench_set = document.getElementById('benchmark-set')
+            if (prev_bench_set != null) {
+              prev_bench_set.remove()
+            }
+
             const setElem = document.createElement('div');
             setElem.className = 'benchmark-set';
+            setElem.id = 'benchmark-set'
             main.appendChild(setElem);
 
             const nameElem = document.createElement('h1');
@@ -268,10 +326,133 @@
             }
           }
 
-          const main = document.getElementById('main');
-          for (const {name, dataSet} of dataSets) {
-            renderBenchSet(name, dataSet, main);
+          function prepare_query_tool(main, dataSets) {
+
+            function add_drop_down(div, dropDownName, dropDownOptions) {
+              const name = document.createElement('h5');
+              name.textContent = dropDownName;
+              div.appendChild(name);
+
+              const s = document.createElement('select')
+              s.id = dropDownName
+              for (const item of dropDownOptions) {
+                s.options.add(new Option(item))
+              }
+
+              div.appendChild(s)
+            }
+
+            function processOption(option_str) {
+              if (option_str === null) {
+                return "null"
+              }
+              option_str = option_str.trim()
+              if (option_str === "") {
+                return "null"
+              }
+              return option_str 
+            }
+
+            function compareOption(option, to_compare) {
+              return option === "any" || option === processOption(to_compare);
+            }
+
+            let metrics = new Set(["any"])
+            let dates = new Set(["any"])
+            let models = new Set(["any"])
+            let datasets = new Set(["any"])
+            let gpus = new Set(["any"])
+            let script_names = new Set(["any"])
+            let vllm_versions = new Set(["any"])
+            let py_versions = new Set(["any"])
+            let torch_versions = new Set(["any"])
+            for (const {name, dataSet} of dataSets) {
+              for (const [key, value] of dataSet.entries()) {
+                const extra = JSON.parse(value[0].bench.extra)
+                metrics.add(processOption(JSON.parse(key).name))
+                dates.add(processOption(short_date(extra.date)))
+                models.add(processOption(extra.model))
+                datasets.add(processOption(extra.dataset))
+                gpus.add(processOption(extra.gpu_description))
+                script_names.add(processOption(extra.script_name))
+                vllm_versions.add(processOption(extra.benchmarking_context.vllm_version))
+                py_versions.add(processOption(short_python_version(extra.benchmarking_context.python_version)))
+                torch_versions.add(processOption(extra.benchmarking_context.torch_version))
+              }
+            }
+
+            // == Query ====
+            const queryElem = document.createElement('div');
+            queryElem.className = 'query-tool'
+            queryElem.textContent = 'query-tool'
+            queryElem.id = 'query-tool'
+            main.appendChild(queryElem)
+
+            add_drop_down(queryElem, "dates", dates)
+            add_drop_down(queryElem, "metrics", metrics)
+            add_drop_down(queryElem, "models", models)
+            add_drop_down(queryElem, "datasets", datasets)
+            add_drop_down(queryElem, "GPU", gpus)
+            add_drop_down(queryElem, "script_name", script_names)
+            add_drop_down(queryElem, "vllm_version", vllm_versions)
+            add_drop_down(queryElem, "python_version", py_versions)
+            add_drop_down(queryElem, "torch_version", torch_versions)
+
+            function filterCharts() {
+              const date = queryElem.querySelector('[id=dates]').value
+              const metric = queryElem.querySelector('[id=metrics]').value
+              const model = queryElem.querySelector('[id=models]').value
+              const dataset = queryElem.querySelector('[id=datasets]').value
+              const gpu = queryElem.querySelector('[id=GPU]').value
+              const script_name = queryElem.querySelector('[id=script_name]').value
+              const vllm_version = queryElem.querySelector('[id=vllm_version]').value
+              const python_version = queryElem.querySelector('[id=python_version]').value
+              const torch_version = queryElem.querySelector('[id=torch_version]').value
+
+              let filtered_datasets = new Array()
+
+              for (const {name, dataSet} of dataSets) {
+                let filtered_dataset_map = new Map()
+                filtered_datasets.push({name: name, dataSet: filtered_dataset_map})
+
+                for (const [key, values] of dataSet.entries()) {
+                  const extra = JSON.parse(values[0].bench.extra)
+                  let put_values = (
+                      compareOption(date, short_date(extra.date)) &&
+                      compareOption(metric, JSON.parse(key).name) &&
+                      compareOption(model, extra.model) &&
+                      compareOption(dataset, extra.dataset) &&
+                      compareOption(gpu, extra.gpu_description) &&
+                      compareOption(script_name, extra.script_name) &&
+                      compareOption(vllm_version, extra.benchmarking_context.vllm_version) &&
+                      compareOption(python_version, short_python_version(extra.benchmarking_context.python_version)) &&
+                      compareOption(torch_version, extra.benchmarking_context.torch_version))
+
+                  if (!put_values) {
+                    continue
+                  }
+                  filtered_dataset_map.set(key, values)
+                }
+              }
+              renderDatasets(filtered_datasets)
+            }
+
+            const b = document.createElement('button')
+            b.textContent = 'filter'
+            b.onclick= filterCharts 
+            queryElem.appendChild(b)
+
           }
+
+          function renderDatasets(dataSets)  {
+            for (const {name, dataSet} of dataSets) {
+              renderBenchSet(name, dataSet, main);
+            }
+          }
+
+          const main = document.getElementById('main');
+          prepare_query_tool(main, dataSets)
+          renderDatasets(dataSets)
         }
 
         renderAllChars(init()); // Start
