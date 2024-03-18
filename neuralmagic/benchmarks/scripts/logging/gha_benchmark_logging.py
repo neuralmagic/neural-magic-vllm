@@ -46,7 +46,7 @@ class GHARecord:
             BenchmarkResult.MODEL_KEY_:
             br.get(BenchmarkResult.MODEL_KEY_),
             BenchmarkResult.DATASET_KEY_:
-            br.get(BenchmarkResult.MODEL_KEY_)
+            br.get(BenchmarkResult.DATASET_KEY_)
         }
         return extra
 
