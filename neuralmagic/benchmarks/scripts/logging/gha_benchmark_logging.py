@@ -41,9 +41,9 @@ class GHARecord:
             br.get(BenchmarkResult.SCRIPT_NAME_KEY_),
             BenchmarkResult.SCRIPT_ARGS_KEY_:
             br.get(BenchmarkResult.SCRIPT_ARGS_KEY_),
-            BenchmarkResult.DATE_KEY_ :
+            BenchmarkResult.DATE_KEY_:
             br.get(BenchmarkResult.DATE_KEY_),
-            BenchmarkResult.MODEL_KEY_ : 
+            BenchmarkResult.MODEL_KEY_:
             br.get(BenchmarkResult.MODEL_KEY_),
             BenchmarkResult.DATASET_KEY_:
             br.get(BenchmarkResult.MODEL_KEY_)
@@ -65,9 +65,12 @@ class GHARecord:
             extra.get(BenchmarkResult.DESCRIPTION_KEY_),
             BenchmarkResult.GPU_DESCRIPTION_KEY_:
             extra.get(BenchmarkResult.GPU_DESCRIPTION_KEY_),
-            "vllm_version" : benchmarking_context.get("vllm_version"),
-            "python_version" : benchmarking_context.get("python_version"),
-            "torch_version" : benchmarking_context.get("torch_version")
+            "vllm_version":
+            benchmarking_context.get("vllm_version"),
+            "python_version":
+            benchmarking_context.get("python_version"),
+            "torch_version":
+            benchmarking_context.get("torch_version")
         }
 
         return GHARecord(name=f"{json.dumps(name)}",
