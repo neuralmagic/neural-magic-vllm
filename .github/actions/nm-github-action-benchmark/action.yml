@@ -46,7 +46,7 @@ runs:
         # Add a commit comment comparing the current benchmark with the previous.
         comment-always: true
         # Create an alert when some value has regressed more than 10% 
-        alert-threshold: "10%"
+        alert-threshold: "110%"
         # Mark the workflow as a failure when some alert is triggered
         fail-on-alert: true
         # Add a commit comment describing what triggered the alert
