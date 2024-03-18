@@ -1,4 +1,3 @@
-import pytest
 import vllm
 from vllm.lora.request import LoRARequest
 
@@ -27,7 +26,6 @@ def do_sample(llm, lora_path: str, lora_id: int) -> str:
     return generated_texts
 
 
-@pytest.mark.skip(reason="high likelihood sproadic failure in GHA")
 def test_gemma_lora(gemma_lora_files):
     llm = vllm.LLM(MODEL_PATH,
                    max_model_len=1024,
