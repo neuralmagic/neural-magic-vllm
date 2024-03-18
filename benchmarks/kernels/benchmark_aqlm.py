@@ -5,7 +5,7 @@ from typing import Optional
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 from vllm.model_executor.layers.quantization.aqlm import (
-    dequantize_partioned_gemm, dequantize_weight)
+    dequantize_partioned_gemm, dequantize_weight, dequant_torch_mult)
 from vllm._C import ops
 
 import torch
@@ -21,7 +21,7 @@ def torch_mult(
     return output
 
 
-def dequant_torch_mult(
+def dequant_out_scale(
     input: torch.Tensor,  #  [..., in_features]
     codes: torch.IntTensor,  #  [num_out_groups, num_in_groups, num_codebooks]
     codebooks: torch.
@@ -36,23 +36,55 @@ def dequant_torch_mult(
     weights = ops.aqlm_dequant(codes, codebooks, scales,
                                output_partition_sizes)
 
-    if False: #bias is None:
+    if bias is None:
         output = F.linear(input, weights, bias)
         orig_shape = output.shape
-   #     print("ouutput is ", output.shape)
-  #      print("scales shape is ", scales.shape)
         flattened_output = output.view(-1, output.size(-1))
- #       print("flate output ", flattened_output.shape)
         f_scales = scales.view(-1, scales.shape[0]) 
-        b_scales = f_scales.expand(flattened_output.shape[0], -1)
-#        print("b scales ", b_scales.shape)
-                
+        b_scales = f_scales.expand(flattened_output.shape[0], -1)                
         flattened_output *= b_scales
         return flattened_output.view(orig_shape)
     else:
-        #b_scales = scales.view(scales.shape[:-3] + (-1,)).expand(-1, weights.shape[1])
-        #weights *= b_scales
+        b_scales = scales.view(scales.shape[:-3] + (-1,)).expand(-1, weights.shape[1])
+        weights *= b_scales
         return F.linear(input, weights, bias)
+
+def dequant_weight_scale(
+    input: torch.Tensor,  #  [..., in_features]
+    codes: torch.IntTensor,  #  [num_out_groups, num_in_groups, num_codebooks]
+    codebooks: torch.
+    Tensor,  #  [num_codebooks, codebook_size, out_group_size, in_group_size]
+    scales: torch.Tensor,  #  [num_out_groups, 1, 1, 1]
+    output_partition_sizes: torch.IntTensor,
+    bias: Optional[torch.Tensor],
+) -> torch.Tensor:
+
+    #print("input shape:", input.shape, "codes", codes.shape, "scale", scales.shape, "parts", output_partition_sizes)
+
+    weights = ops.aqlm_dequant(codes, codebooks, scales,
+                               output_partition_sizes)
+
+    b_scales = scales.view(scales.shape[:-3] + (-1,)).expand(-1, weights.shape[1])
+    weights *= b_scales
+    return F.linear(input, weights, bias)
+
+
+def dequant_no_scale(
+    input: torch.Tensor,  #  [..., in_features]
+    codes: torch.IntTensor,  #  [num_out_groups, num_in_groups, num_codebooks]
+    codebooks: torch.
+    Tensor,  #  [num_codebooks, codebook_size, out_group_size, in_group_size]
+    scales: torch.Tensor,  #  [num_out_groups, 1, 1, 1]
+    output_partition_sizes: torch.IntTensor,
+    bias: Optional[torch.Tensor],
+) -> torch.Tensor:
+
+    #print("input shape:", input.shape, "codes", codes.shape, "scale", scales.shape, "parts", output_partition_sizes)
+
+    weights = ops.aqlm_dequant(codes, codebooks, scales,
+                               output_partition_sizes)
+    
+    return F.linear(input, weights, bias)
 
 
 # Compare my kernel against the gold standard.
@@ -93,14 +125,14 @@ def dequant_test(k: int, parts: torch.tensor) -> float:
 
 def main():
 
-    timing = run_timing(100, 16, 4096, torch.tensor((4096, )),
-                        dequant_torch_mult)
+    timing = run_timing(100, 16, 4096, torch.tensor((4096, 4096, 4096)),
+                        dequant_out_scale)
     print("timing was ", timing * 1000, "us")
+    #return
 
-    return
     methods = [
-        dequantize_partioned_gemm, ops.aqlm_gemm, torch_mult,
-        dequant_torch_mult
+        dequantize_partioned_gemm, dequant_torch_mult, ops.aqlm_gemm, torch_mult,
+        dequant_no_scale, dequant_out_scale, dequant_weight_scale,
     ]
 
     filename = "./benchmark.csv"
@@ -110,7 +142,7 @@ def main():
 
         print('m | k | n | n parts', end='')
         for method in methods:
-            print(f' | {method.__name__}', end='')
+            print(f" | {method.__name__.replace('_', ' ')}", end='')
         print('')
 
         # These are reasonable prefill sizes.
@@ -119,8 +151,8 @@ def main():
 
         # reasonable ranges for m.
         for m in [
-                1, 2, 4, 8, 16, 24, 32, 48, 64, 96, 128, 256, 512, 1024, 1536,
-                2048, 3072, 4096
+                1, 2, 4, 8, 16, 24, 32, 48, 64, 96, 128, 256, 512, 1024, #1536,
+                #2048, 3072, 4096
         ]:
             print(f'{m}', file=sys.__stdout__)
             for ksp in ksandpartions:
