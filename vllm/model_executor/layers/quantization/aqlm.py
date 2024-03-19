@@ -96,6 +96,8 @@ def dequantize_partioned_gemm(
     output = torch.empty(output_shape, dtype=input.dtype, device=input.device)
     num_outputs = len(output_partition_sizes)
 
+    print("codes shape", codes.shape, "codebooks shape", codebooks.shape)
+
     # break the inputs and codebooks apart then combine the outputs.
     # Surprisingly (to me) this is faster than doing 3 de-quants and 1 big 
     # multiply at the end.
@@ -128,8 +130,7 @@ def dequant_torch_mult(
     output_partition_sizes: torch.IntTensor,
     bias: Optional[torch.Tensor],
 ) -> torch.Tensor:
-    weights = ops.aqlm_dequant(codes, codebooks, scales,
-                               output_partition_sizes)
+    weights = ops.aqlm_dequant(codes, codebooks, output_partition_sizes)
 
     if bias is None:
         output = F.linear(input, weights, bias)
@@ -327,7 +328,9 @@ class AQLMLinearMethod(LinearMethodBase):
                                          None)
 
         use_gemv = math.prod(
-            x.shape[:-1]) <= 32 or output_partition_sizes is None
+            x.shape[:-1]) <= 12 or output_partition_sizes is None
+
+        use_gemv = False
 
         output = ops.aqlm_gemm(
             x,

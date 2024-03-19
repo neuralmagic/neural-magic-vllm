@@ -5,7 +5,8 @@ from typing import Optional
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 from vllm.model_executor.layers.quantization.aqlm import (
-    dequantize_partioned_gemm, dequantize_weight, dequant_torch_mult)
+    dequantize_partioned_gemm, dequantize_weight, dequant_torch_mult,
+    get_int_dtype)
 from vllm._C import ops
 
 import torch
@@ -33,8 +34,7 @@ def dequant_out_scale(
 
     #print("input shape:", input.shape, "codes", codes.shape, "scale", scales.shape, "parts", output_partition_sizes)
 
-    weights = ops.aqlm_dequant(codes, codebooks, scales,
-                               output_partition_sizes)
+    weights = ops.aqlm_dequant(codes, codebooks, output_partition_sizes)
 
     if bias is None:
         output = F.linear(input, weights, bias)
@@ -63,8 +63,7 @@ def dequant_weight_scale(
 
     #print("input shape:", input.shape, "codes", codes.shape, "scale", scales.shape, "parts", output_partition_sizes)
 
-    weights = ops.aqlm_dequant(codes, codebooks, scales,
-                               output_partition_sizes)
+    weights = ops.aqlm_dequant(codes, codebooks, output_partition_sizes)
 
     b_scales = scales.view(scales.shape[:-3] + (-1, )).expand(
         -1, weights.shape[1])
@@ -84,52 +83,56 @@ def dequant_no_scale(
 
     #print("input shape:", input.shape, "codes", codes.shape, "scale", scales.shape, "parts", output_partition_sizes)
 
-    weights = ops.aqlm_dequant(codes, codebooks, scales,
-                               output_partition_sizes)
+    weights = ops.aqlm_dequant(codes, codebooks, output_partition_sizes)
 
     return F.linear(input, weights, bias)
 
 
 # Compare my kernel against the gold standard.
-def dequant_test(k: int, parts: torch.tensor) -> None:
+def dequant_test(k: int, parts: torch.tensor, nbooks: int, bits: int) -> None:
 
     n = parts.sum().item()
 
     device = torch.device('cuda:0')
 
-    codes = torch.randint(-32768,
-                          32768,
-                          size=(n, k // 8, 1),
-                          dtype=torch.int16,
+    code_range = (1 << bits) // 2
+    ingroups = 8
+
+    codes = torch.randint(-code_range,
+                          code_range,
+                          size=(n, k // ingroups, nbooks),
+                          dtype=get_int_dtype(bits),
                           device=device)
 
-    codebooks = torch.randn(size=(parts.shape[0], 65536, 1, 8),
+    codebooks = torch.randn(size=(parts.shape[0] * nbooks, 1 << bits, 1, 8),
                             dtype=torch.float16,
                             device=device)
 
     count = 0
     for index in range(16):
         for i in range(8):
-            codebooks[0, index, 0, i] = count
+            for book in range(nbooks):
+                codebooks[book, index, 0, i] = count * (10 ** book)
             count += 1
 
     for i in range(16):
-        codes[0, i, 0] = i
+        for book in range(nbooks):
+            codes[0, i, book] = i
 
-    # ones.
-    scales = torch.randn(size=(n, 1, 1, 1), dtype=torch.float16, device=device)
 
     weights = dequantize_weight(codes, codebooks, None)  # TODO Scales.
     print("weights shape:", weights.shape)
     print("weights are:", weights)
-    print("weights ", weights[0, 0:128])
+    print("weights ", weights[0, 0:128].to(torch.int32))
 
-    weights2 = ops.aqlm_dequant(codes, codebooks, scales, parts)
+    weights2 = ops.aqlm_dequant(codes, codebooks, parts)
     print("weights2 shape:", weights2.shape)
     print("weights2 are:", weights2)
-    print("weights2 are:", weights2[0, 0:128])
+    print("weights2 are:", weights2[0, 0:128].to(torch.int32))
 
 
+    # ones.
+#    scales = torch.randn(size=(n, 1, 1, 1), dtype=torch.float16, device=device)
 #    flattened_scales = scales.view(scales.shape[:-3] + (-1,))
 #print("f scales", flattened_scales.shape)
 #broadcast_scales  = flattened_scales.expand(-1, weights2.shape[1])
@@ -141,7 +144,7 @@ def dequant_test(k: int, parts: torch.tensor) -> None:
 
 def main():
 
-    #dequant_test(4096, torch.tensor((8096, )))
+    dequant_test(4096, torch.tensor((4096, )), 2, 8)
 
     timing = run_timing(100, 16, 4096, torch.tensor((4096, 4096, 4096)),
                         dequant_out_scale)

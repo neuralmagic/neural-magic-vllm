@@ -48,7 +48,16 @@ void code1x16_dequant(
         void* weights,
   const void* a,
   const void* codebook,
-  const void* scales,
+  const int a_rows, // code rows in element space, so k
+  const int a_cols, // code columns in element space, so n
+  const int4 codebook_a_sizes,  // cumulative sizes of A spanning each codebook, at most 3 long, corresponds to cols.
+  const int codebook_stride // as int4
+);
+
+void code2x8_dequant(
+        void* weights,
+  const void* a,
+  const void* codebook,
   const int a_rows, // code rows in element space, so k
   const int a_cols, // code columns in element space, so n
   const int4 codebook_a_sizes,  // cumulative sizes of A spanning each codebook, at most 3 long, corresponds to cols.
@@ -237,7 +246,6 @@ torch::Tensor aqlm_gemm(
 torch::Tensor aqlm_dequant(
   const torch::Tensor& codes,
   const torch::Tensor& codebooks,
-  const torch::Tensor& scales,
   const torch::Tensor& codebook_partition_sizes
 )
 {
@@ -247,7 +255,7 @@ torch::Tensor aqlm_dequant(
   int const entries = codebooks.size(1);
 
   const at::cuda::OptionalCUDAGuard device_guard(device_of(codes));
-  int rows = codes.size(1) * codes.size(2);
+  int rows = codes.size(1);
   int cols = codes.size(0);
 
   auto weights = torch::empty({cols, rows * 8},
@@ -258,19 +266,15 @@ torch::Tensor aqlm_dequant(
 
   if (nbooks == 1 && entries == (1 << 16))
   { 
-     code1x16_dequant(weights.data_ptr(), codes.data_ptr(), codebooks.data_ptr(), scales.data_ptr(), rows, cols, cumulative_sizes, codebook_stride(codebooks));
+     code1x16_dequant(weights.data_ptr(), codes.data_ptr(), codebooks.data_ptr(), rows, cols, cumulative_sizes, codebook_stride(codebooks));
      return weights;
   }
 
-/*
-  return weights; // can't be right!
-*/
-  /*
   if (nbooks == 2 && entries == (1 << 8))
-  {
-    return code2x8_matmat(input, codes, codebooks, scales, cumulative_sizes, bias);
+  { 
+     code2x8_dequant(weights.data_ptr(), codes.data_ptr(), codebooks.data_ptr(), rows, cols, cumulative_sizes, codebook_stride(codebooks));
+     return weights;
   }
-  */
 
   TORCH_CHECK(false, "AQLM with ", nbooks, " codebooks and ", entries, " entries is not currently supported.")
   return {};

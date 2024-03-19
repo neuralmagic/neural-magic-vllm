@@ -96,7 +96,6 @@ torch::Tensor aqlm_gemm(
 torch::Tensor aqlm_dequant(
   const torch::Tensor& codes,
   const torch::Tensor& codebooks,
-  const torch::Tensor& scales,
   const torch::Tensor& codebook_partition_sizes
 );
 
