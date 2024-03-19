@@ -115,6 +115,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Install flash attention (from pre-built wheel)
 RUN --mount=type=bind,from=flash-attn-builder,src=/usr/src/flash-attention-v2,target=/usr/src/flash-attention-v2 \
     pip install /usr/src/flash-attention-v2/*.whl --no-cache-dir
+
 #################### RUNTIME BASE IMAGE ####################
 
 
