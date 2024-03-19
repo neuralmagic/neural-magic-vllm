@@ -1,14 +1,13 @@
-name: Manual Docker Build
+name: Docker Build + Publish
 
 on:
-  # Trigger the workflow on push or pull request,
-  # but only for the main branch
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  # For now, just manually trigger
+  # push:
+  #   branches:
+  #     - main
+  # pull_request:
+  #   branches:
+  #     - main
   workflow_dispatch:
 
 jobs:
@@ -49,12 +48,4 @@ jobs:
               context: .
               target: vllm-openai
               push: true
-              tags: ghcr.io/neuralmagic/nm-vllm-openai:latest
-
-          - name: Today's nm-vllm-nightly
-            uses: docker/build-push-action@v5
-            with:
-              context: .
-              target: vllm-openai
-              push: true
-              tags: ghcr.io/neuralmagic/nm-vllm-openai:${{ steps.extract_tag.outputs.tag }}
+              tags: ghcr.io/neuralmagic/nm-vllm-openai:${{ steps.extract_tag.outputs.tag }},ghcr.io/neuralmagic/nm-vllm-openai:latest
