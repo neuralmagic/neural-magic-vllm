@@ -26,6 +26,7 @@ def do_sample(llm, lora_path: str, lora_id: int) -> str:
         print(f"Prompt: {prompt!r}, Generated text: {generated_text!r}")
     return generated_texts
 
+
 @pytest.mark.skip("Skipping for upstream sync")
 def test_gemma_lora(gemma_lora_files):
     llm = vllm.LLM(MODEL_PATH,
