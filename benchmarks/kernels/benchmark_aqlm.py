@@ -40,14 +40,16 @@ def dequant_out_scale(
         output = F.linear(input, weights, bias)
         orig_shape = output.shape
         flattened_output = output.view(-1, output.size(-1))
-        f_scales = scales.view(-1, scales.shape[0]) 
-        b_scales = f_scales.expand(flattened_output.shape[0], -1)                
+        f_scales = scales.view(-1, scales.shape[0])
+        b_scales = f_scales.expand(flattened_output.shape[0], -1)
         flattened_output *= b_scales
         return flattened_output.view(orig_shape)
     else:
-        b_scales = scales.view(scales.shape[:-3] + (-1,)).expand(-1, weights.shape[1])
+        b_scales = scales.view(scales.shape[:-3] + (-1, )).expand(
+            -1, weights.shape[1])
         weights *= b_scales
         return F.linear(input, weights, bias)
+
 
 def dequant_weight_scale(
     input: torch.Tensor,  #  [..., in_features]
@@ -64,7 +66,8 @@ def dequant_weight_scale(
     weights = ops.aqlm_dequant(codes, codebooks, scales,
                                output_partition_sizes)
 
-    b_scales = scales.view(scales.shape[:-3] + (-1,)).expand(-1, weights.shape[1])
+    b_scales = scales.view(scales.shape[:-3] + (-1, )).expand(
+        -1, weights.shape[1])
     weights *= b_scales
     return F.linear(input, weights, bias)
 
@@ -83,12 +86,12 @@ def dequant_no_scale(
 
     weights = ops.aqlm_dequant(codes, codebooks, scales,
                                output_partition_sizes)
-    
+
     return F.linear(input, weights, bias)
 
 
 # Compare my kernel against the gold standard.
-def dequant_test(k: int, parts: torch.tensor) -> float:
+def dequant_test(k: int, parts: torch.tensor) -> None:
 
     n = parts.sum().item()
 
@@ -104,26 +107,41 @@ def dequant_test(k: int, parts: torch.tensor) -> float:
                             dtype=torch.float16,
                             device=device)
 
+    count = 0
+    for index in range(16):
+        for i in range(8):
+            codebooks[0, index, 0, i] = count
+            count += 1
+
+    for i in range(16):
+        codes[0, i, 0] = i
+
     # ones.
     scales = torch.randn(size=(n, 1, 1, 1), dtype=torch.float16, device=device)
 
-    weights = dequantize_weight(codes, codebooks, scales)
+    weights = dequantize_weight(codes, codebooks, None)  # TODO Scales.
+    print("weights shape:", weights.shape)
     print("weights are:", weights)
+    print("weights ", weights[0, 0:128])
 
     weights2 = ops.aqlm_dequant(codes, codebooks, scales, parts)
     print("weights2 shape:", weights2.shape)
     print("weights2 are:", weights2)
+    print("weights2 are:", weights2[0, 0:128])
 
-    flattened_scales = scales.view(scales.shape[:-3] + (-1,))
-    print("f scales", flattened_scales.shape)    
-    broadcast_scales  = flattened_scales.expand(-1, weights2.shape[1])
-    print("b scales", broadcast_scales.shape)
 
-    weights2 *= broadcast_scales
-    print("weights2 scaled are:", weights2)
+#    flattened_scales = scales.view(scales.shape[:-3] + (-1,))
+#print("f scales", flattened_scales.shape)
+#broadcast_scales  = flattened_scales.expand(-1, weights2.shape[1])
+#print("b scales", broadcast_scales.shape)
+
+#    weights2 *= broadcast_scales
+#print("weights2 scaled are:", weights2)
 
 
 def main():
+
+    #dequant_test(4096, torch.tensor((8096, )))
 
     timing = run_timing(100, 16, 4096, torch.tensor((4096, 4096, 4096)),
                         dequant_out_scale)
@@ -131,18 +149,23 @@ def main():
     #return
 
     methods = [
-        dequantize_partioned_gemm, dequant_torch_mult, ops.aqlm_gemm, torch_mult,
-        dequant_no_scale, dequant_out_scale, dequant_weight_scale,
+        ops.aqlm_gemm,
+        torch_mult,
+        dequantize_partioned_gemm,
+        dequant_torch_mult,
+        dequant_no_scale,
+        dequant_out_scale,
+        dequant_weight_scale,
     ]
 
     filename = "./benchmark.csv"
     print(f"writing benchmarks to file {filename}")
-    with open(filename, "a") as f:
+    with open(filename, "w") as f:
         sys.stdout = f
 
         print('m | k | n | n parts', end='')
         for method in methods:
-            print(f" | {method.__name__.replace('_', ' ')}", end='')
+            print(f" | {method.__name__.replace('_', ' ')} (µs)", end='')
         print('')
 
         # These are reasonable prefill sizes.
@@ -151,8 +174,8 @@ def main():
 
         # reasonable ranges for m.
         for m in [
-                1, 2, 4, 8, 16, 24, 32, 48, 64, 96, 128, 256, 512, 1024, #1536,
-                #2048, 3072, 4096
+                1, 2, 4, 8, 16, 24, 32, 48, 64, 96, 128, 256, 512, 1024, 1536,
+                2048, 3072, 4096
         ]:
             print(f'{m}', file=sys.__stdout__)
             for ksp in ksandpartions:

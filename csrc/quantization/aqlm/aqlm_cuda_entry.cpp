@@ -262,6 +262,9 @@ torch::Tensor aqlm_dequant(
      return weights;
   }
 
+/*
+  return weights; // can't be right!
+*/
   /*
   if (nbooks == 2 && entries == (1 << 8))
   {

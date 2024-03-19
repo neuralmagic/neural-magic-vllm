@@ -202,10 +202,11 @@ __global__ void Code1x16Dequant(
   const int4 codebook_a_sizes,  // cumulative sizes of A spanning each codebook, at most 3 long, sums to m.
   const int codebook_stride // as int4
 ) {
+
   // 
   // Each thread decodes one int4 worth of codebook.
-  int a_col = blockDim.x * 32 + threadIdx.x;
-  int a_row = blockDim.y * 32 + threadIdx.y;
+  int a_col = blockIdx.x * 32 + threadIdx.x;
+  int a_row = blockIdx.y * 32 + threadIdx.y;
 
   // out of range, can happen.
   if (a_row >= a_rows)
@@ -359,13 +360,14 @@ void code1x16_dequant(
   );
   */
 
-// each thread does one int4 worth.
+  dim3 threads(32, 32, 1);
+
+  assert(a_cols % 32 == 0); 
+  // each thread does one int4 worth.
   assert(a_rows % 8 == 0);
 
   const int rows = a_rows/8;
-  assert(a_cols %32 == 0); 
 
-  dim3 threads(32, 32, 1);
   dim3 blocks(ceildiv(a_cols, 32), ceildiv(rows, 32), 1);
 
   cudaStream_t stream = at::cuda::getCurrentCUDAStream().stream();
@@ -374,7 +376,7 @@ void code1x16_dequant(
     (const int4*) a,
     (const int4*) codebook,
     (const int4*) scales,
-    rows, // into int4 space.
+    rows, // in int4 space.
     a_cols,
     codebook_a_sizes,
     codebook_stride
