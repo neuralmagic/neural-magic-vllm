@@ -4,15 +4,16 @@ Common functions used in all benchmarking scripts
 import json
 import random
 import asyncio
-from typing import List, Tuple, Optional
+from typing import List, Tuple
 from pathlib import Path
 from transformers import PreTrainedTokenizerBase
 
-from vllm import LLM, SamplingParams
+from vllm import (LLM, SamplingParams, __version__ as __vllm_version__)
 from vllm.outputs import RequestOutput
 from vllm.transformers_utils.tokenizer import get_tokenizer
 from .datasets_registry import SHAREGPT_PATH, SHAREGPT_DOWNLOAD_STR
-from .backend_request_func import RequestFuncInput, async_request_vllm
+from .backend_request_func import (RequestFuncInput, RequestFuncOutput,
+                                   async_request_vllm)
 from ...tools.call_cmd import call_cmd
 
 
@@ -23,7 +24,7 @@ def num_available_gpus() -> int:
 
 def get_benchmarking_context() -> dict:
     """
-    Return the current python version, pytorch version and CUDA version as a dict
+    Return the current python, pytorch and CUDA version as a dict
     """
     import sys
     import torch
@@ -36,11 +37,12 @@ def get_benchmarking_context() -> dict:
     cuda_device_names = [cuda_device.name for cuda_device in cuda_devices]
 
     return {
+        "vllm_version": __vllm_version__,
         "python_version": f"{sys.version}",
         "torch_version": f"{torch.__version__}",
         "torch_cuda_version": f"{torch.version.cuda}",
         "cuda_devices": f"{cuda_devices}",
-        "cuda_device_names": f"{cuda_device_names}"
+        "cuda_device_names": cuda_device_names
     }
 
 
@@ -99,7 +101,7 @@ def warmup_requests(tokenizer: PreTrainedTokenizerBase,
                     num_input_tokens: int = 128,
                     num_output_tokens: int = 1) -> List[Tuple[str, int, int]]:
     """
-    Given a tokenizer, generate `num_requests` requests that would be used for vllm engine warmup 
+    Given a tokenizer, generate `num_requests` requests used for warmup
     """
     words = list(tokenizer.get_vocab().keys())
     requests = []
@@ -184,29 +186,27 @@ def warmup_server(server_host: int,
     asyncio.run(process_requests(requests))
 
 
-def instantiate_benchmark_results_dict(benchmarking_script_name: str,
-                                       tensor_parallel_size: int, model: str,
-                                       tokenizer: Optional[str],
-                                       dataset: Optional[str]) -> dict:
-    """
-    instantiate_benchmark_results_dict populates an empty dict with all the must-have
-    key-value pairs. These are the key-value pairs that the scripts that process
-    the benchmark results rely on.
-    """
-    result_dict = {}
-    result_dict['script_name'] = benchmarking_script_name
-    result_dict['benchmarking_context'] = get_benchmarking_context()
-    result_dict['tensor_parallel_size'] = tensor_parallel_size
-    result_dict['model'] = model
-    result_dict['tokenizer'] = tokenizer if tokenizer is not None else model
-    result_dict['dataset'] = dataset if dataset is not None else "synthetic"
-
-    return result_dict
+def format_io_log(prompt: str, output_text: str, n_prompt_tokens: int,
+                  n_output_tokens: int) -> str:
+    return f"\n=== Prompt ({n_prompt_tokens}) ==\n{prompt}\n==== output({n_output_tokens}) ==\n{output_text}\n"  # noqa: E501
 
 
-def print_benchmark_io(results: List[RequestOutput]) -> None:
+def print_request_outputs(results: List[RequestOutput]) -> None:
     for result in results:
         output = result.outputs[0]
-        print(
-            f"\n\n inputs({len(result.prompt_token_ids)}): {result.prompt}\n output({len(output.token_ids)}): {output.text}"
-        )
+        io_log = format_io_log(result.prompt, output.text,
+                               len(result.prompt_token_ids),
+                               len(output.token_ids))
+        print(f"\n{io_log}")
+
+
+def print_serving_request_io(inputs: List[Tuple[str, int, int]],
+                             outputs: List[RequestFuncOutput]) -> None:
+    """
+        inputs: list of tuples of form [prompt, prompt_length, output_length],
+        outputs: list of RequestFuncOutput output from benchmark_serving.py
+        Format and print the inputs and outputs.
+    """
+    for i, o in zip(inputs, outputs):
+        io_log = format_io_log(i[0], o.generated_text, i[1], i[2])
+        print(f"\n{io_log}")

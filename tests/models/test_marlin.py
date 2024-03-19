@@ -1,3 +1,4 @@
+# UPSTREAM SYNC: Use the current downstream version.
 """Compare the outputs of a GPTQ model to a Marlin model.
 
 Note: GPTQ and Marlin do not have bitwise correctness.
@@ -17,9 +18,11 @@ Run `pytest tests/models/test_marlin.py`.
 
 import pytest
 import torch
+import gc
 from compare_utils import check_logprobs_close
 from dataclasses import dataclass
-from vllm.model_executor.layers.quantization import _QUANTIZATION_CONFIG_REGISTRY
+from vllm.model_executor.layers.quantization import (
+    _QUANTIZATION_CONFIG_REGISTRY)
 
 MAX_MODEL_LEN = 1024
 
@@ -66,9 +69,9 @@ def test_models(
     marlin_outputs = marlin_model.generate_greedy_logprobs(
         example_prompts, max_tokens, num_logprobs)
 
-    # Note: deleting just the model does not always free the GPU memory, not sure why.
-    del marlin_model.model.llm_engine.driver_worker
     del marlin_model
+    gc.collect()
+    torch.cuda.empty_cache()
 
     gptq_model = vllm_runner_nm(model_pair.model_gptq,
                                 dtype=dtype,
@@ -77,11 +80,12 @@ def test_models(
                                                        max_tokens,
                                                        num_logprobs)
 
-    # Note: deleting just the model does not always free the GPU memory, not sure why.
-    del gptq_model.model.llm_engine.driver_worker
     del gptq_model
+    gc.collect()
+    torch.cuda.empty_cache()
 
     # loop through the prompts
+    # use logprobs or else this will consistently run out of memory
     check_logprobs_close(
         outputs_0_lst=gptq_outputs,
         outputs_1_lst=marlin_outputs,

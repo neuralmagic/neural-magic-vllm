@@ -6,15 +6,18 @@ NOTE: This script is a modified version of benchmarks/benchmark_serving.py from
 """
 
 import argparse
-import json
 import random
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 from transformers import AutoTokenizer
-from .common import instantiate_benchmark_results_dict, generate_synthetic_requests, warmup_vllm_engine, num_available_gpus
+from .common import (generate_synthetic_requests, warmup_vllm_engine,
+                     num_available_gpus, print_request_outputs)
 from .datasets_registry import get_dataset, DatasetArgs
+from .logging.benchmark_result import (BenchmarkResult,
+                                       BenchmarkThroughputResultMetricTemplates
+                                       as ResultMetricTemplates)
 
 
 def get_tensor_parallel_size(args: argparse.Namespace) -> int:
@@ -25,21 +28,21 @@ def get_tensor_parallel_size(args: argparse.Namespace) -> int:
     return tensor_parallel_size
 
 
-def run_vllm(
-    requests: List[Tuple[str, int, int]],
-    model: str,
-    tokenizer: str,
-    quantization: Optional[str],
-    tensor_parallel_size: int,
-    seed: int,
-    n: int,
-    use_beam_search: bool,
-    trust_remote_code: bool,
-    dtype: str,
-    max_model_len: Optional[int],
-    enforce_eager: bool,
-    sparsity: Optional[str],
-) -> float:
+def run_vllm(requests: List[Tuple[str, int, int]],
+             model: str,
+             tokenizer: str,
+             quantization: Optional[str],
+             tensor_parallel_size: int,
+             seed: int,
+             n: int,
+             use_beam_search: bool,
+             trust_remote_code: bool,
+             dtype: str,
+             max_model_len: Optional[int],
+             enforce_eager: bool,
+             sparsity: Optional[str],
+             num_warmup_prompts: int,
+             log_model_io: bool = False) -> float:
     from vllm import LLM, SamplingParams
     llm = LLM(
         model=model,
@@ -53,13 +56,15 @@ def run_vllm(
         enforce_eager=enforce_eager,
     )
 
-    warmup_vllm_engine(engine=llm, model=model, num_prompts=1000)
+    warmup_vllm_engine(engine=llm, model=model, num_prompts=num_warmup_prompts)
 
     # Add the requests to the engine.
     for prompt, _, output_len in requests:
         sampling_params = SamplingParams(
             n=n,
-            temperature=0.0 if use_beam_search else 1.0,
+            # TODO (varun) Make temperature configurable
+            #temperature=0.0 if use_beam_search else 1.0,
+            temperature=0.0,
             top_p=1.0,
             use_beam_search=use_beam_search,
             ignore_eos=True,
@@ -74,8 +79,11 @@ def run_vllm(
 
     start = time.perf_counter()
     # FIXME(woosuk): Do not use internal method.
-    llm._run_engine(use_tqdm=True)
+    outputs = llm._run_engine(use_tqdm=True)
     end = time.perf_counter()
+
+    if log_model_io:
+        print_request_outputs(outputs)
 
     return end - start
 
@@ -96,7 +104,7 @@ def main(args: argparse.Namespace):
                                    num_samples=args.num_prompts,
                                    max_len=2048,
                                    seed=42,
-                               ))
+                                   fixed_output_len=args.output_len))
     else:
         # Make a synthetic dataset.
         requests = generate_synthetic_requests(args.input_len, args.output_len,
@@ -114,7 +122,9 @@ def main(args: argparse.Namespace):
                             args.dtype,
                             args.max_model_len,
                             args.enforce_eager,
-                            sparsity=args.sparsity)
+                            sparsity=args.sparsity,
+                            num_warmup_prompts=args.num_warmup_prompts,
+                            log_model_io=args.log_model_io)
 
     total_prompt_tokens = sum(prompt_len for _, prompt_len, _ in requests)
     total_output_tokens = sum(output_len for _, _, output_len in requests)
@@ -133,29 +143,39 @@ def main(args: argparse.Namespace):
     if save_result:
 
         # Setup
-        current_dt = datetime.now().strftime("%Y%m%d-%H%M%S")
-        result_json = instantiate_benchmark_results_dict(
-            benchmarking_script_name=Path(__file__).name,
+        current_dt = datetime.now()
+
+        result = BenchmarkResult(
+            description=args.description,
+            date=current_dt,
+            script_name=Path(__file__).name,
+            script_args=vars(args),
             tensor_parallel_size=get_tensor_parallel_size(args),
             model=args.model,
             tokenizer=args.tokenizer,
             dataset=args.dataset)
-        result_json["date"] = current_dt
-        result_json["script_args"] = vars(args)
-        result_json["request_throughput"] = request_throughput
-        result_json["token_throughput"] = token_throughput
+        result.add_metric(ResultMetricTemplates.request_throughput,
+                          request_throughput)
+        result.add_metric(ResultMetricTemplates.token_throughput,
+                          token_throughput)
 
         model_id = args.model.replace('/', '_')
         # Save to file
+        current_dt_str = current_dt.strftime("%Y%m%d-%H%M%S")
         file_name = Path(
             args.save_directory
-        ) / f"benchmark_throughput-{args.backend}-{model_id}-{current_dt}.json"
-        with open(file_name, "w") as outfile:
-            json.dump(result_json, outfile, sort_keys=True, indent=4)
+        ) / f"benchmark_throughput-{args.backend}-{model_id}-{current_dt_str}.json"  # noqa: E501
+        result.store(file_name)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark the throughput.")
+    parser.add_argument(
+        "--description",
+        type=str,
+        default="benchmark-throughput",
+        help="Benchmark description. This is primarily useful when "
+        "we log the benchmark results and process them for plotting charts")
     parser.add_argument("--backend",
                         type=str,
                         choices=["vllm"],
@@ -189,10 +209,15 @@ if __name__ == "__main__":
                         type=int,
                         default=1000,
                         help="Number of prompts to process.")
+    parser.add_argument("--num-warmup-prompts",
+                        type=int,
+                        default=1000,
+                        help="Number of prompts to do warmups with.")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument('--trust-remote-code',
                         action='store_true',
                         help='trust remote code from huggingface')
+    parser.add_argument("--log-model-io", action="store_true")
     parser.add_argument(
         '--max-model-len',
         type=int,
