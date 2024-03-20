@@ -1,4 +1,5 @@
-# Supports AQLM compression, see https://github.com/Vahe1994/AQLM and https://arxiv.org/pdf/2401.06118.pdf
+# Supports AQLM compression, see https://github.com/Vahe1994/AQLM
+# and https://arxiv.org/pdf/2401.06118.pdf
 
 from typing import Any, Dict, List, Optional
 
@@ -55,7 +56,8 @@ def dequantize_weight(codes: torch.Tensor,
         codes.flatten(0, -2) + codebook_offsets,
         codebooks.flatten(0, 1).flatten(-2, -1),
         mode="sum"
-    )  # [prod(dims) * num_out_groups * num_in_groups, out_group_size * in_group_size]
+    )  # [prod(dims) * num_out_groups * num_in_groups, out_group_size
+    # * in_group_size]
 
     reconstructed_weight_groupwise = reconstructed_weight_flat.view(
         list(codes.shape[:-3]) +
@@ -83,7 +85,8 @@ def dequantize_gemm(
     return F.linear(input, dequantized_weight, bias)
 
 
-def dequantize_partioned_gemm(
+# Generic dequantization, slow but flexible.
+def generic_dequantize_gemm(
     input: torch.Tensor,  #  [..., in_features]
     codes: torch.IntTensor,  #  [num_out_groups, num_in_groups, num_codebooks]
     codebooks: torch.
@@ -96,10 +99,8 @@ def dequantize_partioned_gemm(
     output = torch.empty(output_shape, dtype=input.dtype, device=input.device)
     num_outputs = len(output_partition_sizes)
 
-    print("codes shape", codes.shape, "codebooks shape", codebooks.shape)
-
     # break the inputs and codebooks apart then combine the outputs.
-    # Surprisingly (to me) this is faster than doing 3 de-quants and 1 big 
+    # Surprisingly (to me) this is faster than doing 3 de-quants and 1 big
     # multiply at the end.
     num_codebooks = codebooks.shape[0] // num_outputs
     assert (scales.shape[0] == codes.shape[0])
@@ -120,8 +121,9 @@ def dequantize_partioned_gemm(
         codebooks_offset += num_codebooks
     return output
 
-# This uses the new kernel.
-def dequant_torch_mult(
+
+# Optimized dequnantize/decompression kernels, supports 1x16 and 2x8
+def optimized_dequantize_gemm(
     input: torch.Tensor,  #  [..., in_features]
     codes: torch.IntTensor,  #  [num_out_groups, num_in_groups, num_codebooks]
     codebooks: torch.
@@ -133,15 +135,17 @@ def dequant_torch_mult(
     weights = ops.aqlm_dequant(codes, codebooks, output_partition_sizes)
 
     if bias is None:
+        # scaling the output is fastest, so we do that when possible.
         output = F.linear(input, weights, bias)
         orig_shape = output.shape
         flattened_output = output.view(-1, output.size(-1))
-        f_scales = scales.view(-1, scales.shape[0]) 
+        f_scales = scales.view(-1, scales.shape[0])
         b_scales = f_scales.expand(flattened_output.shape[0], -1)
         flattened_output *= b_scales
         return output.view(orig_shape)
     else:
-        b_scales = scales.view(scales.shape[:-3] + (-1,)).expand(-1, weights.shape[1])
+        b_scales = scales.view(scales.shape[:-3] + (-1, )).expand(
+            -1, weights.shape[1])
         weights *= b_scales
         return F.linear(input, weights, bias)
 
@@ -244,9 +248,9 @@ class AQLMLinearMethod(LinearMethodBase):
 
         codes = Parameter(
             torch.empty(
-                # There could actually be two pack factors, one along input and 
-                # one along output, but we don't currently support 
-                # out_group_size, and only the one along output needs to be 
+                # There could actually be two pack factors, one along input and
+                # one along output, but we don't currently support
+                # out_group_size, and only the one along output needs to be
                 # marked with "packed_dim" in order for QKVLinear to work.
                 output_size_per_partition,
                 input_size_per_partition // self.quant_config.pack_factor,
@@ -327,19 +331,38 @@ class AQLMLinearMethod(LinearMethodBase):
         output_partition_sizes = getattr(codebooks, "output_partition_sizes",
                                          None)
 
-        use_gemv = math.prod(
-            x.shape[:-1]) <= 12 or output_partition_sizes is None
+        nbooks = codes.shape[2]
+        ingroups = codebooks.shape[3]
+        outgroups = codebooks.shape[2]
+        bits = codebooks.shape[1]
 
-        use_gemv = False
+        # We support these formats with dedicated gemm and decompression
+        # kernels.
+        if ingroups == 8 and outgroups == 1 and (
+            (bits == 256 and nbooks == 2) or (bits == 65536 and nbooks == 1)):
 
-        output = ops.aqlm_gemm(
-            x,
-            codes,
-            codebooks,
-            scales,
-            output_partition_sizes,
-            bias,
-        ) if use_gemv else dequant_torch_mult(
+            # thresholds determined by timings on an A6000
+            m_threshold = 8 if bits == 65536 else 12
+            use_gemv = math.prod(x.shape[:-1]) <= m_threshold
+
+            return ops.aqlm_gemm(
+                x,
+                codes,
+                codebooks,
+                scales,
+                output_partition_sizes,
+                bias,
+            ) if use_gemv else optimized_dequantize_gemm(
+                x,
+                codes,
+                codebooks,
+                scales,
+                output_partition_sizes,
+                bias,
+            )
+
+        # fall back all unoptimized formats
+        return generic_dequantize_gemm(
             x,
             codes,
             codebooks,
@@ -347,5 +370,3 @@ class AQLMLinearMethod(LinearMethodBase):
             output_partition_sizes,
             bias,
         )
-
-        return output

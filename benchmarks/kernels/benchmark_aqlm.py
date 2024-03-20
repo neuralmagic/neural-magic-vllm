@@ -5,7 +5,7 @@ from typing import Optional
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 from vllm.model_executor.layers.quantization.aqlm import (
-    dequantize_partioned_gemm, dequantize_weight, dequant_torch_mult,
+    generic_dequantize_gemm, optimized_dequantize_gemm, dequantize_weight,
     get_int_dtype)
 from vllm._C import ops
 
@@ -31,8 +31,6 @@ def dequant_out_scale(
     output_partition_sizes: torch.IntTensor,
     bias: Optional[torch.Tensor],
 ) -> torch.Tensor:
-
-    #print("input shape:", input.shape, "codes", codes.shape, "scale", scales.shape, "parts", output_partition_sizes)
 
     weights = ops.aqlm_dequant(codes, codebooks, output_partition_sizes)
 
@@ -61,8 +59,6 @@ def dequant_weight_scale(
     bias: Optional[torch.Tensor],
 ) -> torch.Tensor:
 
-    #print("input shape:", input.shape, "codes", codes.shape, "scale", scales.shape, "parts", output_partition_sizes)
-
     weights = ops.aqlm_dequant(codes, codebooks, output_partition_sizes)
 
     b_scales = scales.view(scales.shape[:-3] + (-1, )).expand(
@@ -80,8 +76,6 @@ def dequant_no_scale(
     output_partition_sizes: torch.IntTensor,
     bias: Optional[torch.Tensor],
 ) -> torch.Tensor:
-
-    #print("input shape:", input.shape, "codes", codes.shape, "scale", scales.shape, "parts", output_partition_sizes)
 
     weights = ops.aqlm_dequant(codes, codebooks, output_partition_sizes)
 
@@ -112,56 +106,42 @@ def dequant_test(k: int, parts: torch.tensor, nbooks: int, bits: int) -> None:
     for index in range(16):
         for i in range(8):
             for book in range(nbooks):
-                codebooks[book, index, 0, i] = count * (10 ** book)
+                codebooks[book, index, 0, i] = count * (10**book)
             count += 1
 
     for i in range(16):
         for book in range(nbooks):
             codes[0, i, book] = i
 
-
     weights = dequantize_weight(codes, codebooks, None)  # TODO Scales.
-    print("weights shape:", weights.shape)
-    print("weights are:", weights)
-    print("weights ", weights[0, 0:128].to(torch.int32))
-
     weights2 = ops.aqlm_dequant(codes, codebooks, parts)
+
+    print("weights shape:", weights.shape)
     print("weights2 shape:", weights2.shape)
+
+    print("weights are:", weights)
     print("weights2 are:", weights2)
+
+    print("weights are", weights[0, 0:128].to(torch.int32))
     print("weights2 are:", weights2[0, 0:128].to(torch.int32))
-
-
-    # ones.
-#    scales = torch.randn(size=(n, 1, 1, 1), dtype=torch.float16, device=device)
-#    flattened_scales = scales.view(scales.shape[:-3] + (-1,))
-#print("f scales", flattened_scales.shape)
-#broadcast_scales  = flattened_scales.expand(-1, weights2.shape[1])
-#print("b scales", broadcast_scales.shape)
-
-#    weights2 *= broadcast_scales
-#print("weights2 scaled are:", weights2)
 
 
 def main():
 
-    dequant_test(4096, torch.tensor((4096, )), 2, 8)
-
-    timing = run_timing(100, 16, 4096, torch.tensor((4096, 4096, 4096)),
-                        dequant_out_scale)
-    print("timing was ", timing * 1000, "us")
-    #return
+    nbooks = 1
+    bits = 16
 
     methods = [
         ops.aqlm_gemm,
-        torch_mult,
-        dequantize_partioned_gemm,
-        dequant_torch_mult,
-        dequant_no_scale,
         dequant_out_scale,
+        generic_dequantize_gemm,
+        optimized_dequantize_gemm,
         dequant_weight_scale,
+        torch_mult,
+        dequant_no_scale,
     ]
 
-    filename = "./benchmark.csv"
+    filename = f"./aqlm_benchmark_{nbooks}x{bits}.csv"
     print(f"writing benchmarks to file {filename}")
     with open(filename, "w") as f:
         sys.stdout = f
@@ -177,17 +157,19 @@ def main():
 
         # reasonable ranges for m.
         for m in [
-                1, 2, 4, 8, 16, 24, 32, 48, 64, 96, 128, 256, 512, 1024, 1536,
-                2048, 3072, 4096
+                1, 2, 4, 8, 10, 12, 14, 16, 24, 32, 48, 52, 56, 64, 96, 112,
+                128, 256, 512, 1024, 1536, 2048, 3072, 4096
         ]:
             print(f'{m}', file=sys.__stdout__)
             for ksp in ksandpartions:
-                run_grid(m, ksp[0], torch.tensor(ksp[1]), methods)
+                run_grid(m, ksp[0], torch.tensor(ksp[1]), nbooks, bits,
+                         methods)
 
         sys.stdout = sys.__stdout__
 
 
-def run_grid(m: int, k: int, parts: torch.tensor, methods):
+def run_grid(m: int, k: int, parts: torch.tensor, nbooks: int, bits: int,
+             methods):
 
     num_warmup_trials = 1
     num_trials = 1
@@ -202,6 +184,8 @@ def run_grid(m: int, k: int, parts: torch.tensor, methods):
                 m=m,
                 k=k,
                 parts=parts,
+                nbooks=nbooks,
+                bits=bits,
                 method=method,
             )
 
@@ -216,6 +200,8 @@ def run_grid(m: int, k: int, parts: torch.tensor, methods):
                 m=m,
                 k=k,
                 parts=parts,
+                nbooks=nbooks,
+                bits=bits,
                 method=method,
             )
 
@@ -230,7 +216,7 @@ def run_grid(m: int, k: int, parts: torch.tensor, methods):
 
 
 def run_timing(num_calls: int, m: int, k: int, parts: torch.tensor,
-               method) -> float:
+               nbooks: int, bits: int, method) -> float:
 
     n = parts.sum().item()
 
@@ -238,18 +224,22 @@ def run_timing(num_calls: int, m: int, k: int, parts: torch.tensor,
 
     input = torch.randn((1, m, k), dtype=torch.float16, device=device)
 
-    codes = torch.randint(-32768,
-                          32768,
-                          size=(n, k // 8, 1),
-                          dtype=torch.int16,
+    code_range = (1 << bits) // 2
+    ingroups = 8
+
+    codes = torch.randint(-code_range,
+                          code_range,
+                          size=(n, k // ingroups, nbooks),
+                          dtype=get_int_dtype(bits),
                           device=device)
 
-    codebooks = torch.randn(size=(parts.shape[0], 65536, 1, 8),
+    codebooks = torch.randn(size=(parts.shape[0] * nbooks, 1 << bits, 1, 8),
                             dtype=torch.float16,
                             device=device)
 
     scales = torch.randn(size=(n, 1, 1, 1), dtype=torch.float16, device=device)
 
+    # for comparison to just a pytorch mult.
     weights = torch.randn((n, k), dtype=torch.float16, device=device)
 
     start_event = torch.cuda.Event(enable_timing=True)

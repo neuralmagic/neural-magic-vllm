@@ -228,7 +228,7 @@ __global__ void Code1x16Dequant(
   }
 }
 
-// Dequantizes the code and codebook into for 2x8
+// Dequantizes the code and codebook for 2x8
 // We span horizontally and do an int4 at a time in an attempt to maximize throughput.
 __global__ void Code2x8Dequant(
         int4* __restrict__ weights,
