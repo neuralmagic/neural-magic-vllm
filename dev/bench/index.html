@@ -353,24 +353,25 @@
               return option_str 
             }
 
+            const ANY_STR = "any"
+
             function compareOption(option, to_compare) {
-              return option === "any" || option === processOption(to_compare);
+              return option === ANY_STR || option === processOption(to_compare);
             }
 
-            let metrics = new Set(["any"])
-            let dates = new Set(["any"])
-            let models = new Set(["any"])
-            let datasets = new Set(["any"])
-            let gpus = new Set(["any"])
-            let script_names = new Set(["any"])
-            let vllm_versions = new Set(["any"])
-            let py_versions = new Set(["any"])
-            let torch_versions = new Set(["any"])
+            let metrics = new Set([ANY_STR])
+            let dates = new Set([ANY_STR])
+            let models = new Set([ANY_STR])
+            let datasets = new Set([ANY_STR])
+            let gpus = new Set([ANY_STR])
+            let script_names = new Set([ANY_STR])
+            let vllm_versions = new Set([ANY_STR])
+            let py_versions = new Set([ANY_STR])
+            let torch_versions = new Set([ANY_STR])
             for (const {name, dataSet} of dataSets) {
-              for (const [key, value] of dataSet.entries()) {
-                const extra = JSON.parse(value[0].bench.extra)
+              for (const [key, values] of dataSet.entries()) {
+                const extra = JSON.parse(values[0].bench.extra)
                 metrics.add(processOption(JSON.parse(key).name))
-                dates.add(processOption(short_date(extra.date)))
                 models.add(processOption(extra.model))
                 datasets.add(processOption(extra.dataset))
                 gpus.add(processOption(extra.gpu_description))
@@ -378,7 +379,26 @@
                 vllm_versions.add(processOption(extra.benchmarking_context.vllm_version))
                 py_versions.add(processOption(short_python_version(extra.benchmarking_context.python_version)))
                 torch_versions.add(processOption(extra.benchmarking_context.torch_version))
+
+                // Each value is has a different date
+                for (const value of values) {
+                  dates.add(processOption(short_date(JSON.parse(value.bench.extra).date)))
+                }
               }
+            }
+
+            function filter_bench_by_date(benches, date_query) {
+              if (date_query == ANY_STR) {
+                return benches
+              }
+
+              let filtered_benches = new Array()
+              for (const item of benches) {
+                if (compareOption(date_query, short_date(JSON.parse(item.bench.extra).date))) {
+                  filtered_benches.push(item)
+                }
+              }
+              return filtered_benches
             }
 
             // == Query ====
@@ -418,7 +438,6 @@
                 for (const [key, values] of dataSet.entries()) {
                   const extra = JSON.parse(values[0].bench.extra)
                   let put_values = (
-                      compareOption(date, short_date(extra.date)) &&
                       compareOption(metric, JSON.parse(key).name) &&
                       compareOption(model, extra.model) &&
                       compareOption(dataset, extra.dataset) &&
@@ -431,7 +450,8 @@
                   if (!put_values) {
                     continue
                   }
-                  filtered_dataset_map.set(key, values)
+
+                  filtered_dataset_map.set(key, filter_bench_by_date(values, date))
                 }
               }
               renderDatasets(filtered_datasets)
