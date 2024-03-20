@@ -184,15 +184,15 @@
           return new Array({name: "Benchmarks", dataSet: allDataSetsMap});
         }
 
-        function short_python_version(long_py_version_str) {
+        function shortPythonVersion(long_py_version_str) {
           // long_py_version_str = "3.10.12 (main, Mar  7 2024, 18:39:53) [GCC 9.4.0]"
-          // to short_python_version  3.10.12
+          // to shortPythonVersion  3.10.12
           return long_py_version_str.slice(0, long_py_version_str.indexOf(" ")).trim()
         }
 
-        function short_date(long_date_str) {
+        function shortDate(long_date_str) {
           // long_date_str = 2024-03-19 03:26:26 UTC 
-          // to short_date 2024-03-19
+          // to shortDate 2024-03-19
           return long_date_str.slice(0, long_date_str.indexOf(" ")).trim()
         }
 
@@ -216,13 +216,13 @@
               ],
             };
 
-            function chart_title() {
+            function chartTitle() {
               const name_json = JSON.parse(name)
               const metric_name = name_json.name
               const description = name_json.description
               const gpu_description = name_json.gpu_description
               const vllm_version = name_json.vllm_version
-              const python_version = short_python_version(name_json.python_version)
+              const python_version = shortPythonVersion(name_json.python_version)
               const torch_version = name_json.torch_version
 
               const title = [metric_name, description, `GPU : ${gpu_description}`, `vllm : ${vllm_version}`, `py_version : ${python_version}`, `torch : ${torch_version}`]
@@ -232,7 +232,7 @@
             const options = {
               title : {
                 display: true,
-                text: chart_title(data)
+                text: chartTitle(data)
               },
               scales: {
                 xAxes: [
@@ -326,9 +326,9 @@
             }
           }
 
-          function prepare_query_tool(main, dataSets) {
+          function prepareQueryTool(main, dataSets) {
 
-            function add_drop_down(div, dropDownName, dropDownOptions) {
+            function addDropDown(div, dropDownName, dropDownOptions) {
               const name = document.createElement('h5');
               name.textContent = dropDownName;
               div.appendChild(name);
@@ -377,12 +377,12 @@
                 gpus.add(processOption(extra.gpu_description))
                 script_names.add(processOption(extra.script_name))
                 vllm_versions.add(processOption(extra.benchmarking_context.vllm_version))
-                py_versions.add(processOption(short_python_version(extra.benchmarking_context.python_version)))
+                py_versions.add(processOption(shortPythonVersion(extra.benchmarking_context.python_version)))
                 torch_versions.add(processOption(extra.benchmarking_context.torch_version))
 
                 // Each value is has a different date
                 for (const value of values) {
-                  dates.add(processOption(short_date(JSON.parse(value.bench.extra).date)))
+                  dates.add(processOption(shortDate(JSON.parse(value.bench.extra).date)))
                 }
               }
             }
@@ -394,7 +394,7 @@
 
               let filtered_benches = new Array()
               for (const item of benches) {
-                if (compareOption(date_query, short_date(JSON.parse(item.bench.extra).date))) {
+                if (compareOption(date_query, shortDate(JSON.parse(item.bench.extra).date))) {
                   filtered_benches.push(item)
                 }
               }
@@ -408,15 +408,15 @@
             queryElem.id = 'query-tool'
             main.appendChild(queryElem)
 
-            add_drop_down(queryElem, "dates", dates)
-            add_drop_down(queryElem, "metrics", metrics)
-            add_drop_down(queryElem, "models", models)
-            add_drop_down(queryElem, "datasets", datasets)
-            add_drop_down(queryElem, "GPU", gpus)
-            add_drop_down(queryElem, "script_name", script_names)
-            add_drop_down(queryElem, "vllm_version", vllm_versions)
-            add_drop_down(queryElem, "python_version", py_versions)
-            add_drop_down(queryElem, "torch_version", torch_versions)
+            addDropDown(queryElem, "dates", dates)
+            addDropDown(queryElem, "metrics", metrics)
+            addDropDown(queryElem, "models", models)
+            addDropDown(queryElem, "datasets", datasets)
+            addDropDown(queryElem, "GPU", gpus)
+            addDropDown(queryElem, "script_name", script_names)
+            addDropDown(queryElem, "vllm_version", vllm_versions)
+            addDropDown(queryElem, "python_version", py_versions)
+            addDropDown(queryElem, "torch_version", torch_versions)
 
             function filterCharts() {
               const date = queryElem.querySelector('[id=dates]').value
@@ -444,7 +444,7 @@
                       compareOption(gpu, extra.gpu_description) &&
                       compareOption(script_name, extra.script_name) &&
                       compareOption(vllm_version, extra.benchmarking_context.vllm_version) &&
-                      compareOption(python_version, short_python_version(extra.benchmarking_context.python_version)) &&
+                      compareOption(python_version, shortPythonVersion(extra.benchmarking_context.python_version)) &&
                       compareOption(torch_version, extra.benchmarking_context.torch_version))
 
                   if (!put_values) {
@@ -471,7 +471,7 @@
           }
 
           const main = document.getElementById('main');
-          prepare_query_tool(main, dataSets)
+          prepareQueryTool(main, dataSets)
           renderDatasets(dataSets)
         }
 
