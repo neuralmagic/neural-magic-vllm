@@ -109,9 +109,12 @@ def dequant_test(k: int, parts: torch.tensor, nbooks: int, bits: int) -> None:
                 codebooks[book, index, 0, i] = count * (10**book)
             count += 1
 
+    print("codes shape", codes.shape)
+
     for i in range(16):
         for book in range(nbooks):
             codes[0, i, book] = i
+            codes[0, -i, book] = i
 
     weights = dequantize_weight(codes, codebooks, None)  # TODO Scales.
     weights2 = ops.aqlm_dequant(codes, codebooks, parts)
@@ -122,14 +125,19 @@ def dequant_test(k: int, parts: torch.tensor, nbooks: int, bits: int) -> None:
     print("weights are:", weights)
     print("weights2 are:", weights2)
 
-    print("weights are", weights[0, 0:128].to(torch.int32))
-    print("weights2 are:", weights2[0, 0:128].to(torch.int32))
+    print("first 128 weights are", weights[0, 0:128].to(torch.int32))
+    print("first 128 weights2 are:", weights2[0, 0:128].to(torch.int32))
 
+    print("last 128 weights are", weights[0, -128:])
+    print("last 128 weights2 are:", weights2[0, -128:])
 
 def main():
 
-    nbooks = 1
-    bits = 16
+    nbooks = 2
+    bits = 8
+
+    dequant_test(4096, torch.tensor((4096, )), nbooks, bits)
+    return
 
     methods = [
         ops.aqlm_gemm,
