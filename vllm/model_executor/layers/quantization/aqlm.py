@@ -123,6 +123,7 @@ def generic_dequantize_gemm(
 
 
 # Optimized dequnantize/decompression kernels, supports 1x16 and 2x8
+# at 6 and 9 times faster than the generic version above, respectively.
 def optimized_dequantize_gemm(
     input: torch.Tensor,  #  [..., in_features]
     codes: torch.IntTensor,  #  [num_out_groups, num_in_groups, num_codebooks]
