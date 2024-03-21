@@ -1,4 +1,6 @@
 # This file has been modified by Neural Magic
+# UPSTREAM SYNC: Accept current - at minimum, sparsity argument must be maintained
+# but if upstream adds a new arg, keep it
 
 import argparse
 import dataclasses
@@ -33,13 +35,14 @@ class EngineArgs:
     gpu_memory_utilization: float = 0.90
     max_num_batched_tokens: Optional[int] = None
     max_num_seqs: int = 256
-    max_paddings: int = 256
     max_logprobs: int = 5  # OpenAI default value
     disable_log_stats: bool = False
     revision: Optional[str] = None
     code_revision: Optional[str] = None
     tokenizer_revision: Optional[str] = None
     quantization: Optional[str] = None
+    # UPSTREAM SYNC: Accept current - at minimum, sparsity argument must be maintained
+    # but if upstream adds a new arg, keep it
     sparsity: Optional[str] = None
     enforce_eager: bool = False
     max_context_len_to_capture: int = 8192
@@ -216,10 +219,6 @@ class EngineArgs:
                             type=int,
                             default=EngineArgs.max_num_seqs,
                             help='maximum number of sequences per iteration')
-        parser.add_argument('--max-paddings',
-                            type=int,
-                            default=EngineArgs.max_paddings,
-                            help='maximum number of paddings in a batch')
         parser.add_argument(
             '--max-logprobs',
             type=int,
@@ -241,6 +240,8 @@ class EngineArgs:
                             'None, we assume the model weights are not '
                             'quantized and use `dtype` to determine the data '
                             'type of the weights.')
+        # UPSTREAM SYNC: Accept current - at minimum, sparsity argument must be maintained
+        # but if upstream adds a new arg, keep it
         parser.add_argument(
             '--sparsity',
             '-s',
@@ -352,7 +353,8 @@ class EngineArgs:
             self.tokenizer_revision,
             self.max_model_len,
             self.quantization,
-            # UPSTREAM SYNC: Accept current.
+            # UPSTREAM SYNC: Accept current - at minimum, sparsity argument must be maintained
+            # but if upstream adds a new arg, keep it
             self.sparsity,
             self.enforce_eager,
             self.max_context_len_to_capture,
@@ -372,8 +374,7 @@ class EngineArgs:
             ), self.ray_workers_use_nsight)
         scheduler_config = SchedulerConfig(self.max_num_batched_tokens,
                                            self.max_num_seqs,
-                                           model_config.max_model_len,
-                                           self.max_paddings)
+                                           model_config.max_model_len)
         lora_config = LoRAConfig(
             max_lora_rank=self.max_lora_rank,
             max_loras=self.max_loras,
