@@ -224,15 +224,15 @@ class Scheduler:
 
                 # If the number of batched tokens exceeds the limit, stop.
                 num_batched_tokens += num_prompt_tokens
-                if (num_batched_tokens
-                        > self.scheduler_config.max_num_batched_tokens):
+                if (num_batched_tokens >
+                        self.scheduler_config.max_num_batched_tokens):
                     break
 
                 # The total number of sequences in the RUNNING state should not
                 # exceed the maximum number of sequences.
                 num_new_seqs = seq_group.get_max_num_running_seqs()
-                if (num_curr_seqs + num_new_seqs
-                        > self.scheduler_config.max_num_seqs):
+                if (num_curr_seqs + num_new_seqs >
+                        self.scheduler_config.max_num_seqs):
                     break
 
                 if lora_int_id > 0:
@@ -317,8 +317,8 @@ class Scheduler:
                 # The total number of sequences in the RUNNING state should not
                 # exceed the maximum number of sequences.
                 num_new_seqs = seq_group.get_max_num_running_seqs()
-                if (num_curr_seqs + num_new_seqs
-                        > self.scheduler_config.max_num_seqs):
+                if (num_curr_seqs + num_new_seqs >
+                        self.scheduler_config.max_num_seqs):
                     break
 
                 if lora_int_id > 0:

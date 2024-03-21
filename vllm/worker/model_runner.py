@@ -349,10 +349,10 @@ class ModelRunner:
         # For decoding requests, batch_size == input_tokens.
         batch_size = len(input_tokens)
         max_context_len = max(context_lens)
-        use_captured_graph = (not self.model_config.enforce_eager
-                              and batch_size <= _BATCH_SIZES_TO_CAPTURE[-1]
-                              and max_context_len
-                              <= self.max_context_len_to_capture)
+        use_captured_graph = (
+            not self.model_config.enforce_eager
+            and batch_size <= _BATCH_SIZES_TO_CAPTURE[-1]
+            and max_context_len <= self.max_context_len_to_capture)
         if use_captured_graph:
             graph_batch_size = _get_graph_batch_size(batch_size)
             assert graph_batch_size >= batch_size
@@ -500,8 +500,7 @@ class ModelRunner:
                                             pin_memory=not self.in_wsl)
 
         categorized_sample_indices = {
-            t:
-            _maybe_expand_dim(
+            t: _maybe_expand_dim(
                 _async_h2d(seq_ids,
                            dtype=torch.int,
                            target_device=self.device,
