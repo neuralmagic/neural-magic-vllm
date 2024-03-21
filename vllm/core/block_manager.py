@@ -204,15 +204,6 @@ class UncachedBlockAllocator(BlockAllocatorBase):
             del self.cached_blocks[old_hash]
             self.cached_blocks[block_hash] = block
 
-    def contains_block(self, block_hash: int) -> bool:
-        raise NotImplementedError(
-            "Invalid codepath for uncached block allocator.")
-
-    def update_hash(self, block_hash: int, block: PhysicalTokenBlock):
-        raise NotImplementedError(
-            "Invalid codepath for uncached block allocator.")
-
-
 class AllocStatus(enum.Enum):
     """Result for BlockSpaceManager.can_allocate
 

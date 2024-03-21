@@ -1,5 +1,6 @@
 # This file has been modified by Neural Magic
-# UPSTREAM SYNC: Accept current - at minimum, sparsity argument must be maintained
+# UPSTREAM SYNC: Accept current - 
+# at minimum, sparsity argument must be maintained
 # but if upstream adds a new arg, keep it
 
 import argparse
@@ -41,7 +42,8 @@ class EngineArgs:
     code_revision: Optional[str] = None
     tokenizer_revision: Optional[str] = None
     quantization: Optional[str] = None
-    # UPSTREAM SYNC: Accept current - at minimum, sparsity argument must be maintained
+    # UPSTREAM SYNC: Accept current - 
+    # at minimum, sparsity argument must be maintained
     # but if upstream adds a new arg, keep it
     sparsity: Optional[str] = None
     enforce_eager: bool = False
@@ -240,7 +242,8 @@ class EngineArgs:
                             'None, we assume the model weights are not '
                             'quantized and use `dtype` to determine the data '
                             'type of the weights.')
-        # UPSTREAM SYNC: Accept current - at minimum, sparsity argument must be maintained
+        # UPSTREAM SYNC: Accept current - 
+        # at minimum, sparsity argument must be maintained
         # but if upstream adds a new arg, keep it
         parser.add_argument(
             '--sparsity',
@@ -353,7 +356,8 @@ class EngineArgs:
             self.tokenizer_revision,
             self.max_model_len,
             self.quantization,
-            # UPSTREAM SYNC: Accept current - at minimum, sparsity argument must be maintained
+            # UPSTREAM SYNC: Accept current - 
+            # at minimum, sparsity argument must be maintained
             # but if upstream adds a new arg, keep it
             self.sparsity,
             self.enforce_eager,
