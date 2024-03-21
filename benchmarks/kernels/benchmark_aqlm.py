@@ -131,6 +131,7 @@ def dequant_test(k: int, parts: torch.tensor, nbooks: int, bits: int) -> None:
     print("last 128 weights are", weights[0, -128:])
     print("last 128 weights2 are:", weights2[0, -128:])
 
+
 def main():
 
     nbooks = 2
