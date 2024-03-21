@@ -332,6 +332,68 @@ def vllm_runner():
     return VllmRunner
 
 
+class VllmRunnerNm(VllmRunner):
+
+    def __init__(
+        self,
+        model_name: str,
+        sparsity: Optional[str] = None,
+        tokenizer_name: Optional[str] = None,
+        dtype: str = "half",
+        disable_log_stats: bool = True,
+        tensor_parallel_size: int = 1,
+        max_model_len: Optional[int] = None,
+    ) -> None:
+        self.model = LLM(
+            model=model_name,
+            sparsity=sparsity,
+            tokenizer=tokenizer_name,
+            trust_remote_code=True,
+            dtype=dtype,
+            swap_space=0,
+            disable_log_stats=disable_log_stats,
+            tensor_parallel_size=tensor_parallel_size,
+            max_model_len=max_model_len,
+        )
+
+    def generate_w_logprobs(
+        self,
+        prompts: List[str],
+        sampling_params: SamplingParams,
+    ) -> List[Tuple[List[int], str]]:
+        assert sampling_params.logprobs is not None
+
+        req_outputs = self.model.generate(prompts,
+                                          sampling_params=sampling_params)
+        outputs = []
+        for req_output in req_outputs:
+            for sample in req_output.outputs:
+                output_str = sample.text
+                output_ids = sample.token_ids
+                output_logprobs = sample.logprobs
+            outputs.append((output_ids, output_str, output_logprobs))
+        return outputs
+
+    def generate_greedy_logprobs(
+        self,
+        prompts: List[str],
+        max_tokens: int,
+        num_logprobs: int,
+    ) -> List[Tuple[List[int], str]]:
+        greedy_logprobs_params = SamplingParams(temperature=0.0,
+                                                max_tokens=max_tokens,
+                                                logprobs=num_logprobs)
+        outputs = self.generate_w_logprobs(prompts, greedy_logprobs_params)
+
+        return [(output_ids, output_str, output_logprobs)
+                for output_ids, output_str, output_logprobs in outputs]
+
+
+@pytest.fixture
+def vllm_runner_nm():
+    return VllmRunnerNm
+
+
 def get_tokenizer_pool_config(tokenizer_group_type):
     if tokenizer_group_type is None:
         return None
