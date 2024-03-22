@@ -360,9 +360,13 @@ class Scheduler:
         seq_group_metadata_list: List[SequenceGroupMetadata] = []
         for seq_group in scheduler_outputs.scheduled_seq_groups:
             seq_group.maybe_set_first_scheduled_time(now)
+            request_id = seq_group.request_id
+            cross_seqs = seq_group.cross_seqs
 
             seq_data: Dict[int, SequenceData] = {}
             block_tables: Dict[int, List[int]] = {}
+            cross_block_tables: Dict[str, List[int]] = self.block_manager.cross_block_tables[request_id]
+            cross_seq_data: Dict[str, SequenceData] = {x_seq_id:cross_seqs[x_seq_id].data for x_seq_id in cross_seqs}
 
             for seq in seq_group.get_seqs(status=SequenceStatus.RUNNING):
                 seq_id = seq.seq_id
@@ -370,12 +374,16 @@ class Scheduler:
                 block_tables[seq_id] = self.block_manager.get_block_table(seq)
                 self.block_manager.access_all_blocks_in_seq(seq, now)
 
+            self.block_manager.access_all_cross_blocks_in_seq_group(seq_group, now)
+
             seq_group_metadata = SequenceGroupMetadata(
                 request_id=seq_group.request_id,
                 is_prompt=scheduler_outputs.prompt_run,
                 seq_data=seq_data,
+                cross_seq_data=cross_seq_data,
                 sampling_params=seq_group.sampling_params,
                 block_tables=block_tables,
+                cross_block_tables=cross_block_tables,
                 lora_request=seq_group.lora_request,
                 computed_block_nums=self.block_manager.
                 get_common_computed_block_ids(seq_group),

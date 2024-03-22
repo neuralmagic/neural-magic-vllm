@@ -591,6 +591,21 @@ class BlockSpaceManager:
     def get_num_free_cpu_blocks(self) -> int:
         return self.cpu_allocator.get_num_free_blocks()
 
+    def access_all_cross_blocks_in_seq_group(
+            self,
+            seq_group: SequenceGroup,
+            access_time: float,
+    ):
+        if self.enable_caching:
+            # Update the last accessed time of all the blocks accessed
+            # in this step.
+            cross_block_tables = self.cross_block_tables[seq_group.request_id]
+            cross_seqs = seq_group.cross_seqs
+            for x_seq_id in cross_seqs:
+                block_table = cross_block_tables[x_seq_id]
+                for block in block_table:
+                    block.last_accessed = access_time
+
     def access_all_blocks_in_seq(
         self,
         seq: Sequence,
