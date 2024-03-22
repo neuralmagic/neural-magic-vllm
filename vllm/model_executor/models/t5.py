@@ -276,7 +276,8 @@ class T5Attention(nn.Module):
 
         batch_size = hidden_states.shape[0]
         seq_len = hidden_states.shape[1]
-        prompt_len = input_metadata.prompt_lens.max().item()
+        #prompt_len = input_metadata.prompt_lens.max().item()
+        prompt_len = max(input_metadata.prompt_lens)
         context_len = input_metadata.context_lens.max().item()
         context_len = max(context_len, 1)
 
@@ -543,7 +544,8 @@ class T5ForConditionalGeneration(nn.Module):
         decoder_config.is_decoder = True
         self.decoder = T5Stack(decoder_config, self.shared, linear_method)
 
-        self.sampler = Sampler(config.vocab_size)
+        #self.sampler = Sampler(config.vocab_size)
+        self.sampler = Sampler()
 
     def forward(
         self,
