@@ -252,13 +252,31 @@ class BlockSpaceManager:
                 Device.CPU, block_size, num_cpu_blocks)
         # Mapping: seq_id -> BlockTable.
         self.block_tables: Dict[int, BlockTable] = {}
-        self.cross_block_tables: Dict[str, BlockTable] = {}
+
+        # Mapping: request_id -> {cross_seq_id_str -> BlockTable}
+        self.cross_block_tables: Dict[str, Dict[str, BlockTable]] = {}
+
+    def get_seq_num_required_blocks(self, seq: Sequence) -> int:
+        return len(seq.logical_token_blocks)   
+
+    def get_cross_seq_num_required_blocks(self, seq_group: SequenceGroup) -> int:
+        cross_seqs = seq_group.cross_seqs
+        if len(cross_seqs) == 0:
+            return 0
+
+        num_blocks=0
+        for x_seq_id in cross_seqs:
+            num_blocks += self.get_seq_num_required_blocks(cross_seqs[x_seq_id])
+
+        return num_blocks
 
     def can_allocate(self, seq_group: SequenceGroup) -> AllocStatus:
         # FIXME(woosuk): Here we assume that all sequences in the group share
         # the same prompt. This may not be true for preempted sequences.
-        seq = seq_group.get_seqs(status=SequenceStatus.WAITING)[0]
-        num_required_blocks = len(seq.logical_token_blocks)
+        
+        seq_group_num_required_blocks = self.get_seq_num_required_blocks(seq_group.get_seqs(status=SequenceStatus.WAITING)[0])
+        cross_seq_num_required_blocks = self.get_cross_seq_num_required_blocks(seq_group)
+        num_required_blocks = seq_group_num_required_blocks + cross_seq_num_required_blocks
 
         if self.block_sliding_window is not None:
             num_required_blocks = min(num_required_blocks,
@@ -274,7 +292,7 @@ class BlockSpaceManager:
         else:
             return AllocStatus.LATER
 
-    def allocate(self, seq_group: SequenceGroup) -> None:
+    def allocate_seq_group(self, seq_group: SequenceGroup) -> None:
         # NOTE: Here we assume that all sequences in the group have the same
         # prompt.
         seq = seq_group.get_seqs(status=SequenceStatus.WAITING)[0]
@@ -302,6 +320,43 @@ class BlockSpaceManager:
         # Assign the block table for each sequence.
         for seq in seq_group.get_seqs(status=SequenceStatus.WAITING):
             self.block_tables[seq.seq_id] = block_table.copy()
+
+    def allocate_cross_seq(self, seq_group: SequenceGroup) -> None:
+        request_id=seq_group.request_id
+        self.cross_block_tables[request_id]={}
+
+        cross_seqs = seq_group.cross_seqs
+        if len(cross_seqs) == 0:
+            return
+
+        for x_seq_id in cross_seqs:
+            seq = cross_seqs[x_seq_id]
+
+            # Allocate new physical token blocks that will store the prompt tokens.
+            num_prompt_blocks = len(seq.logical_token_blocks)
+
+            block_table: BlockTable = []
+            for logical_idx in range(num_prompt_blocks):
+                if (self.block_sliding_window is not None
+                        and logical_idx >= self.block_sliding_window):
+                    block = block_table[logical_idx % self.block_sliding_window]
+                    # Set the reference counts of the token blocks.
+                    block.ref_count = seq_group.num_seqs()
+                elif self.enable_caching:
+                    block = self.gpu_allocator.allocate(
+                        seq.hash_of_block(logical_idx),
+                        seq.num_hashed_tokens_of_block(logical_idx))
+                else:
+                    block = self.gpu_allocator.allocate()
+                    # Set the reference counts of the token blocks.
+                    block.ref_count = seq_group.num_seqs()
+                block_table.append(block)
+
+            self.cross_block_tables[request_id][x_seq_id]=block_table
+
+    def allocate(self, seq_group: SequenceGroup) -> None:
+        self.allocate_seq_group(seq_group)
+        self.allocate_cross_seq(seq_group)
 
     def can_append_slot(self, seq_group: SequenceGroup) -> bool:
         # Simple heuristic: If there is at least one free block

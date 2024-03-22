@@ -327,9 +327,11 @@ class SequenceGroup:
         sampling_params: SamplingParams,
         arrival_time: float,
         lora_request: Optional[LoRARequest] = None,
+        cross_seqs: Dict[str, Sequence] = None,
     ) -> None:
         self.request_id = request_id
         self.seqs_dict = {seq.seq_id: seq for seq in seqs}
+        self.cross_seqs = {} if cross_seqs is None else cross_seqs
         self.sampling_params = sampling_params
         self.metrics = RequestMetrics(arrival_time=arrival_time,
                                       last_token_time=arrival_time,
