@@ -128,9 +128,13 @@ class LLMEngine:
         # Create the engine configs.
         engine_configs = engine_args.create_engine_configs()
         parallel_config = engine_configs[2]
+        device_config = engine_configs[4]
 
         # Initialize the cluster and specify the executor class.
-        if parallel_config.worker_use_ray:
+        if device_config.device_type == "neuron":
+            from vllm.executor.neuron_executor import NeuronExecutor
+            executor_class = NeuronExecutor
+        elif parallel_config.worker_use_ray:
             initialize_ray_cluster(parallel_config)
             from vllm.executor.ray_gpu_executor import RayGPUExecutor
             executor_class = RayGPUExecutor
@@ -171,6 +175,14 @@ class LLMEngine:
 
         self.tokenizer: BaseTokenizerGroup = get_tokenizer_group(
             self.parallel_config.tokenizer_pool_config, **init_kwargs)
+
+        if len(self.get_tokenizer()) != self.model_config.get_vocab_size():
+            logger.warning(
+                f"The tokenizer's vocabulary size {len(self.get_tokenizer())}"
+                f" does not match the model's vocabulary size "
+                f"{self.model_config.get_vocab_size()}. This might "
+                f"cause an error in decoding. Please change config.json "
+                "to match the tokenizer's vocabulary size.")
 
     def _verify_args(self) -> None:
         self.model_config.verify_with_parallel_config(self.parallel_config)
@@ -564,7 +576,6 @@ class LLMEngine:
         # Log stats.
         if self.log_stats:
             self.stat_logger.log(self._get_stats(scheduler_outputs))
-
         return request_outputs
 
     def step(self) -> List[RequestOutput]:
