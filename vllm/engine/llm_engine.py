@@ -255,6 +255,9 @@ class LLMEngine:
             >>> # continue the request processing
             >>> ...
         """
+        decoder_prompt = None
+        decoder_prompt_token_ids = None
+
         if lora_request is not None and not self.lora_config:
             raise ValueError(f"Got lora_request {lora_request} but LoRA is "
                              "not enabled!")
@@ -273,6 +276,7 @@ class LLMEngine:
             prompt_token_ids=prompt_token_ids,
             lora_request=lora_request)
 
+
         # Create the sequences.
         block_size = self.cache_config.block_size
         seq_id = next(self.seq_counter)
@@ -280,6 +284,24 @@ class LLMEngine:
             lora_request).eos_token_id
         seq = Sequence(seq_id, prompt, prompt_token_ids, block_size,
                        self.is_encoder_decoder, eos_token_id, lora_request)
+        cross_seqs: Dict[str, Sequence] = {}
+
+        if self.is_encoder_decoder:
+            if decoder_prompt is None:
+                decoder_prompt = ""
+                decoder_prompt_token_ids = [0,]
+            else:
+                decoder_prompt_token_ids = self.encode_request(
+                    request_id=request_id,
+                    prompt=decoder_prompt,
+                    prompt_token_ids=decoder_prompt_token_ids,
+                    lora_request=lora_request)
+                
+            cross_seq_id = next(self.seq_counter)
+            cross_seqs["enc0"] = Sequence(cross_seq_id, decoder_prompt, decoder_prompt_token_ids, block_size,
+                                 self.is_encoder_decoder, eos_token_id, lora_request)
+        else:
+            assert decoder_prompt is None, f"Decoder-only model requires decoder_prompt is None, but decoder_prompt={decoder_prompt}"
 
         # Defensive copy of SamplingParams, which are used by the sampler,
         # this doesn't deep-copy LogitsProcessor objects
@@ -287,7 +309,7 @@ class LLMEngine:
 
         # Create the sequence group.
         seq_group = SequenceGroup(request_id, [seq], sampling_params,
-                                  arrival_time, lora_request)
+                                  arrival_time, lora_request, cross_seqs=None if len(cross_seqs)==0 else cross_seqs)
 
         # Add the sequence group to the scheduler.
         self.scheduler.add_seq_group(seq_group)
