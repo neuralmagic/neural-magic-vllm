@@ -294,6 +294,7 @@ class T5Attention(nn.Module):
                     prompt_len, (prompt_len + block_size - 1) // block_size *
                     block_size).repeat(batch_size, 1, 1, 1)
                 for i in range(batch_size):
+                    print(input_metadata.prompt_lens)
                     input_metadata.attn_bias[
                         i, :, :,
                         input_metadata.prompt_lens[i]:, ] = torch.finfo(

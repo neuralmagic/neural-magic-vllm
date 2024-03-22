@@ -282,8 +282,7 @@ class LLMEngine:
         seq_id = next(self.seq_counter)
         eos_token_id = self.tokenizer.get_lora_tokenizer(
             lora_request).eos_token_id
-        seq = Sequence(seq_id, prompt, prompt_token_ids, block_size,
-                       self.is_encoder_decoder, eos_token_id, lora_request)
+        seq = None
         cross_seqs: Dict[str, Sequence] = {}
 
         if self.is_encoder_decoder:
@@ -296,12 +295,22 @@ class LLMEngine:
                     prompt=decoder_prompt,
                     prompt_token_ids=decoder_prompt_token_ids,
                     lora_request=lora_request)
-                
+
+            # Encoder/decoder
+            # Decoder input is decoder_prompt
+            # Encoder input (cross sequence) is prompt
+            seq = Sequence(seq_id, decoder_prompt, decoder_prompt_token_ids, block_size,
+                            eos_token_id, lora_request)
             cross_seq_id = next(self.seq_counter)
-            cross_seqs["enc0"] = Sequence(cross_seq_id, decoder_prompt, decoder_prompt_token_ids, block_size,
-                                 self.is_encoder_decoder, eos_token_id, lora_request)
+            cross_seqs["enc0"] = Sequence(cross_seq_id, prompt, prompt_token_ids, block_size,
+                                          eos_token_id, lora_request)
         else:
             assert decoder_prompt is None, f"Decoder-only model requires decoder_prompt is None, but decoder_prompt={decoder_prompt}"
+
+            # Decoder only; input prompt is necessarily decoder input
+            # No decoder prompt
+            seq = Sequence(seq_id, prompt, prompt_token_ids, block_size,
+                           eos_token_id, lora_request)
 
         # Defensive copy of SamplingParams, which are used by the sampler,
         # this doesn't deep-copy LogitsProcessor objects
