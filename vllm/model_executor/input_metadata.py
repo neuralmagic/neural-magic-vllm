@@ -76,6 +76,9 @@ class InputMetadata:
     # Cuda-graph is currently enabled for decoding only.
     use_cuda_graph: bool
     kv_cache_dtype: str
+    # Optional metadata which allows InputMetadata to support
+    # encoder self-attention and decoder cross-attention
+    cross_input_metadata: Optional[Dict[str, 'InputMetadata']]
 
     def __post_init__(self):
         # Set during the execution of the first attention op.

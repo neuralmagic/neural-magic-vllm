@@ -134,7 +134,25 @@ class ModelRunner:
         block_size = self.block_size
         return (self.max_context_len_to_capture + block_size - 1) // block_size
 
-    def _prepare_prompt(
+    def _prepare_prompt_encoder_self_attn(
+        self,
+        seq_group_metadata_list: List[SequenceGroupMetadata],
+        dec_self_attn_inp_tensors
+    ) -> Tuple[torch.Tensor, torch.Tensor, InputMetadata, List[int], List[int],
+               List[int], List[int], Set[LoRARequest]]:
+
+        pass
+
+    def _prepare_prompt_decoder_cross_attn(
+        self,
+        seq_group_metadata_list: List[SequenceGroupMetadata],
+        dec_self_attn_inp_tensors
+    ) -> Tuple[torch.Tensor, torch.Tensor, InputMetadata, List[int], List[int],
+               List[int], List[int], Set[LoRARequest]]:
+
+        pass
+
+    def _prepare_prompt_decoder_self_attn(
         self,
         seq_group_metadata_list: List[SequenceGroupMetadata],
     ) -> Tuple[torch.Tensor, torch.Tensor, InputMetadata, List[int], List[int],
@@ -300,6 +318,16 @@ class ModelRunner:
         return (input_tokens, input_positions, input_metadata, prompt_lens,
                 subquery_lens, lora_index_mapping, lora_prompt_mapping,
                 lora_requests)
+
+    def _prepare_prompt(
+        self,
+        seq_group_metadata_list: List[SequenceGroupMetadata],
+    ) -> Tuple[torch.Tensor, torch.Tensor, InputMetadata, List[int], List[int],
+               List[int], List[int], Set[LoRARequest]]:
+        
+        dec_self_attn_inp_tensors = self._prepare_prompt_decoder_self_attn(seq_group_metadata_list)
+        dec_cross_attn_inp_tensors = self._prepare_prompt_decoder_cross_attn(seq_group_metadata_list,dec_self_attn_inp_tensors)
+        
 
     def _prepare_decode(
         self,
