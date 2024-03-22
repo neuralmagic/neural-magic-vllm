@@ -150,7 +150,7 @@ class AsyncRequestVLLM:
 
         if decoded_json is None:
             raise ValueError(f"Cannot decode json body \n {body}")
-        return decoded_json
+        return decoded_json["text"][0][prompt_len:]
 
     @staticmethod
     async def async_request_vllm(
@@ -167,7 +167,8 @@ class AsyncRequestVLLM:
                 "best_of": request_func_input.best_of,
                 "use_beam_search": request_func_input.use_beam_search,
                 # TODO (varun) : Make temperature configurable
-                #"temperature": 0.0 if request_func_input.use_beam_search else 1.0,
+                #"temperature": 0.0 if request_func_input.use_beam_search \
+                #                   else 1.0,
                 "temperature": 0.0,
                 "top_p": 1.0,
                 "max_tokens": request_func_input.output_len,
