@@ -132,25 +132,21 @@ class AsyncRequestVLLM:
         assert (AsyncRequestVLLM.stream_server_outputs())
         body: str = trim_suffix(server_response.decode('utf-8'), "\0")
 
-        # Sometimes body contains more than one JSON.
-        # These JSONs essentially contain the generated text and the
-        # last of the JSONs has the entire generated text. Here,
-        # we attempt to identify the last JSON by identifying the '{' that
-        # matches the last '}'
+        # Most times we only have one JSON in the body.
         decoded_json = try_json_decode(body)
         if decoded_json is not None:
             return decoded_json["text"][0][prompt_len:]
 
-        candidates = [m.start() for m in re.finditer('}{', body)]
-        for candidate in reversed(candidates):
-            json_start = candidate + 1
+        # Some times body contains more than one JSON.
+        # These JSONs essentially contain the generated text and the
+        # last of the JSONs has the entire generated text.
+        json_starts = [m.start() for m in re.finditer('{\"text\":', body)]
+        for json_start in reversed(json_starts):
             decoded_json = try_json_decode(body[json_start:])
             if decoded_json is not None:
-                break
+                return decoded_json["text"][0][prompt_len:]
 
-        if decoded_json is None:
-            raise ValueError(f"Cannot decode json body \n {body}")
-        return decoded_json["text"][0][prompt_len:]
+        raise ValueError(f"Cannot decode json body \n {body}")
 
     @staticmethod
     async def async_request_vllm(
