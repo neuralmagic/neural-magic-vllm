@@ -12,8 +12,7 @@ from vllm import (LLM, SamplingParams, __version__ as __vllm_version__)
 from vllm.outputs import RequestOutput
 from vllm.transformers_utils.tokenizer import get_tokenizer
 from .datasets_registry import SHAREGPT_PATH, SHAREGPT_DOWNLOAD_STR
-from .backend_request_func import (RequestFuncInput, RequestFuncOutput,
-                                   async_request_vllm)
+from .backend_request_func import (RequestFuncInput, RequestFuncOutput, AsyncRequestVLLM)
 from ...tools.call_cmd import call_cmd
 
 
@@ -169,7 +168,7 @@ def warmup_server(server_host: int,
             )
             tasks.append(
                 asyncio.create_task(
-                    async_request_vllm(request_func_input=request_func_input)))
+                    AsyncRequestVLLM.async_request_vllm(request_func_input=request_func_input)))
         _ = await asyncio.gather(*tasks)
 
     tokenizer = get_tokenizer(model)
