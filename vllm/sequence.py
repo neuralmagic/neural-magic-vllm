@@ -465,7 +465,8 @@ class SequenceGroupMetadata:
         seq_data: Dict[int, SequenceData],
         sampling_params: SamplingParams,
         block_tables: Dict[int, List[int]],
-        cross_block_tables: Dict[str, List[int]],
+        cross_seq_data: Dict[str, SequenceData] = None,
+        cross_block_tables: Dict[str, List[int]] = None,
         lora_request: Optional[LoRARequest] = None,
         computed_block_nums: Optional[List[int]] = None,
         state: Optional[SequenceGroupState] = None,
@@ -475,7 +476,8 @@ class SequenceGroupMetadata:
         self.seq_data = seq_data
         self.sampling_params = sampling_params
         self.block_tables = block_tables
-        self.cross_block_tables = cross_block_tables
+        self.cross_seq_data = {} if cross_seq_data is None else cross_seq_data
+        self.cross_block_tables = {} if cross_block_tables is None else cross_block_tables
         self.lora_request = lora_request
         self.computed_block_nums = computed_block_nums
         self.state = SequenceGroupState() if state is None else state
