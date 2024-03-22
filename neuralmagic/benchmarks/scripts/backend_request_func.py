@@ -105,6 +105,21 @@ async def async_request_vllm(
     api_url = request_func_input.api_url
     assert api_url.endswith("generate")
 
+    def decode_generated_text(response_data: bytes, prompt_len: int) -> str:
+        # When streaming, '\0' is appended to the end.
+        body = trim_suffix(response_data.decode('utf-8'), "\0")
+        # Sometimes body contains more than one JSON in it.
+        # These JSONs essentially contain the generated text and the
+        # last of the JSONs has the entire generated text. Here,
+        # we attempt to identify the last JSON by identifying the '{' that
+        # matches the last '}'
+        # When it has multiple JSONs, response_data puts the JSONs next to
+        # eachother. a simple solution is to search for the last
+        # occurence of the substring '}{'
+        # Note that rfind return -1 if it can't find a match.
+        json_start = body.rfind('}{') + 1
+        return json.loads(body[json_start:])["text"][0][prompt_len:]
+
     async with aiohttp.ClientSession(timeout=AIOHTTP_TIMEOUT) as session:
         payload = {
             "prompt": request_func_input.prompt,
@@ -133,13 +148,10 @@ async def async_request_vllm(
                             ttft = time.perf_counter() - st
                             output.ttft = ttft
                         data = part_data
+
                     output.latency = time.perf_counter() - st
-
-                    # When streaming, '\0' is appended to the end.
-                    body = trim_suffix(data.decode('utf-8'), "\0")
-                    output.generated_text = json.loads(
-                        body)["text"][0][len(request_func_input.prompt):]
-
+                    output.generated_text = decode_generated_text(
+                        data, len(request_func_input.prompt))
                     output.success = True
 
                 else:
