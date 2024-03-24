@@ -295,7 +295,7 @@ def convert_pyslice_to_tensor(x: Any) -> torch.Tensor:
     return x
 
 
-# UPSTEAM SYNC: Parameter needed for LazyCompressedParameter
+# UPSTREAM SYNC: Parameter needed for LazyCompressedParameter
 def default_weight_loader(param: torch.nn.Parameter,
                           loaded_weight: torch.Tensor) -> None:
     """Default weight loader."""
