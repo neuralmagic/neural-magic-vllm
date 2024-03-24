@@ -81,6 +81,7 @@ class LLMEngine:
             f"disable_custom_all_reduce="
             f"{parallel_config.disable_custom_all_reduce}, "
             f"quantization={model_config.quantization}, "
+            # UPSTREAM SYNC: keep sparsity
             f"sparsity={model_config.sparsity}, "
             f"enforce_eager={model_config.enforce_eager}, "
             f"kv_cache_dtype={cache_config.cache_dtype}, "
