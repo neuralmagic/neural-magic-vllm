@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 import os
 import importlib
 import inspect
-import ssl
 
 from prometheus_client import make_asgi_app
 import fastapi
