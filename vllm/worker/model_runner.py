@@ -1,5 +1,4 @@
 import contextlib
-import dataclasses
 import time
 from typing import Dict, List, Optional, Tuple, Set
 
@@ -85,10 +84,6 @@ class ModelRunner:
         self.graph_block_tables = None  # Set after initial profiling.
         self.pin_memory = is_pin_memory_available()
         self.kv_cache_dtype = kv_cache_dtype
-
-        # Set enforce_eager to True for Neuron backend, to avoid capturing graph
-        if self.device_config.is_neuron:
-            self.model_config.enforce_eager = True
 
     def load_model(self) -> None:
         with CudaMemoryProfiler() as m:
