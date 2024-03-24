@@ -1,4 +1,3 @@
-# UPSTREAM SYNC: this file may need attention
 import random
 import pytest
 import time

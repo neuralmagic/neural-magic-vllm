@@ -1,4 +1,3 @@
-# UPSTREAM SYNC: this file may need attention
 import random
 from typing import List, Optional, Tuple
 

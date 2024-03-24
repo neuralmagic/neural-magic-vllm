@@ -1,5 +1,3 @@
-# This file has been modified by Neural Magic
-
 import os
 from typing import List, Optional, Tuple
 
@@ -159,6 +157,7 @@ def hf_runner():
     return HfRunner
 
 
+# UPSTREAM SYNC: needed for nm-automation
 class HfRunnerNM(HfRunner):
 
     def generate_greedy_logprobs_nm(

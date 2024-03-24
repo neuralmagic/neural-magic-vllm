@@ -2,7 +2,6 @@
 # UPSTREAM SYNC: noqa is required for passing ruff.
 # This file has been modified by Neural Magic
 
-import contextlib
 import io
 import os
 import re

@@ -1,4 +1,3 @@
-# UPSTREAM SYNC: this file may need attention
 import pytest
 import random
 from copy import deepcopy
