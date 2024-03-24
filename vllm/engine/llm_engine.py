@@ -15,7 +15,7 @@ from vllm.engine.ray_utils import initialize_ray_cluster
 from vllm.logger import init_logger
 from vllm.outputs import RequestOutput
 from vllm.sampling_params import SamplingParams
-from vllm.sequence import (Logprob, SamplerOutput, Sequence, SequenceGroup,
+from vllm.sequence import (SamplerOutput, Sequence, SequenceGroup,
                            SequenceGroupOutput, SequenceOutput, SequenceStatus)
 from vllm.transformers_utils.tokenizer_group import (BaseTokenizerGroup,
                                                      get_tokenizer_group)

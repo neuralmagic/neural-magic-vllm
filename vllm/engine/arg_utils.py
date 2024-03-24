@@ -39,6 +39,7 @@ class EngineArgs:
     code_revision: Optional[str] = None
     tokenizer_revision: Optional[str] = None
     quantization: Optional[str] = None
+    # UPSTREAM SYNC: keep sparsity argument
     sparsity: Optional[str] = None
     enforce_eager: bool = False
     max_context_len_to_capture: int = 8192
@@ -237,6 +238,7 @@ class EngineArgs:
                             'None, we assume the model weights are not '
                             'quantized and use `dtype` to determine the data '
                             'type of the weights.')
+        # UPSTREAM SYNC: keep sparsity argument
         parser.add_argument(
             '--sparsity',
             '-s',
@@ -345,7 +347,7 @@ class EngineArgs:
             self.trust_remote_code, self.download_dir, self.load_format,
             self.dtype, self.seed, self.revision, self.code_revision,
             self.tokenizer_revision, self.max_model_len, self.quantization,
-            # UPSTREAM SYNC: make sure sparsity argument is included.
+            # UPSTREAM SYNC: keep sparsity argument
             self.sparsity, self.enforce_eager, self.max_context_len_to_capture,
             self.max_logprobs)
         cache_config = CacheConfig(self.block_size,
