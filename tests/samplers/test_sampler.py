@@ -1,3 +1,4 @@
+# UPSTREAM SYNC: devices need to be passed around to pass multi-gpu automation tests
 import random
 from typing import Tuple, List
 from unittest.mock import patch

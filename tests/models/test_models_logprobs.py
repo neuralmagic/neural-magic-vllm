@@ -18,7 +18,7 @@ MODELS = [
     "EleutherAI/gpt-j-6b",
     "EleutherAI/pythia-1b",
     "bigscience/bloom-1b1",
-    # "mosaicml/mpt-7b",                # vLLM upsbug in mpt right now  # noqa
+    # "mosaicml/mpt-7b",                # vLLM upstream bug in mpt right now  # noqa
     "microsoft/phi-2",
     "stabilityai/stablelm-3b-4e1t",
     "allenai/OLMo-1B",
