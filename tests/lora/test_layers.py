@@ -1,3 +1,4 @@
+# UPSTREAM SYNC: this file may need attention
 import pytest
 import random
 from copy import deepcopy
@@ -172,6 +173,7 @@ def create_random_inputs(
 @pytest.mark.parametrize("num_loras", [1, 2, 4, 8])
 @pytest.mark.parametrize("device", CUDA_DEVICES)
 def test_embeddings(dist_init, num_loras, device) -> None:
+    # UPSTREAM SYNC: needed to pass multi-gpu tests
     if device != "cuda:0":
         pytest.skip("Skipping multi-gpu tests for now [ bad test setup ]")
 
@@ -262,11 +264,10 @@ def test_embeddings(dist_init, num_loras, device) -> None:
 
 
 @torch.inference_mode()
-# @pytest.mark.skip(
-#     reason="Fails when loras are in any slot other than the first.")
 @pytest.mark.parametrize("num_loras", [1, 2, 4, 8])
 @pytest.mark.parametrize("device", CUDA_DEVICES)
 def test_embeddings_with_new_embeddings(dist_init, num_loras, device) -> None:
+    # UPSTREAM SYNC: needed to pass multi-gpu tests
     if device != "cuda:0":
         pytest.skip("Skipping multi-gpu tests for now [ bad test setup ]")
 
@@ -522,6 +523,7 @@ def test_lm_head_logits_processor(dist_init, num_loras, device) -> None:
 @pytest.mark.parametrize("orientation", ["row", "column"])
 @pytest.mark.parametrize("device", CUDA_DEVICES)
 def test_linear_parallel(dist_init, num_loras, orientation, device) -> None:
+    # UPSTREAM SYNC: needed to pass multi-gpu tests
     if device != "cuda:0":
         pytest.skip("Skipping multi-gpu tests for now [ bad test setup ]")
 
@@ -623,6 +625,7 @@ def test_linear_parallel(dist_init, num_loras, orientation, device) -> None:
 @pytest.mark.parametrize("repeats", [2, 3])
 @pytest.mark.parametrize("device", CUDA_DEVICES)
 def test_column_parallel_packed(dist_init, num_loras, repeats, device) -> None:
+    # UPSTREAM SYNC: needed to pass multi-gpu tests
     if device != "cuda:0":
         pytest.skip("Skipping multi-gpu tests for now [ bad test setup ]")
 
