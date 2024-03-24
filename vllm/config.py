@@ -1,5 +1,3 @@
-# This file has been modified by Neural Magic
-
 from typing import TYPE_CHECKING, Optional, Union, ClassVar
 from dataclasses import dataclass
 import os
@@ -83,6 +81,7 @@ class ModelConfig:
         tokenizer_revision: Optional[str] = None,
         max_model_len: Optional[int] = None,
         quantization: Optional[str] = None,
+        # UPSTREAM SYNC: keep sparsity
         sparsity: Optional[str] = None,
         enforce_eager: bool = False,
         max_context_len_to_capture: Optional[int] = None,
@@ -99,6 +98,7 @@ class ModelConfig:
         self.code_revision = code_revision
         self.tokenizer_revision = tokenizer_revision
         self.quantization = quantization
+        # UPSTREAM SYNC: keep sparsity
         self.sparsity = sparsity
         self.enforce_eager = enforce_eager
         self.max_context_len_to_capture = max_context_len_to_capture
@@ -127,6 +127,7 @@ class ModelConfig:
         self._verify_load_format()
         self._verify_tokenizer_mode()
         self._verify_quantization()
+        # UPSTREAM SYNC: keep sparsity
         self._verify_sparsity()
         self._verify_cuda_graph()
 
@@ -166,6 +167,7 @@ class ModelConfig:
                 "either 'auto' or 'slow'.")
         self.tokenizer_mode = tokenizer_mode
 
+    # UPSTREAM SYNC: keep sparsity
     def _verify_sparsity(self) -> None:
         supported_sparsity = ["sparse_w16a16", "semi_structured_sparse_w16a16"]
 
@@ -200,7 +202,6 @@ class ModelConfig:
         # Parse quantization method from the HF model config, if available.
         hf_quant_config = getattr(self.hf_config, "quantization_config", None)
         if hf_quant_config is not None:
-
             hf_quant_method = str(hf_quant_config["quant_method"]).lower()
 
             # If the GPTQ model is serialized in marlin format, use marlin.
