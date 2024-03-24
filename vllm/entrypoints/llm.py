@@ -1,5 +1,3 @@
-# This file has been modified by Neural Magic
-
 from typing import List, Optional, Union
 
 from tqdm import tqdm
@@ -83,6 +81,7 @@ class LLM:
         tensor_parallel_size: int = 1,
         dtype: str = "auto",
         quantization: Optional[str] = None,
+        # UPSTREAM SYNC: keep sparsity
         sparsity: Optional[str] = None,
         revision: Optional[str] = None,
         tokenizer_revision: Optional[str] = None,
@@ -104,6 +103,7 @@ class LLM:
             tensor_parallel_size=tensor_parallel_size,
             dtype=dtype,
             quantization=quantization,
+            # UPSTREAM SYNC: keep sparsity
             sparsity=sparsity,
             revision=revision,
             tokenizer_revision=tokenizer_revision,
