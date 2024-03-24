@@ -343,6 +343,7 @@ def get_extra_requirements() -> dict:
         "sparsity": _sparsity_deps,
     }
 
+
 package_data = {
     "vllm": ["py.typed", "model_executor/layers/fused_moe/configs/*.json"]
 }
