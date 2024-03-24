@@ -145,12 +145,12 @@ class UncachedBlockAllocator(BlockAllocatorBase):
     the reference count becomes zero, the block is added back to the free list.
     """
 
-    def __init__(self,
-                 device: Device,
-                 block_size: int,
-                 num_blocks: int,
-                 eviction_policy: EvictionPolicy = EvictionPolicy.LRU,
-                 enable_caching: bool = False) -> None:
+    def __init__(
+        self,
+        device: Device,
+        block_size: int,
+        num_blocks: int,
+    ) -> None:
         self.device = device
         self.block_size = block_size
         self.num_blocks = num_blocks
@@ -179,12 +179,7 @@ class UncachedBlockAllocator(BlockAllocatorBase):
             raise ValueError(f"Double free! {block} is already freed.")
         block.ref_count -= 1
         if block.ref_count == 0:
-            assert block.block_hash not in self.evictor
-            self.evictor.add(block)
-
-            # If caching is enabled, remove the block from the cached_blocks
-            if self.enable_caching:
-                del self.cached_blocks[block.block_hash]
+            self.free_blocks.append(block)
 
     def get_num_free_blocks(self) -> int:
         return len(self.free_blocks)
@@ -539,56 +534,3 @@ class BlockSpaceManager:
 
     def get_num_free_cpu_blocks(self) -> int:
         return self.cpu_allocator.get_num_free_blocks()
-
-    def access_all_blocks_in_seq(
-        self,
-        seq: Sequence,
-        access_time: float,
-    ) -> None:
-        if self.enable_caching:
-            # Update the last accessed time of all the blocks accessed
-            # in this step.
-            block_table = self.block_tables[seq.seq_id]
-            for block in block_table:
-                block.last_accessed = access_time
-
-    def compute_full_blocks_in_seq(self, seq: Sequence):
-        if seq.seq_id not in self.block_tables:
-            return
-        max_full_block = seq.get_len() // self.block_size - 1
-        block_table = self.block_tables[seq.seq_id]
-        if max_full_block == -1:
-            return
-        for i in reversed(range(max_full_block)):
-            if block_table[i].computed:
-                break
-            block_table[i].computed = True
-
-    def get_all_computed_blocks(self, seq: Sequence) -> List[int]:
-        if seq.seq_id not in self.block_tables:
-            return []
-        block_table = self.block_tables[seq.seq_id]
-        # NOTE We exclude the last block to avoid the case where the entire
-        # prompt is cached. This would cause erroneous behavior in model
-        # runner.
-        return [
-            b.block_number
-            for b in takewhile(lambda b: b.computed, block_table[:-1])
-        ]
-
-    def get_common_computed_block_ids(self,
-                                      seq_group: SequenceGroup) -> List[int]:
-        # Can return non-empty result only with prefix caching enabled.
-        if not self.enable_caching:
-            return []
-
-        ids_list = [
-            self.get_all_computed_blocks(seq)
-            for seq in iter(seq_group.seqs_dict.values())
-        ]
-        return commonprefix([ids for ids in ids_list if ids != []])
-
-    def mark_blocks_as_computed(self, seq_group: SequenceGroup):
-        if self.enable_caching:
-            for seq in seq_group.seqs_dict.values():
-                self.compute_full_blocks_in_seq(seq)

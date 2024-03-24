@@ -31,7 +31,7 @@ def test_contexted_kv_attention(
     dtype: torch.dtype,
     device: str,
 ) -> None:
-    # UPSTREAM SYNC: this is needed to pass multi-gpu tests
+    # UPSTREAM SYNC: needed to pass multi-gpu tests
     if device != "cuda:0":
         pytest.skip("Skipping multi-gpu tests for now [ bad test setup ]")
 
