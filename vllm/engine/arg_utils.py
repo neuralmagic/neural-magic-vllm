@@ -33,7 +33,6 @@ class EngineArgs:
     gpu_memory_utilization: float = 0.90
     max_num_batched_tokens: Optional[int] = None
     max_num_seqs: int = 256
-    max_paddings: int = 256
     max_logprobs: int = 5  # OpenAI default value
     disable_log_stats: bool = False
     revision: Optional[str] = None
@@ -55,6 +54,7 @@ class EngineArgs:
     max_cpu_loras: Optional[int] = None
     device: str = 'auto'
     ray_workers_use_nsight: bool = False
+    scheduler_delay_factor: float = 0.0
 
     def __post_init__(self):
         if self.tokenizer is None:
@@ -216,10 +216,6 @@ class EngineArgs:
                             type=int,
                             default=EngineArgs.max_num_seqs,
                             help='maximum number of sequences per iteration')
-        parser.add_argument('--max-paddings',
-                            type=int,
-                            default=EngineArgs.max_paddings,
-                            help='maximum number of paddings in a batch')
         parser.add_argument(
             '--max-logprobs',
             type=int,
@@ -323,6 +319,12 @@ class EngineArgs:
                             default=EngineArgs.device,
                             choices=["auto", "cuda", "neuron"],
                             help='Device type for vLLM execution.')
+        parser.add_argument(
+            '--scheduler-delay-factor',
+            type=float,
+            default=EngineArgs.scheduler_delay_factor,
+            help='Apply a delay (of delay factor multiplied by previous'
+            'prompt latency) before scheduling next prompt.')
         return parser
 
     @classmethod
@@ -339,23 +341,12 @@ class EngineArgs:
                DeviceConfig, Optional[LoRAConfig]]:
         device_config = DeviceConfig(self.device)
         model_config = ModelConfig(
-            self.model,
-            self.tokenizer,
-            self.tokenizer_mode,
-            self.trust_remote_code,
-            self.download_dir,
-            self.load_format,
-            self.dtype,
-            self.seed,
-            self.revision,
-            self.code_revision,
-            self.tokenizer_revision,
-            self.max_model_len,
-            self.quantization,
-            # UPSTREAM SYNC: Accept current.
-            self.sparsity,
-            self.enforce_eager,
-            self.max_context_len_to_capture,
+            self.model, self.tokenizer, self.tokenizer_mode,
+            self.trust_remote_code, self.download_dir, self.load_format,
+            self.dtype, self.seed, self.revision, self.code_revision,
+            self.tokenizer_revision, self.max_model_len, self.quantization,
+            # UPSTREAM SYNC: make sure sparsity argument is included.
+            self.sparsity, self.enforce_eager, self.max_context_len_to_capture,
             self.max_logprobs)
         cache_config = CacheConfig(self.block_size,
                                    self.gpu_memory_utilization,
@@ -373,7 +364,7 @@ class EngineArgs:
         scheduler_config = SchedulerConfig(self.max_num_batched_tokens,
                                            self.max_num_seqs,
                                            model_config.max_model_len,
-                                           self.max_paddings)
+                                           self.scheduler_delay_factor)
         lora_config = LoRAConfig(
             max_lora_rank=self.max_lora_rank,
             max_loras=self.max_loras,

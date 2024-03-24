@@ -1,4 +1,6 @@
 # This file has been modified by Neural Magic
+# UPSTREAM SYNC: if any new models are added to this file, add them
+# to test_models_logprobs.py as well
 """Compare the outputs of HF and vLLM when using greedy sampling.
 
 Run `pytest tests/models/test_models.py --forked`.
@@ -21,6 +23,7 @@ MODELS = [
     "stabilityai/stablelm-3b-4e1t",
     "allenai/OLMo-1B",
     "bigcode/starcoder2-3b",
+    "Qwen/Qwen1.5-0.5B",
 ]
 
 

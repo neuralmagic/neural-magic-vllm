@@ -331,7 +331,7 @@ class VllmRunner:
 def vllm_runner():
     return VllmRunner
 
-
+# UPSTREAM SYNC: needed for nm-automation
 class VllmRunnerNm(VllmRunner):
 
     def __init__(
