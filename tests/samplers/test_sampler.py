@@ -33,8 +33,8 @@ def _prepare_test(
     fake_logits = torch.full((batch_size, vocab_size),
                              1e-2,
                              dtype=input_tensor.dtype)
-    # UPSTREAM SYNC: passing device required for multi-gpu tests
     sampler = MockLogitsSampler(fake_logits)
+    # UPSTREAM SYNC: passing device required for multi-gpu tests
     model_runner = ModelRunner(None, None, None, DeviceConfig(device=device),
                                None)
     return input_tensor, fake_logits, sampler, model_runner
@@ -78,6 +78,7 @@ def test_sampler_all_greedy(seed: int, device: str):
     set_random_seed(seed)
     torch.set_default_device(device)
     batch_size = random.randint(1, 256)
+    # UPSTREAM SYNC: passing device required for multi-gpu tests
     input_tensor, fake_logits, sampler, model_runner = _prepare_test(
         batch_size, device)
 
@@ -98,6 +99,7 @@ def test_sampler_all_random(seed: int, device: str):
     set_random_seed(seed)
     torch.set_default_device(device)
     batch_size = random.randint(1, 256)
+    # UPSTREAM SYNC: passing device required for multi-gpu tests
     input_tensor, fake_logits, sampler, model_runner = _prepare_test(
         batch_size, device)
 
@@ -198,6 +200,7 @@ def test_sampler_mixed(seed: int, device: str):
     set_random_seed(seed)
     torch.set_default_device(device)
     batch_size = random.randint(1, 256)
+    # UPSTREAM SYNC: passing device required for multi-gpu tests
     input_tensor, fake_logits, sampler, model_runner = _prepare_test(
         batch_size, device)
 
