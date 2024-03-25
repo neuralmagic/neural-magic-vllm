@@ -261,6 +261,34 @@ def hf_model_weights_iterator(
             torch.cuda.empty_cache()
 
 
+def load_tensor_parallel_weights(
+    param: torch.Tensor,
+    loaded_weight: torch.Tensor,
+    param_name: str,
+    column_parallel_weight_names: List[str],
+    row_parallel_weight_names: List[str],
+    tensor_model_parallel_rank: int,
+) -> None:
+    for p in column_parallel_weight_names:
+        if p in param_name:
+            shard_size = param.shape[0]
+            start_idx = tensor_model_parallel_rank * shard_size
+            end_idx = (tensor_model_parallel_rank + 1) * shard_size
+            loaded_weight = loaded_weight[start_idx:end_idx]
+            break
+    for p in row_parallel_weight_names:
+        if p in param_name:
+            shard_size = param.shape[1]
+            start_idx = tensor_model_parallel_rank * shard_size
+            end_idx = (tensor_model_parallel_rank + 1) * shard_size
+            loaded_weight = loaded_weight[:, start_idx:end_idx]
+            break
+    assert param.shape == loaded_weight.shape, (
+        f"{param_name} shape mismatch between model and checkpoint: "
+        f"{param.shape} != {loaded_weight.shape}")
+    param.data.copy_(loaded_weight)
+
+
 def convert_pyslice_to_tensor(x: Any) -> torch.Tensor:
     """convert PySafeSlice object from safetensors to torch.Tensor
 

@@ -8,10 +8,13 @@ Scenarios:
 
 Output: for several prompts, compare native PyTorch & vLLM prompt completions
 '''
+import ray
+import gc
 import warnings
 import torch
 from vllm import LLM, SamplingParams
 from transformers import T5Tokenizer, T5ForConditionalGeneration
+from vllm.model_executor.parallel_utils.parallel_state import destroy_model_parallel
 
 warnings.filterwarnings("ignore",
                         category=UserWarning,
@@ -51,26 +54,38 @@ if torch.cuda.is_available():
 native_outputs = model.generate(input_ids).cpu()
 
 # vLLM test
-model = LLM(hf_model_id,
-            enforce_eager=True,
-            dtype=dtype,
-            gpu_memory_utilization=0.5)
+for num_model_shards in [1, 2]:
+    model = LLM(hf_model_id,
+                enforce_eager=True,
+                dtype=dtype,
+                gpu_memory_utilization=0.5,
+                tensor_parallel_size=num_model_shards)
 
-sampling_params = SamplingParams(max_tokens=100, temperature=0)
+    sampling_params = SamplingParams(max_tokens=100, temperature=0)
 
-vllm_outputs = model.generate(
-    prompts,
-    sampling_params=sampling_params,
-)
-
-# Print native & vLLM outputs
-i = 0
-for native_output, vllm_output in zip(native_outputs, vllm_outputs):
-    prompt = prompts[i]  # Get the corresponding prompt for this output
-    native_generated_text = tokenizer.decode(
-        native_output, skip_special_tokens=True)  # Decode the generated text
-    vllm_generated_text = vllm_output.outputs[0].text
-    print(
-        f"Prompt: {prompt!r}, Native PyTorch generated text: {native_generated_text!r}, vLLM generated text: {vllm_generated_text!r}"
+    vllm_outputs = model.generate(
+        prompts,
+        sampling_params=sampling_params,
     )
-    i += 1
+
+    # Print native & vLLM outputs
+    i = 0
+    for native_output, vllm_output in zip(native_outputs, vllm_outputs):
+        prompt = prompts[i]  # Get the corresponding prompt for this output
+        native_generated_text = tokenizer.decode(
+            native_output,
+            skip_special_tokens=True)  # Decode the generated text
+        vllm_generated_text = vllm_output.outputs[0].text
+        print(
+            f"Num model shards: {num_model_shards}, Prompt: {prompt!r}, Native PyTorch generated text: {native_generated_text!r}, vLLM generated text: {vllm_generated_text!r}"
+        )
+        i += 1
+
+    # Delete the llm object and free the memory
+    destroy_model_parallel()
+    del model
+    gc.collect()
+    torch.cuda.empty_cache()
+    torch.distributed.destroy_process_group()
+    # close ray session
+    ray.shutdown()
