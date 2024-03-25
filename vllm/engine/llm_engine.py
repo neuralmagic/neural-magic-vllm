@@ -302,7 +302,7 @@ class LLMEngine:
             seq = Sequence(seq_id, decoder_prompt, decoder_prompt_token_ids, block_size,
                             eos_token_id, lora_request)
             cross_seq_id = next(self.seq_counter)
-            cross_seqs["enc0"] = Sequence(cross_seq_id, prompt, prompt_token_ids, block_size,
+            cross_seqs["encoder"] = Sequence(cross_seq_id, prompt, prompt_token_ids, block_size,
                                           eos_token_id, lora_request)
         else:
             assert decoder_prompt is None, f"Decoder-only model requires decoder_prompt is None, but decoder_prompt={decoder_prompt}"

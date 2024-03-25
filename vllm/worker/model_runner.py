@@ -134,27 +134,201 @@ class ModelRunner:
         block_size = self.block_size
         return (self.max_context_len_to_capture + block_size - 1) // block_size
 
-    def _prepare_prompt_encoder_self_attn(
+    def _prepare_prompt_enc_and_cross_dec(
         self,
         seq_group_metadata_list: List[SequenceGroupMetadata],
-        dec_self_attn_inp_tensors
     ) -> Tuple[torch.Tensor, torch.Tensor, InputMetadata, List[int], List[int],
                List[int], List[int], Set[LoRARequest]]:
+        assert len(seq_group_metadata_list) > 0
+        input_tokens: List[int] = []
+        input_positions: List[int] = []
+        slot_mapping: List[int] = []
+        lora_index_mapping: List[int] = []
+        lora_prompt_mapping: List[int] = []
+        lora_requests: Set[LoRARequest] = set()
 
-        # (input_tokens, input_positions, input_metadata, prompt_lens,subquery_lens, lora_index_mapping, lora_prompt_mapping,lora_requests)
+        prompt_lens: List[int] = []
+        context_lens: List[int] = []
+        subquery_lens: List[int] = []
+        prefix_block_tables: List[List[int]] = []
+        for seq_group_metadata in seq_group_metadata_list:
+            assert seq_group_metadata.is_prompt
+            request_id = seq_group_metadata.request_id
+            seq_data = seq_group_metadata.cross_seq_data["encoder"]
+            #seq_ids = list(seq_group_metadata.seq_data.keys())
+            #assert len(seq_ids) == 1
+            #seq_id = seq_ids[0]
 
-        
+            #seq_data = seq_group_metadata.seq_data[seq_id]
+            prompt_tokens = seq_data.get_token_ids()
+            prompt_len = len(prompt_tokens)
+            prompt_lens.append(prompt_len)
+            computed_len = 0
 
-    def _prepare_prompt_decoder_cross_attn(
-        self,
-        seq_group_metadata_list: List[SequenceGroupMetadata],
-        dec_self_attn_inp_tensors
-    ) -> Tuple[torch.Tensor, torch.Tensor, InputMetadata, List[int], List[int],
-               List[int], List[int], Set[LoRARequest]]:
+            # NOTE: This only works for oooooooxxx style attention.
+            computed_block_nums = seq_group_metadata.computed_block_nums
+            if computed_block_nums is not None and len(
+                    computed_block_nums) > 0 and self.sliding_window is None:
+                # Prefix is not supported with sliding_window
+                computed_len = len(computed_block_nums) * self.block_size
+                prompt_tokens = prompt_tokens[computed_len:]
+                prefix_block_tables.append(computed_block_nums)
+                context_len = computed_len
+            else:
+                prefix_block_tables.append([])
+                context_len = 0
+            # actual prompt lens
+            context_lens.append(context_len)
+            subquery_lens.append(prompt_len - computed_len)
 
-        pass
+            input_tokens.extend(prompt_tokens)
+            # NOTE(woosuk): Here we assume that the first token in the prompt
+            # is always the first token in the sequence.
+            input_positions.extend(
+                list(range(computed_len, computed_len + len(prompt_tokens))))
 
-    def _prepare_prompt_decoder_self_attn(
+            lora_id = seq_group_metadata.lora_int_id
+
+            if lora_id > 0:
+                lora_requests.add(seq_group_metadata.lora_request)
+
+            lora_index_mapping += [lora_id] * (prompt_len - computed_len)
+            lora_prompt_mapping.extend(
+                [lora_id] *
+                (prompt_len - computed_len
+                 if seq_group_metadata.sampling_params.prompt_logprobs else 1))
+
+            if seq_group_metadata.block_tables is None:
+                # During memory profiling, the block tables are not initialized
+                # yet. In this case, we just use a dummy slot mapping.
+                slot_mapping.extend([_PAD_SLOT_ID] * prompt_len)
+                continue
+
+            # Compute the slot mapping.
+            block_table = seq_group_metadata.cross_block_tables[request_id] # seq_group_metadata.block_tables[seq_id]
+            # Mask the [0, start_idx) tokens of the prompt with _PAD_SLOT_ID,
+            # where start_idx is max(0, prompt_len - sliding_window).
+            # For example, if the prompt len is 10, sliding window is 8, and
+            # block size is 4, the first two tokens are masked and the slot
+            # mapping will be [-1, -1, 2, 3, 4, 5, 6, 7, 0, 1].
+            start_idx = 0
+            if self.sliding_window is not None:
+                assert computed_len == 0, (
+                    "Prefix caching is currently not supported with "
+                    "sliding window attention")
+                start_idx = max(0, prompt_len - self.sliding_window)
+            for i in range(computed_len, prompt_len):
+                if i < start_idx:
+                    slot_mapping.append(_PAD_SLOT_ID)
+                    continue
+
+                block_number = block_table[i // self.block_size]
+                block_offset = i % self.block_size
+                slot = block_number * self.block_size + block_offset
+                slot_mapping.append(slot)
+
+        max_subquery_len = max(subquery_lens)
+        max_seq_len = max(prompt_lens)
+        num_prompt_tokens = len(input_tokens)
+        assert max_subquery_len > 0
+
+        input_tokens = torch.tensor(input_tokens,
+                                    dtype=torch.long,
+                                    device=self.device)
+        input_positions = torch.tensor(input_positions,
+                                       dtype=torch.long,
+                                       device=self.device)
+        slot_mapping = torch.tensor(slot_mapping,
+                                    dtype=torch.long,
+                                    device=self.device)
+        lora_index_mapping = lora_index_mapping
+
+        context_lens_tensor = torch.tensor(context_lens,
+                                           dtype=torch.int,
+                                           device=self.device)
+        # Prepare prefix block tables
+        max_prompt_block_table_len = max(len(t) for t in prefix_block_tables)
+        block_tables = make_tensor_with_pad(
+            prefix_block_tables,
+            max_len=max_prompt_block_table_len,
+            pad=0,
+            dtype=torch.int,
+            device=self.device,
+        )
+
+        # Query length can be shorter than key (i.e., prompt) when prefill
+        # is chunked or prefix cached.
+        subquery_lens_tensor = torch.tensor(subquery_lens,
+                                            dtype=torch.long,
+                                            device=self.device)
+        subquery_start_loc = torch.zeros(subquery_lens_tensor.shape[0] + 1,
+                                         dtype=torch.int32,
+                                         device=self.device)
+
+        prompt_lens_tensor = torch.tensor(prompt_lens,
+                                          dtype=torch.long,
+                                          device=self.device)
+        seq_start_loc = torch.zeros(prompt_lens_tensor.shape[0] + 1,
+                                    dtype=torch.int32,
+                                    device=self.device)
+
+        torch.cumsum(subquery_lens_tensor,
+                     dim=0,
+                     dtype=subquery_start_loc.dtype,
+                     out=subquery_start_loc[1:])
+
+        torch.cumsum(prompt_lens_tensor,
+                     dim=0,
+                     dtype=seq_start_loc.dtype,
+                     out=seq_start_loc[1:])
+
+        self_encoder_input_metadata = InputMetadata(
+            is_prompt=True,
+            slot_mapping=slot_mapping,
+            prompt_lens=prompt_lens,
+            prompt_lens_tensor=prompt_lens_tensor,
+            num_prompt_tokens=num_prompt_tokens,
+            num_generation_tokens=0,
+            max_subquery_len=max_subquery_len,
+            max_context_len=None,
+            max_seq_len=max_seq_len,
+            subquery_start_loc=subquery_start_loc,
+            seq_start_loc=seq_start_loc,
+            context_lens=context_lens_tensor,
+            block_tables=block_tables,
+            use_cuda_graph=False,
+            kv_cache_dtype=self.kv_cache_dtype,            
+        )
+
+        cross_decoder_input_metadata = InputMetadata(
+            is_prompt=True,
+            slot_mapping=slot_mapping,
+            prompt_lens=prompt_lens,
+            prompt_lens_tensor=prompt_lens_tensor,
+            num_prompt_tokens=num_prompt_tokens,
+            num_generation_tokens=0,
+            max_subquery_len=max_subquery_len,
+            max_context_len=None,
+            max_seq_len=max_seq_len,
+            subquery_start_loc=subquery_start_loc,
+            seq_start_loc=seq_start_loc,
+            context_lens=context_lens_tensor,
+            block_tables=block_tables,
+            use_cuda_graph=False,
+            kv_cache_dtype=self.kv_cache_dtype,
+        )
+        return {
+            "encoder_input_tokens": input_tokens, "encoder_input_positions": input_positions,
+            "self_encoder_input_metadata": self_encoder_input_metadata, "cross_decoder_input_metadata": cross_decoder_input_metadata,
+            "encoder_prompt_lens": prompt_lens
+        }
+    
+    
+                (input_tokens, input_positions, input_metadata, prompt_lens,
+                subquery_lens, lora_index_mapping, lora_prompt_mapping,
+                lora_requests)
+
+    def _prepare_prompt(
         self,
         seq_group_metadata_list: List[SequenceGroupMetadata],
     ) -> Tuple[torch.Tensor, torch.Tensor, InputMetadata, List[int], List[int],
@@ -320,17 +494,6 @@ class ModelRunner:
         return (input_tokens, input_positions, input_metadata, prompt_lens,
                 subquery_lens, lora_index_mapping, lora_prompt_mapping,
                 lora_requests)
-
-    def _prepare_prompt(
-        self,
-        seq_group_metadata_list: List[SequenceGroupMetadata],
-    ) -> Tuple[torch.Tensor, torch.Tensor, InputMetadata, List[int], List[int],
-               List[int], List[int], Set[LoRARequest]]:
-        
-        dec_self_attn_inp_tensors = self._prepare_prompt_decoder_self_attn(seq_group_metadata_list)
-        enc_self_attn_inp_tensors = self._prepare_prompt_encoder_self_attn(seq_group_metadata_list,dec_self_attn_inp_tensors)
-        dec_cross_attn_inp_tensors = self._prepare_prompt_decoder_cross_attn(seq_group_metadata_list,dec_self_attn_inp_tensors)
-
 
     def _prepare_decode(
         self,
