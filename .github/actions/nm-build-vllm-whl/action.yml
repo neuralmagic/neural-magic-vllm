@@ -36,7 +36,7 @@ runs:
       WHL=$(basename ${WHL_FILEPATH})
       echo "whl=${WHL}" >> "$GITHUB_OUTPUT"
       # generate .tar.gz
-      $SUCCESS || python3 setup.py sdist bdist_wheel || SUCCESS=$?
+      $SUCCESS || python3 setup.py sdist || SUCCESS=$?
       ls -alh dist/
       TARBALL_FILEPATH=$(find dist -iname "*nm-vllm*.tar.gz")
       TARBALL=$(basename ${TARBALL_FILEPATH})
