@@ -141,7 +141,9 @@ class ModelRunner:
     ) -> Tuple[torch.Tensor, torch.Tensor, InputMetadata, List[int], List[int],
                List[int], List[int], Set[LoRARequest]]:
 
-        pass
+        # (input_tokens, input_positions, input_metadata, prompt_lens,subquery_lens, lora_index_mapping, lora_prompt_mapping,lora_requests)
+
+        
 
     def _prepare_prompt_decoder_cross_attn(
         self,
@@ -326,8 +328,9 @@ class ModelRunner:
                List[int], List[int], Set[LoRARequest]]:
         
         dec_self_attn_inp_tensors = self._prepare_prompt_decoder_self_attn(seq_group_metadata_list)
+        enc_self_attn_inp_tensors = self._prepare_prompt_encoder_self_attn(seq_group_metadata_list,dec_self_attn_inp_tensors)
         dec_cross_attn_inp_tensors = self._prepare_prompt_decoder_cross_attn(seq_group_metadata_list,dec_self_attn_inp_tensors)
-        
+
 
     def _prepare_decode(
         self,
