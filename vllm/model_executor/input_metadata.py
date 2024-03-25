@@ -98,12 +98,13 @@ class InputMetadata:
                 f"slot_mapping={self.slot_mapping}, "
                 f"prompt_lens={self.prompt_lens}, "
                 f"max_seq_len={self.max_seq_len}, "
-                f"start_loc={self.start_loc}, "
+                f"seq_start_loc={self.seq_start_loc}, "
                 f"max_context_len={self.max_context_len}, "
                 f"context_lens={self.context_lens}, "
                 f"block_tables={self.block_tables}, "
                 f"use_cuda_graph={self.use_cuda_graph}, "
-                f"kv_cache_dtype={self.kv_cache_dtype})")
+                f"kv_cache_dtype={self.kv_cache_dtype}, "
+                f"cross_input_metadata={self.cross_input_metadata})")
     
     def asdict_zerocopy(self) -> Dict[str, Any]:
         """Similar to dataclasses.asdict, but avoids deepcopying."""

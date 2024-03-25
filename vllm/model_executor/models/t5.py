@@ -276,7 +276,6 @@ class T5Attention(nn.Module):
 
         batch_size = hidden_states.shape[0]
         seq_len = hidden_states.shape[1]
-        #prompt_len = input_metadata.prompt_lens.max().item()
         prompt_len = max(input_metadata.prompt_lens)
         context_len = input_metadata.context_lens.max().item()
         context_len = max(context_len, 1)
@@ -438,13 +437,21 @@ class T5Block(nn.Module):
         self,
         hidden_states: torch.Tensor,
         kv_cache: Optional[KVCache],
-        input_metadata: InputMetadata,
+        input_metadata_dict: InputMetadata,
         encoder_hidden_states: Optional[torch.Tensor],
     ):
+        self_input_metadata = None
+        cross_input_metadata = None
+        if self.is_decoder:
+            self_input_metadata = input_metadata_dict["self"]
+            cross_input_metadata = input_metadata_dict["cross"]
+        else:
+            self_input_metadata = input_metadata_dict 
+            
         hidden_states = self.layer[0](
             hidden_states=hidden_states,
             kv_cache=kv_cache,
-            input_metadata=input_metadata,
+            input_metadata=self_input_metadata,
         )
 
         if hidden_states.dtype == torch.float16:
@@ -461,7 +468,7 @@ class T5Block(nn.Module):
             hidden_states = self.layer[1](
                 hidden_states,
                 kv_cache=kv_cache,
-                input_metadata=input_metadata,
+                input_metadata=cross_input_metadata,
                 encoder_hidden_states=encoder_hidden_states,
             )
             if hidden_states.dtype == torch.float16:
@@ -507,7 +514,7 @@ class T5Stack(nn.Module):
         self,
         input_ids: torch.Tensor,
         kv_caches: List[KVCache],
-        input_metadata: InputMetadata,
+        input_metadata_dict: InputMetadata,
         encoder_hidden_states: Optional[torch.Tensor],
     ) -> torch.Tensor:
         hidden_states = self.embed_tokens(input_ids)
@@ -518,7 +525,7 @@ class T5Stack(nn.Module):
             layer_outputs = layer_module(
                 hidden_states,
                 kv_cache=kv_cache,
-                input_metadata=input_metadata,
+                input_metadata_dict=input_metadata_dict,
                 encoder_hidden_states=encoder_hidden_states,
             )
 
@@ -557,12 +564,26 @@ class T5ForConditionalGeneration(nn.Module):
         kv_caches: List[KVCache],
         input_metadata: InputMetadata,
     ) -> torch.Tensor:
-        if input_metadata.is_prompt:
+        print(input_metadata)
+        assert(input_metadata.cross_input_metadata is not None)
+        assert((not input_metadata.is_prompt) or "encoder" in input_metadata.cross_input_metadata)
+        assert("decoder" in input_metadata.cross_input_metadata)
+
+        # Extract input metadata for encoder self-attention and decoder
+        # self-/cross-attention
+        is_prompt=input_metadata
+        self_encoder_input_metadata: InputMetadata = input_metadata.cross_input_metadata['encoder']
+        cross_decoder_input_metadata: InputMetadata = input_metadata.cross_input_metadata['decoder']
+        self_decoder_input_metadata: InputMetadata = input_metadata
+        
+        if is_prompt:
             # prompt run, need to run encoder once
-            hidden_states = self.encoder(input_ids, kv_caches, input_metadata,
+            hidden_states = self.encoder(input_ids, kv_caches, self_encoder_input_metadata,
                                          None)
             # Clear the attention bias
-            input_metadata.attn_bias = None
+            self_encoder_input_metadata.attn_bias = None
+            self_decoder_input_metadata.attn_bias = None
+            cross_decoder_input_metadata.attn_bias = None
             batch_size = input_ids.shape[0]
             input_ids = (torch.ones(batch_size, 1, dtype=torch.long) *
                          self.config.decoder_start_token_id).cuda()
@@ -571,7 +592,9 @@ class T5ForConditionalGeneration(nn.Module):
             hidden_states = None
 
         if kv_caches[0][0] is not None:  # Skip decoder for profiling run
-            hidden_states = self.decoder(input_ids, kv_caches, input_metadata,
+            hidden_states = self.decoder(input_ids, kv_caches, 
+                                         {"self":self_decoder_input_metadata,
+                                          "cross":cross_decoder_input_metadata},
                                          hidden_states)
 
         if self.config.tie_word_embeddings:
