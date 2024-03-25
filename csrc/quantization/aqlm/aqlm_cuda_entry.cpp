@@ -45,13 +45,13 @@ void code2x8_matvec_cuda(
 );
 
 void code1x16_dequant(
-        void* weights,
-  const void* a,
+  const void* A,
+        void* C,
   const void* codebook,
-  const int a_rows, // code rows in element space, so k
-  const int a_cols, // code columns in element space, so n
-  const int4 codebook_a_sizes,  // cumulative sizes of A spanning each codebook, at most 3 long, corresponds to cols.
-  const int codebook_stride // as int4
+  int prob_m,
+  int prob_k,
+  const int4 codebook_a_sizes,  // cumulative sizes of A spanning each codebook, at most 3 long.
+  const int codebook_stride // as int4.
 );
 
 void code2x8_dequant(
@@ -257,6 +257,7 @@ torch::Tensor aqlm_dequant(
   const at::cuda::OptionalCUDAGuard device_guard(device_of(codes));
   int rows = codes.size(1);
   int cols = codes.size(0);
+  assert(cols = codebook_partition_sizes.sum().item<int>());
 
   auto weights = torch::empty({cols, rows * 8},
     torch::TensorOptions()
@@ -265,8 +266,19 @@ torch::Tensor aqlm_dequant(
   );
 
   if (nbooks == 1 && entries == (1 << 16))
-  { 
-     code1x16_dequant(weights.data_ptr(), codes.data_ptr(), codebooks.data_ptr(), rows, cols, cumulative_sizes, codebook_stride(codebooks));
+  {
+    code1x16_dequant(
+      codes.data_ptr(),
+      weights.data_ptr(),
+      codebooks.data_ptr(),
+      cols,
+      rows * 8,
+      cumulative_sizes,
+      codebook_stride(codebooks));
+
+    // if you wanted to flip to scaling the weights, (though it's 30%-ish slower)
+    // weights *= scales.index({"...", 0, 0});
+
      return weights;
   }
 
