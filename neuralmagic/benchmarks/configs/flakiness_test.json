@@ -1,0 +1,37 @@
+{
+	"configs": [
+		{
+			"description": "VLLM Serving - Dense",
+			"models": [
+                          "NousResearch/Llama-2-7b-chat-hf",
+                          "NousResearch/Llama-2-7b-chat-hf",
+                          "NousResearch/Llama-2-7b-chat-hf",
+                          "NousResearch/Llama-2-7b-chat-hf",
+                          "NousResearch/Llama-2-7b-chat-hf",
+                          "TheBloke/OpenHermes-2.5-Mistral-7B-GPTQ",
+                          "TheBloke/OpenHermes-2.5-Mistral-7B-GPTQ",
+                          "TheBloke/OpenHermes-2.5-Mistral-7B-GPTQ",
+                          "TheBloke/OpenHermes-2.5-Mistral-7B-GPTQ",
+                          "TheBloke/OpenHermes-2.5-Mistral-7B-GPTQ"
+			],
+			"use_all_available_gpus" : "",
+			"max_model_lens": [
+				4096
+			],
+			"sparsity": [],
+			"script_name": "benchmark_serving",
+			"script_args": {
+				"nr-qps-pair_": [
+                                        "150,0.5",
+                                        "300,1",
+                                        "750,2.5",
+                                        "1500,5",
+                                        "3000,10"
+				],
+				"dataset": [
+					"sharegpt"
+				]
+			}
+		}
+        ]
+}
