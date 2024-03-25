@@ -21,7 +21,7 @@ MODELS = [
     # "mosaicml/mpt-7b",                # vLLM upstream bug in mpt right now  # noqa
     "microsoft/phi-2",
     "stabilityai/stablelm-3b-4e1t",
-    "allenai/OLMo-1B",
+    # "allenai/OLMo-1B",                # dependencies are not installed right now  # noqa
     "bigcode/starcoder2-3b",
     "Qwen/Qwen1.5-0.5B",
 ]
