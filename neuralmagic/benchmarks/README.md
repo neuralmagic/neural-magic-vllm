@@ -115,7 +115,7 @@ from `configs/benchmark_throughput.py`
 }
 ```
 ### JSON Breakdown
-Most keys in this JSON are similar to the benchmark serving JSON. However, there are some differences. Note that the `use-all-available-gpus_` is in `script-args` instead. This is primarily due to that fact that in the benchmark serving case, the driver spawns the vLLM Engine Server as a separate process and it is the server process that needs ths information. In the benchmark throughput case, the vLLM engine is created inside the script.
+Most keys in this JSON are similar to the benchmark serving JSON. However, there are some differences. Note that the `use-all-available-gpus_` is in `script-args` instead. This is primarily due to that fact that in the benchmark serving case, the driver spawns the vLLM Engine Server as a separate process and it is the server process that needs this information. In the benchmark throughput case, the vLLM engine is created inside the script.
 
 # Standardized Benchmark Results
 The benchmarking scripts `scripts/benchmark_serving.py` and `scripts/benchmark_throughput.py` both subscribe to `BenchmarkResult` in `scripts/logging/benchmark_result.py` for logging JSON results. This is so the output JSONs across all benchmarking scripts have a standard JSON format. Reference <a href=https://github.com/neuralmagic/nm-vllm/blob/main/neuralmagic/benchmarks/scripts/logging/benchmark_result.py>benchmark_result.py</a>
