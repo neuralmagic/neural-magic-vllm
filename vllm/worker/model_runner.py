@@ -319,14 +319,11 @@ class ModelRunner:
         )
         return {
             "encoder_input_tokens": input_tokens, "encoder_input_positions": input_positions,
-            "self_encoder_input_metadata": self_encoder_input_metadata, "cross_decoder_input_metadata": cross_decoder_input_metadata,
-            "encoder_prompt_lens": prompt_lens
+            "self_encoder_input_metadata": self_encoder_input_metadata, "encoder_prompt_lens": prompt_lens,
+            "encoder_subquery_lens": subquery_lens, "decoder_input_tokens": input_tokens, 
+            "decoder_input_positions": input_positions, "cross_decoder_input_metadata": cross_decoder_input_metadata,
+            "decoder_prompt_lens": prompt_lens, "decoder_subquery_lens": subquery_lens,
         }
-    
-    
-                (input_tokens, input_positions, input_metadata, prompt_lens,
-                subquery_lens, lora_index_mapping, lora_prompt_mapping,
-                lora_requests)
 
     def _prepare_prompt(
         self,
@@ -474,24 +471,60 @@ class ModelRunner:
                      dtype=seq_start_loc.dtype,
                      out=seq_start_loc[1:])
 
-        input_metadata = InputMetadata(
-            is_prompt=True,
-            slot_mapping=slot_mapping,
-            prompt_lens=prompt_lens,
-            prompt_lens_tensor=prompt_lens_tensor,
-            num_prompt_tokens=num_prompt_tokens,
-            num_generation_tokens=0,
-            max_subquery_len=max_subquery_len,
-            max_context_len=None,
-            max_seq_len=max_seq_len,
-            subquery_start_loc=subquery_start_loc,
-            seq_start_loc=seq_start_loc,
-            context_lens=context_lens_tensor,
-            block_tables=block_tables,
-            use_cuda_graph=False,
-            kv_cache_dtype=self.kv_cache_dtype,
-        )
-        return (input_tokens, input_positions, input_metadata, prompt_lens,
+        decoder_input_metadata = None
+
+        if not self.is_encoder_decoder:
+
+            decoder_input_metadata = InputMetadata(
+                is_prompt=True,
+                slot_mapping=slot_mapping,
+                prompt_lens=prompt_lens,
+                prompt_lens_tensor=prompt_lens_tensor,
+                num_prompt_tokens=num_prompt_tokens,
+                num_generation_tokens=0,
+                max_subquery_len=max_subquery_len,
+                max_context_len=None,
+                max_seq_len=max_seq_len,
+                subquery_start_loc=subquery_start_loc,
+                seq_start_loc=seq_start_loc,
+                context_lens=context_lens_tensor,
+                block_tables=block_tables,
+                use_cuda_graph=False,
+                kv_cache_dtype=self.kv_cache_dtype,
+            )
+
+        else:
+
+            en_cr_de = self._prepare_prompt_enc_and_cross_dec(
+                    seq_group_metadata_list,
+                )
+
+            enc_return = (en_cr_de["encoder_input_tokens"], en_cr_de["encoder_input_positions"], en_cr_de["self_encoder_input_metadata"], 
+                        en_cr_de["encoder_prompt_lens"], en_cr_de["encoder_subquery_lens"])
+            
+            cross_dec_return = (en_cr_de["decoder_input_tokens"], en_cr_de["decoder_input_positions"], en_cr_de["cross_decoder_input_metadata"],
+                                en_cr_de["decoder_prompt_lens"],en_cr_de["decoder_subquery_lens"])
+
+            decoder_input_metadata = InputMetadata(
+                is_prompt=True,
+                slot_mapping=slot_mapping,
+                prompt_lens=prompt_lens,
+                prompt_lens_tensor=prompt_lens_tensor,
+                num_prompt_tokens=num_prompt_tokens,
+                num_generation_tokens=0,
+                max_subquery_len=max_subquery_len,
+                max_context_len=None,
+                max_seq_len=max_seq_len,
+                subquery_start_loc=subquery_start_loc,
+                seq_start_loc=seq_start_loc,
+                context_lens=context_lens_tensor,
+                block_tables=block_tables,
+                use_cuda_graph=False,
+                kv_cache_dtype=self.kv_cache_dtype,
+                cross_input_metadata={"encoder":enc_return,"decoder":cross_dec_return},
+            )
+
+        return (input_tokens, input_positions, decoder_input_metadata, prompt_lens,
                 subquery_lens, lora_index_mapping, lora_prompt_mapping,
                 lora_requests)
 
@@ -604,25 +637,69 @@ class ModelRunner:
                 dtype=torch.int,
                 device=self.device,
             )
+        decoder_input_metadata = None
+        if not self.is_encoder_decoder:
+            decoder_input_metadata = InputMetadata(
+                is_prompt=False,
+                slot_mapping=slot_mapping,
+                prompt_lens=None,
+                prompt_lens_tensor=None,
+                num_prompt_tokens=0,
+                num_generation_tokens=len(input_tokens),
+                max_subquery_len=None,
+                max_context_len=max_context_len,
+                max_seq_len=None,
+                subquery_start_loc=None,
+                seq_start_loc=None,
+                context_lens=context_lens,
+                block_tables=block_tables,
+                use_cuda_graph=use_captured_graph,
+                kv_cache_dtype=self.kv_cache_dtype,
+            )
+        else:
+            cross_decoder_input_metadata = InputMetadata(
+                is_prompt=False,
+                slot_mapping=slot_mapping,
+                prompt_lens=None,
+                prompt_lens_tensor=None,
+                num_prompt_tokens=0,
+                num_generation_tokens=len(input_tokens),
+                max_subquery_len=None,
+                max_context_len=max_context_len,
+                max_seq_len=None,
+                subquery_start_loc=None,
+                seq_start_loc=None,
+                context_lens=context_lens,
+                block_tables=block_tables,
+                use_cuda_graph=use_captured_graph,
+                kv_cache_dtype=self.kv_cache_dtype,
+            )
 
-        input_metadata = InputMetadata(
-            is_prompt=False,
-            slot_mapping=slot_mapping,
-            prompt_lens=None,
-            prompt_lens_tensor=None,
-            num_prompt_tokens=0,
-            num_generation_tokens=len(input_tokens),
-            max_subquery_len=None,
-            max_context_len=max_context_len,
-            max_seq_len=None,
-            subquery_start_loc=None,
-            seq_start_loc=None,
-            context_lens=context_lens,
-            block_tables=block_tables,
-            use_cuda_graph=use_captured_graph,
-            kv_cache_dtype=self.kv_cache_dtype,
-        )
-        return (input_tokens, input_positions, input_metadata,
+            prompt_lens = None
+            subquery_lens = None
+            cross_dec_return = (input_tokens, input_positions, cross_decoder_input_metadata,
+                                prompt_lens,subquery_lens)
+
+            decoder_input_metadata = InputMetadata(
+                is_prompt=False,
+                slot_mapping=slot_mapping,
+                prompt_lens=None,
+                prompt_lens_tensor=None,
+                num_prompt_tokens=0,
+                num_generation_tokens=len(input_tokens),
+                max_subquery_len=None,
+                max_context_len=max_context_len,
+                max_seq_len=None,
+                subquery_start_loc=None,
+                seq_start_loc=None,
+                context_lens=context_lens,
+                block_tables=block_tables,
+                use_cuda_graph=use_captured_graph,
+                kv_cache_dtype=self.kv_cache_dtype,
+                cross_input_metadata={"decoder": cross_dec_return}
+            )
+
+        return (input_tokens, input_positions, decoder_input_metadata,
                 lora_index_mapping, lora_prompt_mapping, lora_requests)
 
     def _prepare_sample(
@@ -863,16 +940,34 @@ class ModelRunner:
         for group_id in range(max_num_seqs):
             seq_len = (max_num_batched_tokens // max_num_seqs +
                        (group_id < max_num_batched_tokens % max_num_seqs))
-            seq_data = SequenceData([0] * seq_len)
-            seq = SequenceGroupMetadata(
-                request_id=str(group_id),
-                is_prompt=True,
-                seq_data={group_id: seq_data},
-                sampling_params=sampling_params,
-                block_tables=None,
-                lora_request=dummy_lora_requests_per_seq[group_id]
-                if dummy_lora_requests_per_seq else None,
-            )
+            seq=None
+            if not self.is_encoder_decoder:
+                seq_data = SequenceData([0] * seq_len)
+                seq = SequenceGroupMetadata(
+                    request_id=str(group_id),
+                    is_prompt=True,
+                    seq_data={group_id: seq_data},
+                    sampling_params=sampling_params,
+                    block_tables=None,
+                    lora_request=dummy_lora_requests_per_seq[group_id]
+                    if dummy_lora_requests_per_seq else None,
+                )
+            else:
+                dec_seq_len = seq_len #//2
+                enc_seq_len = seq_len #- dec_seq_len
+
+                dec_seq_data = SequenceData([0] * dec_seq_len)
+                enc_seq_data = SequenceData([0] * enc_seq_len)
+                seq = SequenceGroupMetadata(
+                    request_id=str(group_id),
+                    is_prompt=True,
+                    seq_data={group_id: dec_seq_data},
+                    cross_seq_data={"encoder": enc_seq_data},
+                    sampling_params=sampling_params,
+                    block_tables=None,
+                    lora_request=dummy_lora_requests_per_seq[group_id]
+                    if dummy_lora_requests_per_seq else None,
+                )
             seqs.append(seq)
 
         # Run the model with the dummy inputs.
