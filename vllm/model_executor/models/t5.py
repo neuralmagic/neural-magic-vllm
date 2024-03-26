@@ -21,6 +21,9 @@ from typing import List, Optional, Tuple
 import math
 import copy
 
+from vllm.model_executor.layers.logits_processor import LogitsProcessor
+from vllm.sequence import SamplerOutput
+
 import torch
 from torch import nn
 from transformers import T5Config
@@ -262,7 +265,7 @@ class T5Attention(nn.Module):
         # shape (query_length, key_length, num_heads)
         values = self.relative_attention_bias(relative_position_bucket)
         # shape (1, num_heads, query_length, key_length)
-        values = values.permute([2, 0, 1]).unsqueeze(0)
+        values = values.permute([2, 0, 1])
         return values
 
     def forward(
@@ -274,8 +277,8 @@ class T5Attention(nn.Module):
     ) -> torch.Tensor:
         q, _ = self.q(hidden_states)
 
-        batch_size = hidden_states.shape[0]
-        seq_len = hidden_states.shape[1]
+        batch_size = len(input_metadata.prompt_lens) #hidden_states.shape[0]
+        seq_len = input_metadata.max_seq_len #torch.reshape(hidden_states,(batch_size,-1,hidden_states.shape[-1])) #hidden_states.shape[1]
         prompt_len = max(input_metadata.prompt_lens)
         context_len = input_metadata.context_lens.max().item()
         context_len = max(context_len, 1)
@@ -301,6 +304,7 @@ class T5Attention(nn.Module):
                         input_metadata.prompt_lens[i]:, ] = torch.finfo(
                             input_metadata.attn_bias.dtype).min
 
+            input_metadata.attn_bias = input_metadata.attn_bias
             attn_output = self.attn(q, k, v, input_metadata)
 
         elif not self.is_cross:
@@ -554,6 +558,12 @@ class T5ForConditionalGeneration(nn.Module):
         decoder_config.is_decoder = True
         self.decoder = T5Stack(decoder_config, self.shared, linear_method)
 
+        self.unpadded_vocab_size = config.vocab_size
+        #if lora_config:
+        #    self.unpadded_vocab_size += lora_config.lora_extra_vocab_size
+        self.logits_processor = LogitsProcessor(self.unpadded_vocab_size,
+                                                config.vocab_size)
+
         #self.sampler = Sampler(config.vocab_size)
         self.sampler = Sampler()
 
@@ -572,7 +582,7 @@ class T5ForConditionalGeneration(nn.Module):
         # Extract input metadata for encoder self-attention and decoder
         # self-/cross-attention
         is_prompt=input_metadata
-        self_encoder_input_metadata: InputMetadata = input_metadata.cross_input_metadata['encoder']
+        self_encoder_input_metadata: InputMetadata = input_metadata.cross_input_metadata['encoder'] if is_prompt else None
         cross_decoder_input_metadata: InputMetadata = input_metadata.cross_input_metadata['decoder']
         self_decoder_input_metadata: InputMetadata = input_metadata
         
@@ -604,11 +614,25 @@ class T5ForConditionalGeneration(nn.Module):
 
         return hidden_states
 
-    def sample(self, hidden_states: torch.Tensor,
-               sampling_metadata: SamplingMetadata):
-        next_tokens = self.sampler(self.shared.weight, hidden_states,
-                                   sampling_metadata)
+    def compute_logits(self, hidden_states: torch.Tensor,
+                       sampling_metadata: SamplingMetadata) -> torch.Tensor:
+        logits = self.logits_processor(self.shared.weight, hidden_states,
+                                       sampling_metadata)
+        return logits
+
+    def sample(
+        self,
+        logits: Optional[torch.Tensor],
+        sampling_metadata: SamplingMetadata,
+    ) -> Optional[SamplerOutput]:
+        next_tokens = self.sampler(logits, sampling_metadata)
         return next_tokens
+
+    # def sample(self, hidden_states: torch.Tensor,
+    #            sampling_metadata: SamplingMetadata):
+    #     next_tokens = self.sampler(self.shared.weight, hidden_states,
+    #                                sampling_metadata)
+    #     return next_tokens
 
     def load_weights(
         self,

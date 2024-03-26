@@ -1,5 +1,5 @@
 """Multi-head attention for encoder-decoder models."""
-from typing import Optional
+from typing import List, Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -11,6 +11,7 @@ from vllm.model_executor.input_metadata import InputMetadata
 from vllm.utils import is_hip
 from vllm.model_executor.layers.attention.ops.paged_attn import (
     PagedAttentionImpl)
+from vllm.model_executor.layers.attention.attention import Attention
 
 _SUPPORTED_HEAD_SIZES = [64, 80, 96, 112, 128, 256]
 
@@ -40,8 +41,14 @@ class EncoderAttention(EncDecAttention):
         num_heads: int,
         head_size: int,
         scale: float,
+        num_kv_heads: int = None,
+        alibi_slopes: Optional[List[float]] = None,
+        sliding_window: Optional[int] = None,
     ) -> None:
         super().__init__(num_heads, head_size, scale)
+        self.attn: Attention = Attention(num_heads, head_size, scale, 
+                                         num_heads if num_kv_heads is None else num_kv_heads, 
+                                         alibi_slopes, sliding_window)
 
     def forward(
         self,
@@ -68,30 +75,39 @@ class EncoderAttention(EncDecAttention):
         # output: [batch_size, seq_len, num_heads * head_size]
 
         assert input_metadata.is_prompt
-        batch_size, seq_len, hidden_size = query.shape
         # Reshape the query, key, and value tensors.
-        query = query.view(batch_size, seq_len, self.num_heads, self.head_size)
-        key = key.view(batch_size, seq_len, self.num_heads, self.head_size)
-        value = value.view(batch_size, seq_len, self.num_heads, self.head_size)
-        if input_metadata.attn_bias is None:
-            input_metadata.attn_bias = BlockDiagonalCausalMask.from_seqlens(
-                [seq_len] * batch_size)
+        #query = query.view(batch_size, seq_len, self.num_heads, self.head_size)
+        #key = key.view(batch_size, seq_len, self.num_heads, self.head_size)
+        #value = value.view(batch_size, seq_len, self.num_heads, self.head_size)
+        # if input_metadata.attn_bias is None:
+        #     input_metadata.attn_bias = BlockDiagonalCausalMask.from_seqlens(
+        #         [seq_len] * batch_size)
 
-        input_metadata.attn_bias = input_metadata.attn_bias[:, :, :, :seq_len]
+        #input_metadata.attn_bias = input_metadata.attn_bias[:, :, :, :seq_len]
 
         # Normal attention
-        out = xops.memory_efficient_attention_forward(
-            query,
-            key,
-            value,
-            attn_bias=input_metadata.attn_bias,
-            p=0.0,
-            scale=self.scale,
-            op=xops.fmha.MemoryEfficientAttentionFlashAttentionOp[0] if
-            (is_hip()) else None,
-        )
-        output = out.view(batch_size, seq_len, hidden_size)
-        return output
+        # out = xops.memory_efficient_attention_forward(
+        #     query,
+        #     key,
+        #     value,
+        #     attn_bias=input_metadata.attn_bias,
+        #     p=0.0,
+        #     scale=self.scale,
+        #     op=xops.fmha.MemoryEfficientAttentionFlashAttentionOp[0] if
+        #     (is_hip()) else None,
+        # )
+
+        out = self.attn(
+                query,
+                key,
+                value,
+                None,
+                None,
+                input_metadata, # Should have nonzero attention bias
+            )
+
+        #output = out.view(batch_size, seq_len, hidden_size)
+        return out
 
 
 class DecoderAttention(EncDecAttention):
@@ -141,7 +157,7 @@ class DecoderAttention(EncDecAttention):
             PagedAttentionImpl.reshape_and_cache(key, value, key_cache,
                                                  value_cache, input_metadata)
 
-        max_prompt_len = input_metadata.prompt_lens.max().item()
+        max_prompt_len = max(input_metadata.prompt_lens)
         block_size = value_cache.shape[3]
         prompt_table_len = (max_prompt_len + block_size - 1) // block_size
         self_attn_block_tables = input_metadata.block_tables[:,
@@ -155,12 +171,7 @@ class DecoderAttention(EncDecAttention):
             input_metadata,
             self.num_heads,
             self.scale,
-            None,  # No alibi slopes
-            apply_attn_bias=
-            True,  # Relative positional encoding (utilized i.e. by T5),
-            override_context_lens=input_metadata.context_lens,
-            override_max_context_len=input_metadata.max_context_len,
-            override_block_tables=self_attn_block_tables)
+            None,)
         return output.view(batch_size, seq_len, hidden_size)
 
 

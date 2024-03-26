@@ -205,7 +205,7 @@ class ModelRunner:
                 continue
 
             # Compute the slot mapping.
-            block_table = seq_group_metadata.cross_block_tables[request_id] # seq_group_metadata.block_tables[seq_id]
+            block_table = seq_group_metadata.cross_block_tables["encoder"] # seq_group_metadata.block_tables[seq_id]
             # Mask the [0, start_idx) tokens of the prompt with _PAD_SLOT_ID,
             # where start_idx is max(0, prompt_len - sliding_window).
             # For example, if the prompt len is 10, sliding window is 8, and
@@ -222,7 +222,7 @@ class ModelRunner:
                     slot_mapping.append(_PAD_SLOT_ID)
                     continue
 
-                block_number = block_table[i // self.block_size]
+                block_number = block_table[i // self.block_size].block_number
                 block_offset = i % self.block_size
                 slot = block_number * self.block_size + block_offset
                 slot_mapping.append(slot)
@@ -290,7 +290,7 @@ class ModelRunner:
             num_prompt_tokens=num_prompt_tokens,
             num_generation_tokens=0,
             max_subquery_len=max_subquery_len,
-            max_context_len=None,
+            max_context_len=torch.max(context_lens_tensor),
             max_seq_len=max_seq_len,
             subquery_start_loc=subquery_start_loc,
             seq_start_loc=seq_start_loc,
