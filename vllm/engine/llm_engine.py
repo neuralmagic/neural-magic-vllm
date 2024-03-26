@@ -9,7 +9,8 @@ from typing import (TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple,
 
 from vllm.lora.request import LoRARequest
 from vllm.config import (CacheConfig, DeviceConfig, ModelConfig,
-                         ParallelConfig, SchedulerConfig, LoRAConfig)
+                         ParallelConfig, SchedulerConfig, LoRAConfig,
+                         AudioFeaturesConfig)
 from vllm.core.scheduler import Scheduler, SchedulerOutputs
 from vllm.engine.arg_utils import EngineArgs
 from vllm.engine.metrics import StatLogger, Stats
@@ -18,7 +19,8 @@ from vllm.logger import init_logger
 from vllm.outputs import RequestOutput
 from vllm.sampling_params import SamplingParams
 from vllm.sequence import (SamplerOutput, Sequence, SequenceGroup,
-                           SequenceGroupOutput, SequenceOutput, SequenceStatus)
+                           SequenceGroupOutput, SequenceOutput, SequenceStatus,
+                           MultiModalData)
 from vllm.transformers_utils.tokenizer import (detokenize_incrementally,
                                                TokenizerGroup)
 from vllm.utils import (Counter, set_cuda_visible_devices, get_ip,
@@ -81,6 +83,7 @@ class LLMEngine:
         scheduler_config: SchedulerConfig,
         device_config: DeviceConfig,
         lora_config: Optional[LoRAConfig],
+        audio_features_config: Optional[AudioFeaturesConfig],
         placement_group: Optional["PlacementGroup"],
         log_stats: bool,
     ) -> None:
@@ -108,6 +111,7 @@ class LLMEngine:
         self.model_config = model_config
         self.cache_config = cache_config
         self.lora_config = lora_config
+        self.audio_features_config = audio_features_config
         self.parallel_config = parallel_config
         self.scheduler_config = scheduler_config
         self.device_config = device_config
@@ -177,6 +181,7 @@ class LLMEngine:
             rank=0,
             distributed_init_method=distributed_init_method,
             lora_config=self.lora_config,
+            audio_features_config=self.audio_features_config,
             kv_cache_dtype=self.cache_config.cache_dtype,
             is_driver_worker=True,
         )
@@ -402,6 +407,7 @@ class LLMEngine:
         prompt: Optional[str],
         prompt_token_ids: Optional[List[int]] = None,
         lora_request: Optional[LoRARequest] = None,
+        multi_modal_data: Optional[MultiModalData] = None,
     ):
         if prompt_token_ids is None:
             assert prompt is not None
@@ -418,6 +424,7 @@ class LLMEngine:
         prompt_token_ids: Optional[List[int]] = None,
         arrival_time: Optional[float] = None,
         lora_request: Optional[LoRARequest] = None,
+        multi_modal_data: Optional[MultiModalData] = None,
         prefix_pos: Optional[int] = None,
     ) -> None:
         """Add a request to the engine's request pool.
@@ -493,7 +500,8 @@ class LLMEngine:
 
         # Create the sequence group.
         seq_group = SequenceGroup(request_id, [seq], sampling_params,
-                                  arrival_time, lora_request, prefix)
+                                  arrival_time, lora_request, prefix,
+                                  multi_modal_data)
 
         # Add the sequence group to the scheduler.
         self.scheduler.add_seq_group(seq_group)

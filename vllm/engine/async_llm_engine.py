@@ -12,6 +12,7 @@ from vllm.engine.ray_utils import initialize_cluster, ray
 from vllm.logger import init_logger
 from vllm.outputs import RequestOutput
 from vllm.sampling_params import SamplingParams
+from vllm.sequence import MultiModalData
 
 logger = init_logger(__name__)
 
@@ -226,6 +227,7 @@ class _AsyncLLMEngine(LLMEngine):
         arrival_time: Optional[float] = None,
         lora_request: Optional[LoRARequest] = None,
         prefix_pos: Optional[int] = None,
+        multi_modal_data: Optional[MultiModalData] = None,
     ) -> None:
         if lora_request is not None and not self.lora_config:
             raise ValueError(f"Got lora_request {lora_request} but LoRA is "
@@ -246,6 +248,7 @@ class _AsyncLLMEngine(LLMEngine):
             arrival_time=arrival_time,
             lora_request=lora_request,
             prefix_pos=prefix_pos,
+            multi_modal_data=multi_modal_data,
         )
 
     async def _run_workers_async(
@@ -423,6 +426,7 @@ class AsyncLLMEngine:
         arrival_time: Optional[float] = None,
         lora_request: Optional[LoRARequest] = None,
         prefix_pos: Optional[int] = None,
+        multi_modal_data: Optional[MultiModalData] = None,
     ) -> AsyncStream:
         if self.log_requests:
             shortened_prompt = prompt
@@ -439,6 +443,7 @@ class AsyncLLMEngine:
                         f"sampling_params: {sampling_params}, "
                         f"prompt_token_ids: {shortened_token_ids}, "
                         f"lora_request: {lora_request}.")
+            # TODO: Add multi_modal_data to the log.
 
         if not self.is_running:
             if self.start_engine_loop:
@@ -473,7 +478,8 @@ class AsyncLLMEngine:
             prompt_token_ids=prompt_token_ids,
             arrival_time=arrival_time,
             lora_request=lora_request,
-            prefix_pos=prefix_pos)
+            prefix_pos=prefix_pos,
+            multi_modal_data=multi_modal_data)
 
         return stream
 
@@ -485,6 +491,7 @@ class AsyncLLMEngine:
         prompt_token_ids: Optional[List[int]] = None,
         lora_request: Optional[LoRARequest] = None,
         prefix_pos: Optional[int] = None,
+        multi_modal_data: Optional[MultiModalData] = None,
     ) -> AsyncIterator[RequestOutput]:
         """Generate outputs for a request.
 
@@ -558,15 +565,14 @@ class AsyncLLMEngine:
         arrival_time = time.monotonic()
 
         try:
-            stream = await self.add_request(
-                request_id,
-                prompt,
-                sampling_params,
-                prompt_token_ids=prompt_token_ids,
-                arrival_time=arrival_time,
-                lora_request=lora_request,
-                prefix_pos=prefix_pos,
-            )
+            stream = await self.add_request(request_id,
+                                            prompt,
+                                            sampling_params,
+                                            prompt_token_ids=prompt_token_ids,
+                                            arrival_time=arrival_time,
+                                            lora_request=lora_request,
+                                            prefix_pos=prefix_pos,
+                                            multi_modal_data=multi_modal_data)
 
             async for request_output in stream:
                 yield request_output

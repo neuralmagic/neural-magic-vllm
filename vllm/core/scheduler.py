@@ -388,6 +388,8 @@ class Scheduler:
                 lora_request=seq_group.lora_request,
                 prefix=seq_group.prefix,
                 state=seq_group.state,
+                multi_modal_data=seq_group.multi_modal_data
+                if scheduler_outputs.prompt_run else None,
             )
             seq_group_metadata_list.append(seq_group_metadata)
         return seq_group_metadata_list, scheduler_outputs

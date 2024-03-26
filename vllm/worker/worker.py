@@ -7,7 +7,8 @@ import torch
 import torch.distributed
 
 from vllm.config import (CacheConfig, DeviceConfig, ModelConfig,
-                         ParallelConfig, SchedulerConfig, LoRAConfig)
+                         ParallelConfig, SchedulerConfig, LoRAConfig,
+                         AudioFeaturesConfig)
 from vllm.model_executor import set_random_seed
 from vllm.model_executor.parallel_utils import cupy_utils
 from vllm.model_executor.parallel_utils.communication_op import (
@@ -40,9 +41,11 @@ class Worker:
         rank: int,
         distributed_init_method: str,
         lora_config: Optional[LoRAConfig] = None,
+        audio_features_config: Optional[AudioFeaturesConfig] = None,
         kv_cache_dtype: Optional[str] = "auto",
         is_driver_worker: bool = False,
     ) -> None:
+
         self.model_config = model_config
         self.parallel_config = parallel_config
         self.scheduler_config = scheduler_config
@@ -51,17 +54,23 @@ class Worker:
         self.rank = rank
         self.distributed_init_method = distributed_init_method
         self.lora_config = lora_config
+        self.audio_features_config = audio_features_config
+        if self.audio_features_config and self.lora_config:
+            raise NotImplementedError(
+                "Not yet tested: audio models with LoRA settings.")
         self.is_driver_worker = is_driver_worker
         if self.is_driver_worker:
             assert self.rank == 0, "The driver worker must have rank 0."
 
-        self.model_runner = ModelRunner(model_config,
-                                        parallel_config,
-                                        scheduler_config,
-                                        device_config,
-                                        lora_config=self.lora_config,
-                                        kv_cache_dtype=kv_cache_dtype,
-                                        is_driver_worker=is_driver_worker)
+        self.model_runner = ModelRunner(
+            model_config,
+            parallel_config,
+            scheduler_config,
+            device_config,
+            lora_config=self.lora_config,
+            audio_features_config=self.audio_features_config,
+            kv_cache_dtype=kv_cache_dtype,
+            is_driver_worker=is_driver_worker)
         # Uninitialized cache engine. Will be initialized by
         # self.init_cache_engine().
         self.cache_config = None

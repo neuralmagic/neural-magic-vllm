@@ -46,6 +46,8 @@ _MODELS = {
     "StableLMEpochForCausalLM": ("stablelm", "StablelmForCausalLM"),
     "StableLmForCausalLM": ("stablelm", "StablelmForCausalLM"),
     "T5ForConditionalGeneration": ("t5", "T5ForConditionalGeneration"),
+    "WhisperForConditionalGeneration":
+    ("whisper", "WhisperForConditionalGeneration"),
     "Starcoder2ForCausalLM": ("starcoder2", "Starcoder2ForCausalLM"),
 }
 

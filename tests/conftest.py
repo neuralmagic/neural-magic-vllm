@@ -3,8 +3,8 @@ from typing import List, Optional, Tuple
 
 import pytest
 import torch
-from transformers import AutoModelForCausalLM
-
+from transformers import AutoModelForCausalLM, WhisperForConditionalGeneration, AutoProcessor
+from vllm.sequence import MultiModalData
 from vllm import LLM, SamplingParams
 from vllm.transformers_utils.tokenizer import get_tokenizer
 
@@ -16,7 +16,10 @@ _LONG_PROMPTS = [os.path.join(_TEST_DIR, "prompts", "summary.txt")]
 def _read_prompts(filename: str) -> List[str]:
     with open(filename, "r") as f:
         prompts = f.readlines()
-        return prompts
+    return prompts
+
+
+AUDIO_MODELS = {"openai/whisper-tiny": WhisperForConditionalGeneration}
 
 
 @pytest.fixture
@@ -51,12 +54,21 @@ class HfRunner:
         dtype: str = "half",
     ) -> None:
         assert dtype in _STR_DTYPE_TO_TORCH_DTYPE
-        torch_dtype = _STR_DTYPE_TO_TORCH_DTYPE[dtype]
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            torch_dtype=torch_dtype,
-            trust_remote_code=True,
-        ).cuda()
+        self.torch_dtype = _STR_DTYPE_TO_TORCH_DTYPE[dtype]
+        self.model_name = model_name
+        if model_name in AUDIO_MODELS:
+            self.model = AUDIO_MODELS[model_name].from_pretrained(
+                model_name,
+                torch_dtype=self.torch_dtype,
+                trust_remote_code=True).cuda()
+            self.processor = AutoProcessor.from_pretrained(
+                model_name, torch_dtype=self.torch_dtype)
+        else:
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                torch_dtype=self.torch_dtype,
+                trust_remote_code=True).cuda()
+            self.processor = None
         if tokenizer_name is None:
             tokenizer_name = model_name
         self.tokenizer = get_tokenizer(tokenizer_name, trust_remote_code=True)
@@ -64,13 +76,29 @@ class HfRunner:
     def generate(
         self,
         prompts: List[str],
+        audio_samples: Optional["TODO"] = None,
         **kwargs,
     ) -> List[Tuple[List[int], str]]:
         outputs: List[Tuple[List[int], str]] = []
-        for prompt in prompts:
-            input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids
+        if audio_samples:
+            assert len(prompts) == len(audio_samples)
+        for i, prompt in enumerate(prompts):
+            if self.model_name in AUDIO_MODELS:
+                audio_sample = audio_samples[i]
+                input_features = self.processor(
+                    audio_sample["array"],
+                    sampling_rate=audio_sample["sampling_rate"],
+                    return_tensors="pt").input_features
+
+                inputs = dict(
+                    input_features=input_features.cuda())  #TODO: Fix this
+            else:
+                input_ids = self.tokenizer(prompt,
+                                           return_tensors="pt").input_ids
+                inputs = dict(input_ids=input_ids.cuda())
+
             output_ids = self.model.generate(
-                input_ids.cuda(),
+                **inputs,
                 use_cache=True,
                 **kwargs,
             )
@@ -87,8 +115,10 @@ class HfRunner:
         self,
         prompts: List[str],
         max_tokens: int,
+        audio_samples: Optional["TODO"] = None,
     ) -> List[Tuple[List[int], str]]:
         outputs = self.generate(prompts,
+                                audio_samples=audio_samples,
                                 do_sample=False,
                                 max_new_tokens=max_tokens)
         for i in range(len(outputs)):
@@ -182,8 +212,24 @@ class VllmRunner:
         self,
         prompts: List[str],
         sampling_params: SamplingParams,
+        audio_samples: Optional["TODO"] = None,
     ) -> List[Tuple[List[int], str]]:
+        if audio_samples:
+            assert len(prompts) == len(audio_samples)
+            processor = AutoProcessor.from_pretrained("openai/whisper-tiny")
+            input_features = processor(
+                audio_samples[0]["array"],
+                sampling_rate=audio_samples[0]["sampling_rate"],
+                return_tensors="pt").input_features
+            # change type of input features
+            input_features = input_features.to(
+                dtype=self.model.llm_engine.model_config.dtype)
+            multi_modal_data = MultiModalData(type=input_features.dtype,
+                                              data=input_features[0])
+        else:
+            multi_modal_data = None
         req_outputs = self.model.generate(prompts,
+                                          multi_modal_data=multi_modal_data,
                                           sampling_params=sampling_params)
         outputs = []
         for req_output in req_outputs:
@@ -221,9 +267,12 @@ class VllmRunner:
         self,
         prompts: List[str],
         max_tokens: int,
+        audio_samples: Optional["TODO"] = None,
     ) -> List[Tuple[List[int], str]]:
         greedy_params = SamplingParams(temperature=0.0, max_tokens=max_tokens)
-        outputs = self.generate(prompts, greedy_params)
+        outputs = self.generate(prompts,
+                                greedy_params,
+                                audio_samples=audio_samples)
         return [(output_ids[0], output_str[0])
                 for output_ids, output_str in outputs]
 
