@@ -120,7 +120,6 @@ jobs:
               id: build
               uses: ./.github/actions/nm-build-vllm/
               with:
-                Gi_per_thread: ${{ inputs.Gi_per_thread }}
                 python: ${{ inputs.python }}
                 venv: TEST
                 pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
