@@ -5,7 +5,7 @@ from vllm.config import AudioFeaturesConfig
 
 import os
 
-os.environ['CUDA_LAUNCH_BLOCKING'] = "0"
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 os.environ['CUDA_VISIBLE_DEVICES'] = "6"
 
 
@@ -29,7 +29,7 @@ def sample_from_librispeech():
 audio_sample = sample_from_librispeech()["audio"]
 
 
-@pytest.mark.parametrize("dtype", ["half"])  # TODO fix that
+@pytest.mark.parametrize("dtype", ["float"])  # TODO fix that
 @pytest.mark.parametrize("max_tokens", [2])
 @pytest.mark.parametrize("prompts, audio_samples", [([""], [audio_sample])])
 def test_text_to_audio_scenario(hf_runner, vllm_runner, model_id, prompts,

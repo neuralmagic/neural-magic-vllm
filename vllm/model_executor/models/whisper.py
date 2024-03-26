@@ -380,6 +380,7 @@ class WhisperForConditionalGeneration(nn.Module):
         input_ids: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
 
+        input_features = input_features.to(dtype=torch.float32)
         if input_metadata.is_prompt:
             # prompt run, need to run encoder once
             hidden_states = self.encoder(input_features, input_metadata=input_metadata)
