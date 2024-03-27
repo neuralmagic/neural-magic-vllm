@@ -46,6 +46,7 @@ async def generate(request: Request) -> Response:
     stream = request_dict.pop("stream", False)
     sampling_params = SamplingParams(**request_dict)
     request_id = random_uuid()
+    # TODO: make time logging configurable
 
     results_generator = engine.generate(prompt, sampling_params, request_id)
 
