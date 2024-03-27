@@ -11,6 +11,7 @@ from vllm.logger import init_logger
 from vllm.lora.request import LoRARequest
 from vllm.sequence import (Sequence, SequenceData, SequenceGroup,
                            SequenceGroupMetadata, SequenceStatus)
+from vllm.timings.utils import log_time, get_singleton_manager
 
 logger = init_logger(__name__)
 
@@ -435,11 +436,13 @@ class Scheduler:
             num_lookahead_slots=self._get_num_lookahead_slots(is_prefill),
         )
 
+    @log_time
     def schedule(self) -> Tuple[List[SequenceGroupMetadata], SchedulerOutputs]:
         # Schedule sequence groups.
         # This function call changes the internal states of the scheduler
         # such as self.running, self.swapped, and self.waiting.
-        scheduler_outputs = self._schedule()
+        with get_singleton_manager().time(f"{self.__class__.__name__}._schedule"):
+            scheduler_outputs = self._schedule()
         now = time.time()
 
         # Create input data structures.

@@ -24,6 +24,7 @@ from vllm.transformers_utils.tokenizer_group import (BaseTokenizerGroup,
 from vllm.usage.usage_lib import (UsageContext, is_usage_stats_enabled,
                                   usage_message)
 from vllm.utils import Counter
+from vllm.timings.utils import log_time
 
 logger = init_logger(__name__)
 _LOCAL_LOGGING_INTERVAL_SEC = 5
@@ -414,6 +415,7 @@ class LLMEngine:
                         eos_token_id=best_running_seq.eos_token_id))
         return current_worst_score >= highest_attainable_score
 
+    @log_time
     def _process_sequence_group_outputs(self, seq_group: SequenceGroup,
                                         outputs: SequenceGroupOutput) -> None:
 

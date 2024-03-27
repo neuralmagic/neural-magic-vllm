@@ -17,6 +17,7 @@ from vllm.outputs import RequestOutput
 from vllm.sampling_params import SamplingParams
 from vllm.sequence import MultiModalData
 from vllm.usage.usage_lib import UsageContext
+from vllm.timings.utils import log_async_time, log_time
 
 logger = init_logger(__name__)
 ENGINE_ITERATION_TIMEOUT_S = int(
@@ -107,6 +108,7 @@ class RequestTracker:
                 stream.put(exc)
                 self.abort_request(rid)
 
+    @log_time
     def process_request_output(self,
                                request_output: RequestOutput,
                                *,
@@ -196,6 +198,7 @@ class RequestTracker:
 class _AsyncLLMEngine(LLMEngine):
     """Extension of LLMEngine to add async methods."""
 
+    @log_async_time
     async def step_async(self) -> List[RequestOutput]:
         """Performs one decoding iteration and returns newly generated results.
         The workers are ran asynchronously if possible.
@@ -421,6 +424,7 @@ class AsyncLLMEngine:
                 self._engine_class).remote
         return engine_class(*args, **kwargs)
 
+    @log_async_time
     async def engine_step(self) -> bool:
         """Kick the engine to process the waiting requests.
 
