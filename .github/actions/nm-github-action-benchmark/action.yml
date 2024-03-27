@@ -67,3 +67,9 @@ runs:
         comment-on-alert: ${{ inputs.reporting_enabled == 'true' }}
         # TODO (varun): Is this a reasonable number ? 
         max-items-in-chart: 50
+
+    - name: fail smaller is better job 
+      if: ${{ inputs.gh_action_benchmark_name == 'smaller_is_better' }}
+      run: |
+        exit 1
+      shell: bash
