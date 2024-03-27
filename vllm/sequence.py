@@ -150,12 +150,13 @@ class Sequence:
         self.logical_token_blocks: List[LogicalTokenBlock] = []
         initial_token_ids = prompt_token_ids
         if is_decoder_encoder:
+            from vllm.config import AudioFeaturesConfig
             # We need to separate the prompt and generated tokens for encoder-decoder models.
-            num_prompt_blocks = (len(prompt_token_ids) + block_size -
+            num_prompt_blocks = (AudioFeaturesConfig().sequence_length + block_size -
                                  1) // block_size
             padded_prompt_len = num_prompt_blocks * block_size
-            initial_token_ids = prompt_token_ids + [0] * (
-                padded_prompt_len - len(prompt_token_ids))
+            initial_token_ids = [0] * (
+                padded_prompt_len)
             # Also need to append decoder_start_token_id
             initial_token_ids.append(0)
 

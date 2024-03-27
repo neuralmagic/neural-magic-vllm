@@ -106,12 +106,11 @@ class WhisperAttention(nn.Module):
             key_cache, value_cache = kv_cache
             k, _ = self.k_proj(encoder_hidden_states)
             v, _ = self.v_proj(encoder_hidden_states)
-            # reshape the tensors to the shape required by the EncoderAttention
-            proj_shape = (bsz, -1, self.head_dim * self.num_heads)
-            q = q.reshape(*proj_shape)
-            k = k.reshape(*proj_shape)
-            v = v.reshape(*proj_shape)
-            input_metadata.attn_bias = None
+            from xformers.ops.fmha.attn_bias import BlockDiagonalCausalMask
+
+            input_metadata.attn_bias = BlockDiagonalCausalMask.from_seqlens(
+                    [seq_len] * bsz)
+            input_metadata.attn_bias = input_metadata.attn_bias.materialize((bsz, 1, seq_len, seq_len), device = q.device)
 
             attn_output = self.attn(q, k, v, key_cache, value_cache,
                                     input_metadata)
@@ -121,11 +120,6 @@ class WhisperAttention(nn.Module):
             key_cache, value_cache = kv_cache
             k, _ = self.k_proj(hidden_states)
             v, _ = self.v_proj(hidden_states)
-            # reshape the tensors to the shape required by the EncoderAttention
-            proj_shape = (bsz, -1, self.head_dim * self.num_heads)
-            q = q.reshape(*proj_shape)
-            k = k.reshape(*proj_shape)
-            v = v.reshape(*proj_shape)
             # from xformers.ops.fmha.attn_bias import BlockDiagonalCausalMask
 
             # input_metadata.attn_bias = BlockDiagonalCausalMask.from_seqlens(
@@ -146,12 +140,6 @@ class WhisperAttention(nn.Module):
                 )
             k, _ = self.k_proj(hidden_states)
             v, _ = self.v_proj(hidden_states)
-
-            # reshape the tensors to the shape required by the EncoderAttention
-            proj_shape = (bsz, -1, self.head_dim * self.num_heads)
-            q = q.reshape(*proj_shape)
-            k = k.reshape(*proj_shape)
-            v = v.reshape(*proj_shape)
             input_metadata.attn_bias = None
             attn_output = self.attn(q, k, v, input_metadata)
 
@@ -385,26 +373,23 @@ class WhisperForConditionalGeneration(nn.Module):
             # prompt run, need to run encoder once
             hidden_states = self.encoder(input_features, input_metadata=input_metadata)
             input_metadata.attn_bias = None
-            
-            if input_ids is None:
-                decoder_input_ids = torch.tensor([[1]]).to(
-                    input_features.device) * self.config.decoder_start_token_id
-            else:
-                decoder_input_ids = input_ids
+            bsz = hidden_states.shape[0]
+            decoder_input_ids = torch.ones((bsz, 1), dtype=torch.int32).to(input_features.device) * self.config.decoder_start_token_id
 
-        if kv_caches[0][0] is None:
-            hidden_states = None
         else:
-            hidden_states = self.decoder(input_ids=decoder_input_ids,
-                                          encoder_hidden_states=hidden_states,
-                                          kv_cache=kv_caches,
-                                          input_metadata=input_metadata)
+            if kv_caches[0][0] is None:
+                hidden_states = None
+            else:
+                hidden_states = self.decoder(input_ids=decoder_input_ids,
+                                            encoder_hidden_states=hidden_states,
+                                            kv_cache=kv_caches,
+                                            input_metadata=input_metadata)
         return hidden_states
 
-    def sample(self, hidden_states: torch.Tensor,
-               sampling_metadata: SamplingMetadata):
-        # TODO: For now we are not implementing the sampling method
-        return hidden_states
+    def sample(self, hidden_states: torch.Tensor, sampling_metadata: SamplingMetadata):
+        next_tokens = self.sampler(self.decoder.embed_tokens.weight, hidden_states,
+                                   sampling_metadata)
+        return next_tokens
 
     def load_weights(
         self,

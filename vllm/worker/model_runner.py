@@ -154,10 +154,14 @@ class ModelRunner:
             seq_ids = list(seq_group_metadata.seq_data.keys())
             assert len(seq_ids) == 1
             seq_id = seq_ids[0]
+            
+            if seq_group_metadata.multi_modal_data:
+                multi_modal_inputs.append(
+                    seq_group_metadata.multi_modal_data.data)
 
             seq_data = seq_group_metadata.seq_data[seq_id]
             prompt_tokens = seq_data.get_token_ids()
-            prompt_len = len(prompt_tokens)
+            prompt_len = multi_modal_inputs[-1].shape[1]
             prompt_lens.append(prompt_len)
 
             prefix_len = 0
@@ -179,7 +183,7 @@ class ModelRunner:
             # NOTE(woosuk): Here we assume that the first token in the prompt
             # is always the first token in the sequence.
             input_positions.append(
-                list(range(prefix_len, prefix_len + len(prompt_tokens))))
+                list(range(prefix_len, prefix_len + multi_modal_inputs[-1].shape[1])))
 
             lora_id = seq_group_metadata.lora_int_id
 
@@ -191,10 +195,6 @@ class ModelRunner:
                 [lora_id] *
                 (prompt_len - prefix_len
                  if seq_group_metadata.sampling_params.prompt_logprobs else 1))
-
-            if seq_group_metadata.multi_modal_data:
-                multi_modal_inputs.append(
-                    seq_group_metadata.multi_modal_data.data)
 
             if seq_group_metadata.block_tables is None:
                 # During memory profiling, the block tables are not initialized
@@ -232,7 +232,7 @@ class ModelRunner:
                                           len(block_table))
         max_prompt_len = max(subquery_lens)
         input_tokens = _make_tensor_with_pad(input_tokens,
-                                             max_prompt_len,
+                                             len(input_tokens[0]),
                                              pad=0,
                                              dtype=torch.long,
                                              device=self.device)

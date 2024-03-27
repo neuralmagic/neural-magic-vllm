@@ -48,7 +48,8 @@ def test_text_to_audio_scenario(hf_runner, vllm_runner, model_id, prompts,
                              dtype=dtype,
                              enforce_eager=True,
                              tensor_parallel_size=1,
-                             gpu_memory_utilization=0.9)
+                             gpu_memory_utilization=0.4,
+                             max_model_len=64)
     vllm_outputs = vllm_model.generate_greedy(prompts,
                                               max_tokens,
                                               audio_samples=audio_samples)
