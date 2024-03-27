@@ -15,7 +15,6 @@ from vllm.model_executor.layers.attention.attention import Attention
 
 _SUPPORTED_HEAD_SIZES = [64, 80, 96, 112, 128, 256]
 
-
 class EncDecAttention(nn.Module):
 
     def __init__(
@@ -73,9 +72,11 @@ class EncoderAttention(EncDecAttention):
         # value: [batch_size, seq_len, num_heads * head_size]
         # custom_bias: [batch_size, seq_len, seq_len]
         # output: [batch_size, seq_len, num_heads * head_size]
-
         assert input_metadata.is_prompt
+        
         # Reshape the query, key, and value tensors.
+        batch_size = len(input_metadata.prompt_lens)
+        seq_len = query.shape[0]//batch_size
         #query = query.view(batch_size, seq_len, self.num_heads, self.head_size)
         #key = key.view(batch_size, seq_len, self.num_heads, self.head_size)
         #value = value.view(batch_size, seq_len, self.num_heads, self.head_size)
@@ -83,7 +84,8 @@ class EncoderAttention(EncDecAttention):
         #     input_metadata.attn_bias = BlockDiagonalCausalMask.from_seqlens(
         #         [seq_len] * batch_size)
 
-        #input_metadata.attn_bias = input_metadata.attn_bias[:, :, :, :seq_len]
+        # Attention wrapper wants a list of biases
+        #input_metadata.attn_bias = [input_metadata.attn_bias] # input_metadata.attn_bias[:, :, :, :seq_len]
 
         # Normal attention
         # out = xops.memory_efficient_attention_forward(

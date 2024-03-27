@@ -138,6 +138,22 @@ class T5LayerFF(nn.Module):
         hidden_states = hidden_states + forwarded_states
         return hidden_states
 
+def to_block_diagonal_nested(tensors):
+    # Base case: if tensors is a list of tensors, create a block diagonal tensor
+    if all(isinstance(t, torch.Tensor) for t in tensors):
+        total_size = sum(t.size(0) for t in tensors)
+        block_diagonal = torch.zeros(total_size, total_size)
+        
+        offset = 0
+        for t in tensors:
+            size = t.size(0)
+            block_diagonal[offset:offset+size, offset:offset+size] = t
+            offset += size
+            
+        return block_diagonal
+    # Recursive case: if tensors is a nested list, apply function to each sublist
+    else:
+        return [to_block_diagonal_nested(sublist) for sublist in tensors]
 
 class T5Attention(nn.Module):
 
@@ -246,6 +262,7 @@ class T5Attention(nn.Module):
                                         relative_position_if_large)
         return relative_buckets
 
+    '''
     def compute_bias(self, query_length, key_length):
         """Compute binned relative position bias"""
         context_position = torch.arange(query_length,
@@ -267,7 +284,34 @@ class T5Attention(nn.Module):
         # shape (1, num_heads, query_length, key_length)
         values = values.permute([2, 0, 1])
         return values
+    '''
 
+    def compute_bias(self, query_lens, key_lens, dtype, device):
+        biases = [[] for _ in range(self.n_heads)]
+        
+        for query_length, key_length in zip(query_lens,key_lens):
+            context_position = torch.arange(query_length, dtype=torch.long, device=device)[:, None]
+            memory_position = torch.arange(key_length, dtype=torch.long, device=device)[None, :]
+            relative_position = memory_position - context_position
+            
+            relative_position_bucket = self._relative_position_bucket(
+                relative_position,
+                bidirectional=(not self.is_decoder),
+                num_buckets=self.relative_attention_num_buckets,
+                max_distance=self.relative_attention_max_distance,
+            )
+            
+            values = self.relative_attention_bias(relative_position_bucket)
+            values = values.permute(2, 0, 1)  # Rearrange to (num_heads, seq_len, seq_len)
+            
+            for head in range(self.n_heads):
+                biases[head].append(values[head][:,:key_length])
+        
+        biases = to_block_diagonal_nested(biases) # List of per-head block-diagonal relative position encoding matrices
+        biases = torch.stack(biases).unsqueeze(0) # 1 x (# heads) x (num_tokens) x (num_tokens)
+
+        return [biases.to(dtype).to(device)] # vLLM Attention wrapper expects biases as a list
+        
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -279,7 +323,8 @@ class T5Attention(nn.Module):
 
         batch_size = len(input_metadata.prompt_lens) #hidden_states.shape[0]
         seq_len = input_metadata.max_seq_len #torch.reshape(hidden_states,(batch_size,-1,hidden_states.shape[-1])) #hidden_states.shape[1]
-        prompt_len = max(input_metadata.prompt_lens)
+        prompt_lens = input_metadata.prompt_lens
+        max_prompt_len = max(prompt_lens)
         context_len = input_metadata.context_lens.max().item()
         context_len = max(context_len, 1)
 
@@ -292,19 +337,20 @@ class T5Attention(nn.Module):
             v, _ = self.v(hidden_states)
 
             if input_metadata.attn_bias is None:
+                # input_metadata.attn_bias = self.compute_bias(
+                #     prompt_lens, [(prompt_len + block_size - 1) // block_size *
+                #     block_size for prompt_len in prompt_lens]).repeat(batch_size, 1, 1, 1)
                 input_metadata.attn_bias = self.compute_bias(
-                    prompt_len, (prompt_len + block_size - 1) // block_size *
-                    block_size).repeat(batch_size, 1, 1, 1)
-                print(batch_size)
-                print(len(input_metadata.prompt_lens))
-                print(input_metadata.attn_bias.shape)
-                for i in range(batch_size):
-                    input_metadata.attn_bias[
-                        i, :, :,
-                        input_metadata.prompt_lens[i]:, ] = torch.finfo(
-                            input_metadata.attn_bias.dtype).min
+                    prompt_lens, prompt_lens, dtype=q.dtype, device=q.device)
+                
+                print(input_metadata.attn_bias[0].shape)
+                # for i in range(batch_size):
+                #     input_metadata.attn_bias[
+                #         i, :, :,
+                #         input_metadata.prompt_lens[i]:, ] = torch.finfo(
+                #             input_metadata.attn_bias.dtype).min
 
-            input_metadata.attn_bias = input_metadata.attn_bias
+            # input_metadata.attn_bias = input_metadata.attn_bias
             attn_output = self.attn(q, k, v, input_metadata)
 
         elif not self.is_cross:
