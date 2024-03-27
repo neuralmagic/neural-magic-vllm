@@ -43,7 +43,6 @@ runs:
     # inconsistent state.
     - name: reset github pages branch
       run: |
-        echo "See if we can see the secret github token : ${{ inputs.github_token }} " 
         git update-ref refs/heads/${{ inputs.gh_pages_branch }} origin/${{ inputs.gh_pages_branch }}
       shell: bash
 

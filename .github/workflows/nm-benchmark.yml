@@ -208,7 +208,7 @@ jobs:
 
       - name: nm-github-action-benchmark(bigger_is_better.json)
         # Absence of the file indicates that there were no "bigger_is_better" metrics
-        if: ${{ success() || failure() }} && ${{ hashFiles('downloads/bigger_is_better.json') != '' }}
+        if: (success() || failure()) && (hashFiles('downloads/bigger_is_better.json') != '')
         uses: ./.github/actions/nm-github-action-benchmark
         with:
           gh_action_benchmark_name: "bigger_is_better"
@@ -221,7 +221,7 @@ jobs:
 
       - name: nm-github-action-benchmark(smaller_is_better.json)
         # Absence of the file indicates that there were no "smaller_is_better" metrics
-        if: ${{ success() || failure() }} &&  ${{ hashFiles('downloads/smaller_is_better.json') != '' }}
+        if: (success() || failure()) && (hashFiles('downloads/smaller_is_better.json') != '')
         uses: ./.github/actions/nm-github-action-benchmark
         with:
           gh_action_benchmark_name: "smaller_is_better"
@@ -234,7 +234,7 @@ jobs:
 
       - name: nm-github-action-benchmark(observation_metrics.json)
         # Absence of the file indicates that there were no "observation" metrics
-        if: ${{ success() || failure() }} && ${{ hashFiles('downloads/observation_metrics.json') != '' }}
+        if: (success() || failure()) && (hashFiles('downloads/observation_metrics.json') != '')
         uses: ./.github/actions/nm-github-action-benchmark
         with:
           gh_action_benchmark_name: "observation_metrics"
