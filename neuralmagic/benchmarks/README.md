@@ -179,6 +179,9 @@ As an example, the `script/benchmark_throughput.py` creates the BenchmarkResult 
 ```
 BenchmarkResult constructor takes all the general information about the environment. Then, invoke the `add_metric` method to add the observed metrics. Finally, store the benchmark results as a JSON by invoking the `store` method.
 
+# Permanent Storage
+As of 2024-03-28, all benchmark run results are stored on EFS. For access, please reach out to Andy Linfoot / Varun / Dan Huang.
+
 # About sparsity
 The benchmark configs have a `sparsity` field. Populate this field with proper sparsity identifiers to inform vllm about model sparsity.
 For the list of valid sparsity args, check `vllm/model_executor/layers/sparsity/*`
