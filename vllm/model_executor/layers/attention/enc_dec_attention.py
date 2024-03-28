@@ -75,8 +75,8 @@ class EncoderAttention(EncDecAttention):
         assert input_metadata.is_prompt
         
         # Reshape the query, key, and value tensors.
-        batch_size = len(input_metadata.prompt_lens)
-        seq_len = query.shape[0]//batch_size
+        #batch_size = len(input_metadata.prompt_lens)
+        #seq_len = query.shape[0]//batch_size
         #query = query.view(batch_size, seq_len, self.num_heads, self.head_size)
         #key = key.view(batch_size, seq_len, self.num_heads, self.head_size)
         #value = value.view(batch_size, seq_len, self.num_heads, self.head_size)
@@ -99,6 +99,14 @@ class EncoderAttention(EncDecAttention):
         #     (is_hip()) else None,
         # )
 
+        print(input_metadata.attn_bias[0].shape)
+        print(input_metadata.prompt_lens)
+        print(input_metadata.is_prompt)
+        print(query.shape)
+        print(key.shape)
+        print(value.shape)
+        print(is_hip())
+
         out = self.attn(
                 query,
                 key,
@@ -119,8 +127,14 @@ class DecoderAttention(EncDecAttention):
         num_heads: int,
         head_size: int,
         scale: float,
+        num_kv_heads: int = None,
+        alibi_slopes: Optional[List[float]] = None,
+        sliding_window: Optional[int] = None,
     ) -> None:
         super().__init__(num_heads, head_size, scale)
+        self.attn: Attention = Attention(num_heads, head_size, scale, 
+                                         num_heads if num_kv_heads is None else num_kv_heads, 
+                                         alibi_slopes, sliding_window)
 
     def forward(
         self,
@@ -145,27 +159,46 @@ class DecoderAttention(EncDecAttention):
             Output tensor.
         """
 
-        batch_size, seq_len, hidden_size = query.shape
+        #batch_size, seq_len, hidden_size = query.shape
         # Reshape the query, key, and value tensors.
-        query = query.view(-1, self.num_heads, self.head_size)
-        key = key.view(-1, self.num_heads, self.head_size)
-        value = value.view(-1, self.num_heads, self.head_size)
+        #query = query.view(-1, self.num_heads, self.head_size)
+        #key = key.view(-1, self.num_heads, self.head_size)
+        #value = value.view(-1, self.num_heads, self.head_size)
         # Reshape the keys and values and store them in the cache.
         # If key_cache and value_cache are not provided, the new key and value
         # vectors will not be cached. This happens during the initial memory
         # profiling run.
-        if key_cache is not None and value_cache is not None:
+        #if key_cache is not None and value_cache is not None:
+        #
+        #    PagedAttentionImpl.reshape_and_cache(key, value, key_cache,
+        #                                         value_cache, input_metadata)
 
-            PagedAttentionImpl.reshape_and_cache(key, value, key_cache,
-                                                 value_cache, input_metadata)
+        # max_prompt_len = max(input_metadata.prompt_lens)
+        # block_size = value_cache.shape[3]
+        # prompt_table_len = (max_prompt_len + block_size - 1) // block_size
+        # self_attn_block_tables = input_metadata.block_tables[:,
+        #                                                      prompt_table_len:].contiguous(
+        #                                                      )
 
-        max_prompt_len = max(input_metadata.prompt_lens)
-        block_size = value_cache.shape[3]
-        prompt_table_len = (max_prompt_len + block_size - 1) // block_size
-        self_attn_block_tables = input_metadata.block_tables[:,
-                                                             prompt_table_len:].contiguous(
-                                                             )
+        '''
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        key_cache: Optional[torch.Tensor],
+        value_cache: Optional[torch.Tensor],
+        input_metadata: InputMetadata,
+        '''
 
+        output = self.attn(
+                query,
+                key,
+                value,
+                key_cache,
+                value_cache,
+                input_metadata,
+            )
+
+        '''
         output = PagedAttentionImpl.forward_decode(
             query,
             key_cache,
@@ -174,7 +207,10 @@ class DecoderAttention(EncDecAttention):
             self.num_heads,
             self.scale,
             None,)
-        return output.view(batch_size, seq_len, hidden_size)
+        '''
+
+        return output
+        #return output.view(batch_size, seq_len, hidden_size)
 
 
 class CrossAttention(EncDecAttention):
@@ -184,8 +220,14 @@ class CrossAttention(EncDecAttention):
         num_heads: int,
         head_size: int,
         scale: float,
+        num_kv_heads: int = None,
+        alibi_slopes: Optional[List[float]] = None,
+        sliding_window: Optional[int] = None,
     ) -> None:
         super().__init__(num_heads, head_size, scale)
+        self.attn: Attention = Attention(num_heads, head_size, scale, 
+                                         num_heads if num_kv_heads is None else num_kv_heads, 
+                                         alibi_slopes, sliding_window)
 
     def forward(
         self,
@@ -208,28 +250,29 @@ class CrossAttention(EncDecAttention):
         Returns:
             Output tensor.
         """
-        batch_size, seq_len, hidden_size = query.shape
+
+        #batch_size, seq_len, hidden_size = query.shape
         # Reshape the query, key, and value tensors.
-        query = query.view(-1, self.num_heads, self.head_size)
-        if key is not None:
-            key = key.view(-1, self.num_heads, self.head_size)
-        if value is not None:
-            value = value.view(-1, self.num_heads, self.head_size)
+        # query = query.view(-1, self.num_heads, self.head_size)
+        # if key is not None:
+        #     key = key.view(-1, self.num_heads, self.head_size)
+        # if value is not None:
+        #     value = value.view(-1, self.num_heads, self.head_size)
 
         # Reshape the keys and values and store them in the cache.
         # It only happens during the first pass.
-        if (input_metadata.is_prompt and key_cache is not None
-                and value_cache is not None):
-            assert key is not None and value is not None
-            PagedAttentionImpl.reshape_and_cache(key, value, key_cache,
-                                                 value_cache, input_metadata)
+        # if (input_metadata.is_prompt and key_cache is not None
+        #         and value_cache is not None):
+        #     assert key is not None and value is not None
+        #     PagedAttentionImpl.reshape_and_cache(key, value, key_cache,
+        #                                          value_cache, input_metadata)
 
         max_prompt_len = input_metadata.prompt_lens.int().max().item()
-        block_size = value_cache.shape[3]
-        prompt_table_len = (max_prompt_len + block_size - 1) // block_size
-        cross_attn_block_tables = input_metadata.block_tables[:, :
-                                                              prompt_table_len].contiguous(
-                                                              )
+        #block_size = value_cache.shape[3]
+        #prompt_table_len = (max_prompt_len + block_size - 1) // block_size
+        # cross_attn_block_tables = input_metadata.block_tables[:, :
+        #                                                       prompt_table_len].contiguous(
+        #                                                       )
 
         # Cross-attention decode run.
         output = PagedAttentionImpl.forward_decode(

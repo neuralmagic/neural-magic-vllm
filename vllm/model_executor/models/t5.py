@@ -24,6 +24,8 @@ import copy
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.sequence import SamplerOutput
 
+import torch.nn.functional as F
+
 import torch
 from torch import nn
 from transformers import T5Config
@@ -141,14 +143,23 @@ class T5LayerFF(nn.Module):
 def to_block_diagonal_nested(tensors):
     # Base case: if tensors is a list of tensors, create a block diagonal tensor
     if all(isinstance(t, torch.Tensor) for t in tensors):
-        total_size = sum(t.size(0) for t in tensors)
-        block_diagonal = torch.zeros(total_size, total_size)
+        row_total_size = sum(t.size(0) for t in tensors)
+        col_total_size = sum(t.size(1) for t in tensors)
+        block_diagonal = torch.zeros(row_total_size, col_total_size)
         
-        offset = 0
+        row_offset = 0
+        col_offset = 0
         for t in tensors:
-            size = t.size(0)
-            block_diagonal[offset:offset+size, offset:offset+size] = t
-            offset += size
+            n_rows = t.size(0)
+            n_cols = t.size(1)
+            # print(t.shape)
+            # print(row_offset)
+            # print(col_offset)
+            # print((block_diagonal[row_offset:row_offset+n_rows, col_offset:col_offset+n_cols]).shape)
+            # print(block_diagonal.shape)
+            block_diagonal[row_offset:row_offset+n_rows, col_offset:col_offset+n_cols] = t
+            row_offset += n_rows
+            col_offset += n_cols
             
         return block_diagonal
     # Recursive case: if tensors is a nested list, apply function to each sublist
@@ -308,9 +319,27 @@ class T5Attention(nn.Module):
                 biases[head].append(values[head][:,:key_length])
         
         biases = to_block_diagonal_nested(biases) # List of per-head block-diagonal relative position encoding matrices
-        biases = torch.stack(biases).unsqueeze(0) # 1 x (# heads) x (num_tokens) x (num_tokens)
+        biases = torch.stack(biases).unsqueeze(0).to(dtype).to(device).contiguous() # 1 x (# heads) x (num_tokens) x (num_tokens)
 
-        return [biases.to(dtype).to(device)] # vLLM Attention wrapper expects biases as a list
+        # xFormers attn kernel (possibly flash_attn too?) requires stride(-2) to be divisible by 8; force this
+        # print("Pre-slice:")
+        # print(biases.shape)
+        # print(biases.stride())
+        num_k_tokens = biases.shape[-1]
+        padded_num_k_tokens = (num_k_tokens + 7) // 8 * 8
+        if padded_num_k_tokens-num_k_tokens > 0:
+            # Enforce right-most attention bias stride is a multiple of 8
+            padding = (0,padded_num_k_tokens-num_k_tokens,0,0,0,0,0,0,)
+            # print(num_k_tokens)
+            # print(padded_num_k_tokens)
+            # print(padding)
+            biases = F.pad(biases, padding, "constant", 0)
+            biases = biases[:,:,:,:num_k_tokens]
+            # print("Post-slice:")
+            # print(biases.shape)
+            # print(biases.stride())
+
+        return [biases] # vLLM Attention wrapper expects biases as a list
         
     def forward(
         self,
@@ -325,8 +354,8 @@ class T5Attention(nn.Module):
         seq_len = input_metadata.max_seq_len #torch.reshape(hidden_states,(batch_size,-1,hidden_states.shape[-1])) #hidden_states.shape[1]
         prompt_lens = input_metadata.prompt_lens
         max_prompt_len = max(prompt_lens)
-        context_len = input_metadata.context_lens.max().item()
-        context_len = max(context_len, 1)
+        context_lens = [max(context_len.item(),1) for context_len in input_metadata.context_lens]
+        context_len = max(context_lens)
 
         block_size = 16
 
@@ -342,8 +371,7 @@ class T5Attention(nn.Module):
                 #     block_size for prompt_len in prompt_lens]).repeat(batch_size, 1, 1, 1)
                 input_metadata.attn_bias = self.compute_bias(
                     prompt_lens, prompt_lens, dtype=q.dtype, device=q.device)
-                
-                print(input_metadata.attn_bias[0].shape)
+
                 # for i in range(batch_size):
                 #     input_metadata.attn_bias[
                 #         i, :, :,
@@ -358,14 +386,15 @@ class T5Attention(nn.Module):
             k, _ = self.k(hidden_states)
             v, _ = self.v(hidden_states)
 
+            # print(context_lens)
+            # print([(context_len + block_size - 1) // block_size *
+            #                         block_size for context_len in context_lens])
+            # assert(False)
+
             if input_metadata.attn_bias is None:
-                position_bias = self.compute_bias(
-                    1 if input_metadata.is_prompt else context_len,
-                    (context_len + block_size - 1) // block_size *
-                    block_size).repeat(batch_size, 1, 1, 1)
-                input_metadata.attn_bias = \
-                    position_bias[:, :,-seq_len:, :] \
-                        .contiguous()
+                input_metadata.attn_bias = self.compute_bias(
+                    context_lens, [(context_len + block_size - 1) // block_size *
+                                    block_size for context_len in context_lens], dtype=q.dtype, device=q.device)
 
             key_cache, value_cache = kv_cache
 
@@ -493,8 +522,8 @@ class T5Block(nn.Module):
         self_input_metadata = None
         cross_input_metadata = None
         if self.is_decoder:
-            self_input_metadata = input_metadata_dict["self"]
-            cross_input_metadata = input_metadata_dict["cross"]
+            self_input_metadata: InputMetadata = input_metadata_dict["self"]
+            cross_input_metadata: InputMetadata = input_metadata_dict["cross"]
         else:
             self_input_metadata = input_metadata_dict 
             
@@ -515,6 +544,9 @@ class T5Block(nn.Module):
                                         max=clamp_value)
 
         if self.is_decoder:
+            # Plumb through the attention bias compute for self-attention,
+            # to cross-attention
+            cross_input_metadata.attn_bias = self_input_metadata.attn_bias
             hidden_states = self.layer[1](
                 hidden_states,
                 kv_cache=kv_cache,
@@ -628,27 +660,32 @@ class T5ForConditionalGeneration(nn.Module):
         # Extract input metadata for encoder self-attention and decoder
         # self-/cross-attention
         is_prompt=input_metadata
+        decoder_input_ids = input_ids
+        encoder_input_ids = input_metadata.cross_input_metadata["encoder_input_tokens"]
         self_encoder_input_metadata: InputMetadata = input_metadata.cross_input_metadata['encoder'] if is_prompt else None
         cross_decoder_input_metadata: InputMetadata = input_metadata.cross_input_metadata['decoder']
         self_decoder_input_metadata: InputMetadata = input_metadata
         
         if is_prompt:
             # prompt run, need to run encoder once
-            hidden_states = self.encoder(input_ids, kv_caches, self_encoder_input_metadata,
+            print("Debug0:")
+            print(decoder_input_ids)
+            print(encoder_input_ids)
+            hidden_states = self.encoder(encoder_input_ids, kv_caches, self_encoder_input_metadata,
                                          None)
             # Clear the attention bias
             self_encoder_input_metadata.attn_bias = None
             self_decoder_input_metadata.attn_bias = None
             cross_decoder_input_metadata.attn_bias = None
-            batch_size = input_ids.shape[0]
-            input_ids = (torch.ones(batch_size, 1, dtype=torch.long) *
-                         self.config.decoder_start_token_id).cuda()
+            # batch_size = input_ids.shape[0]
+            # input_ids = (torch.ones(batch_size, 1, dtype=torch.long) *
+            #              self.config.decoder_start_token_id).cuda()
 
         else:
             hidden_states = None
 
         if kv_caches[0][0] is not None:  # Skip decoder for profiling run
-            hidden_states = self.decoder(input_ids, kv_caches, 
+            hidden_states = self.decoder(decoder_input_ids, kv_caches, 
                                          {"self":self_decoder_input_metadata,
                                           "cross":cross_decoder_input_metadata},
                                          hidden_states)
