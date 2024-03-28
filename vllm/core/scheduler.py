@@ -11,7 +11,7 @@ from vllm.logger import init_logger
 from vllm.lora.request import LoRARequest
 from vllm.sequence import (Sequence, SequenceData, SequenceGroup,
                            SequenceGroupMetadata, SequenceStatus)
-from vllm.timings.utils import log_time, get_singleton_manager
+from vllm.timings.utils import log_time
 
 logger = init_logger(__name__)
 
@@ -441,8 +441,7 @@ class Scheduler:
         # Schedule sequence groups.
         # This function call changes the internal states of the scheduler
         # such as self.running, self.swapped, and self.waiting.
-        with get_singleton_manager().time(f"{self.__class__.__name__}._schedule"):
-            scheduler_outputs = self._schedule()
+        scheduler_outputs = self._schedule()
         now = time.time()
 
         # Create input data structures.

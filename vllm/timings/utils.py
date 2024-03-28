@@ -1,29 +1,50 @@
-from timer import Timer
+from vllm.timings.timer import Timer
 
 __all__ = ["log_time", "get_singleton_manager"]
 
 
-def get_singleton_manager(avg_after_iterations: int = 100):
+def get_singleton_manager(avg_after_iterations: int = 100, log: bool = True):
+    """
+    Return the Timer. If not has not yet been initialized, initialize and
+    return. If it has, return the existing Timer.
+    """
     if Timer._instance is None:
-        Timer._instance = Timer(avg_after_iterations = avg_after_iterations)
+        Timer._instance = Timer(avg_after_iterations=avg_after_iterations,
+                                log=log)
     return Timer._instance
 
 
 def log_async_time(func):
-    TIMER_MANAGER = get_singleton_manager()
+    """
+    Decorator to time async functions. Times for the function are stored using
+    the class and function names.
+    """
+
     async def wrapper(self, *arg, **kwargs):
+        TIMER_MANAGER = get_singleton_manager()
         func_name = f"{self.__class__.__name__}.{func.__name__}"
-        with TIMER_MANAGER.time(func_name):
+        if not TIMER_MANAGER.log:
             return await func(self, *arg, **kwargs)
+        else:
+            with TIMER_MANAGER.time(func_name):
+                return await func(self, *arg, **kwargs)
 
     return wrapper
+
 
 def log_time(func):
-    TIMER_MANAGER = get_singleton_manager()
+    """
+    Decorator to time functions. Times for the function are stored using
+    the class and function names.
+    """
+
     def wrapper(self, *arg, **kwargs):
+        TIMER_MANAGER = get_singleton_manager()
         func_name = f"{self.__class__.__name__}.{func.__name__}"
-        with TIMER_MANAGER.time(func_name):
+        if not TIMER_MANAGER.log:
             return func(self, *arg, **kwargs)
+        else:
+            with TIMER_MANAGER.time(func_name):
+                return func(self, *arg, **kwargs)
 
     return wrapper
-
