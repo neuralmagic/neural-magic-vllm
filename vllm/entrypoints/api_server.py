@@ -108,6 +108,8 @@ if __name__ == "__main__":
 
     if not args.enable_time_log:
         TIMER_MANAGER = get_singleton_manager(log=False)
+    else:
+        TIMER_MANAGER = get_singleton_manager()
 
     engine_args = AsyncEngineArgs.from_cli_args(args)
     engine = AsyncLLMEngine.from_engine_args(
