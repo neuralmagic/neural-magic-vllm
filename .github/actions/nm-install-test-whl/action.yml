@@ -25,7 +25,7 @@ outputs:
     value: ${{ steps.whl_install_test.outputs.status }}
   whl:
     description: 'whl used for testing'
-    value: ${{ steps.whl_install.test.outputs.whl }}
+    value: ${{ steps.whl_install_test.outputs.whl }}
 runs:
   using: composite
   steps:
