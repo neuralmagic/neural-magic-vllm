@@ -107,7 +107,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if not args.enable_time_log:
-        TIMER_MANAGER = get_singleton_manager(log=False)
+        TIMER_MANAGER = get_singleton_manager(enable_logging=False)
     else:
         TIMER_MANAGER = get_singleton_manager()
 

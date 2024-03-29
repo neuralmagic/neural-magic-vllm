@@ -1,3 +1,4 @@
+import logging
 import time
 from contextlib import contextmanager
 from threading import RLock
@@ -6,6 +7,8 @@ import numpy
 
 __all__ = ["Timer"]
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class Timer:
     """Timer to log timings during inference requests. Should be used through 
@@ -13,13 +16,13 @@ class Timer:
     """
     _instance = None
 
-    def __init__(self, avg_after_iterations: int, log: bool):
+    def __init__(self, avg_after_iterations: int, enable_logging: bool):
         """
         :param avg_after_iterations: the number of iterations that have to occur
             before the time measurements are averaged and displayed to the user
-        :param log: whether or not time logging is enabled
+        :param enable_logging: whether or not time logging is enabled
         """
-        self.log = log
+        self.enable_logging = enable_logging
         self.measurements = {}
         self.avg_after_iterations = avg_after_iterations
         self.current_iter = 0
@@ -70,6 +73,7 @@ class Timer:
         """
         if self.current_iter == self.avg_after_iterations:
             for func_name in self.measurements:
-                print(func_name,
-                      numpy.average(self.measurements.get(func_name)))
+                _LOGGER.info(f"Average time for {func_name}: ")
+                _LOGGER.info(
+                    str(numpy.average(self.measurements.get(func_name))))
             self.current_iter = 0
