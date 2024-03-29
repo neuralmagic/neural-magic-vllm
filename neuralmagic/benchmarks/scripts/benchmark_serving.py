@@ -33,14 +33,15 @@ from transformers import PreTrainedTokenizerBase
 from vllm.transformers_utils.tokenizer import get_tokenizer
 from .common import generate_synthetic_requests, print_serving_request_io
 from .datasets_registry import get_dataset, DatasetArgs
-from .benchmark_result import (BenchmarkResult,
-                               BenchmarkServingResultMetadataKeys as
-                               ResultMetadataKeys,
-                               BenchmarkServingResultMetricTemplates as
-                               ResultMetricTemplates)
+from .logging.benchmark_result import (BenchmarkResult,
+                                       BenchmarkServingResultMetadataKeys as
+                                       ResultMetadataKeys,
+                                       BenchmarkServingResultMetricTemplates as
+                                       ResultMetricTemplates)
 
 from neuralmagic.benchmarks.scripts.backend_request_func import (
     ASYNC_REQUEST_FUNCS,
+    AsyncRequestVLLM,
     RequestFuncInput,
     RequestFuncOutput,
 )
@@ -184,6 +185,31 @@ def calculate_metrics(
     return metrics
 
 
+def decode_generated_text(
+        backend: str,
+        outputs: List[RequestFuncOutput]) -> List[RequestFuncOutput]:
+
+    if all(
+            map(
+                lambda output: not output.success or output.generated_text is
+                not None, outputs)):
+        # Nothing to do
+        return outputs
+
+    # At the moment, all backend request functions except async_request_vllm
+    # report generated_text directly.
+    assert backend == "vllm"
+    assert all(
+        map(
+            lambda output: not output.success or output.server_response is
+            not None, outputs))
+
+    for output in outputs:
+        output.generated_text = AsyncRequestVLLM.decode_server_response(
+            output.server_response, output.prompt_len)
+    return outputs
+
+
 async def benchmark(backend: str, api_url: str, model_id: str,
                     tokenizer: PreTrainedTokenizerBase,
                     input_requests: List[Tuple[str, int, int]], best_of: int,
@@ -217,6 +243,7 @@ async def benchmark(backend: str, api_url: str, model_id: str,
                 request_func(request_func_input=request_func_input,
                              pbar=pbar)))
     outputs = await asyncio.gather(*tasks)
+    outputs = decode_generated_text(backend, outputs)
 
     if not disable_tqdm:
         pbar.close()
@@ -238,18 +265,14 @@ async def benchmark(backend: str, api_url: str, model_id: str,
     print(f"Benchmark duration: {metrics.metadata.duration:2f} s")
     print(f"Total input tokens: {metrics.metadata.total_input}")
     print(f"Total generated tokens: {metrics.metadata.total_output}")
-    print(
-        f"Request throughput: {metrics.metrics.request_throughput:.2f} requests/s"
-    )
-    print(
-        f"Input token throughput: {metrics.metrics.input_throughput:.2f} tokens/s"
-    )
-    print(
-        f"Output token throughput: {metrics.metrics.output_throughput:.2f} tokens/s"
-    )
-    print(
-        f"Median request latency: {metrics.metrics.median_request_latency:.2f} ms"
-    )
+    print(f"Request throughput: "
+          f"{metrics.metrics.request_throughput:.2f} requests/s")
+    print(f"Input token throughput: "
+          f"{metrics.metrics.input_throughput:.2f} tokens/s")
+    print(f"Output token throughput: "
+          f"{metrics.metrics.output_throughput:.2f} tokens/s")
+    print(f"Median request latency: "
+          f"{metrics.metrics.median_request_latency:.2f} ms")
     print(f"P90 request latency: {metrics.metrics.p90_request_latency:.2f} ms")
     print(f"P99 request latency: {metrics.metrics.p99_request_latency:.2f} ms")
     print(f"Mean TTFT: {metrics.metrics.mean_ttft_ms:.2f} ms")
@@ -337,6 +360,7 @@ def main(args: argparse.Namespace):
 
         current_dt = datetime.now()
         result = BenchmarkResult(
+            description=args.description,
             date=current_dt,
             script_name=Path(__file__).name,
             script_args=script_args_as_json_dict(args),
@@ -348,9 +372,9 @@ def main(args: argparse.Namespace):
         result = metrics.update_benchmark_result(result)
 
         # Add information about the derived variables as metadata
-        result[BenchmarkResult.METADATA_KEY_][
-            ResultMetadataKeys.num_prompts] = num_prompts
-        result[BenchmarkResult.METADATA_KEY_][ResultMetadataKeys.request_rate] = \
+        metadata_key = BenchmarkResult.METADATA_KEY_
+        result[metadata_key][ResultMetadataKeys.num_prompts] = num_prompts
+        result[metadata_key][ResultMetadataKeys.request_rate] = \
             request_rate if request_rate < float("inf") else "inf"
 
         # Save to file
@@ -382,6 +406,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
         description='''Benchmark the online serving throughput.''')
+    parser.add_argument(
+        "--description",
+        type=str,
+        default="benchmark-serving",
+        help="Benchmark description. This is primarily useful when "
+        "we log the benchmark results and process them for plotting charts")
     parser.add_argument(
         "--backend",
         type=str,
@@ -429,8 +459,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--tokenizer",
         type=str,
-        help=
-        "Name or path of the tokenizer, if not using the default model tokenizer.",
+        help="Name or path of the tokenizer, "
+        "if not using the default model tokenizer.",
     )
     parser.add_argument(
         "--best-of",
@@ -477,11 +507,10 @@ if __name__ == "__main__":
     parser.add_argument("--nr-qps-pair_",
                         type=NumPrompts_RequestRate_T.from_str,
                         help="""
-                            First argument in the pair is num_prompts: Number of prompts to process.
-                            Second argument in the pair is request_rate : Number of requests per second. If this is inf,
-                            then all the requests are sent at time 0. Otherwise, we use Poisson process to synthesize
-                            the request arrival times.
-                            """,
+        First argument in the pair is num_prompts to process.
+        Second argument in the pair is request_rate per second.
+            If this is inf, then all the requests are sent at time 0. 
+            Otherwise, we use Poisson process to synthesize""",
                         default=None)
 
     # Server command args
@@ -490,29 +519,32 @@ if __name__ == "__main__":
         type=int,
         default=None,
         help=
-        "tensor-parallel-size that the benchmarking script was invoked with. It is useful to log this information when storing benchmarking results"
+        "tensor-parallel-size that the benchmarking script was invoked with. "
+        "It is useful to log this information when storing benchmarking results"
     )
     parser.add_argument(
         "--server-args",
         type=str,
         default=None,
-        help=
-        "When we are logging the output, it is useful to log the arguments passed to the server"
-    )
+        help="When we are logging the output, it is useful to log the "
+        "arguments passed to the server")
 
     def args_sanity_check(args):
         # Sanity check real-dataset vs synthetic-dataset usecase
         if args.dataset is None:
-            assert args.num_input_tokens is not None and args.num_output_tokens is not None
+            assert (args.num_input_tokens is not None
+                    and args.num_output_tokens is not None)
         else:
-            assert args.num_input_tokens is None and args.num_output_tokens is None
-        # Sanity check num_prompts, request_rate as separate args vs joint args usecase
+            assert (args.num_input_tokens is None
+                    and args.num_output_tokens is None)
+        # Sanity check num_prompts, request_rate as separate args vs joint args
         assert not all([
             args.num_prompts_ is None, args.request_rate_ is None,
             args.nr_qps_pair_ is None
         ])
         if args.nr_qps_pair_ is None:
-            assert args.num_prompts_ is not None and args.request_rate_ is not None
+            assert (args.num_prompts_ is not None
+                    and args.request_rate_ is not None)
         else:
             assert args.num_prompts_ is None and args.request_rate_ is None
         # Sanity check required logging args

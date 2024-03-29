@@ -1,120 +1,78 @@
 {
 	"configs": [
 		{
-			"description": "Benchmark vllm engine throughput - with dataset",
+			"description": "VLLM Engine throughput - Dense (with dataset)",
 			"models": [
-				"facebook/opt-125m",
-				"TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-				"mistralai/Mistral-7B-Instruct-v0.2",
+				"teknium/OpenHermes-2.5-Mistral-7B",
+				"neuralmagic/OpenHermes-2.5-Mistral-7B-marlin",
+				"TheBloke/OpenHermes-2.5-Mistral-7B-GPTQ",
 				"NousResearch/Llama-2-7b-chat-hf"
 			],
-			"max_model_lens" : [4096],
+			"max_model_lens": [
+				4096
+			],
 			"script_name": "benchmark_throughput",
 			"script_args": {
-				"backend": [
-					"vllm"
-				],
 				"dataset": [
 					"sharegpt"
 				],
 				"output-len": [
 					128
 				],
-				"n": [
-					1
-				],
 				"num-prompts": [
 					1000
 				],
-				"seed": [
-					0
-				],
-				"dtype": [
-					"auto"
-				],
-				"use-all-available-gpus_" : []
+				"use-all-available-gpus_": []
 			}
 		},
 		{
-			"description": "Benchmark vllm engine prefill throughput - synthetic",
+			"description": "VLLM Engine throughput - Sparse (with dataset)",
 			"models": [
-				"facebook/opt-125m",
-				"TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-				"mistralai/Mistral-7B-Instruct-v0.2",
-				"NousResearch/Llama-2-7b-chat-hf"
+				"neuralmagic/OpenHermes-2.5-Mistral-7B-pruned50"
 			],
-			"max_model_lens" : [4096],
+			"max_model_lens": [
+				4096
+			],
 			"script_name": "benchmark_throughput",
 			"script_args": {
-				"backend": [
-					"vllm"
-				],
-				"input-len": [
-					1,
-					16,
-					32,
-					64,
-					128,
-					256,
-					512,
-					1024
-				],
-				"output-len": [
-					1
-				],
-				"n": [
-					1
-				],
-				"num-prompts": [
-					1
-				],
-				"seed": [
-					0
-				],
-				"dtype": [
-					"auto"
-				],
-				"use-all-available-gpus_" : []
-			}
-		},
-		{
-			"description": "Benchmark vllm engine decode throughput - synthetic",
-			"models": [
-				"facebook/opt-125m",
-				"TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-				"mistralai/Mistral-7B-Instruct-v0.2",
-				"NousResearch/Llama-2-7b-chat-hf"
-			],
-			"max_model_lens" : [4096],
-			"script_name": "benchmark_throughput",
-			"script_args": {
-				"backend": [
-					"vllm"
-				],
-				"input-len": [
-					2
+				"dataset": [
+					"sharegpt"
 				],
 				"output-len": [
 					128
 				],
-				"n": [
-					1
+				"num-prompts": [
+					1000
+				],
+				"sparsity": [
+					"sparse_w16a16"
+				],
+				"use-all-available-gpus_": []
+			}
+		},
+		{
+			"description": "VLLM Engine throughput - 2:4 Sparse (with dataset)",
+			"models": [
+				"neuralmagic/OpenHermes-2.5-Mistral-7B-pruned2.4"
+			],
+			"max_model_lens": [
+				4096
+			],
+			"script_name": "benchmark_throughput",
+			"script_args": {
+				"dataset": [
+					"sharegpt"
+				],
+				"output-len": [
+					128
 				],
 				"num-prompts": [
-					1,
-					4,
-					8,
-					16,
-					32,
-					64
+					1000
 				],
-				"seed": [
-					0
+				"sparsity": [
+					"semi_structured_sparse_w16a16"
 				],
-				"dtype": [
-					"auto"
-				],
-				"use-all-available-gpus_" : []
+				"use-all-available-gpus_": []
 			}
 		}
 	]

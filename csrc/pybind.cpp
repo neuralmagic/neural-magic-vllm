@@ -1,5 +1,3 @@
-// This file has been modified by Neural Magic
-
 #include "cache.h"
 #include "cuda_utils.h"
 #include "ops.h"
@@ -27,7 +25,11 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   ops.def(
     "gelu_and_mul",
     &gelu_and_mul,
-    "Activation function used in GeGLU.");
+    "Activation function used in GeGLU with `none` approximation.");
+  ops.def(
+    "gelu_tanh_and_mul",
+    &gelu_tanh_and_mul,
+    "Activation function used in GeGLU with `tanh` approximation.");
   ops.def(
     "gelu_new",
     &gelu_new,
@@ -54,12 +56,16 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     &rotary_embedding,
     "Apply GPT-NeoX or GPT-J style rotary embedding to query and key");
 
+  ops.def(
+    "batched_rotary_embedding",
+    &batched_rotary_embedding,
+    "Apply GPT-NeoX or GPT-J style rotary embedding to query and key (supports multiple loras)");
+
 // Quantization ops
 #ifndef USE_ROCM
   ops.def("awq_gemm", &awq_gemm, "Quantized GEMM for AWQ");
   ops.def("marlin_gemm", &marlin_gemm, "Marlin Optimized Quantized GEMM for GPTQ");
   ops.def("awq_dequantize", &awq_dequantize, "Dequantization for AWQ");
-  ops.def("marlin_gemm", &marlin_gemm, "Marlin Optimized Quantized GEMM for GPTQ");
 #endif
  
   ops.def("gptq_gemm", &gptq_gemm, "Quantized GEMM for GPTQ");
