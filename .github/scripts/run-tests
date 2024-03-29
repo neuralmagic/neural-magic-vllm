@@ -80,6 +80,7 @@ if [ -f "${SKIP_LIST}" ]; then
     done < "${SKIP_LIST}"
 fi
 
+echo "..."
 for EXCLUDE in "${TESTS_TO_EXCLUDE[@]}"; do
     for JJ in "${!TESTS_FOUND[@]}"; do
         if [[ ${TESTS_FOUND[$JJ]} = ${EXCLUDE} ]]; then
