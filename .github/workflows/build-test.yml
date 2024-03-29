@@ -73,6 +73,7 @@ jobs:
             timeout: ${{ inputs.timeout }}
             gitref: ${{ inputs.gitref }}
             Gi_per_thread: ${{ inputs.Gi_per_thread }}
+            nvcc_threads: ${{ inputs.nvcc_threads }}
             python: ${{ inputs.python }}
         secrets: inherit
 
