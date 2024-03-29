@@ -26,19 +26,24 @@ outputs:
   whl:
     description: 'whl used for testing'
     value: ${{ steps.whl_install_test.outputs.whl }}
+  magic_wand:
+    description: 'magic_wand whl'
+    value: ${{ steps.whl_install_test.outputs.magic_wand }}
 runs:
   using: composite
   steps:
     - id: whl_install_test
       run: |
-        # delete source directories
-        rm -rf vllm
-        rm -rf csrc
-        # activate venv, install and test
+        # move source directories
+        mv vllm vllm-ignore
+        mv csrc csrc-ignore
+        # activate venv and installs
         COMMIT=${{ github.sha }}
         VENV="${{ inputs.venv }}-${COMMIT:0:7}"
         source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
         pip3 install coverage
+        pip3 install pytest-cov
+        pip3 install pytest-xdist
         pip3 install --index-url http://${{ inputs.pypi }}:8080/ --trusted-host ${{ inputs.pypi }} nm-magic-wand-nightly
         pip3 list
         BASE=$(./.github/scripts/convert-version ${{ inputs.python }})
@@ -46,8 +51,14 @@ runs:
         echo "whl=${WHL}" >> "$GITHUB_OUTPUT"
         pip3 install ${WHL}
         pip3 install -r requirements-dev.txt
+        # report magic_wand version
+        MAGIC_WAND=$(pip3 show nm-magic-wand-nightly | grep "Version" | cut -d' ' -f2)
+        echo "magic_wand=${MAGIC_WAND}" >> "$GITHUB_OUTPUT"
+        # test and collect code coverage
         SUCCESS=0
-        ./.github/scripts/run-tests -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} -f ${{ inputs.test_skip_list }}|| SUCCESS=$?
+        PYTHON_MAJOR_MINOR=$(echo "python${{ inputs.python }}" | cut -d'.' -f1,2)
+        VLLM_SRC=$(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/lib/${PYTHON_MAJOR_MINOR}/site-packages/vllm
+        ./.github/scripts/run-tests -s ${VLLM_SRC} -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} -f ${{ inputs.test_skip_list }}|| SUCCESS=$?
         echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
         exit ${SUCCESS}
       shell: bash

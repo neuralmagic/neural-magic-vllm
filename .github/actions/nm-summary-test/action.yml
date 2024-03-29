@@ -16,6 +16,9 @@ inputs:
   whl:
     description: 'whl file tested'
     required: true
+  magic_wand:
+    description: 'magic_wand version'
+    required: true
   test_status:
     description: 'status from test step'
     required: true
@@ -37,5 +40,6 @@ runs:
       echo "| branch name: | '${{ github.ref_name }}' |" >> $GITHUB_STEP_SUMMARY
       echo "| python: | ${{ inputs.python }} |" >> $GITHUB_STEP_SUMMARY
       echo "| whl: | ${{ inputs.whl }} |" >> $GITHUB_STEP_SUMMARY
+      echo "| magic_wand: | ${{ inputs.magic_wand }} |" >> $GITHUB_STEP_SUMMARY
       echo "| test: | ${TEST_EMOJI} |" >> $GITHUB_STEP_SUMMARY
     shell: bash

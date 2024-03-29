@@ -156,6 +156,7 @@ jobs:
                 testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
                 python: ${{ steps.set_python.outputs.version }}
                 whl: ${{ steps.test.outputs.whl }}
+                magic_wand: ${{ steps.test.outputs.magic_wand }}
                 test_status: ${{ steps.test.outputs.status }}
 
             - name: complete testmo run
