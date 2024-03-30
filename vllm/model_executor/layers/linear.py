@@ -303,13 +303,20 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
             # If quantized, we need to adjust the offset and size to account
             # for the packing.
             packed_dim = getattr(param, "packed_dim", None)
-            if packed_dim == output_dim:
-                shard_size = shard_size // param.pack_factor
-                shard_offset = shard_offset // param.pack_factor
+            # if packed_dim == output_dim:
+                # shard_size = shard_size // param.pack_factor
+                # shard_offset = shard_offset // param.pack_factor
 
-                # If marlin, we need to adjust the offset and size to account for the tiling.
-                shard_size, shard_offset = adjust_marlin_shard(
-                    param, shard_size, shard_offset)
+                # # If marlin, we need to adjust the offset and size to account for the tiling.
+                # shard_size, shard_offset = adjust_marlin_shard(
+                #     param, shard_size, shard_offset)
+
+            shard_size = shard_size // param.pack_factor
+            shard_offset = shard_offset // param.pack_factor
+
+            # If marlin, we need to adjust the offset and size to account for the tiling.
+            shard_size, shard_offset = adjust_marlin_shard(
+                param, shard_size, shard_offset)
 
             param_data = param_data.narrow(output_dim, shard_offset,
                                            shard_size)
@@ -438,13 +445,20 @@ class QKVParallelLinear(ColumnParallelLinear):
             # If quantized, we need to adjust the offset and size to account
             # for the packing.
             packed_dim = getattr(param, "packed_dim", None)
-            if packed_dim == output_dim:
-                shard_size = shard_size // param.pack_factor
-                shard_offset = shard_offset // param.pack_factor
+            # if packed_dim == output_dim:
+            #     shard_size = shard_size // param.pack_factor
+            #     shard_offset = shard_offset // param.pack_factor
 
-                # If marlin, we need to adjust the offset and size to account for the tiling.
-                shard_size, shard_offset = adjust_marlin_shard(
-                    param, shard_size, shard_offset)
+            #     # If marlin, we need to adjust the offset and size to account for the tiling.
+            #     shard_size, shard_offset = adjust_marlin_shard(
+            #         param, shard_size, shard_offset)
+
+            shard_size = shard_size // param.pack_factor
+            shard_offset = shard_offset // param.pack_factor
+
+            # If marlin, we need to adjust the offset and size to account for the tiling.
+            shard_size, shard_offset = adjust_marlin_shard(
+                param, shard_size, shard_offset)
 
             param_data = param_data.narrow(output_dim, shard_offset,
                                            shard_size)
