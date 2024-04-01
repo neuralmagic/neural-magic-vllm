@@ -214,7 +214,11 @@ class XFormersBackend:
                     self.alibi_slopes, self.num_kv_heads, query.dtype,
                     input_metadata)
 
-        print("Inner bias in:",input_metadata.attn_bias[0].sum())
+        if input_metadata.attn_bias == "not_causal":
+            input_metadata.attn_bias = None
+
+        if input_metadata.attn_bias is not None and (not isinstance(input_metadata.attn_bias[0],BlockDiagonalCausalMask)):
+            print("Inner bias in:",input_metadata.attn_bias[0].sum())
 
         op = xops.fmha.MemoryEfficientAttentionFlashAttentionOp[0] if (
             is_hip()) else None
@@ -229,7 +233,7 @@ class XFormersBackend:
                 query,
                 key,
                 value,
-                attn_bias=input_metadata.attn_bias[0],
+                attn_bias=None if input_metadata.attn_bias is None else input_metadata.attn_bias[0],
                 p=0.0,
                 scale=self.scale,
                 op=op)

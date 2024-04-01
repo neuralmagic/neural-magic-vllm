@@ -55,7 +55,9 @@ class PagedAttentionImpl:
 
         attn_bias = input_metadata.attn_bias
         if attn_bias is not None:
-            if isinstance(attn_bias,List):
+            if attn_bias == 'not_causal':
+                attn_bias = None
+            elif isinstance(attn_bias,List):
                 # Attention bias may be provided as list
                 attn_bias = attn_bias[0].to(torch.float32)
             else:

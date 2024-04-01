@@ -378,6 +378,8 @@ class T5Attention(nn.Module):
 
         else:
             # Cross attention
+            if input_metadata.attn_bias is None:
+                input_metadata.attn_bias = "not_causal"
 
             if input_metadata.is_prompt:
                 assert encoder_hidden_states is not None
@@ -700,9 +702,8 @@ class T5ForConditionalGeneration(nn.Module):
         else:
             hidden_states = None
 
-        print("Pre-decoder hidden states:",hidden_states.sum())
+        print("Pre-decoder hidden states:",None if hidden_states is None else hidden_states.sum())
         if kv_caches[0][0] is not None:  # Skip decoder for profiling run
-            assert(False)
             hidden_states = self.decoder(decoder_input_ids, kv_caches, 
                                          {"self":self_decoder_input_metadata,
                                           "cross":cross_decoder_input_metadata},
