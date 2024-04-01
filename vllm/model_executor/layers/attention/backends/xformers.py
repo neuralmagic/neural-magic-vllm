@@ -214,15 +214,6 @@ class XFormersBackend:
                     self.alibi_slopes, self.num_kv_heads, query.dtype,
                     input_metadata)
 
-        print("Debug:")
-        print(len(input_metadata.attn_bias))
-        #print(input_metadata.attn_bias[0].shape)
-        print(query.shape)
-        print(key.shape)
-        print(value.shape)
-        print(is_hip())
-        #assert(False)
-
         op = xops.fmha.MemoryEfficientAttentionFlashAttentionOp[0] if (
             is_hip()) else None
         # No alibi slopes.

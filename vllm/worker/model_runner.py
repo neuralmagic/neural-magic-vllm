@@ -505,10 +505,6 @@ class ModelRunner:
             cross_dec_return = en_cr_de["cross_decoder_input_metadata"] #(en_cr_de["decoder_input_tokens"], en_cr_de["decoder_input_positions"], en_cr_de["cross_decoder_input_metadata"],
                                #en_cr_de["decoder_prompt_lens"],en_cr_de["decoder_subquery_lens"])
 
-            # print("context_lens_tensor:",context_lens_tensor)
-            # if len(context_lens_tensor) < 256:
-            #     assert(False)
-
             decoder_input_metadata = InputMetadata(
                 is_prompt=True,
                 slot_mapping=slot_mapping,
@@ -527,11 +523,6 @@ class ModelRunner:
                 kv_cache_dtype=self.kv_cache_dtype,
                 cross_input_metadata={"encoder":enc_return,"decoder":cross_dec_return,"encoder_input_tokens":en_cr_de["encoder_input_tokens"]},
             )
-
-        print("Decoder input tokens:")
-        print(input_tokens)
-        print("Encoder input tokens:")
-        print(en_cr_de["encoder_input_tokens"])
 
         return (input_tokens, input_positions, decoder_input_metadata, prompt_lens,
                 subquery_lens, lora_index_mapping, lora_prompt_mapping,

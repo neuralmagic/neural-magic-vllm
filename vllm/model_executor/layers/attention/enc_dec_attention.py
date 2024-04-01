@@ -1,16 +1,11 @@
 """Multi-head attention for encoder-decoder models."""
-from typing import List, Dict, Optional
+from typing import List, Optional
 
 import torch
 import torch.nn as nn
 
-from xformers import ops as xops
-from xformers.ops.fmha.attn_bias import (
-    BlockDiagonalCausalMask, )
 from vllm.model_executor.input_metadata import InputMetadata
 from vllm.utils import is_hip
-from vllm.model_executor.layers.attention.ops.paged_attn import (
-    PagedAttentionImpl)
 from vllm.model_executor.layers.attention.attention import Attention
 
 _SUPPORTED_HEAD_SIZES = [64, 80, 96, 112, 128, 256]
@@ -98,14 +93,6 @@ class EncoderAttention(EncDecAttention):
         #     op=xops.fmha.MemoryEfficientAttentionFlashAttentionOp[0] if
         #     (is_hip()) else None,
         # )
-
-        print(input_metadata.attn_bias[0].shape)
-        print(input_metadata.prompt_lens)
-        print(input_metadata.is_prompt)
-        print(query.shape)
-        print(key.shape)
-        print(value.shape)
-        print(is_hip())
 
         out = self.attn(
                 query,
@@ -266,7 +253,7 @@ class CrossAttention(EncDecAttention):
         #     assert key is not None and value is not None
         #     PagedAttentionImpl.reshape_and_cache(key, value, key_cache,
         #                                          value_cache, input_metadata)
-        
+
         #block_size = value_cache.shape[3]
         #prompt_table_len = (max_prompt_len + block_size - 1) // block_size
         # cross_attn_block_tables = input_metadata.block_tables[:, :

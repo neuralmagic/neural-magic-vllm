@@ -152,11 +152,6 @@ def to_block_diagonal_nested(tensors):
         for t in tensors:
             n_rows = t.size(0)
             n_cols = t.size(1)
-            # print(t.shape)
-            # print(row_offset)
-            # print(col_offset)
-            # print((block_diagonal[row_offset:row_offset+n_rows, col_offset:col_offset+n_cols]).shape)
-            # print(block_diagonal.shape)
             block_diagonal[row_offset:row_offset+n_rows, col_offset:col_offset+n_cols] = t
             row_offset += n_rows
             col_offset += n_cols
@@ -322,22 +317,13 @@ class T5Attention(nn.Module):
         biases = torch.stack(biases).unsqueeze(0).to(dtype).to(device).contiguous() # 1 x (# heads) x (num_tokens) x (num_tokens)
 
         # xFormers attn kernel (possibly flash_attn too?) requires stride(-2) to be divisible by 8; force this
-        # print("Pre-slice:")
-        # print(biases.shape)
-        # print(biases.stride())
         num_k_tokens = biases.shape[-1]
         padded_num_k_tokens = (num_k_tokens + 7) // 8 * 8
         if padded_num_k_tokens-num_k_tokens > 0:
             # Enforce right-most attention bias stride is a multiple of 8
             padding = (0,padded_num_k_tokens-num_k_tokens,0,0,0,0,0,0,)
-            # print(num_k_tokens)
-            # print(padded_num_k_tokens)
-            # print(padding)
             biases = F.pad(biases, padding, "constant", 0)
             biases = biases[:,:,:,:num_k_tokens]
-            # print("Post-slice:")
-            # print(biases.shape)
-            # print(biases.stride())
 
         return [biases] # vLLM Attention wrapper expects biases as a list
         
@@ -630,7 +616,6 @@ class T5ForConditionalGeneration(nn.Module):
         kv_caches: List[KVCache],
         input_metadata: InputMetadata,
     ) -> torch.Tensor:
-        print(input_metadata)
         assert(input_metadata.cross_input_metadata is not None)
         assert((not input_metadata.is_prompt) or "encoder" in input_metadata.cross_input_metadata)
         assert("decoder" in input_metadata.cross_input_metadata)
@@ -645,22 +630,10 @@ class T5ForConditionalGeneration(nn.Module):
         
         if is_prompt:
             # prompt run, need to run encoder once
-            print(input_metadata.cross_input_metadata.keys())
             encoder_input_ids = input_metadata.cross_input_metadata["encoder_input_tokens"]            
             self_encoder_input_metadata: InputMetadata = input_metadata.cross_input_metadata['encoder']
-            print("Debug0:")
-            print(decoder_input_ids)
-            print(encoder_input_ids)
             hidden_states = self.encoder(encoder_input_ids, kv_caches, self_encoder_input_metadata,
                                          None)
-            # Clear the attention bias
-            self_encoder_input_metadata.attn_bias = None
-            self_decoder_input_metadata.attn_bias = None
-            cross_decoder_input_metadata.attn_bias = None
-            # batch_size = input_ids.shape[0]
-            # input_ids = (torch.ones(batch_size, 1, dtype=torch.long) *
-            #              self.config.decoder_start_token_id).cuda()
-
         else:
             hidden_states = None
 
