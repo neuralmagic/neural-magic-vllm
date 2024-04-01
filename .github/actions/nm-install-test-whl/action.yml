@@ -48,7 +48,8 @@ runs:
         pip3 list
         BASE=$(./.github/scripts/convert-version ${{ inputs.python }})
         WHL=$(find . -type f -iname "*${BASE}*.whl")
-        echo "whl=${WHL}" >> "$GITHUB_OUTPUT"
+        WHL_BASENAME=$(basename ${WHL})
+        echo "whl=${WHL_BASENAME}" >> "$GITHUB_OUTPUT"
         pip3 install ${WHL}
         pip3 install -r requirements-dev.txt
         # report magic_wand version
