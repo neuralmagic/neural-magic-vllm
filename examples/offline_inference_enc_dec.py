@@ -20,10 +20,10 @@ warnings.filterwarnings("ignore",
 hf_model_id = "t5-small"
 dtype = "float32"
 prompts = [
-    "Who are you?",
-    "Who are you?",
-    "How do you like your egg made",
-    "How do you like your egg made",
+    #"Who are you?",
+    #"Who are you?",
+    #"How do",
+    "How do",
 ]
 
 dtype_obj = getattr(torch, dtype)
@@ -54,7 +54,7 @@ native_outputs = model.generate(input_ids).cpu()
 model = LLM(hf_model_id,
             enforce_eager=True,
             dtype=dtype,
-            gpu_memory_utilization=0.5)
+            gpu_memory_utilization=0.25)
 
 sampling_params = SamplingParams(max_tokens=100, temperature=0)
 

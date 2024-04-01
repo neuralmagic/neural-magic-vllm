@@ -576,8 +576,8 @@ class T5Stack(nn.Module):
     ) -> torch.Tensor:
         print("input_ids:",sum(input_ids))
         hidden_states = self.embed_tokens(input_ids)
-        print(hidden_states)
         print(hidden_states.shape)
+        print("Embed tokens:",hidden_states)
         print("Embed tokens:",hidden_states.sum())
 
         for i, layer_module in enumerate(self.block):
@@ -592,13 +592,50 @@ class T5Stack(nn.Module):
 
             hidden_states = layer_outputs
 
-            if not self.is_decoder:
-                print(i)
-                print(hidden_states.sum())
+            print(i)
+            print(self.is_decoder)
+            print(hidden_states.sum())
 
         hidden_states = self.final_layer_norm(hidden_states)
         return hidden_states
 
+def batch_input_ids(input_ids:torch.Tensor, input_metadata:InputMetadata):
+    # Initialize an empty list to hold the batched input_ids
+    device=input_ids.device
+    input_ids=input_ids.tolist()
+    batch_input_ids = []
+
+    # Starting index for slicing input_ids
+    start_idx = 0
+    for length in input_metadata.prompt_lens:
+        # Extract the prompt's input_ids
+        prompt_input_ids = input_ids[start_idx:start_idx + length]
+        
+        # Pad the prompt_input_ids to max_prompt_len
+        padded_prompt_input_ids = prompt_input_ids + [0] * (max(input_metadata.prompt_lens) - length)
+        
+        # Add the padded_prompt_input_ids to batch_input_ids
+        batch_input_ids.append(padded_prompt_input_ids)
+        
+        # Update the start_idx for the next prompt
+        start_idx += length
+
+    return torch.Tensor(batch_input_ids).to(device).long()
+
+def unbatch_input_ids(batched_input_ids: torch.Tensor, input_metadata: InputMetadata):
+    # List to hold the unpacked, variable-length sequences
+    packed_sequences = []
+
+    # Iterate over each sequence in the batch
+    for i, length in enumerate(input_metadata.prompt_lens):
+        # Extract the sequence for the current batch item and its true length (remove padding)
+        true_sequence = batched_input_ids[i, :length, :]
+        packed_sequences.append(true_sequence)
+    
+    # Concatenate all the true sequences into a single packed tensor
+    packed_tensor = torch.cat(packed_sequences, dim=0)
+
+    return packed_tensor
 
 class T5ForConditionalGeneration(nn.Module):
 
@@ -642,22 +679,30 @@ class T5ForConditionalGeneration(nn.Module):
         # Extract input metadata for encoder self-attention and decoder
         # self-/cross-attention
         is_prompt=input_metadata.is_prompt
-        decoder_input_ids = input_ids
 
         cross_decoder_input_metadata: InputMetadata = input_metadata.cross_input_metadata['decoder']
         self_decoder_input_metadata: InputMetadata = input_metadata
         
+        decoder_input_ids = input_ids
+        # decoder_input_ids = batch_input_ids(input_ids, self_decoder_input_metadata)
+
         if is_prompt:
             # prompt run, need to run encoder once
-            encoder_input_ids = input_metadata.cross_input_metadata["encoder_input_tokens"]   
-            print("encoder_input_ids:",encoder_input_ids)         
             self_encoder_input_metadata: InputMetadata = input_metadata.cross_input_metadata['encoder']
+            encoder_input_ids = input_metadata.cross_input_metadata["encoder_input_tokens"]   
+            #encoder_input_ids = batch_input_ids(encoder_input_ids, self_encoder_input_metadata)
+            print("encoder_input_ids:",encoder_input_ids)
+            print("encoder_input_ids:",encoder_input_ids.shape)
+            print("decoder_input_ids:",decoder_input_ids.shape)
+  
             hidden_states: torch.Tensor = self.encoder(encoder_input_ids, kv_caches, self_encoder_input_metadata,
                                          None)
         else:
             hidden_states = None
 
+        print("Pre-decoder hidden states:",hidden_states.sum())
         if kv_caches[0][0] is not None:  # Skip decoder for profiling run
+            assert(False)
             hidden_states = self.decoder(decoder_input_ids, kv_caches, 
                                          {"self":self_decoder_input_metadata,
                                           "cross":cross_decoder_input_metadata},
@@ -667,6 +712,8 @@ class T5ForConditionalGeneration(nn.Module):
             # Rescale output before projecting on vocab
             # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/transformer/transformer.py#L586
             hidden_states = hidden_states * (self.model_dim**-0.5)
+
+        #hidden_states = unbatch_input_ids(hidden_states, input_metadata)
 
         return hidden_states
 

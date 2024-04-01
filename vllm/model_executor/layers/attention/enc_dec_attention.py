@@ -27,6 +27,36 @@ class EncDecAttention(nn.Module):
             raise ValueError(f"head_size ({self.head_size}) is not supported. "
                              f"Supported head sizes: {_SUPPORTED_HEAD_SIZES}.")
 
+def unbatch_input_ids(batched_input_ids: torch.Tensor, input_metadata: InputMetadata):
+    # List to hold the unpacked, variable-length sequences
+    packed_sequences = []
+
+    # Iterate over each sequence in the batch
+    for i, length in enumerate(input_metadata.prompt_lens):
+        # Extract the sequence for the current batch item and its true length (remove padding)
+        true_sequence = batched_input_ids[i, :length, :]
+        packed_sequences.append(true_sequence)
+    
+    # Concatenate all the true sequences into a single packed tensor
+    packed_tensor = torch.cat(packed_sequences, dim=0)
+
+    return packed_tensor
+
+def pre_attn_reshape(query,key,value):
+    batch_size = query.shape[0]
+    seq_len = query.shape[1]
+    query = query.reshape((query.shape[0]*query.shape[1],-1))
+    if key is not None:
+        key = key.reshape((key.shape[0]*key.shape[1],-1))
+    if value is not None:
+        value = value.reshape((value.shape[0]*value.shape[1],-1))
+
+    return query, key, value, batch_size, seq_len
+
+def post_attn_reshape(out,batch_size,seq_len):
+    return out.reshape((batch_size,seq_len,-1))
+
+
 
 class EncoderAttention(EncDecAttention):
 
@@ -62,6 +92,7 @@ class EncoderAttention(EncDecAttention):
         Returns:
             Output tensor.
         """
+        #query,key,value,batch_size,seq_len=pre_attn_reshape(query,key,value)
         # query: [batch_size, seq_len, num_heads * head_size]
         # key: [batch_size, seq_len, num_heads * head_size]
         # value: [batch_size, seq_len, num_heads * head_size]
@@ -98,6 +129,8 @@ class EncoderAttention(EncDecAttention):
         print("-- Inner key in:",key.sum())
         print("-- Inner value in:",value.sum())
 
+        print(input_metadata)
+
         out: torch.Tensor = self.attn(
                 query,
                 key,
@@ -107,8 +140,9 @@ class EncoderAttention(EncDecAttention):
                 input_metadata, # Should have nonzero attention bias
             )
 
+        #out = post_attn_reshape(out,batch_size,seq_len)
+        
         print("-- Inner out:",out.sum())
-
         #output = out.view(batch_size, seq_len, hidden_size)
         return out
 
@@ -151,6 +185,8 @@ class DecoderAttention(EncDecAttention):
         Returns:
             Output tensor.
         """
+
+        #query,key,value,batch_size,seq_len=pre_attn_reshape(query,key,value)
 
         #batch_size, seq_len, hidden_size = query.shape
         # Reshape the query, key, and value tensors.
@@ -202,6 +238,8 @@ class DecoderAttention(EncDecAttention):
             None,)
         '''
 
+        #output = post_attn_reshape(output,batch_size,seq_len)
+
         return output
         #return output.view(batch_size, seq_len, hidden_size)
 
@@ -244,6 +282,8 @@ class CrossAttention(EncDecAttention):
             Output tensor.
         """
 
+        #query,key,value,batch_size,seq_len=pre_attn_reshape(query,key,value)
+
         #batch_size, seq_len, hidden_size = query.shape
         # Reshape the query, key, and value tensors.
         # query = query.view(-1, self.num_heads, self.head_size)
@@ -275,6 +315,8 @@ class CrossAttention(EncDecAttention):
                 value_cache,
                 input_metadata,
             )
+
+        #output = post_attn_reshape(output,batch_size,seq_len)
 
         '''
         output = PagedAttentionImpl.forward_decode(

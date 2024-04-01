@@ -214,6 +214,8 @@ class XFormersBackend:
                     self.alibi_slopes, self.num_kv_heads, query.dtype,
                     input_metadata)
 
+        print("Inner bias in:",input_metadata.attn_bias[0].sum())
+
         op = xops.fmha.MemoryEfficientAttentionFlashAttentionOp[0] if (
             is_hip()) else None
         # No alibi slopes.
