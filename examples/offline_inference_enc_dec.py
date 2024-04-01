@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore",
                         module="transformers.generation.utils.*")
 
 hf_model_id = "t5-small"
-dtype = "bfloat16"
+dtype = "float32"
 prompts = [
     "Who are you?",
     "Who are you?",

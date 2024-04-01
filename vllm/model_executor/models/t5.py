@@ -347,15 +347,22 @@ class T5Attention(nn.Module):
         if not self.is_decoder:
             assert kv_cache is None
             # Encoder self attention, no cache operations
+
             k, _ = self.k(hidden_states)
             v, _ = self.v(hidden_states)
+            print("*- v computed:",v.sum())
+            #print("*- hash hidden:",hash_tensor_floating_point(hidden_states, decimals=5))
+
+            print("*- v xform:",self.v.linear_weights["weight"].sum(),self.v.linear_weights["weight"].shape)
+            print("*- hidden_states.shape:",hidden_states.shape)
+            print("*- k computed:",k.sum())
+
 
             if input_metadata.attn_bias is None:
                 input_metadata.attn_bias = self.compute_bias(
                     prompt_lens, prompt_lens, dtype=q.dtype, device=q.device)
 
             attn_output = self.attn(q, k, v, input_metadata)
-
         elif not self.is_cross:
             # Decoder self attention
             k, _ = self.k(hidden_states)
@@ -493,7 +500,9 @@ class T5Block(nn.Module):
             cross_input_metadata: InputMetadata = input_metadata_dict["cross"]
         else:
             self_input_metadata = input_metadata_dict 
-            
+
+        print("- Encoder block in:",hidden_states.sum())
+
         hidden_states = self.layer[0](
             hidden_states=hidden_states,
             kv_cache=kv_cache,
@@ -509,6 +518,8 @@ class T5Block(nn.Module):
             hidden_states = torch.clamp(hidden_states,
                                         min=-clamp_value,
                                         max=clamp_value)
+
+        print("- Encoder block out:",hidden_states.sum())
 
         if self.is_decoder:
             hidden_states = self.layer[1](
@@ -563,7 +574,11 @@ class T5Stack(nn.Module):
         input_metadata_dict: InputMetadata,
         encoder_hidden_states: Optional[torch.Tensor],
     ) -> torch.Tensor:
+        print("input_ids:",sum(input_ids))
         hidden_states = self.embed_tokens(input_ids)
+        print(hidden_states)
+        print(hidden_states.shape)
+        print("Embed tokens:",hidden_states.sum())
 
         for i, layer_module in enumerate(self.block):
             kv_cache = kv_caches[i] if self.is_decoder else None
@@ -576,6 +591,10 @@ class T5Stack(nn.Module):
             )
 
             hidden_states = layer_outputs
+
+            if not self.is_decoder:
+                print(i)
+                print(hidden_states.sum())
 
         hidden_states = self.final_layer_norm(hidden_states)
         return hidden_states
@@ -630,9 +649,10 @@ class T5ForConditionalGeneration(nn.Module):
         
         if is_prompt:
             # prompt run, need to run encoder once
-            encoder_input_ids = input_metadata.cross_input_metadata["encoder_input_tokens"]            
+            encoder_input_ids = input_metadata.cross_input_metadata["encoder_input_tokens"]   
+            print("encoder_input_ids:",encoder_input_ids)         
             self_encoder_input_metadata: InputMetadata = input_metadata.cross_input_metadata['encoder']
-            hidden_states = self.encoder(encoder_input_ids, kv_caches, self_encoder_input_metadata,
+            hidden_states: torch.Tensor = self.encoder(encoder_input_ids, kv_caches, self_encoder_input_metadata,
                                          None)
         else:
             hidden_states = None

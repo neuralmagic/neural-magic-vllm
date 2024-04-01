@@ -68,7 +68,7 @@ class EncoderAttention(EncDecAttention):
         # custom_bias: [batch_size, seq_len, seq_len]
         # output: [batch_size, seq_len, num_heads * head_size]
         assert input_metadata.is_prompt
-        
+
         # Reshape the query, key, and value tensors.
         #batch_size = len(input_metadata.prompt_lens)
         #seq_len = query.shape[0]//batch_size
@@ -94,7 +94,11 @@ class EncoderAttention(EncDecAttention):
         #     (is_hip()) else None,
         # )
 
-        out = self.attn(
+        print("-- Inner query in:",query.sum())
+        print("-- Inner key in:",key.sum())
+        print("-- Inner value in:",value.sum())
+
+        out: torch.Tensor = self.attn(
                 query,
                 key,
                 value,
@@ -102,6 +106,8 @@ class EncoderAttention(EncDecAttention):
                 None,
                 input_metadata, # Should have nonzero attention bias
             )
+
+        print("-- Inner out:",out.sum())
 
         #output = out.view(batch_size, seq_len, hidden_size)
         return out
