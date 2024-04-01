@@ -350,14 +350,13 @@ class T5Attention(nn.Module):
     ) -> torch.Tensor:
         q, _ = self.q(hidden_states)
 
-        batch_size = len(input_metadata.prompt_lens) #hidden_states.shape[0]
-        seq_len = input_metadata.max_seq_len #torch.reshape(hidden_states,(batch_size,-1,hidden_states.shape[-1])) #hidden_states.shape[1]
         prompt_lens = input_metadata.prompt_lens
-        max_prompt_len = max(prompt_lens)
         context_lens = [max(context_len.item(),1) for context_len in input_metadata.context_lens]
-        context_len = max(context_lens)
 
-        block_size = 16
+        key_cache = None
+        value_cache = None
+        if kv_cache is not None:
+            key_cache, value_cache = kv_cache
 
         if not self.is_decoder:
             assert kv_cache is None
@@ -366,19 +365,9 @@ class T5Attention(nn.Module):
             v, _ = self.v(hidden_states)
 
             if input_metadata.attn_bias is None:
-                # input_metadata.attn_bias = self.compute_bias(
-                #     prompt_lens, [(prompt_len + block_size - 1) // block_size *
-                #     block_size for prompt_len in prompt_lens]).repeat(batch_size, 1, 1, 1)
                 input_metadata.attn_bias = self.compute_bias(
                     prompt_lens, prompt_lens, dtype=q.dtype, device=q.device)
 
-                # for i in range(batch_size):
-                #     input_metadata.attn_bias[
-                #         i, :, :,
-                #         input_metadata.prompt_lens[i]:, ] = torch.finfo(
-                #             input_metadata.attn_bias.dtype).min
-
-            # input_metadata.attn_bias = input_metadata.attn_bias
             attn_output = self.attn(q, k, v, input_metadata)
 
         elif not self.is_cross:
@@ -386,17 +375,10 @@ class T5Attention(nn.Module):
             k, _ = self.k(hidden_states)
             v, _ = self.v(hidden_states)
 
-            # print(context_lens)
-            # print([(context_len + block_size - 1) // block_size *
-            #                         block_size for context_len in context_lens])
-            # assert(False)
-
             if input_metadata.attn_bias is None:
+                # Paged attention does not expect a list of attention biases
                 input_metadata.attn_bias = self.compute_bias(
-                    context_lens, [(context_len + block_size - 1) // block_size *
-                                    block_size for context_len in context_lens], dtype=q.dtype, device=q.device)
-
-            key_cache, value_cache = kv_cache
+                    context_lens, context_lens, dtype=q.dtype, device=q.device)
 
             attn_output = self.attn(q, k, v, key_cache, value_cache,
                                     input_metadata)
@@ -404,7 +386,6 @@ class T5Attention(nn.Module):
         else:
             # Cross attention
 
-            key_cache, value_cache = kv_cache
             if input_metadata.is_prompt:
                 assert encoder_hidden_states is not None
                 k, _ = self.k(encoder_hidden_states)
@@ -544,9 +525,6 @@ class T5Block(nn.Module):
                                         max=clamp_value)
 
         if self.is_decoder:
-            # Plumb through the attention bias compute for self-attention,
-            # to cross-attention
-            cross_input_metadata.attn_bias = self_input_metadata.attn_bias
             hidden_states = self.layer[1](
                 hidden_states,
                 kv_cache=kv_cache,
@@ -659,15 +637,17 @@ class T5ForConditionalGeneration(nn.Module):
 
         # Extract input metadata for encoder self-attention and decoder
         # self-/cross-attention
-        is_prompt=input_metadata
+        is_prompt=input_metadata.is_prompt
         decoder_input_ids = input_ids
-        encoder_input_ids = input_metadata.cross_input_metadata["encoder_input_tokens"]
-        self_encoder_input_metadata: InputMetadata = input_metadata.cross_input_metadata['encoder'] if is_prompt else None
+
         cross_decoder_input_metadata: InputMetadata = input_metadata.cross_input_metadata['decoder']
         self_decoder_input_metadata: InputMetadata = input_metadata
         
         if is_prompt:
             # prompt run, need to run encoder once
+            print(input_metadata.cross_input_metadata.keys())
+            encoder_input_ids = input_metadata.cross_input_metadata["encoder_input_tokens"]            
+            self_encoder_input_metadata: InputMetadata = input_metadata.cross_input_metadata['encoder']
             print("Debug0:")
             print(decoder_input_ids)
             print(encoder_input_ids)

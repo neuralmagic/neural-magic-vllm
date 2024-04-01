@@ -266,8 +266,7 @@ class CrossAttention(EncDecAttention):
         #     assert key is not None and value is not None
         #     PagedAttentionImpl.reshape_and_cache(key, value, key_cache,
         #                                          value_cache, input_metadata)
-
-        max_prompt_len = input_metadata.prompt_lens.int().max().item()
+        
         #block_size = value_cache.shape[3]
         #prompt_table_len = (max_prompt_len + block_size - 1) // block_size
         # cross_attn_block_tables = input_metadata.block_tables[:, :
@@ -275,6 +274,16 @@ class CrossAttention(EncDecAttention):
         #                                                       )
 
         # Cross-attention decode run.
+        output = self.attn(
+                query,
+                key,
+                value,
+                key_cache,
+                value_cache,
+                input_metadata,
+            )
+
+        '''
         output = PagedAttentionImpl.forward_decode(
             query,
             key_cache,
@@ -287,5 +296,6 @@ class CrossAttention(EncDecAttention):
             override_context_lens=input_metadata.prompt_lens.int(),
             override_max_context_len=max_prompt_len,
             override_block_tables=cross_attn_block_tables)
-
-        return output.view(batch_size, seq_len, hidden_size)
+        '''
+            
+        return output #.view(batch_size, seq_len, hidden_size)

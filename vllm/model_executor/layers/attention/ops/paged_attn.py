@@ -55,7 +55,11 @@ class PagedAttentionImpl:
 
         attn_bias = input_metadata.attn_bias
         if attn_bias is not None:
-            attn_bias = attn_bias.to(torch.float32)
+            if isinstance(attn_bias,List):
+                # Attention bias may be provided as list
+                attn_bias = attn_bias[0].to(torch.float32)
+            else:
+                attn_bias = attn_bias.to(torch.float32)
 
         # NOTE(woosuk): We use a simple heuristic to decide whether to use
         # PagedAttention V1 or V2. If the number of partitions is 1, we use

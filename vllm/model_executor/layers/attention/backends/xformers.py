@@ -83,14 +83,24 @@ class XFormersBackend:
         """
         num_tokens, hidden_size = query.shape
         query = query.view(-1, self.num_heads, self.head_size)
-        key = key.view(-1, self.num_kv_heads, self.head_size)
-        value = value.view(-1, self.num_kv_heads, self.head_size)
+        # key is None or value is None suggests cross-attention
+        if key is not None:
+            key = key.view(-1, self.num_kv_heads, self.head_size)
+        if value is not None:
+            value = value.view(-1, self.num_kv_heads, self.head_size)
 
         # Reshape the keys and values and store them in the cache.
         # If key_cache and value_cache are not provided, the new key and value
         # vectors will not be cached. This happens during the initial memory
         # profiling run.
-        if key_cache is not None and value_cache is not None:
+        #
+        # afeldman 2024/04/01:
+        # If key/value cache are provided but key and value are None, this
+        # suggests cross-attention is being evaluated during decode phase,
+        # i.e. cross-attention K/V's already computed during prefill will be accessed
+        # read-only, so there is no new caching to do.
+        #
+        if key is not None and value is not None and key_cache is not None and value_cache is not None:
             PagedAttentionImpl.reshape_and_cache(key, value, key_cache,
                                                  value_cache, input_metadata)
 
@@ -206,7 +216,7 @@ class XFormersBackend:
 
         print("Debug:")
         print(len(input_metadata.attn_bias))
-        print(input_metadata.attn_bias[0].shape)
+        #print(input_metadata.attn_bias[0].shape)
         print(query.shape)
         print(key.shape)
         print(value.shape)
