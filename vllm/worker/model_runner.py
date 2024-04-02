@@ -349,10 +349,16 @@ class ModelRunner:
                 input_tokens.append([generation_token])
 
                 seq_len = seq_data.get_len()
+                prompt_len = 3000
+                # seq_len = len(prompt_token) + len(gen_tokens)
+                # we need to make it:
+                # seq_len = len(input_features + len(gen_tokens)
+                seq_len += prompt_len # add len(input_features)
+                seq_len -= 3 # remove len(prompt_token)
+                
                 position = seq_len - 1
                 input_positions.append([position])
 
-                prompt_len = len(seq_data.prompt_token_ids)
                 prompt_lens.append(prompt_len)
 
                 if self.is_encoder_decoder:

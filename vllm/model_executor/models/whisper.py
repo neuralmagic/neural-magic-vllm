@@ -99,6 +99,7 @@ class WhisperAttention(nn.Module):
             assert kv_cache is not None
             key_cache, value_cache = kv_cache
             print("Decoder Cross Attn")
+            q = q * self.scaling
             if input_metadata.is_prompt:
                 if encoder_hidden_states is None:
                     raise ValueError(
@@ -115,6 +116,7 @@ class WhisperAttention(nn.Module):
         elif self.is_decoder and not self.is_cross:
             print("Decoder Self Attn")
             key_cache, value_cache = kv_cache
+            q = q * self.scaling
             k, _ = self.k_proj(hidden_states)
             v, _ = self.v_proj(hidden_states)
 

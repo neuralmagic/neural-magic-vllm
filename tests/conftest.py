@@ -60,6 +60,7 @@ class HfRunner:
             self.model = AUDIO_MODELS[model_name].from_pretrained(
                 model_name,
                 torch_dtype=self.torch_dtype,
+                attn_implementation="eager",
                 trust_remote_code=True).cuda()
             self.processor = AutoProcessor.from_pretrained(
                 model_name, torch_dtype=self.torch_dtype)

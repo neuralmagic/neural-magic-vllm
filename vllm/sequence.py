@@ -155,8 +155,7 @@ class Sequence:
             num_prompt_blocks = (AudioFeaturesConfig().sequence_length + block_size -
                                  1) // block_size
             padded_prompt_len = num_prompt_blocks * block_size
-            initial_token_ids = [0] * (
-                padded_prompt_len)
+            initial_token_ids = [0] * padded_prompt_len
             # Also need to append decoder_start_token_id
             initial_token_ids.append(0)
 

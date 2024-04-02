@@ -5,9 +5,7 @@ from vllm.config import AudioFeaturesConfig
 
 import os
 
-os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-os.environ['CUDA_VISIBLE_DEVICES'] = "6"
-
+os.environ['CUDA_LAUNCH_BLOCKING'] = "0"
 
 @pytest.fixture()
 def model_id():

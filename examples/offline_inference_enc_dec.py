@@ -22,7 +22,11 @@ warnings.filterwarnings("ignore",
 
 hf_model_id = "t5-small"
 dtype = "bfloat16"
-prompts = ["How do you like your egg made" * 50,
+prompts = [
+    "Who are you?",
+    "Who are you?",
+    "How do you like your egg made",
+    "How do you like your egg made",
 ]
 
 dtype_obj = getattr(torch, dtype)
