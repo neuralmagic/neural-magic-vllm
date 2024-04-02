@@ -63,6 +63,9 @@ vllm_outputs = model.generate(
     sampling_params=sampling_params,
 )
 
+print(native_outputs)
+print(vllm_outputs)
+
 # Print native & vLLM outputs
 i = 0
 for native_output, vllm_output in zip(native_outputs, vllm_outputs):

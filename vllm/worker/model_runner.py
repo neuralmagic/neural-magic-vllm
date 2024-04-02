@@ -666,7 +666,7 @@ class ModelRunner:
                 num_generation_tokens=len(input_tokens),
                 max_subquery_len=None,
                 max_context_len=max_context_len,
-                max_seq_len=None,
+                max_seq_len=1,
                 subquery_start_loc=None,
                 seq_start_loc=None,
                 context_lens=context_lens,
