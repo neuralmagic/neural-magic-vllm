@@ -94,24 +94,21 @@ class WhisperAttention(nn.Module):
 
         bsz, seq_len, _ = hidden_states.size()
         q, _ = self.q_proj(hidden_states)
-        q = q * self.scaling  # could be potentially done elsewhere
 
         if self.is_decoder and self.is_cross:
-            print("Decoder Cross Attn")
-            if encoder_hidden_states is None:
-                raise ValueError(
-                    "Decoder cross-attention step. The encoder_hidden_states must be specified"
-                )
             assert kv_cache is not None
             key_cache, value_cache = kv_cache
-            k, _ = self.k_proj(encoder_hidden_states)
-            v, _ = self.v_proj(encoder_hidden_states)
-            from xformers.ops.fmha.attn_bias import BlockDiagonalCausalMask
-
-            input_metadata.attn_bias = BlockDiagonalCausalMask.from_seqlens(
-                    [seq_len] * bsz)
-            input_metadata.attn_bias = input_metadata.attn_bias.materialize((bsz, 1, seq_len, seq_len), device = q.device)
-
+            print("Decoder Cross Attn")
+            if input_metadata.is_prompt:
+                if encoder_hidden_states is None:
+                    raise ValueError(
+                        "Decoder cross-attention step. The encoder_hidden_states must be specified"
+                    )
+                
+                k, _ = self.k_proj(encoder_hidden_states)
+                v, _ = self.v_proj(encoder_hidden_states)
+            else:
+                k, v = None, None
             attn_output = self.attn(q, k, v, key_cache, value_cache,
                                     input_metadata)
 
@@ -120,11 +117,6 @@ class WhisperAttention(nn.Module):
             key_cache, value_cache = kv_cache
             k, _ = self.k_proj(hidden_states)
             v, _ = self.v_proj(hidden_states)
-            # from xformers.ops.fmha.attn_bias import BlockDiagonalCausalMask
-
-            # input_metadata.attn_bias = BlockDiagonalCausalMask.from_seqlens(
-            #         [seq_len] * bsz)
-            # input_metadata.attn_bias = input_metadata.attn_bias.materialize((bsz, 1, seq_len, seq_len), device = q.device)
 
             attn_output = self.attn(q, k, v, key_cache, value_cache,
                                     input_metadata)
@@ -138,6 +130,7 @@ class WhisperAttention(nn.Module):
                 raise ValueError(
                     "Encoder self-attention step. The KV cache should not be populated."
                 )
+            q = q * self.scaling  # could be potentially done elsewhere
             k, _ = self.k_proj(hidden_states)
             v, _ = self.v_proj(hidden_states)
             input_metadata.attn_bias = None
@@ -368,22 +361,22 @@ class WhisperForConditionalGeneration(nn.Module):
         input_ids: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
 
-        input_features = input_features.to(dtype=torch.float32)
         if input_metadata.is_prompt:
+            input_features = input_features.to(dtype=torch.float32)
             # prompt run, need to run encoder once
             hidden_states = self.encoder(input_features, input_metadata=input_metadata)
             input_metadata.attn_bias = None
             bsz = hidden_states.shape[0]
             decoder_input_ids = torch.ones((bsz, 1), dtype=torch.int32).to(input_features.device) * self.config.decoder_start_token_id
-
         else:
-            if kv_caches[0][0] is None:
-                hidden_states = None
-            else:
-                hidden_states = self.decoder(input_ids=decoder_input_ids,
-                                            encoder_hidden_states=hidden_states,
-                                            kv_cache=kv_caches,
-                                            input_metadata=input_metadata)
+            hidden_states = None
+            decoder_input_ids = input_ids
+
+        if kv_caches[0][0] is not None:
+            hidden_states = self.decoder(input_ids=decoder_input_ids,
+                                         encoder_hidden_states=hidden_states,
+                                         kv_cache=kv_caches,
+                                         input_metadata=input_metadata)
         return hidden_states
 
     def sample(self, hidden_states: torch.Tensor, sampling_metadata: SamplingMetadata):
