@@ -68,14 +68,15 @@ class Timer:
     def _compute_average(self, func_name: str):
         """
         Determine the number of iterations. Display averages if this value
-        is equivalent to self.avg_after_iterations.
+        is equivalent to self.avg_after_iterations. After the average is
+        calculated, clear the measurements.
 
         :param func_name: name of the function that will be used to log the 
             measurements
 
-        TODO: Do we want to clear the values after the average is calculated?
         """
         if self.current_iter.get(func_name) == self.avg_after_iterations:
             _LOGGER.info(f"Average time for {func_name}: ")
             _LOGGER.info(str(numpy.average(self.measurements.get(func_name))))
             self.current_iter[func_name] = 0
+            self.measurements[func_name].clear()
