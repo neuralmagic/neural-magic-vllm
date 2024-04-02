@@ -19,6 +19,8 @@ from vllm.model_executor.layers.quantization import (get_quantization_config,
                                                      QuantizationConfig)
 # UPSTREAM SYNC: needed for sparsity
 from vllm.model_executor.layers.parameters import LazyCompressedParameter
+from sparseml.transformers.compression.utils import (
+    infer_compressor_from_model_config)
 
 logger = init_logger(__name__)
 
@@ -266,11 +268,20 @@ def hf_model_weights_iterator(
                 param = np.load(f)
             yield name, torch.from_numpy(param)
     elif use_safetensors:
-        for st_file in hf_weights_files:
-            with safe_open(st_file, framework="pt") as f:
-                for name in f.keys():  # noqa: SIM118
-                    param = f.get_tensor(name)
-                    yield name, param
+        compressor = infer_compressor_from_model_config(hf_folder)
+        if compressor is not None:
+            # valid compressor inferred, the model's weights are
+            # compressed (sparse), so they need decompressing
+            # before loading
+            for name, param in compressor.decompress(hf_folder):
+                yield name, param
+        else:
+            for st_file in hf_weights_files:
+                with safe_open(st_file, framework="pt") as f:
+                    for name in f.keys():  # noqa: SIM118
+                        param = f.get_tensor(name)
+                        yield name, param
+
     else:
         for bin_file in hf_weights_files:
             state = torch.load(bin_file, map_location="cpu")
