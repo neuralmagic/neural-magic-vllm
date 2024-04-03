@@ -120,7 +120,8 @@ def is_hip() -> bool:
 @lru_cache(maxsize=None)
 def is_cpu() -> bool:
     from importlib.metadata import version
-    is_cpu_flag = "cpu" in version("vllm")
+    # UPSTREAM SYNC: needed for nm-vllm
+    is_cpu_flag = "cpu" in version("nm-vllm")
     return is_cpu_flag
 
 
