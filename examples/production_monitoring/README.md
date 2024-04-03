@@ -1,27 +1,27 @@
-# vLLM + Prometheus/Grafana 
+# Production Monitoring for nm-vLLM w/ Prometheus/Grafana 
 
 ## Log Frequency and General Info
-By default, FastAPI server that vLLM is hosted on logs at a defined frequency `t`, described in `vllm/entrypoints/openai/api_server.py` (currently set at 10 s). The async call will invoke both python logger logs and prometheus logs. 
-Metric info per `t` interval are shown in both. Python logger shows instataneous info, and prometheus + graphana can show its history with more custom user-defined metrics (eg. queries per second). 
+By default, FastAPI server that nm-vLLM is hosted on logs at a defined frequency `t`, described in `vllm/entrypoints/openai/api_server.py` (currently set at 10 s). The async call will invoke both Python logger logs and Prometheus logs. 
+Metric info per `t` interval are shown in both. Python logger shows instantaneous info, and Prometheus + Graphana can show its history with more custom user-defined metrics (eg. queries per second). 
 
 Example python log:
 ```
 INFO 03-07 21:49:49 metrics.py:211] Avg prompt throughput: 603.9 tokens/s, Avg generation throughput: 377.9 tokens/s, Running: 17 reqs, Swapped: 0 reqs, Pending: 0 reqs, GPU KV cache usage: 1.8%, CPU KV cache usage: 0.0%
 ```
 
-Example promethus + graphana log visualization:
+Example Promethus + Graphana log visualization:
 ![Grafana Dashboard Image](./assets/overview.png)
 
 
 ## Quick Start
 
-This is a simple example that shows you how to connect vLLM metric logging to the Prometheus/Grafana stack. For this example, we launch Prometheus and Grafana via Docker. You can checkout other methods through [Prometheus](https://prometheus.io/) and [Grafana](https://grafana.com/) websites. 
+This is a simple example that shows you how to connect nm-vLLM metric logging to the Prometheus/Grafana stack. For this example, we launch Prometheus and Grafana via Docker. You can checkout other methods through [Prometheus](https://prometheus.io/) and [Grafana](https://grafana.com/) websites. 
 
 Install: 
 - [`docker`](https://docs.docker.com/engine/install/)
 - [`docker compose`](https://docs.docker.com/compose/install/linux/#install-using-the-repository)
 
-### Comamnds
+### Commands
 
 Prometheus metric logging is enabled by default in the OpenAI-compatible server. Launch via the entrypoint:
 ```bash
@@ -51,7 +51,7 @@ python3 benchmarks/benchmark_serving.py \
 
 ```
 
-Navigating to [`http://localhost:8000/metrics`](http://localhost:8000/metrics) will show the raw Prometheus metrics being exposed by vLLM.
+Navigating to [`http://localhost:8000/metrics`](http://localhost:8000/metrics) will show the raw Prometheus metrics being exposed by nm-vLLM.
 Note: If using a remote machine, some servers may not be tunneled into the local machine. Run 
 `ssh {user}@{ip} -L {port}:localhost:{port}`
 
@@ -63,52 +63,73 @@ Navigate to [`http://localhost:3000`](http://localhost:3000). Log in with the de
 
 Navigate to [`http://localhost:3000/connections/datasources/new`](http://localhost:3000/connections/datasources/new) and select Prometheus. 
 
-On Prometheus configuration page, we need to add the `Prometheus Server URL` in `Connection`. For this setup, Grafana and Prometheus are running in separate containers, but Docker creates DNS name for each containers. You can just use `http://prometheus:9090`.
+On Prometheus configuration page, we need to add the `Prometheus Server URL` in `Connection`. For this setup, Grafana and Prometheus are running in separate containers, but Docker creates DNS name for each container. You can just use `http://prometheus:9090`.
 
 Click `Save & Test`. You should get a green check saying "Successfully queried the Prometheus API."
 
 ### Dashboard Setup - Importing from json
 
-Dashboards can be imported from `json` config files. Navigate to [`http://localhost:3000/dashboard/import`](http://localhost:3000/dashboard/import), upload `vllm-metrics-overview.json` for overview metrics; `vllm-metrics-realtime.json` for real-time metrics and select the `prometheus` datasource. 
+Dashboards can be imported from the `json` config files in this repository. Navigate to [`http://localhost:3000/dashboard/import`](http://localhost:3000/dashboard/import), upload `nm-vllm-metrics-overview.json` for overview metrics; `nm-vllm-metrics-realtime.json` for real-time metrics and select the `prometheus` datasource. 
 
 ## Dashboards
-Two dashboards - overview and real-time - can be imported from 'json'. Overview dashboard shows metrics over the course of some interval (default set to 24 hours), and real-time shows by default the last 5 mins. 
+There are two sample dashboards provided: Overview Metrics Dashboard and Real-Time Metrics Dashboard. Each dashboard can be imported from the 'json' config files in this repository. The overview dashboard shows metrics over the course of a longer interval (default set to 24 hours) in order to check the global health of your nm-vllm inference server. The real-time metrics dashboard shows metrics over a much shorter time frame (default set to 5 minutes) in order to provide live monitoring of the nm-vllm inference server. 
 
-### Overview Metrics 
-Metrics are all time-series, where the x-axis is time (by default `t` minus 24 hours to current) and y-axis values varies by dashboard.
+### Overview Metrics Dashboard
+All of the metrics are time-series, where the x-axis is time (by default `t` minus 24 hours to current) and y-axis values vary by dashboard.
 Some time series use percentile and average values - 99th, 95th, 90th, 50th. This will be referred as default percentiles
  
-- E2E request latency 
-    * Shows default percentiles for the duration from the start to the end of the request to vLLM over time
-- Token Throughout
-    * Shows the prompt_token/s and generation_token/s over time 
-- Time Per Output Token Latency
-    * Shows the default percentiles for the time it takes to output any token as a part of the response
-- Scheduler State
-    * vLLM uses scheduler to manage jobs, each job has its own state. Simplest states are `running`, `swapped`, and `waiting`. The dashboard here shows its counts over time
-- Time to First Token Latency
-    * First tokens is a good time estimate to see the first streamed response token from the server. Default percentiles are uses over time. 
-- Cache Utilization 
-    * Shows both the CPU and GPU cache usage over time
-- System GPU Utilization
-    * Shows the percent of GPU resources used, analogous to `nvidia-smi` output for each recognizable GPU(s)
+- **E2E Request Latency**
+    * Histogram of end-to-end request latency in seconds over time.
+- **Token Throughput**
+    * Shows the prompt_token/s and generation_token/s over time.
+- **Time to First Token Latency (TTFT)**
+    * TTFT will show P50, P90, P95, and P99 TTFT latency in seconds. Histogram of time to first token in seconds.
+- **Time Per Output Token Latency (TPOT)**
+    * TPOT shows the inter-token latency between output tokens. Histogram of time per output token in seconds.
+- **Scheduler State**
+    * nm-vLLM uses a scheduler to manage job states which are `running`, `swapped`, and `waiting`. This graph shows the number of inference requests in RUNNING, WAITING, and SWAPPED states.
+- **Cache Utilization**
+    * Shows a percentage of used cache blocks by nm-vllm.
+- **System GPU Utilization**
+    * Shows the percent of GPU resources used, analogous to `nvidia-smi` output for each recognizable GPU(s).
 
 
-### Real-Time Metrics 
-Consists of two dropdowns - Inference Request Metrics and Hardware Infrastructure Metrics. The logged metrics are shown as time-series or histogram. Time-series by default shows the history of the last 5 mins. Histogram shows the distribution of last 5 mins entries. 
+### Real-Time Metrics Dashboard
+The Real-Time Metrics Dashboard consists of two sections - Inference Request Metrics and Hardware Infrastructure Metrics. The logged metrics are shown as time-series or histogram. A time-series by default shows the history of the last 5 minutes. A histogram shows the distribution of the last 5 minutes of entries. 
 
-#### Infernece Requesst Metrics
-- Average Prompt Throughput
-    * The number of completed prompts average over a defined frequency (usually 10s, set in code leve).
-- Average Generation Throughput
-    * THe number of generation
-- Prompt Tokens
-    * The rate of the number of prompt tokens over time
--  Generation Tokens
-    * The rate of the number of generated over time
-- Scheduler Running/Swapped/Waiting
-    * The number of running/swapped/waiting jobs
-- Inference Compute Duration
-    * Histogram showing time for a job to in the `RUNNING` state over the default of 5 min
-- Inference Queue Duration
-    * Histogram showing the 
+#### Inference Request Metrics
+- **Average Prompt Throughput**
+    * Average prefill throughput in tokens/s.
+- **Average Generation Throughput**
+    * Average generation throughput in tokens/s.
+- **Prompt Tokens**
+    * Number of prefill tokens processed.
+-  **Generation Tokens**
+    * Number of generation tokens processed.
+- **Time to First Token Latency (TTFT)**
+    * TTFT will show P50, P90, P95, and P99 TTFT latency in seconds. Histogram of time to first token in seconds.
+- **Time Per Output Token Latency (TPOT)**
+    * TPOT shows the inter-token latency between output tokens. Histogram of time per output token in seconds.
+- **Scheduler Running/Swapped/Waiting**
+    * The number of running/swapped/waiting jobs.
+- **Inference Compute Duration**
+    * Histogram showing time for a job to be in the `RUNNING` state over the default of 5 min.
+- **Inference Queue Duration**
+    * Histogram showing time in the queue before the inference can be executed.
+
+ #### Hardware Infrastructure Metrics
+ - **GPU Cache Usage**
+    * GPU cache usage (0.0 - 1.0).
+ - **CPU Cache Usage**
+    * CPU cache usage (0.0 - 1.0).
+ - **GPU Temperature**
+    * GPU temperature in Celsius.
+ - **GPU Power Usage**
+    * GPU instantaneous power, in watts.
+ - **GPU Utilization**
+    * 	GPU utilization rate (0.0 - 1.0). 
+ - **GPU Total Memory**
+    * Total GPU memory, in bytes.
+ - **GPU Memory Used**
+    * 	Used GPU memory, in bytes.
+
