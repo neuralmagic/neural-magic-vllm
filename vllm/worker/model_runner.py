@@ -537,8 +537,10 @@ class ModelRunner:
         input_tokens: List[int] = []
         input_positions: List[int] = []
         slot_mapping: List[int] = []
+        encoder_prompt_lens: List[int] = [] # For encoder/decoder models
         context_lens: List[int] = []
         block_tables: List[List[int]] = []
+        cross_block_tables: List[List[int]] = []
         lora_index_mapping: List[int] = []
         lora_prompt_mapping: List[int] = []
         lora_requests: Set[LoRARequest] = set()
@@ -554,6 +556,10 @@ class ModelRunner:
 
             for seq_id in seq_ids:
                 seq_data = seq_group_metadata.seq_data[seq_id]
+                encoder_seq_data = seq_group_metadata.cross_seq_data["encoder"]
+                encoder_prompt_len = encoder_seq_data.get_prompt_len()
+                encoder_prompt_lens.append(encoder_prompt_len)
+
                 generation_token = seq_data.get_last_token_id()
                 input_tokens.append(generation_token)
 
@@ -578,6 +584,13 @@ class ModelRunner:
                                              self.block_size)
                     block_table = block_table[-sliding_window_blocks:]
                 block_tables.append(block_table)
+
+            if self.is_encoder_decoder:
+                # Only for encoder/decoder models:
+                # Obtain cross-attention KV cache block table for each
+                # SequenceGroup in batch
+                cross_block_table = seq_group_metadata.cross_block_tables["encoder"]
+                cross_block_tables.append(cross_block_table)
 
         # vLLM uses cuda graph only for decoding requests.
         # See `capture_model` API for more details.
@@ -612,6 +625,11 @@ class ModelRunner:
         context_lens = torch.tensor(context_lens,
                                     dtype=torch.int,
                                     device=self.device)
+        max_encoder_prompt_len = int(max(encoder_prompt_lens))
+        encoder_prompt_lens = torch.tensor(encoder_prompt_lens,
+                                           dtype=torch.int,
+                                           device=self.device)
+        
 
         if use_captured_graph:
             # When using cuda-graph all these tensors should be
@@ -637,6 +655,19 @@ class ModelRunner:
                 dtype=torch.int,
                 device=self.device,
             )
+
+            if self.is_encoder_decoder:
+                max_cross_block_table_len = max(
+                    len(cross_block_table) for cross_block_table in cross_block_tables)
+                cross_block_tables = make_tensor_with_pad(
+                    [[phys_blk.block_number for phys_blk in cross_block_table] 
+                        for cross_block_table in cross_block_tables],
+                    max_len=max_cross_block_table_len,
+                    pad=0,
+                    dtype=torch.int,
+                    device=self.device,
+                )
+
         decoder_input_metadata = None
         if not self.is_encoder_decoder:
             decoder_input_metadata = InputMetadata(
@@ -659,18 +690,18 @@ class ModelRunner:
         else:
             cross_decoder_input_metadata = InputMetadata(
                 is_prompt=False,
-                slot_mapping=slot_mapping,
+                slot_mapping=None,
                 prompt_lens=None,
                 prompt_lens_tensor=None,
                 num_prompt_tokens=0,
                 num_generation_tokens=len(input_tokens),
                 max_subquery_len=None,
-                max_context_len=max_context_len,
+                max_context_len=max_encoder_prompt_len,
                 max_seq_len=1,
                 subquery_start_loc=None,
                 seq_start_loc=None,
-                context_lens=context_lens,
-                block_tables=block_tables,
+                context_lens=encoder_prompt_lens,
+                block_tables=cross_block_tables,
                 use_cuda_graph=use_captured_graph,
                 kv_cache_dtype=self.kv_cache_dtype,
             )
@@ -688,7 +719,7 @@ class ModelRunner:
                 num_generation_tokens=len(input_tokens),
                 max_subquery_len=None,
                 max_context_len=max_context_len,
-                max_seq_len=None,
+                max_seq_len=1,
                 subquery_start_loc=None,
                 seq_start_loc=None,
                 context_lens=context_lens,

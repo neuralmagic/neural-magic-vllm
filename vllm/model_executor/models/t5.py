@@ -338,11 +338,14 @@ class T5Attention(nn.Module):
 
         prompt_lens = input_metadata.prompt_lens
         context_lens = [max(context_len.item(),1) for context_len in input_metadata.context_lens]
+        # seq_len = hidden_states.shape[1]
+        seq_len = input_metadata.max_seq_len
 
         key_cache = None
         value_cache = None
         if kv_cache is not None:
             key_cache, value_cache = kv_cache
+            block_size = key_cache.shape[3]
 
         if not self.is_decoder:
             assert kv_cache is None
@@ -370,8 +373,29 @@ class T5Attention(nn.Module):
 
             if input_metadata.attn_bias is None:
                 # Paged attention does not expect a list of attention biases
-                input_metadata.attn_bias = self.compute_bias(
-                    context_lens, context_lens, dtype=q.dtype, device=q.device)
+                if input_metadata.is_prompt:
+                    # In prompt_run phase, decoder self-attention employs a square mask
+                    # with side length equal to decoder-generated tokens up to this point;
+                    # one mask per head. For batch size >1, variable-length batch masks
+                    # are packed into a single square match with sidelength of num_tokens
+                    input_metadata.attn_bias = self.compute_bias(
+                        context_lens, context_lens, dtype=q.dtype, device=q.device)                
+                else:
+                    # In decode phase, decoder self-attention employs a rectangular mask
+                    # with "query side length" equal to the number of tokens generated in
+                    # this step (probably one), and the "key side length" equal to the
+                    # number of decoder-generated tokens up to this point, *padded to
+                    # block size*
+                    input_metadata.attn_bias = self.compute_bias(
+                        context_lens, context_lens, dtype=q.dtype, device=q.device)
+
+                    input_metadata.attn_bias = input_metadata.attn_bias[0][:, :,
+                                                            -seq_len:, :]
+
+                    '''
+                    [(context_len + block_size - 1) // block_size *
+                        block_size for context_len in context_lens]
+                    '''
 
             attn_output = self.attn(q, k, v, key_cache, value_cache,
                                     input_metadata)

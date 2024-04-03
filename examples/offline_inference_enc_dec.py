@@ -23,7 +23,7 @@ prompts = [
     #"Who are you?",
     #"Who are you?",
     #"How do",
-    "How do",
+    "Who are you?",
 ]
 
 dtype_obj = getattr(torch, dtype)
