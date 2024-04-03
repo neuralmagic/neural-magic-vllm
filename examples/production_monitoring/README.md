@@ -1,4 +1,4 @@
-# Production Monitoring for nm-vLLM w/ Prometheus/Grafana 
+# Production Monitoring for nm-vLLM with Prometheus and Grafana 
 
 ## Log Frequency and General Info
 By default, FastAPI server that nm-vLLM is hosted on logs at a defined frequency `t`, described in `vllm/entrypoints/openai/api_server.py` (currently set at 10 s). The async call will invoke both Python logger logs and Prometheus logs. 
