@@ -374,7 +374,8 @@ def test_sampler_min_tokens_penalty(seed: int, device: str):
                 prompt_lens.append(sgm.seq_data[seq_id].get_prompt_len())
                 sampling_params_per_seq.append(sampling_params)
 
-        _, fake_logits, sampler, model_runner = _prepare_test(batch_size)
+        # UPSTREAM SYNC: passing device required for multi-gpu tests
+        _, fake_logits, sampler, model_runner = _prepare_test(batch_size, device)
         sampling_metadata = model_runner._prepare_sample(
             seq_group_metadata_list,
             prompt_lens=prompt_lens,
