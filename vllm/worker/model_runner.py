@@ -499,11 +499,9 @@ class ModelRunner:
                     seq_group_metadata_list,
                 )
 
-            enc_return = en_cr_de["self_encoder_input_metadata"] # (en_cr_de["encoder_input_tokens"], en_cr_de["encoder_input_positions"], en_cr_de["self_encoder_input_metadata"], 
-                         # en_cr_de["encoder_prompt_lens"], en_cr_de["encoder_subquery_lens"])
+            enc_return = en_cr_de["self_encoder_input_metadata"]
             
-            cross_dec_return = en_cr_de["cross_decoder_input_metadata"] #(en_cr_de["decoder_input_tokens"], en_cr_de["decoder_input_positions"], en_cr_de["cross_decoder_input_metadata"],
-                               #en_cr_de["decoder_prompt_lens"],en_cr_de["decoder_subquery_lens"])
+            cross_dec_return = en_cr_de["cross_decoder_input_metadata"]
 
             decoder_input_metadata = InputMetadata(
                 is_prompt=True,
@@ -707,9 +705,7 @@ class ModelRunner:
                 kv_cache_dtype=self.kv_cache_dtype,
             )
 
-            #prompt_lens = None
-            #subquery_lens = None
-            cross_dec_return = cross_decoder_input_metadata # (input_tokens, input_positions, cross_decoder_input_metadata, prompt_lens,subquery_lens)
+            cross_dec_return = cross_decoder_input_metadata
 
             decoder_input_metadata = InputMetadata(
                 is_prompt=False,

@@ -100,37 +100,6 @@ class EncoderAttention(EncDecAttention):
         # output: [batch_size, seq_len, num_heads * head_size]
         assert input_metadata.is_prompt
 
-        # Reshape the query, key, and value tensors.
-        #batch_size = len(input_metadata.prompt_lens)
-        #seq_len = query.shape[0]//batch_size
-        #query = query.view(batch_size, seq_len, self.num_heads, self.head_size)
-        #key = key.view(batch_size, seq_len, self.num_heads, self.head_size)
-        #value = value.view(batch_size, seq_len, self.num_heads, self.head_size)
-        # if input_metadata.attn_bias is None:
-        #     input_metadata.attn_bias = BlockDiagonalCausalMask.from_seqlens(
-        #         [seq_len] * batch_size)
-
-        # Attention wrapper wants a list of biases
-        #input_metadata.attn_bias = [input_metadata.attn_bias] # input_metadata.attn_bias[:, :, :, :seq_len]
-
-        # Normal attention
-        # out = xops.memory_efficient_attention_forward(
-        #     query,
-        #     key,
-        #     value,
-        #     attn_bias=input_metadata.attn_bias,
-        #     p=0.0,
-        #     scale=self.scale,
-        #     op=xops.fmha.MemoryEfficientAttentionFlashAttentionOp[0] if
-        #     (is_hip()) else None,
-        # )
-
-        print("-- Inner query in:",query.sum())
-        print("-- Inner key in:",key.sum())
-        print("-- Inner value in:",value.sum())
-
-        print(input_metadata)
-
         out: torch.Tensor = self.attn(
                 query,
                 key,
@@ -143,7 +112,6 @@ class EncoderAttention(EncDecAttention):
         #out = post_attn_reshape(out,batch_size,seq_len)
         
         print("-- Inner out:",out.sum())
-        #output = out.view(batch_size, seq_len, hidden_size)
         return out
 
 
@@ -197,17 +165,6 @@ class DecoderAttention(EncDecAttention):
         # If key_cache and value_cache are not provided, the new key and value
         # vectors will not be cached. This happens during the initial memory
         # profiling run.
-        #if key_cache is not None and value_cache is not None:
-        #
-        #    PagedAttentionImpl.reshape_and_cache(key, value, key_cache,
-        #                                         value_cache, input_metadata)
-
-        # max_prompt_len = max(input_metadata.prompt_lens)
-        # block_size = value_cache.shape[3]
-        # prompt_table_len = (max_prompt_len + block_size - 1) // block_size
-        # self_attn_block_tables = input_metadata.block_tables[:,
-        #                                                      prompt_table_len:].contiguous(
-        #                                                      )
 
         '''
         query: torch.Tensor,
@@ -226,22 +183,9 @@ class DecoderAttention(EncDecAttention):
                 value_cache,
                 input_metadata,
             )
-
-        '''
-        output = PagedAttentionImpl.forward_decode(
-            query,
-            key_cache,
-            value_cache,
-            input_metadata,
-            self.num_heads,
-            self.scale,
-            None,)
-        '''
-
         #output = post_attn_reshape(output,batch_size,seq_len)
 
         return output
-        #return output.view(batch_size, seq_len, hidden_size)
 
 
 class CrossAttention(EncDecAttention):
@@ -292,20 +236,6 @@ class CrossAttention(EncDecAttention):
         # if value is not None:
         #     value = value.view(-1, self.num_heads, self.head_size)
 
-        # Reshape the keys and values and store them in the cache.
-        # It only happens during the first pass.
-        # if (input_metadata.is_prompt and key_cache is not None
-        #         and value_cache is not None):
-        #     assert key is not None and value is not None
-        #     PagedAttentionImpl.reshape_and_cache(key, value, key_cache,
-        #                                          value_cache, input_metadata)
-
-        #block_size = value_cache.shape[3]
-        #prompt_table_len = (max_prompt_len + block_size - 1) // block_size
-        # cross_attn_block_tables = input_metadata.block_tables[:, :
-        #                                                       prompt_table_len].contiguous(
-        #                                                       )
-
         # Cross-attention decode run.
         output = self.attn(
                 query,
@@ -317,20 +247,5 @@ class CrossAttention(EncDecAttention):
             )
 
         #output = post_attn_reshape(output,batch_size,seq_len)
-
-        '''
-        output = PagedAttentionImpl.forward_decode(
-            query,
-            key_cache,
-            value_cache,
-            input_metadata,
-            self.num_heads,
-            self.scale,
-            None,  # No alibi slopes
-            apply_attn_bias=False,
-            override_context_lens=input_metadata.prompt_lens.int(),
-            override_max_context_len=max_prompt_len,
-            override_block_tables=cross_attn_block_tables)
-        '''
             
-        return output #.view(batch_size, seq_len, hidden_size)
+        return output

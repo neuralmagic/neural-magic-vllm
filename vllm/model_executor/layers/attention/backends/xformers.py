@@ -217,9 +217,6 @@ class XFormersBackend:
         if input_metadata.attn_bias == "not_causal":
             input_metadata.attn_bias = None
 
-        if input_metadata.attn_bias is not None and (not isinstance(input_metadata.attn_bias[0],BlockDiagonalCausalMask)):
-            print("Inner bias in:",input_metadata.attn_bias[0].sum())
-
         op = xops.fmha.MemoryEfficientAttentionFlashAttentionOp[0] if (
             is_hip()) else None
         # No alibi slopes.
