@@ -198,7 +198,9 @@ class ModelConfig:
                     f"({self.sparsity}).")
 
     def _verify_quantization(self) -> None:
-        supported_quantization = ["awq", "gptq", "squeezellm", "marlin"]
+        supported_quantization = [
+            "awq", "gptq", "squeezellm", "gptq_marlin", "marlin"
+        ]
         rocm_not_supported_quantization = ["awq", "marlin"]
         if self.quantization is not None:
             self.quantization = self.quantization.lower()
@@ -207,19 +209,50 @@ class ModelConfig:
         quant_cfg = getattr(self.hf_config, "quantization_config", None)
         if quant_cfg is not None:
             quant_method = quant_cfg.get("quant_method", "").lower()
-            # compat: autogptq >=0.8.0 use checkpoint_format: str
-            # compat: autogptq <=0.7.1 is_marlin_format: bool
-            is_format_marlin = (quant_cfg.get("checkpoint_format") == "marlin"
-                                or quant_cfg.get("is_marlin_format", False))
 
-            # Use marlin if the GPTQ model is serialized in marlin format.
-            if quant_method == "gptq" and is_format_marlin:
-                logger.info("The model is serialized in Marlin format. "
-                            "Using Marlin kernel.")
-                quant_method = "marlin"
-                if self.quantization == "gptq":
-                    self.quantization = quant_method
+            # Process marlin
+            if quant_method == "gptq":
+                # If the GPTQ model is serialized in marlin format,
+                # then use "marlin".
+                #   compat: autogptq >=0.8.0 use checkpoint_format: str
+                #   compat: autogptq <=0.7.1 is_marlin_format: bool
+                is_format_marlin = (
+                    quant_cfg.get("checkpoint_format") == "marlin"
+                    or quant_cfg.get("is_marlin_format", False))
+                if is_format_marlin:
+                    # TODO: Remove this case (and use only gptq_marlin by default)
+                    # after more extensive testings
+                    logger.info("The model is serialized in Marlin format. "
+                                "Using marlin kernel.")
+                    quant_method = "marlin"
+                    if self.quantization == "gptq":
+                        # This forces Marlin
+                        self.quantization = quant_method
 
+                else:
+                    # If GPTQ model can be converted to Marlin on-the-fly,
+                    # then use "gptq_marlin"
+                    gptq_marlin_supported_num_bits = [4]
+                    gptq_marlin_supported_group_sizes = [-1, 32, 64, 128]
+
+                    if ((quant_cfg.get("bits")
+                         in gptq_marlin_supported_num_bits)
+                            and (quant_cfg.get("group_size")
+                                 in gptq_marlin_supported_group_sizes)
+                            and (quant_cfg.get("sym") == True)):
+                        logger.info(
+                            "The model is compatible with gptq_marlin. "
+                            "Using gptq_marlin kernel")
+                        quant_method = "gptq_marlin"
+
+            # If GPTQ was specified explicitly, then use GPTQ
+            if self.quantization == "gptq" and quant_method == "gptq_marlin":
+                logger.warning(
+                    "gptq quantization was specified. Consider using "
+                    "gptq_marlin instead for better performance results.")
+                quant_method = "gptq"
+
+            # Verify
             if self.quantization is None:
                 self.quantization = quant_method
             elif self.quantization != quant_method:
@@ -239,7 +272,8 @@ class ModelConfig:
                 raise ValueError(
                     f"{self.quantization} quantization is currently not "
                     f"supported in ROCm.")
-            if self.quantization != "marlin":
+            if (self.quantization != "marlin"
+                    and self.quantization != "gptq_marlin"):
                 logger.warning(
                     f"{self.quantization} quantization is not fully "
                     "optimized yet. The speed can be slower than "

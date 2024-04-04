@@ -77,6 +77,7 @@ def test_models(
 
     gptq_model = vllm_runner_nm(model_pair.model_gptq,
                                 dtype=dtype,
+                                quantization="gptq",
                                 max_model_len=MAX_MODEL_LEN)
     gptq_outputs = gptq_model.generate_greedy_logprobs(example_prompts,
                                                        max_tokens,
