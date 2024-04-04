@@ -624,7 +624,9 @@ class ModelRunner:
         context_lens = torch.tensor(context_lens,
                                     dtype=torch.int,
                                     device=self.device)
-        max_encoder_prompt_len = int(max(encoder_prompt_lens))
+        max_encoder_prompt_len = None
+        if self.is_encoder_decoder:
+            max_encoder_prompt_len = int(max(encoder_prompt_lens))
         encoder_prompt_lens = torch.tensor(encoder_prompt_lens,
                                            dtype=torch.int,
                                            device=self.device)
