@@ -69,7 +69,7 @@ Click `Save & Test`. You should get a green check saying "Successfully queried t
 
 ### Dashboard Setup - Importing from json
 
-Dashboards can be imported from the `json` config files in this repository. Navigate to [`http://localhost:3000/dashboard/import`](http://localhost:3000/dashboard/import), upload `nm-vllm-metrics-overview.json` for overview metrics; `nm-vllm-metrics-realtime.json` for real-time metrics and select the `prometheus` datasource. 
+Dashboards can be imported from the `json` config files in this repository. Navigate to [`http://localhost:3000/dashboard/import`](http://localhost:3000/dashboard/import), upload `nm-vllm-overview-metrics.json` for overview metrics; `nm-vllm-real-time-metrics.json` for real-time metrics and select the `prometheus` datasource. 
 
 ## Dashboards
 There are two sample dashboards provided: Overview Metrics Dashboard and Real-Time Metrics Dashboard. Each dashboard can be imported from the 'json' config files in this repository. The overview dashboard shows metrics over the course of a longer interval (default set to 24 hours) in order to check the global health of your nm-vllm inference server. The real-time metrics dashboard shows metrics over a much shorter time frame (default set to 5 minutes) in order to provide live monitoring of the nm-vllm inference server. 
