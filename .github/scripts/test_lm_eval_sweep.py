@@ -5,11 +5,9 @@ import sys
 import time
 from typing import List
 
-from huggingface_hub import snapshot_download
 import lm_eval
 import lm_eval.models.utils
 import numpy
-import openai
 import pytest
 import ray
 import requests
@@ -174,7 +172,6 @@ class ServerContextManager:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.server_runner is not None:
-            # Implement any cleanup here if needed, such as terminating the server explicitly
             del self.server_runner
         ray.shutdown()
 
@@ -182,10 +179,7 @@ class ServerContextManager:
 @pytest.mark.parametrize("model_id, eval_def", MODEL_TEST_POINTS)
 def test_lm_eval_correctness(model_id, eval_def):
 
-    vllm_args = [
-        "--model", model_id,
-        "--disable-log-requests"
-    ]
+    vllm_args = ["--model", model_id, "--disable-log-requests"]
 
     if eval_def.enable_tensor_parallel:
         tp = torch.cuda.device_count()
@@ -195,12 +189,12 @@ def test_lm_eval_correctness(model_id, eval_def):
     if eval_def.extra_args:
         vllm_args += eval_def.extra_args
 
-    openai_args = f"model={model_id},tokenizer_backend=huggingface,base_url={BASE_URL}/v1"
+    openai_args = ",".join([
+        "model={model_id}", "tokenizer_backend=huggingface",
+        "base_url={BASE_URL}/v1"
+    ])
 
-    # # Download the model first so we don't timeout the server
-    # snapshot_download(repo_id=model_id)
-
-    with ServerContextManager(vllm_args) as server:
+    with ServerContextManager(vllm_args) as _:
         task_names = [t.name for t in eval_def.tasks]
         results = lm_eval.simple_evaluate(model="local-completions",
                                           model_args=openai_args,
@@ -214,7 +208,9 @@ def test_lm_eval_correctness(model_id, eval_def):
         for metric in task.metrics:
             ground_truth = metric.value
             measured_value = results["results"][task.name][metric.name]
-            print(f"{task.name} {metric.name} ground_truth={ground_truth} measured_value={measured_value}")
+            print(
+                f"{task.name} {metric.name}:\n"
+                f"ground_truth={ground_truth} measured_value={measured_value}")
 
             # Metrics must be within 1% of the larger of the two values
             # This corresponds to a 99% accuracy threshold
