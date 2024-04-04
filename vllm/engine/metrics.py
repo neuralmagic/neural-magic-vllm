@@ -7,6 +7,7 @@ from prometheus_client import (REGISTRY, Counter, Gauge, Histogram, Info,
                                disable_created_metrics)
 
 from vllm.logger import init_logger
+from vllm.timings.utils import get_singleton_manager
 
 logger = init_logger(__name__)
 
@@ -134,6 +135,7 @@ class StatLogger:
         # Prometheus metrics
         self.labels = labels
         self.metrics = Metrics(labelnames=list(labels.keys()))
+        _ = get_singleton_manager(enable_logging=True)
 
     def info(self, type: str, obj: object) -> None:
         if type == "cache_config":
@@ -204,6 +206,10 @@ class StatLogger:
 
         # Log locally every local_interval seconds.
         if self._local_interval_elapsed(stats.now):
+            # Compute the average time for each function logged
+            timer = get_singleton_manager()
+            timer._compute_average()
+
             # Compute summary metrics for tracked stats (and log them
             # to promethus if applicable).
             prompt_throughput = self._get_throughput(self.num_prompt_tokens,

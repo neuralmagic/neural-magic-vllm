@@ -19,7 +19,6 @@ from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.sampling_params import SamplingParams
 from vllm.usage.usage_lib import UsageContext
-from vllm.timings.utils import get_singleton_manager
 from vllm.utils import random_uuid
 
 TIMEOUT_KEEP_ALIVE = 5  # seconds.
@@ -100,16 +99,8 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help="FastAPI root_path when app is behind a path based routing proxy")
-    parser.add_argument("--enable-time-log",
-                        action="store_true",
-                        help="Whether or not timings are logged")
     parser = AsyncEngineArgs.add_cli_args(parser)
     args = parser.parse_args()
-
-    if not args.enable_time_log:
-        TIMER_MANAGER = get_singleton_manager(enable_logging=False)
-    else:
-        TIMER_MANAGER = get_singleton_manager()
 
     engine_args = AsyncEngineArgs.from_cli_args(args)
     engine = AsyncLLMEngine.from_engine_args(

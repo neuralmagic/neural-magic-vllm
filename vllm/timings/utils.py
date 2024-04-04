@@ -3,15 +3,13 @@ from vllm.timings.timer import Timer
 __all__ = ["log_time", "get_singleton_manager"]
 
 
-def get_singleton_manager(avg_after_iterations: int = 100,
-                          enable_logging: bool = True):
+def get_singleton_manager(enable_logging: bool = False):
     """
     Return the Timer. If not has not yet been initialized, initialize and
     return. If it has, return the existing Timer.
     """
     if Timer._instance is None:
-        Timer._instance = Timer(avg_after_iterations=avg_after_iterations,
-                                enable_logging=enable_logging)
+        Timer._instance = Timer(enable_logging=enable_logging)
     return Timer._instance
 
 
