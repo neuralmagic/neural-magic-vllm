@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore",
                         category=UserWarning,
                         module="transformers.generation.utils.*")
 
-hf_model_id = "google/flan-t5-large"
+hf_model_id = "t5-large"
 dtype = "float32"
 prompts = [
     #"Who are you?",
