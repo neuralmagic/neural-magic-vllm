@@ -556,9 +556,10 @@ class ModelRunner:
 
             for seq_id in seq_ids:
                 seq_data = seq_group_metadata.seq_data[seq_id]
-                encoder_seq_data = seq_group_metadata.cross_seq_data["encoder"]
-                encoder_prompt_len = encoder_seq_data.get_prompt_len()
-                encoder_prompt_lens.append(encoder_prompt_len)
+                if self.is_encoder_decoder:
+                    encoder_seq_data = seq_group_metadata.cross_seq_data["encoder"]
+                    encoder_prompt_len = encoder_seq_data.get_prompt_len()
+                    encoder_prompt_lens.append(encoder_prompt_len)
 
                 generation_token = seq_data.get_last_token_id()
                 input_tokens.append(generation_token)

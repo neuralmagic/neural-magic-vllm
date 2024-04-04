@@ -387,10 +387,11 @@ class T5Attention(nn.Module):
                     # number of decoder-generated tokens up to this point, *padded to
                     # block size*
                     input_metadata.attn_bias = self.compute_bias(
-                        context_lens, context_lens, dtype=q.dtype, device=q.device)
+                        context_lens, [(context_len + block_size - 1) // block_size *
+                        block_size for context_len in context_lens], dtype=q.dtype, device=q.device)
 
                     input_metadata.attn_bias = input_metadata.attn_bias[0][:, :,
-                                                            -seq_len:, :]
+                                                            -seq_len:, :].contiguous()
 
                     '''
                     [(context_len + block_size - 1) // block_size *
