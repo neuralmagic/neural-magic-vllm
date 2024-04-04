@@ -19,7 +19,7 @@ runs:
       pip3 install git+https://github.com/EleutherAI/lm-evaluation-harness.git@262f879a06aa5de869e5dd951d0ff2cf2f9ba380[openai]
 
       SUCCESS=0
-      python .github/scripts/test_lm_eval_sweep.py.py -s -v || SUCCESS=$?
+      python .github/scripts/test_lm_eval_sweep.py -s -v || SUCCESS=$?
       echo "test=${SUCCESS}" >> "$GITHUB_OUTPUT"
       exit ${SUCCESS}
     shell: bash
