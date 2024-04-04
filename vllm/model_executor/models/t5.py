@@ -753,6 +753,9 @@ class T5ForConditionalGeneration(nn.Module):
             if "EncDecAttention.relative_attention_bias" in name:
                 continue
 
+            if name == "lm_head.weight":
+                pass
+
             assert name in params_dict, f"{name} not in params_dict"
             param = params_dict[name]
             assert param.shape == loaded_weight.shape, (

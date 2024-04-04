@@ -111,7 +111,6 @@ class EncoderAttention(EncDecAttention):
 
         #out = post_attn_reshape(out,batch_size,seq_len)
         
-        print("-- Inner out:",out.sum())
         return out
 
 
