@@ -190,8 +190,8 @@ def test_lm_eval_correctness(model_id, eval_def):
         vllm_args += eval_def.extra_args
 
     openai_args = ",".join([
-        "model={model_id}", "tokenizer_backend=huggingface",
-        "base_url={BASE_URL}/v1"
+        f"model={model_id}", "tokenizer_backend=huggingface",
+        f"base_url={BASE_URL}/v1"
     ])
 
     with ServerContextManager(vllm_args) as _:
