@@ -220,7 +220,7 @@ class ModelConfig:
                     quant_cfg.get("checkpoint_format") == "marlin"
                     or quant_cfg.get("is_marlin_format", False))
                 if is_format_marlin:
-                    # TODO: Remove this case (and use only gptq_marlin by default)
+                    # TODO: Remove this case (use only gptq_marlin by default)
                     # after more extensive testings
                     logger.info("The model is serialized in Marlin format. "
                                 "Using marlin kernel.")
@@ -239,7 +239,7 @@ class ModelConfig:
                          in gptq_marlin_supported_num_bits)
                             and (quant_cfg.get("group_size")
                                  in gptq_marlin_supported_group_sizes)
-                            and (quant_cfg.get("sym") == True)):
+                            and (quant_cfg.get("sym") is True)):
                         logger.info(
                             "The model is compatible with gptq_marlin. "
                             "Using gptq_marlin kernel")

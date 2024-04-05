@@ -4,8 +4,8 @@ import os
 from typing import List, Optional, Tuple
 
 import pytest
-import torch
 import ray
+import torch
 from PIL import Image
 from transformers import (AutoModelForCausalLM, AutoProcessor,
                           LlavaForConditionalGeneration)

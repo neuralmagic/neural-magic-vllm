@@ -15,14 +15,15 @@ Note: This test currently fails running with --forked with the following:
 Run `pytest tests/models/test_gptq_marlin.py`.
 """
 
+import random
+
 import pytest
 import torch
-import random
 from compare_utils import check_logprobs_close
-from vllm.model_executor.layers.quantization import (
-    _QUANTIZATION_CONFIG_REGISTRY)
 
 from tests.conftest import cleanup
+from vllm.model_executor.layers.quantization import (
+    _QUANTIZATION_CONFIG_REGISTRY)
 
 MAX_MODEL_LEN = 1024
 
@@ -33,13 +34,13 @@ gptq_marlin_not_supported = (
     _QUANTIZATION_CONFIG_REGISTRY["gptq_marlin"].get_min_capability())
 
 test_prompts = [
-    "vLLM is a high-throughput and memory-efficient inference and serving engine for LLMs.",
-    "Briefly describe the major milestones in the development of artificial intelligence from 1950 to 2020.",
-    "Compare and contrast artificial intelligence with human intelligence in terms of processing information.",
-    "Describe the basic components of a neural network and how it can be trained.",
-    "Write a short story about a robot that dreams for the first time.",
-    "Analyze the impact of the COVID-19 pandemic on global economic structures and future business models.",
-    "Explain the cultural significance of the Mona Lisa painting, and how its perception might vary in Western versus Eastern societies.",
+    "vLLM is a high-throughput and memory-efficient inference and serving engine for LLMs.",  # noqa: E501
+    "Briefly describe the major milestones in the development of artificial intelligence from 1950 to 2020.",  # noqa: E501
+    "Compare and contrast artificial intelligence with human intelligence in terms of processing information.",  # noqa: E501
+    "Describe the basic components of a neural network and how it can be trained.",  # noqa: E501
+    "Write a short story about a robot that dreams for the first time.",  # noqa: E501
+    "Analyze the impact of the COVID-19 pandemic on global economic structures and future business models.",  # noqa: E501
+    "Explain the cultural significance of the Mona Lisa painting, and how its perception might vary in Western versus Eastern societies.",  # noqa: E501
     "The president of the United States is",
     "The capital of France is",
     "The future of AI is",

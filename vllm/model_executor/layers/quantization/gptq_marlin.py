@@ -1,20 +1,18 @@
-from typing import Any, Dict, List, Optional
-
 import enum
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 import torch
+from magic_wand import (MARLIN_MAX_PARALLEL, MARLIN_MIN_THREAD_K,
+                        MARLIN_MIN_THREAD_N, MARLIN_TILE, get_pack_factor,
+                        is_marlin_compatible, marlin_gemm,
+                        marlin_permute_scales, marlin_repack_from_gptq)
 from torch.nn.parameter import Parameter
 
 from vllm.model_executor.layers.linear import (LinearMethodBase,
                                                set_weight_attrs)
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig)
-
-from magic_wand import (MARLIN_TILE, MARLIN_MIN_THREAD_N, MARLIN_MIN_THREAD_K,
-                        MARLIN_MAX_PARALLEL, is_marlin_compatible,
-                        get_pack_factor, marlin_permute_scales,
-                        marlin_repack_from_gptq, marlin_gemm)
 
 
 class GPTQMarlinConfig(QuantizationConfig):
@@ -126,7 +124,8 @@ class GPTQMarlinLinearMethod(LinearMethodBase):
                 f"{input_size_per_partition} is not divisible "
                 f"by min_thread_k = {self.quant_config.min_thread_k}.")
 
-        if group_size < input_size and input_size_per_partition % group_size != 0:
+        if (group_size < input_size
+                and input_size_per_partition % group_size != 0):
             raise ValueError(
                 f"Weight input_size_per_partition = {input_size_per_partition}"
                 f" is not divisible by group_size = {group_size}.")
