@@ -31,19 +31,21 @@ runs:
       COMMIT=${{ github.sha }}
       VENV="${{ inputs.venv }}-${COMMIT:0:7}"
       source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
+      python -m pip install uv
+      uv venv 
       # TODO: adjust when we need a proper release. use nightly now.
-      pip3 install --index-url http://${{ inputs.pypi }}:8080/ --trusted-host ${{ inputs.pypi }} nm-magic-wand-nightly
-      pip3 install -r requirements.txt
+      uv pip install --index-url http://${{ inputs.pypi }}:8080/ --trusted-host ${{ inputs.pypi }} nm-magic-wand-nightly
+      uv pip install -r requirements.txt
       # build
       SUCCESS=0
-      pip3 install -e . || SUCCESS=$?
+      uv pip install -e . || SUCCESS=$?
       echo "build_status=${SUCCESS}" >> "$GITHUB_OUTPUT"
       if [ ${SUCCESS} -ne 0 ]; then
         exit 1
       fi
       # whl
       SUCCESS=0
-      pip3 wheel --no-deps -w dist . || SUCCESS=$?
+      uv pip wheel --no-deps -w dist . || SUCCESS=$?
       echo "whl_status=${SUCCESS}" >> "$GITHUB_OUTPUT"
       BASE=$(./.github/scripts/convert-version ${{ inputs.python }})
       ls -alh dist
