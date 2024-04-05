@@ -32,20 +32,19 @@ outputs:
 runs:
   using: composite
   steps:
+
+    - name: Set up Python with uv
+      uses: drivendataorg/setup-python-uv-action@main
+      with:
+        python-version: ${{ inputs.python }}
+
     - id: whl_install_test
       run: |
         # move source directories
         mv vllm vllm-ignore
         mv csrc csrc-ignore
-        # activate venv and installs
-        COMMIT=${{ github.sha }}
-        VENV="${{ inputs.venv }}-${COMMIT:0:7}"
-        source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
-        python -m pip install uv
-        uv venv 
-        uv pip` install coverage
-        uv pip install pytest-cov
-        uv pip install pytest-xdist
+        # install deps
+        uv pip install coverage pytest-cov pytest-xdist
         uv pip install --index-url http://${{ inputs.pypi }}:8080/ --trusted-host ${{ inputs.pypi }} nm-magic-wand-nightly
         uv pip list
         BASE=$(./.github/scripts/convert-version ${{ inputs.python }})

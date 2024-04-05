@@ -26,13 +26,14 @@ outputs:
 runs:
   using: composite
   steps:
+
+  - name: Set up Python with uv
+    uses: drivendataorg/setup-python-uv-action@main
+    with:
+      python-version: ${{ inputs.python }}
+      
   - id: build
     run: |
-      COMMIT=${{ github.sha }}
-      VENV="${{ inputs.venv }}-${COMMIT:0:7}"
-      source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
-      python -m pip install uv
-      uv venv 
       # TODO: adjust when we need a proper release. use nightly now.
       uv pip install --index-url http://${{ inputs.pypi }}:8080/ --trusted-host ${{ inputs.pypi }} nm-magic-wand-nightly
       uv pip install -r requirements.txt
