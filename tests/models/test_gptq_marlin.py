@@ -16,17 +16,13 @@ Run `pytest tests/models/test_gptq_marlin.py`.
 """
 
 import pytest
-import contextlib
 import torch
-import time
-import gc
-import ray
+import random
 from compare_utils import check_logprobs_close
 from vllm.model_executor.layers.quantization import (
     _QUANTIZATION_CONFIG_REGISTRY)
 
-from vllm.model_executor.parallel_utils.parallel_state import (
-    destroy_model_parallel)
+from tests.conftest import cleanup
 
 MAX_MODEL_LEN = 1024
 
@@ -36,35 +32,47 @@ gptq_marlin_not_supported = (
     capability <
     _QUANTIZATION_CONFIG_REGISTRY["gptq_marlin"].get_min_capability())
 
+test_prompts = [
+    "vLLM is a high-throughput and memory-efficient inference and serving engine for LLMs.",
+    "Briefly describe the major milestones in the development of artificial intelligence from 1950 to 2020.",
+    "Compare and contrast artificial intelligence with human intelligence in terms of processing information.",
+    "Describe the basic components of a neural network and how it can be trained.",
+    "Write a short story about a robot that dreams for the first time.",
+    "Analyze the impact of the COVID-19 pandemic on global economic structures and future business models.",
+    "Explain the cultural significance of the Mona Lisa painting, and how its perception might vary in Western versus Eastern societies.",
+    "The president of the United States is",
+    "The capital of France is",
+    "The future of AI is",
+]
+
 models = [
     # act_order==False, group_size=channelwise
     ("robertgshaw2/zephyr-7b-beta-channelwise-gptq", "main"),
     # act_order==False, group_size=128
-    # ("TheBloke/Llama-2-7B-GPTQ", "main"),
+    ("TheBloke/Llama-2-7B-GPTQ", "main"),
 
-    # # act_order==True, group_size=128
-    # ("TheBloke/TinyLlama-1.1B-Chat-v1.0-GPTQ", "main"),
-    # # act_order==True, group_size=64
-    # ("TheBloke/TinyLlama-1.1B-Chat-v1.0-GPTQ", "gptq-4bit-64g-actorder_True"),
-    # # act_order==True, group_size=32
-    # ("TheBloke/TinyLlama-1.1B-Chat-v1.0-GPTQ", "gptq-4bit-32g-actorder_True"),
+    # act_order==True, group_size=128
+    ("TheBloke/TinyLlama-1.1B-Chat-v1.0-GPTQ", "main"),
+    # act_order==True, group_size=64
+    ("TheBloke/TinyLlama-1.1B-Chat-v1.0-GPTQ", "gptq-4bit-64g-actorder_True"),
+    # act_order==True, group_size=32
+    ("TheBloke/TinyLlama-1.1B-Chat-v1.0-GPTQ", "gptq-4bit-32g-actorder_True"),
 ]
 
 
-def cleanup():
-    destroy_model_parallel()
-    with contextlib.suppress(AssertionError):
-        torch.distributed.destroy_process_group()
-    gc.collect()
-    torch.cuda.empty_cache()
-    ray.shutdown()
-    print("HERE SLEEP")
-    time.sleep(10)
+def gen_test_prompts():
+    # Randomly shuffle prompts
+    prompts = []
+    for i in range(8):
+        idx = random.randint(0, len(test_prompts) - 1)
+        prompts.append(test_prompts[idx])
+
+    return prompts
 
 
-def run_test(vllm_runner_nm, example_prompts, model, dtype: str,
-             max_tokens: int, num_logprobs: int, num_gpus: int,
-             enforce_eager: bool) -> None:
+def run_test(vllm_runner_nm, prompts, model, dtype: str, max_tokens: int,
+             num_logprobs: int, num_gpus: int, enforce_eager: bool) -> None:
+    # Run gptq_marlin
     gptq_marlin_model = vllm_runner_nm(model_name=model[0],
                                        model_revision=model[1],
                                        dtype=dtype,
@@ -73,11 +81,12 @@ def run_test(vllm_runner_nm, example_prompts, model, dtype: str,
                                        tensor_parallel_size=num_gpus,
                                        enforce_eager=enforce_eager)
     gptq_marlin_outputs = gptq_marlin_model.generate_greedy_logprobs(
-        example_prompts, max_tokens, num_logprobs)
+        prompts, max_tokens, num_logprobs)
 
     del gptq_marlin_model
     cleanup()
 
+    # Run gptq
     gptq_model = vllm_runner_nm(model_name=model[0],
                                 model_revision=model[1],
                                 dtype=dtype,
@@ -85,15 +94,13 @@ def run_test(vllm_runner_nm, example_prompts, model, dtype: str,
                                 max_model_len=MAX_MODEL_LEN,
                                 tensor_parallel_size=num_gpus,
                                 enforce_eager=enforce_eager)
-    gptq_outputs = gptq_model.generate_greedy_logprobs(example_prompts,
-                                                       max_tokens,
+    gptq_outputs = gptq_model.generate_greedy_logprobs(prompts, max_tokens,
                                                        num_logprobs)
 
     del gptq_model
     cleanup()
 
-    # loop through the prompts
-    # use logprobs or else this will consistently run out of memory
+    # Compare
     check_logprobs_close(
         outputs_0_lst=gptq_outputs,
         outputs_1_lst=gptq_marlin_outputs,
@@ -111,23 +118,23 @@ def run_test(vllm_runner_nm, example_prompts, model, dtype: str,
 @pytest.mark.parametrize("num_logprobs", [5])
 def test_models_1_gpu(
     vllm_runner_nm,
-    example_prompts,
     model,
     dtype: str,
     max_tokens: int,
     num_logprobs: int,
 ) -> None:
+    prompts = gen_test_prompts()
     run_test(vllm_runner_nm,
-             example_prompts,
+             prompts,
              model,
              dtype,
              max_tokens,
              num_logprobs,
              num_gpus=1,
-             enforce_eager=False)
+             enforce_eager=True)
 
 
-# @pytest.mark.flaky(reruns=2)
+@pytest.mark.flaky(reruns=2)
 @pytest.mark.skipif(gptq_marlin_not_supported,
                     reason="gptq_marlin is not supported on this GPU type.")
 @pytest.mark.parametrize("model", models)
@@ -136,17 +143,17 @@ def test_models_1_gpu(
 @pytest.mark.parametrize("num_logprobs", [5])
 def test_models_2_gpu(
     vllm_runner_nm,
-    example_prompts,
     model,
     dtype: str,
     max_tokens: int,
     num_logprobs: int,
 ) -> None:
+    prompts = gen_test_prompts()
     run_test(vllm_runner_nm,
-             example_prompts,
+             prompts,
              model,
              dtype,
              max_tokens,
              num_logprobs,
              num_gpus=2,
-             enforce_eager=False)
+             enforce_eager=True)

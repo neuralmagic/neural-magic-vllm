@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple
 
 import pytest
 import torch
+import ray
 from PIL import Image
 from transformers import (AutoModelForCausalLM, AutoProcessor,
                           LlavaForConditionalGeneration)
@@ -53,6 +54,7 @@ def cleanup():
         torch.distributed.destroy_process_group()
     gc.collect()
     torch.cuda.empty_cache()
+    ray.shutdown()
 
 
 @pytest.fixture()
