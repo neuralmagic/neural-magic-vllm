@@ -20,6 +20,14 @@ logger = init_logger(__name__)
 
 _GB = 1 << 30
 
+# gptq_marlin configs
+GPTQ_MARLIN_SUPPORTED_NUM_BITS = [4]
+GPTQ_MARLIN_SUPPORTED_GROUP_SIZES = [-1, 32, 64, 128]
+
+def is_gptq_marlin_compatible(weight_bits, group_size, is_sym):
+    return (weight_bits in GPTQ_MARLIN_SUPPORTED_NUM_BITS
+            and group_size in GPTQ_MARLIN_SUPPORTED_GROUP_SIZES and is_sym)
+
 
 class ModelConfig:
     """Configuration for the model.
@@ -232,14 +240,9 @@ class ModelConfig:
                 else:
                     # If GPTQ model can be converted to Marlin on-the-fly,
                     # then use "gptq_marlin"
-                    gptq_marlin_supported_num_bits = [4]
-                    gptq_marlin_supported_group_sizes = [-1, 32, 64, 128]
-
-                    if ((quant_cfg.get("bits")
-                         in gptq_marlin_supported_num_bits)
-                            and (quant_cfg.get("group_size")
-                                 in gptq_marlin_supported_group_sizes)
-                            and (quant_cfg.get("sym") is True)):
+                    if is_gptq_marlin_compatible(quant_cfg.get("bits"),
+                                                 quant_cfg.get("group_size"),
+                                                 quant_cfg.get("sym")):
                         logger.info(
                             "The model is compatible with gptq_marlin. "
                             "Using gptq_marlin kernel")

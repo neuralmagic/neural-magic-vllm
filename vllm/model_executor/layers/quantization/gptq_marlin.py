@@ -3,16 +3,80 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 import torch
-from magic_wand import (MARLIN_MAX_PARALLEL, MARLIN_MIN_THREAD_K,
-                        MARLIN_MIN_THREAD_N, MARLIN_TILE, get_pack_factor,
-                        is_marlin_compatible, marlin_gemm,
-                        marlin_permute_scales, marlin_repack_from_gptq)
+import numpy
+
 from torch.nn.parameter import Parameter
 
+from vllm._C import ops
 from vllm.model_executor.layers.linear import (LinearMethodBase,
                                                set_weight_attrs)
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig)
+
+from vllm.config import (GPTQ_MARLIN_SUPPORTED_NUM_BITS,
+                         GPTQ_MARLIN_SUPPORTED_GROUP_SIZES,
+                         is_gptq_marlin_compatible)
+
+GPTQ_MARLIN_TILE = 16
+GPTQ_MARLIN_MIN_THREAD_N = 64
+GPTQ_MARLIN_MIN_THREAD_K = 128
+GPTQ_MARLIN_MAX_PARALLEL = 16
+
+
+# Precompute permutations for Marlin weight and scale shuffling
+#
+# Marlin works on [16,64] tiles. The goal of the permutations is to reorder the weight data so that it is compatible
+# with the tensor-core format that is described here:
+# https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#matrix-fragments-for-mma-m16n8k16-with-floating-point-type
+#
+# As a result of this reordering, the vector loads inside the kernel will get the data as it is needed for tensor-core
+# (without the need to use ldmatrix instructions)
+def _get_perms():
+    perm = []
+    for i in range(32):
+        perm1 = []
+        col = i // 4
+        for block in [0, 1]:
+            for row in [
+                    2 * (i % 4),
+                    2 * (i % 4) + 1,
+                    2 * (i % 4 + 4),
+                    2 * (i % 4 + 4) + 1,
+            ]:
+                perm1.append(16 * row + col + 8 * block)
+        for j in range(4):
+            perm.extend([p + 256 * j for p in perm1])
+
+    perm = numpy.array(perm)
+    interleave = numpy.array([0, 2, 4, 6, 1, 3, 5, 7])
+    perm = perm.reshape((-1, 8))[:, interleave].ravel()
+    perm = torch.from_numpy(perm)
+    scale_perm = []
+    for i in range(8):
+        scale_perm.extend([i + 8 * j for j in range(8)])
+    scale_perm_single = []
+    for i in range(4):
+        scale_perm_single.extend(
+            [2 * i + j for j in [0, 1, 8, 9, 16, 17, 24, 25]])
+    return perm, scale_perm, scale_perm_single
+
+
+_perm, _scale_perm, _scale_perm_single = _get_perms()
+
+
+def get_pack_factor(num_bits):
+    assert num_bits in GPTQ_MARLIN_SUPPORTED_NUM_BITS, f"Unsupported num_bits = {num_bits}"
+    return 32 // num_bits
+
+
+def marlin_permute_scales(s, size_k, size_n, group_size):
+    if group_size < size_k and group_size != -1:
+        s = s.reshape((-1, len(_scale_perm)))[:, _scale_perm]
+    else:
+        s = s.reshape((-1, len(_scale_perm_single)))[:, _scale_perm_single]
+    s = s.reshape((-1, size_n)).contiguous()
+
+    return s
 
 
 class GPTQMarlinConfig(QuantizationConfig):
@@ -26,18 +90,18 @@ class GPTQMarlinConfig(QuantizationConfig):
         self.is_sym = is_sym
 
         # Verify
-        if not is_marlin_compatible(self.weight_bits, self.group_size,
-                                    self.is_sym):
+        if not is_gptq_marlin_compatible(self.weight_bits, self.group_size,
+                                         self.is_sym):
             raise ValueError(f"Marlin does not support quant config with: "
                              f" weight_bits = {weight_bits}, group_size = "
                              f"{group_size}, is_sym = {is_sym}")
 
         # Init
         self.pack_factor = get_pack_factor(weight_bits)
-        self.tile_size = MARLIN_TILE
-        self.min_thread_n = MARLIN_MIN_THREAD_N
-        self.min_thread_k = MARLIN_MIN_THREAD_K
-        self.max_parallel = MARLIN_MAX_PARALLEL
+        self.tile_size = GPTQ_MARLIN_TILE
+        self.min_thread_n = GPTQ_MARLIN_MIN_THREAD_N
+        self.min_thread_k = GPTQ_MARLIN_MIN_THREAD_K
+        self.max_parallel = GPTQ_MARLIN_MAX_PARALLEL
 
     def __repr__(self) -> str:
         return (f"GPTQMarlinConfig(weight_bits={self.weight_bits}, "
@@ -300,7 +364,7 @@ class GPTQMarlinLinearMethod(LinearMethodBase):
                 weights["g_idx_sort_indices"] = empty_g_idx_sort_indices
 
             # Repack weights
-            marlin_qweight = marlin_repack_from_gptq(
+            marlin_qweight = ops.gptq_marlin_repack(
                 weights["qweight"],
                 weights["g_idx_sort_indices"],
                 part_size_k,
@@ -319,10 +383,12 @@ class GPTQMarlinLinearMethod(LinearMethodBase):
                                                   self.quant_config.group_size)
             replace_tensor("scales", marlin_scales)
 
-        output = marlin_gemm(reshaped_x, weights["qweight"], weights["scales"],
-                             weights["g_idx"], weights["g_idx_sort_indices"],
-                             weights["workspace"], size_m, part_size_n,
-                             part_size_k, weights["is_k_full"])
+        output = ops.gptq_marlin_gemm(reshaped_x, weights["qweight"],
+                                      weights["scales"], weights["g_idx"],
+                                      weights["g_idx_sort_indices"],
+                                      weights["workspace"], size_m,
+                                      part_size_n, part_size_k,
+                                      weights["is_k_full"])
 
         if bias is not None:
             output.add_(bias)  # In-place add
