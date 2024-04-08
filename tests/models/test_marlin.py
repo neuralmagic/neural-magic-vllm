@@ -17,6 +17,8 @@ Run `pytest tests/models/test_marlin.py`.
 """
 
 import gc
+Run `pytest tests/models/test_marlin.py`.
+
 from dataclasses import dataclass
 
 import pytest
