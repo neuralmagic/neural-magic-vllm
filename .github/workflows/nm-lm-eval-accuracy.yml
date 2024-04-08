@@ -57,7 +57,7 @@ on:
         required: true
 
 jobs:
-  LM-EVAL:
+  LM-EVAL-FULL:
 
     runs-on: ${{ inputs.label }}
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}

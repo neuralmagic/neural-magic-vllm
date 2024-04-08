@@ -1,5 +1,5 @@
-name: run lm-eval accuracy test
-description: 'run lm-eval accuracy test'
+name: run lm-eval full accuracy test
+description: 'run lm-eval full accuracy test'
 inputs:
   python:
     description: 'python version, e.g. 3.10.12'
@@ -17,10 +17,10 @@ runs:
       source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
 
       pip3 install git+https://github.com/EleutherAI/lm-evaluation-harness.git@262f879a06aa5de869e5dd951d0ff2cf2f9ba380
-      pip3 install optimum auto-gptq
+      pip3 install pytest
 
       SUCCESS=0
-      python .github/scripts/lm_eval_compare_hf_vs_vllm.py --hf_pretrained nm-testing/zephyr-beta-7b-gptq-g128 --vllm_pretrained nm-testing/zephyr-beta-7b-marlin-g128 || SUCCESS=$?
+      pytest .github/scripts/test_lm_eval_sweep.py -s -v || SUCCESS=$?
       echo "test=${SUCCESS}" >> "$GITHUB_OUTPUT"
       exit ${SUCCESS}
     shell: bash
