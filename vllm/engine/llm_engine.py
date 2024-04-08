@@ -188,23 +188,6 @@ class LLMEngine:
     ) -> "LLMEngine":
         """Creates an LLM engine from the engine arguments."""
         # Create the engine configs.
-        engine_configs = engine_args.create_engine_configs()
-        parallel_config = engine_configs[2]
-        device_config = engine_configs[4]
-
-        # Initialize the cluster and specify the executor class.
-        if device_config.device_type == "neuron":
-            from vllm.executor.neuron_executor import NeuronExecutor
-            executor_class = NeuronExecutor
-        elif device_config.device_type == "cpu":
-            from vllm.executor.cpu_executor import CPUExecutor
-            executor_class = CPUExecutor
-        elif parallel_config.worker_use_ray:
-            initialize_ray_cluster(parallel_config)
-            from vllm.executor.ray_gpu_executor import RayGPUExecutor
-            executor_class = RayGPUExecutor
-        else:
-            assert parallel_config.world_size == 1, (
         engine_config = engine_args.create_engine_config()
 
         # Initialize the cluster and specify the executor class.

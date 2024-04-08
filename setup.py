@@ -329,6 +329,7 @@ def read_readme() -> str:
 
 def get_requirements() -> List[str]:
     """Get Python package dependencies from requirements.txt."""
+
     def _read_requirements(filename: str) -> List[str]:
         with open(get_path(filename)) as f:
             requirements = f.read().strip().split("\n")
