@@ -24,6 +24,7 @@ _GB = 1 << 30
 GPTQ_MARLIN_SUPPORTED_NUM_BITS = [4]
 GPTQ_MARLIN_SUPPORTED_GROUP_SIZES = [-1, 32, 64, 128]
 
+
 def is_gptq_marlin_compatible(weight_bits, group_size, is_sym):
     return (weight_bits in GPTQ_MARLIN_SUPPORTED_NUM_BITS
             and group_size in GPTQ_MARLIN_SUPPORTED_GROUP_SIZES and is_sym)

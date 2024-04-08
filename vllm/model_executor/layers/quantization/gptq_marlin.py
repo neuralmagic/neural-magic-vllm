@@ -2,20 +2,17 @@ import enum
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-import torch
 import numpy
-
+import torch
 from torch.nn.parameter import Parameter
 
 from vllm._C import ops
+from vllm.config import (GPTQ_MARLIN_SUPPORTED_NUM_BITS,
+                         is_gptq_marlin_compatible)
 from vllm.model_executor.layers.linear import (LinearMethodBase,
                                                set_weight_attrs)
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig)
-
-from vllm.config import (GPTQ_MARLIN_SUPPORTED_NUM_BITS,
-                         GPTQ_MARLIN_SUPPORTED_GROUP_SIZES,
-                         is_gptq_marlin_compatible)
 
 GPTQ_MARLIN_TILE = 16
 GPTQ_MARLIN_MIN_THREAD_N = 64
@@ -25,11 +22,13 @@ GPTQ_MARLIN_MAX_PARALLEL = 16
 
 # Precompute permutations for Marlin weight and scale shuffling
 #
-# Marlin works on [16,64] tiles. The goal of the permutations is to reorder the weight data so that it is compatible
+# Marlin works on [16,64] tiles. The goal of the permutations is
+# to reorder the weight data so that it is compatible
 # with the tensor-core format that is described here:
-# https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#matrix-fragments-for-mma-m16n8k16-with-floating-point-type
+# https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#matrix-fragments-for-mma-m16n8k16-with-floating-point-type # noqa: E501
 #
-# As a result of this reordering, the vector loads inside the kernel will get the data as it is needed for tensor-core
+# As a result of this reordering, the vector loads inside the
+# kernel will get the data as it is needed for tensor-core
 # (without the need to use ldmatrix instructions)
 def _get_perms():
     perm = []
@@ -65,7 +64,8 @@ _perm, _scale_perm, _scale_perm_single = _get_perms()
 
 
 def get_pack_factor(num_bits):
-    assert num_bits in GPTQ_MARLIN_SUPPORTED_NUM_BITS, f"Unsupported num_bits = {num_bits}"
+    assert num_bits in GPTQ_MARLIN_SUPPORTED_NUM_BITS, (
+        f"Unsupported num_bits = {num_bits}")
     return 32 // num_bits
 
 
