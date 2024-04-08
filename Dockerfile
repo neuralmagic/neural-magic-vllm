@@ -123,47 +123,14 @@ RUN --mount=type=bind,from=flash-attn-builder,src=/usr/src/flash-attention-v2,ta
 FROM vllm-base AS test
 
 ADD . /vllm-workspace/
-<<<<<<< HEAD
-COPY --from=build /workspace/vllm/*.so /vllm-workspace/vllm/
-# Install flash attention (from pre-built wheel)
-RUN --mount=type=bind,from=flash-attn-builder,src=/usr/src/flash-attention-v2,target=/usr/src/flash-attention-v2 \
-    pip install /usr/src/flash-attention-v2/*.whl --no-cache-dir
-# ignore build dependencies installation because we are using pre-complied extensions
-RUN rm pyproject.toml
-RUN --mount=type=cache,target=/root/.cache/pip VLLM_USE_PRECOMPILED=1 pip install . --verbose
-#################### TEST IMAGE ####################
-
-
-#################### RUNTIME BASE IMAGE ####################
-# We used base cuda image because pytorch installs its own cuda libraries.
-# However pynccl depends on cuda libraries so we had to switch to the runtime image
-# In the future it would be nice to get a container with pytorch and cuda without duplicating cuda
-FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04 AS vllm-base
-
-# libnccl required for ray
-RUN apt-get update -y \
-    && apt-get install -y python3-pip
-
-WORKDIR /workspace
-COPY requirements.txt requirements.txt
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r requirements.txt
-
-# Install flash attention (from pre-built wheel)
-RUN --mount=type=bind,from=flash-attn-builder,src=/usr/src/flash-attention-v2,target=/usr/src/flash-attention-v2 \
-    pip install /usr/src/flash-attention-v2/*.whl --no-cache-dir
 
 # UPSTREAM SYNC: Install sparsity extras
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install nm-magic-wand
 
-#################### RUNTIME BASE IMAGE ####################
-=======
-
 # install development dependencies (for testing)
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements-dev.txt
->>>>>>> upstream/main
 
 # doc requires source code
 # we hide them inside `test_docs/` , so that this source code
