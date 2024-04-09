@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
 import os
-import re
-import sys
 import yaml
 
 # # Check if filename is passed
 # if len(sys.argv) != 2:
 #     print("Usage: ./run-tests.py <filename>")
 #     sys.exit(1)
+
 
 def cc_flags(cmd, src_dir, test_dir, cc_report):
     flags = f" --cov={src_dir} --cov={test_dir} --cov-report=html:{cc_report} --cov-append "
@@ -29,7 +28,8 @@ def use_CUDA_VISIBLE_DEVICES(cmd):
 
 def run_cmd(cmd, test_dir):
     print(f"original: {cmd}")
-    nm_cmd = cc_flags(use_CUDA_VISIBLE_DEVICES(cmd), "vllm", "tests", "cc-vllm-html")
+    nm_cmd = cc_flags(use_CUDA_VISIBLE_DEVICES(cmd), "vllm", "tests",
+                      "cc-vllm-html")
     print(f"nm: {nm_cmd}")
     cmd_status = os.system(f"cd {test_dir} && {nm_cmd}")
     return int(cmd_status)
@@ -62,7 +62,8 @@ def run_test_pipeline():
         label = entry['label']
         print(f"STARTING LABEL: {label}")
 
-        dont_skip = set(["Regression Test", "Basic Correctness Test", "Kernels Test %N"])
+        dont_skip = set(
+            ["Regression Test", "Basic Correctness Test", "Kernels Test %N"])
         if label not in dont_skip:
             continue
 
