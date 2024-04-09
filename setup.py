@@ -376,7 +376,7 @@ if not _is_neuron():
     ext_modules.append(CMakeExtension(name="vllm._C"))
 
 # UPSTREAM SYNC: needed for sparsity
-_sparsity_deps = ["nm-magic-wand"]
+_sparsity_deps = ["nm-magic-wand-nightly"]
 
 
 def get_extra_requirements() -> dict:
