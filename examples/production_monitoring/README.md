@@ -99,23 +99,23 @@ The Real-Time Metrics Dashboard consists of two sections - Inference Request Met
 
 #### Inference Request Metrics
 - **Average Prompt Throughput**
-    * Average prefill throughput in tokens/s.
+    * Average prefill throughput, in tokens/s.
 - **Average Generation Throughput**
-    * Average generation throughput in tokens/s.
+    * Average generation throughput, in tokens/s.
 - **Prompt Tokens**
     * Number of prefill tokens processed.
 -  **Generation Tokens**
     * Number of generation tokens processed.
 - **Time to First Token Latency (TTFT)**
-    * TTFT will show P50, P90, P95, and P99 TTFT latency in seconds. Histogram of time to first token in seconds.
+    * TTFT will show P50, P90, P95, and P99 TTFT latency in seconds. Histogram of time to first token, in seconds.
 - **Time Per Output Token Latency (TPOT)**
-    * TPOT shows the inter-token latency between output tokens. Histogram of time per output token in seconds.
+    * TPOT shows the inter-token latency between output tokens. Histogram of time per output token, in seconds.
 - **Scheduler Running/Swapped/Waiting**
     * The number of running/swapped/waiting jobs.
 - **Inference Compute Duration**
-    * Histogram showing time for a job to be in the `RUNNING` state over the default of 5 min.
+    * Histogram showing time, in seconds, for a job to be in the `RUNNING` state over the default of 5 min.
 - **Inference Queue Duration**
-    * Histogram showing time in the queue before the inference can be executed.
+    * Histogram showing time, in seconds, in the queue before the inference can be executed.
 
  #### Hardware Infrastructure Metrics
  - **GPU Cache Usage**
