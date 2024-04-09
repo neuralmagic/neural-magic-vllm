@@ -174,6 +174,16 @@ def test_scheduler_schedule_preempt_abort():
 
     # Schedule seq groups generation and preempt seq group b.
     seq_group_meta, out = schedule_and_update_computed_tokens(scheduler)
+    assert get_sequence_groups(out) == [seq_group_a]
+    assert out.num_batched_tokens == 1
+    assert (not out.blocks_to_copy and not out.blocks_to_swap_in
+            and not out.blocks_to_swap_out)
+    assert len(seq_group_meta) == 1
+    assert scheduler.get_num_unfinished_seq_groups() == 2
+
+    # Abort seq group a. Re-schedule seq group b prompt with recomputation.
+    scheduler.abort_seq_group("1")
+    seq_group_meta, out = schedule_and_update_computed_tokens(scheduler)
     assert get_sequence_groups(out) == [seq_group_b]
     assert out.num_batched_tokens == 5  # 4 prompt + 1 generation.
     assert (not out.blocks_to_copy and not out.blocks_to_swap_in
