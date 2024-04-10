@@ -23,13 +23,8 @@ RUN echo "FA_BRANCH is $FA_BRANCH"
 # In that case, we need to use the python reference attention implementation in vllm
 ARG BUILD_FA="1"
 
-<<<<<<< HEAD
-# whether to build cupy on rocm
-ARG BUILD_CUPY="1"
-=======
 # whether to build triton on rocm
 ARG BUILD_TRITON="1"
->>>>>>> 6c0b0451 ([ROCm][Hardware][AMD] Use Triton Kernel for default FA on ROCm (#3643))
 
 # Install some basic utilities
 RUN apt-get update && apt-get install python3 python3-pip -y
