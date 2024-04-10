@@ -23,6 +23,7 @@ prompts = [
     #"Who are you?",
     #"Who are you?",
     #"How do",
+    "Who aren't you?",
     "Who are you? Write a very long response.",
 ]
 
