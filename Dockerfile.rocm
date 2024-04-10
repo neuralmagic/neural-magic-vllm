@@ -91,8 +91,13 @@ RUN if [ "$BUILD_TRITON" = "1" ]; then \
 
 COPY ./ /app/vllm
 
+<<<<<<< HEAD
 RUN python3 -m pip install --upgrade pip
 RUN python3 -m pip install xformers==0.0.25 --no-deps
+=======
+RUN python3 -m pip install --upgrade pip numba
+RUN python3 -m pip install xformers==0.0.23 --no-deps
+>>>>>>> bd3c144e ([Bugfix][ROCm] Add numba to Dockerfile.rocm (#3962))
 
 RUN cd /app \
     && cd vllm \
