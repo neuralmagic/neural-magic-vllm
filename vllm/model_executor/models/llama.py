@@ -29,12 +29,21 @@ from transformers import LlamaConfig
 
 from vllm.attention import Attention, AttentionMetadata
 from vllm.config import LoRAConfig
-from vllm.model_executor.layers.activation import SiluAndMul
+from vllm.model_executor.layers.quantization.smoothquant import (
+    Int8GEMM,
+    SQLinearMethod,
+    SQLinearMethodQKV,
+    SQLinearMethodOProj,
+    SQLinearMethodGateUpProj,
+    SQLinearMethodDownProj)
 from vllm.model_executor.layers.layernorm import RMSNorm
+from vllm.model_executor.layers.activation import SiluAndMul
 from vllm.model_executor.layers.linear import (LinearMethodBase,
                                                MergedColumnParallelLinear,
                                                QKVParallelLinear,
                                                RowParallelLinear)
+
+from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler
@@ -49,7 +58,6 @@ from vllm.model_executor.weight_utils import (default_weight_loader,
 from vllm.sequence import SamplerOutput
 from vllm.utils import is_hip
 
-
 class LlamaMLP(nn.Module):
 
     def __init__(
@@ -58,19 +66,42 @@ class LlamaMLP(nn.Module):
         intermediate_size: int,
         hidden_act: str,
         linear_method: Optional[LinearMethodBase] = None,
+        quant_config: Optional[QuantizationConfig] = None,
     ) -> None:
         super().__init__()
+        self.hidden_size = hidden_size
+        self.use_int8 = quant_config is not None and quant_config.get_name(
+        ) == "smoothquant"
+
+        gate_up_linear_method = linear_method
+        if self.use_int8:
+            # override gate_up linear method
+            assert isinstance(linear_method, SQLinearMethod)
+            gate_up_linear_method = SQLinearMethodGateUpProj(
+                gemm=Int8GEMM,
+                quant_dtype=torch.int8,
+                dequant_dtype=torch.float)
         self.gate_up_proj = MergedColumnParallelLinear(
             hidden_size, [intermediate_size] * 2,
             bias=False,
-            linear_method=linear_method)
-        self.down_proj = RowParallelLinear(intermediate_size,
-                                           hidden_size,
-                                           bias=False,
-                                           linear_method=linear_method)
+            linear_method=gate_up_linear_method)
         if hidden_act != "silu":
             raise ValueError(f"Unsupported activation: {hidden_act}. "
                              "Only silu is supported for now.")
+
+        down_proj_linear_method = linear_method
+        if self.use_int8:
+            # override gate_up linear method
+            assert isinstance(linear_method, SQLinearMethod)
+            down_proj_linear_method = SQLinearMethodDownProj(
+                gemm=Int8GEMM,
+                quant_dtype=torch.int8,
+                dequant_dtype=torch.float)
+        self.down_proj = RowParallelLinear(intermediate_size,
+                                           hidden_size,
+                                           bias=False,
+                                           linear_method=down_proj_linear_method)
+
         self.act_fn = SiluAndMul()
 
     def forward(self, x):
@@ -78,7 +109,6 @@ class LlamaMLP(nn.Module):
         x = self.act_fn(gate_up)
         x, _ = self.down_proj(x)
         return x
-
 
 class LlamaAttention(nn.Module):
 
@@ -91,31 +121,38 @@ class LlamaAttention(nn.Module):
         rope_scaling: Optional[Dict[str, Any]] = None,
         max_position_embeddings: int = 8192,
         linear_method: Optional[LinearMethodBase] = None,
+        quant_config: Optional[QuantizationConfig] = None,
         bias: bool = False,
         sliding_window: Optional[int] = None,
     ) -> None:
         super().__init__()
         self.hidden_size = hidden_size
-        tp_size = get_tensor_model_parallel_world_size()
+        self.tp_size = get_tensor_model_parallel_world_size()
         self.total_num_heads = num_heads
-        assert self.total_num_heads % tp_size == 0
-        self.num_heads = self.total_num_heads // tp_size
+        assert self.total_num_heads % self.tp_size == 0
+        self.num_heads = self.total_num_heads // self.tp_size
         self.total_num_kv_heads = num_kv_heads
-        if self.total_num_kv_heads >= tp_size:
+        self.default_dtype = torch.get_default_dtype()
+
+        if self.total_num_kv_heads >= self.tp_size:
             # Number of KV heads is greater than TP size, so we partition
             # the KV heads across multiple tensor parallel GPUs.
-            assert self.total_num_kv_heads % tp_size == 0
+            assert self.total_num_kv_heads % self.tp_size == 0
         else:
             # Number of KV heads is less than TP size, so we replicate
             # the KV heads across multiple tensor parallel GPUs.
-            assert tp_size % self.total_num_kv_heads == 0
-        self.num_kv_heads = max(1, self.total_num_kv_heads // tp_size)
+            assert self.tp_size % self.total_num_kv_heads == 0
+        self.num_kv_heads = max(1, self.total_num_kv_heads // self.tp_size)
         self.head_dim = hidden_size // self.total_num_heads
         self.q_size = self.num_heads * self.head_dim
         self.kv_size = self.num_kv_heads * self.head_dim
         self.scaling = self.head_dim**-0.5
         self.rope_theta = rope_theta
         self.max_position_embeddings = max_position_embeddings
+        self.use_int8 = quant_config is not None and quant_config.get_name(
+        ) == "smoothquant"
+        # Needs to be ironed out!!
+        self.use_per_token_quant = self.use_int8
 
         # This will be overwritten by model initialization if we are using it.
         # N.B. currently we only support per tensor scalar scaling factors
@@ -126,21 +163,6 @@ class LlamaAttention(nn.Module):
         # scaling_factor = tensor_amax / FPtype_max
         self.kv_scale = 1.0
 
-        self.qkv_proj = QKVParallelLinear(
-            hidden_size,
-            self.head_dim,
-            self.total_num_heads,
-            self.total_num_kv_heads,
-            bias=bias,
-            linear_method=linear_method,
-        )
-        self.o_proj = RowParallelLinear(
-            self.total_num_heads * self.head_dim,
-            hidden_size,
-            bias=bias,
-            linear_method=linear_method,
-        )
-
         self.rotary_emb = get_rope(
             self.head_dim,
             rotary_dim=self.head_dim,
@@ -148,11 +170,48 @@ class LlamaAttention(nn.Module):
             base=rope_theta,
             rope_scaling=rope_scaling,
         )
-        self.attn = Attention(self.num_heads,
-                              self.head_dim,
-                              self.scaling,
-                              num_kv_heads=self.num_kv_heads,
-                              sliding_window=sliding_window)
+
+        qkv_linear_method = linear_method
+        if self.use_int8:
+            # override qkv linear method
+            assert isinstance(linear_method, SQLinearMethod)
+            qkv_linear_method = SQLinearMethodQKV(
+                gemm=Int8GEMM,
+                qkv_sizes=(self.q_size, self.kv_size, self.kv_size),
+                quant_dtype=torch.int8,
+                dequant_dtype=self.rotary_emb.cos_sin_cache.dtype)
+        self.qkv_proj = QKVParallelLinear(
+            hidden_size,
+            self.head_dim,
+            self.total_num_heads,
+            self.total_num_kv_heads,
+            bias=bias,
+            linear_method=qkv_linear_method,
+        )
+
+        o_proj_linear_method = linear_method
+        if self.use_int8:
+            # override o_proj linear method
+            assert isinstance(linear_method, SQLinearMethod)
+            o_proj_linear_method = SQLinearMethodOProj(
+                gemm=Int8GEMM,
+                use_per_token_quant=True, # TODO (varun) : Read from config
+                quant_dtype = torch.int8,
+                dequant_dtype=  torch.float)
+
+        self.o_proj = RowParallelLinear(
+            self.total_num_heads * self.head_dim,
+            hidden_size,
+            bias=bias,
+            linear_method=o_proj_linear_method,
+        )
+
+        self.attn = Attention(
+            self.num_heads,
+            self.head_dim,
+            self.scaling,
+            num_kv_heads=self.num_kv_heads,
+            sliding_window=sliding_window)
 
     def forward(
         self,
@@ -169,16 +228,19 @@ class LlamaAttention(nn.Module):
         output, _ = self.o_proj(attn_output)
         return output
 
-
 class LlamaDecoderLayer(nn.Module):
 
     def __init__(
         self,
         config: LlamaConfig,
         linear_method: Optional[LinearMethodBase] = None,
+        quant_config: Optional[QuantizationConfig] = None,
     ) -> None:
         super().__init__()
         self.hidden_size = config.hidden_size
+        self.use_int8 = quant_config is not None and quant_config.get_name(
+        ) == "smoothquant"
+        self.tp_size = get_tensor_model_parallel_world_size()
         rope_theta = getattr(config, "rope_theta", 10000)
         rope_scaling = getattr(config, "rope_scaling", None)
         max_position_embeddings = getattr(config, "max_position_embeddings",
@@ -193,6 +255,7 @@ class LlamaDecoderLayer(nn.Module):
             rope_scaling=rope_scaling,
             max_position_embeddings=max_position_embeddings,
             linear_method=linear_method,
+            quant_config=quant_config,
             bias=getattr(config, "bias", False),
             sliding_window=sliding_window,
         )
@@ -201,6 +264,7 @@ class LlamaDecoderLayer(nn.Module):
             intermediate_size=config.intermediate_size,
             hidden_act=config.hidden_act,
             linear_method=linear_method,
+            quant_config=quant_config,
         )
         self.input_layernorm = RMSNorm(config.hidden_size,
                                        eps=config.rms_norm_eps)
@@ -215,6 +279,7 @@ class LlamaDecoderLayer(nn.Module):
         attn_metadata: AttentionMetadata,
         residual: Optional[torch.Tensor],
     ) -> Tuple[torch.Tensor, torch.Tensor]:
+
         # Self Attention
         if residual is None:
             residual = hidden_states
@@ -222,6 +287,7 @@ class LlamaDecoderLayer(nn.Module):
         else:
             hidden_states, residual = self.input_layernorm(
                 hidden_states, residual)
+
         hidden_states = self.self_attn(
             positions=positions,
             hidden_states=hidden_states,
@@ -230,8 +296,8 @@ class LlamaDecoderLayer(nn.Module):
         )
 
         # Fully Connected
-        hidden_states, residual = self.post_attention_layernorm(
-            hidden_states, residual)
+        hidden_states, residual = self.post_attention_layernorm(hidden_states,
+                                                               residual)
         hidden_states = self.mlp(hidden_states)
         return hidden_states, residual
 
@@ -242,6 +308,7 @@ class LlamaModel(nn.Module):
         self,
         config: LlamaConfig,
         linear_method: Optional[LinearMethodBase] = None,
+        quant_config: Optional[QuantizationConfig] = None,
         lora_config: Optional[LoRAConfig] = None,
     ) -> None:
         super().__init__()
@@ -257,7 +324,7 @@ class LlamaModel(nn.Module):
             org_num_embeddings=config.vocab_size,
         )
         self.layers = nn.ModuleList([
-            LlamaDecoderLayer(config, linear_method)
+            LlamaDecoderLayer(config, linear_method, quant_config)
             for _ in range(config.num_hidden_layers)
         ])
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
@@ -323,12 +390,15 @@ class LlamaForCausalLM(nn.Module):
         self,
         config: LlamaConfig,
         linear_method: Optional[LinearMethodBase] = None,
+        quant_config: Optional[QuantizationConfig] = None,
         lora_config: Optional[LoRAConfig] = None,
     ) -> None:
         super().__init__()
         self.config = config
         self.linear_method = linear_method
-        self.model = LlamaModel(config, linear_method, lora_config=lora_config)
+        self.quant_config = quant_config
+        self.model = LlamaModel(config, linear_method, lora_config=lora_config,
+                                quant_config = quant_config)
         self.unpadded_vocab_size = config.vocab_size
         if lora_config:
             self.unpadded_vocab_size += lora_config.lora_extra_vocab_size
@@ -377,6 +447,9 @@ class LlamaForCausalLM(nn.Module):
                      cache_dir: Optional[str] = None,
                      load_format: str = "auto",
                      revision: Optional[str] = None):
+        # For SmoothQuant
+        int8_fusion = self.quant_config is not None and \
+                self.quant_config.get_name() == "smoothquant"
         stacked_params_mapping = [
             # (param_name, shard_name, shard_id)
             ("qkv_proj", "q_proj", "q"),
@@ -395,6 +468,26 @@ class LlamaForCausalLM(nn.Module):
                 # Models trained using ColossalAI may include these tensors in
                 # the checkpoint. Skip them.
                 continue
+            # bias is useless for llama
+            if "bias" in name:
+                continue
+            # load dequant scale for qkv_proj and gate_up_proj
+            if int8_fusion:
+                is_fusion_scale = False
+                if "scale" in name:
+                    for (param_name, weight_name, _) in stacked_params_mapping:
+                        if weight_name not in name:
+                            continue
+                        name = name.replace(weight_name, param_name)
+                        prefix = weight_name.split('_')[0]
+                        suffix = name.split('.')[-1]
+                        new_name = prefix + '_' + suffix
+                        param = params_dict[name.replace(suffix, new_name)]
+                        param.copy_(loaded_weight)
+                        is_fusion_scale = True
+                        break
+                    if is_fusion_scale:
+                        continue
             for (param_name, weight_name, shard_id) in stacked_params_mapping:
                 if weight_name not in name:
                     continue

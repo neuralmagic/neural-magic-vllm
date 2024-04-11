@@ -32,3 +32,8 @@ aiohttp
 
 # Multimodal
 pillow
+
+# Profiling
+matplotlib
+pandas
+pyarrow

@@ -46,6 +46,10 @@ def _get_model_architecture(
 def get_architecture_class_name(model_config: ModelConfig) -> str:
     return _get_model_architecture(model_config)[1]
 
+def _is_support_smoothquant(model_config: ModelConfig) -> bool:
+    architectures = getattr(model_config.hf_config, "architectures", [])
+    supported_archs = ModelRegistry.get_supported_smoothquant_archs()
+    return any(arch in supported_archs for arch in architectures)
 
 def get_model(model_config: ModelConfig, device_config: DeviceConfig,
               **kwargs) -> nn.Module:
@@ -55,6 +59,7 @@ def get_model(model_config: ModelConfig, device_config: DeviceConfig,
 
     # Get the (maybe quantized) linear method.
     linear_method = None
+    quant_config = None
     if model_config.quantization is not None:
         quant_config = get_quant_config(model_config)
         capability = torch.cuda.get_device_capability()
@@ -77,21 +82,26 @@ def get_model(model_config: ModelConfig, device_config: DeviceConfig,
         # Create a model instance.
         # The weights will be initialized as empty tensors.
         with torch.device(device_config.device):
-            if hasattr(model_class, "supported_lora_modules"):
+            if _is_support_smoothquant(model_config):
+                model = model_class(model_config.hf_config, linear_method,
+                                    quant_config)
+            elif hasattr(model_class, "supported_lora_modules"):
                 model = model_class(model_config.hf_config, linear_method,
                                     lora_config)
-            elif lora_config:
-                raise ValueError(
-                    f"Model {model_class.__name__} does not support LoRA, "
-                    "but LoRA is enabled. Support for this model may "
-                    "be added in the future. If this is important to you, "
-                    "please open an issue on github.")
             else:
                 if model_class not in _VISION_MODEL_CLASSES:
                     model = model_class(model_config.hf_config, linear_method)
                 else:
                     model = model_class(model_config.hf_config,
                                         vision_language_config, linear_method)
+
+            if not hasattr(model_class, "supported_lora_modules") and lora_config:
+                raise ValueError(
+                    f"Model {model_class.__name__} does not support LoRA, "
+                    "but LoRA is enabled. Support for this model may "
+                    "be added in the future. If this is important to you, "
+                    "please open an issue on github.")
+
         if model_config.load_format == "dummy":
             # NOTE(woosuk): For accurate performance evaluation, we assign
             # random values to the weights.
