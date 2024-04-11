@@ -471,7 +471,7 @@ class VllmRunner:
         cleanup()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def vllm_runner():
     return VllmRunner
 
