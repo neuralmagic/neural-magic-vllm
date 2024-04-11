@@ -24,11 +24,15 @@ class ProfileContext:
     max_num_batched_tokens: int
     prompt_len: int
     batch_size: int
+    dtype: str
     tensor_parallel_size: int
-    kv_cache_dtype: str
-    kv_quant_params_path: str
     allow_cuda_graphs: bool
 
+def get_dtype(dtype:str):
+    if dtype == "torch.float":
+        return torch.float
+    else:
+        return dtype
 
 def run_profile(context: ProfileContext, csv_output: Optional[str],
                 json_output: Optional[str]):
@@ -37,35 +41,21 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
         print(f"  {key} = {value}")
 
     # Create sampling params
-    sampling_params = SamplingParams(temperature=0.8, top_p=0.95, max_tokens=8)
+    sampling_params = SamplingParams(temperature=0.0, top_k=1, max_tokens=8)
 
     # Sparsity is in the future
     # Create LLM
-    llm = None
-    if context.kv_quant_params_path is not None:
-        llm = LLM(
-            model=context.model,
-            tokenizer=context.tokenizer if context.tokenizer is not None else context.model,
-            revision=context.model_revision,
-            enforce_eager=not context.allow_cuda_graphs,
-            tensor_parallel_size=context.tensor_parallel_size,
-            gpu_memory_utilization=0.9,
-            max_model_len=context.max_seq_len,
-            quantization=context.quantization,
-            max_num_batched_tokens=context.max_num_batched_tokens,
-            kv_cache_dtype=context.kv_cache_dtype,
-            kv_quant_params_path=context.kv_quant_params_path)
-    else:
-        llm = LLM(
-            model=context.model,
-            tokenizer=context.tokenizer if context.tokenizer is not None else context.model,
-            revision=context.model_revision,
-            enforce_eager=not context.allow_cuda_graphs,
-            tensor_parallel_size=context.tensor_parallel_size,
-            gpu_memory_utilization=0.9,
-            max_model_len=context.max_seq_len,
-            quantization=context.quantization,
-            max_num_batched_tokens=context.max_num_batched_tokens)
+    llm = LLM(
+        model=context.model,
+        tokenizer=context.tokenizer if context.tokenizer is not None else context.model,
+        revision=context.model_revision,
+        enforce_eager=not context.allow_cuda_graphs,
+        tensor_parallel_size=context.tensor_parallel_size,
+        gpu_memory_utilization=0.9,
+        max_model_len=context.max_seq_len,
+        quantization=context.quantization,
+        dtype=get_dtype(context.dtype),
+        max_num_batched_tokens=context.max_num_batched_tokens)
 
     batch_size = context.batch_size
     prompt_len = context.prompt_len
@@ -208,18 +198,10 @@ if __name__ == "__main__":
         help="The method used to quantize the model weights, "
         "options are \"marlin\", \"awq\", \"gptq\", \"squeezellm\", \"smoothquant\"")
     parser.add_argument(
-         "--kv-cache-dtype",
-         type=str,
-         choices=['auto', 'fp8_e5m2', 'int8'],
-         default='auto',
-         help=
-         'Data type for kv cache storage. If "auto", will use model data type.')
-    parser.add_argument(
-        "--kv-quant-params-path",
+        "--dtype",
         type=str,
-        default=None,
-        help='Path to scales and zero points of kv cache quantizaiton '
-        'when kv cache dtype is int8.')
+        default='auto',
+        help="model dtype")
     parser.add_argument(
         "--max-seq-len",
         type=int,
