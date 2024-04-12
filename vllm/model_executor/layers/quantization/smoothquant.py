@@ -182,6 +182,15 @@ class SQLinearMethod(LinearMethodBase):
         
         return x_q, activation_scale
 
+    def _gemm(self, x_q, weight):
+        x_q = x_q.view(-1, x_q.shape[-1])
+        out_q = torch.empty(
+            (x_q.shape[0], weight.shape[0]),
+            dtype=torch.int32, device="cuda")
+        
+        self.i8cugemm.linear_a8_w8_o32_(x_q, weight, out_q)
+        return out_q.view(*x_q.shape[:-1], -1)
+
 
     def apply_weights(self,
                       weights: Dict[str, Tensor],
@@ -195,15 +204,5 @@ class SQLinearMethod(LinearMethodBase):
 
         # Q
         x_q, activation_scale = self._quantize(x, per_token_quant)
-        
-        # GEMM
-        x_q = x_q.view(-1, x_q.shape[-1])
-        out_q = torch.empty(
-            (x_q.shape[0], weight.shape[0]),
-            dtype=torch.int32, device=x.device)
-        
-        self.i8cugemm.linear_a8_w8_o32_(x_q, weight, out_q)
-        out_q = out_q.view(*x_q.shape[:-1], -1)
-        
-        # DQ
-        return self._dequantize(out_q, dequant_scale, activation_scale, logical_widths)
+        out_q = self._gemm(x_q, weight)
+        return self._dequantize(out_q, dequant_scale, activation_scale, logical_widths) 
