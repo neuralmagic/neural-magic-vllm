@@ -29,9 +29,6 @@ from transformers import LlamaConfig
 
 from vllm.attention import Attention, AttentionMetadata
 from vllm.config import LoRAConfig
-from vllm.model_executor.layers.quantization.smoothquant import (
-    SQLinearMethod,
-    FunSQLinearMethod,)
 from vllm.model_executor.layers.layernorm import RMSNorm
 from vllm.model_executor.layers.activation import SiluAndMul
 from vllm.model_executor.layers.linear import (LinearMethodBase,
@@ -62,41 +59,23 @@ class LlamaMLP(nn.Module):
         intermediate_size: int,
         hidden_act: str,
         linear_method: Optional[LinearMethodBase] = None,
-        quant_config: Optional[QuantizationConfig] = None,
     ) -> None:
         super().__init__()
         self.hidden_size = hidden_size
-        self.use_int8 = quant_config is not None and quant_config.get_name(
-        ) == "smoothquant"
 
-        gate_up_linear_method = linear_method
-        if self.use_int8:
-            # override gate_up linear method
-            assert isinstance(linear_method, SQLinearMethod)
-            gate_up_linear_method = FunSQLinearMethod(
-                per_token_quant=False,
-                quant_dtype=torch.int8,
-                dequant_dtype=torch.float)
         self.gate_up_proj = MergedColumnParallelLinear(
             hidden_size, [intermediate_size] * 2,
             bias=False,
-            linear_method=gate_up_linear_method)
+            linear_method=linear_method)
+        
+        self.down_proj = RowParallelLinear(
+            intermediate_size, hidden_size,
+            bias=False,
+            linear_method=linear_method)
+
         if hidden_act != "silu":
             raise ValueError(f"Unsupported activation: {hidden_act}. "
                              "Only silu is supported for now.")
-
-        down_proj_linear_method = linear_method
-        if self.use_int8:
-            assert isinstance(linear_method, SQLinearMethod)
-            down_proj_linear_method = FunSQLinearMethod(
-                per_token_quant=True,
-                quant_dtype=torch.int8,
-                dequant_dtype=torch.float)
-
-        self.down_proj = RowParallelLinear(intermediate_size,
-                                           hidden_size,
-                                           bias=False,
-                                           linear_method=down_proj_linear_method)
 
         self.act_fn = SiluAndMul()
 
@@ -145,10 +124,6 @@ class LlamaAttention(nn.Module):
         self.scaling = self.head_dim**-0.5
         self.rope_theta = rope_theta
         self.max_position_embeddings = max_position_embeddings
-        self.use_int8 = quant_config is not None and quant_config.get_name(
-        ) == "smoothquant"
-        # Needs to be ironed out!!
-        self.use_per_token_quant = self.use_int8
 
         # This will be overwritten by model initialization if we are using it.
         # N.B. currently we only support per tensor scalar scaling factors
@@ -167,44 +142,20 @@ class LlamaAttention(nn.Module):
             rope_scaling=rope_scaling,
         )
 
-        qkv_linear_method = linear_method
-        if self.use_int8:
-            # override qkv linear method
-            assert isinstance(linear_method, SQLinearMethod)
-            # qkv_linear_method = SQLinearMethodQKV(
-            #     gemm=Int8GEMM,
-            #     qkv_sizes=(self.q_size, self.kv_size, self.kv_size),
-            #     quant_dtype=torch.int8,
-            #     dequant_dtype=self.rotary_emb.cos_sin_cache.dtype)
-            qkv_linear_method = FunSQLinearMethod(
-                per_token_quant=False,
-                quant_dtype=torch.int8,
-                dequant_dtype=self.rotary_emb.cos_sin_cache.dtype)
-
-            
         self.qkv_proj = QKVParallelLinear(
             hidden_size,
             self.head_dim,
             self.total_num_heads,
             self.total_num_kv_heads,
             bias=bias,
-            linear_method=qkv_linear_method,
+            linear_method=linear_method,
         )
-
-        o_proj_linear_method = linear_method
-        if self.use_int8:
-            # override o_proj linear method
-            assert isinstance(linear_method, SQLinearMethod)
-            o_proj_linear_method = FunSQLinearMethod(
-                per_token_quant=True,
-                quant_dtype=torch.int8,
-                dequant_dtype=torch.float)
 
         self.o_proj = RowParallelLinear(
             self.total_num_heads * self.head_dim,
             hidden_size,
             bias=bias,
-            linear_method=o_proj_linear_method,
+            linear_method=linear_method,
         )
 
         self.attn = Attention(
@@ -235,12 +186,9 @@ class LlamaDecoderLayer(nn.Module):
         self,
         config: LlamaConfig,
         linear_method: Optional[LinearMethodBase] = None,
-        quant_config: Optional[QuantizationConfig] = None,
     ) -> None:
         super().__init__()
         self.hidden_size = config.hidden_size
-        self.use_int8 = quant_config is not None and quant_config.get_name(
-        ) == "smoothquant"
         self.tp_size = get_tensor_model_parallel_world_size()
         rope_theta = getattr(config, "rope_theta", 10000)
         rope_scaling = getattr(config, "rope_scaling", None)
@@ -256,7 +204,6 @@ class LlamaDecoderLayer(nn.Module):
             rope_scaling=rope_scaling,
             max_position_embeddings=max_position_embeddings,
             linear_method=linear_method,
-            quant_config=quant_config,
             bias=getattr(config, "bias", False),
             sliding_window=sliding_window,
         )
@@ -265,7 +212,6 @@ class LlamaDecoderLayer(nn.Module):
             intermediate_size=config.intermediate_size,
             hidden_act=config.hidden_act,
             linear_method=linear_method,
-            quant_config=quant_config,
         )
         self.input_layernorm = RMSNorm(config.hidden_size,
                                        eps=config.rms_norm_eps)
@@ -309,7 +255,6 @@ class LlamaModel(nn.Module):
         self,
         config: LlamaConfig,
         linear_method: Optional[LinearMethodBase] = None,
-        quant_config: Optional[QuantizationConfig] = None,
         lora_config: Optional[LoRAConfig] = None,
     ) -> None:
         super().__init__()
@@ -325,7 +270,7 @@ class LlamaModel(nn.Module):
             org_num_embeddings=config.vocab_size,
         )
         self.layers = nn.ModuleList([
-            LlamaDecoderLayer(config, linear_method, quant_config)
+            LlamaDecoderLayer(config, linear_method)
             for _ in range(config.num_hidden_layers)
         ])
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
@@ -391,15 +336,12 @@ class LlamaForCausalLM(nn.Module):
         self,
         config: LlamaConfig,
         linear_method: Optional[LinearMethodBase] = None,
-        quant_config: Optional[QuantizationConfig] = None,
         lora_config: Optional[LoRAConfig] = None,
     ) -> None:
         super().__init__()
         self.config = config
         self.linear_method = linear_method
-        self.quant_config = quant_config
-        self.model = LlamaModel(config, linear_method, lora_config=lora_config,
-                                quant_config = quant_config)
+        self.model = LlamaModel(config, linear_method, lora_config=lora_config)
         self.unpadded_vocab_size = config.vocab_size
         if lora_config:
             self.unpadded_vocab_size += lora_config.lora_extra_vocab_size

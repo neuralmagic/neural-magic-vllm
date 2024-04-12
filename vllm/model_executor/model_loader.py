@@ -83,8 +83,7 @@ def get_model(model_config: ModelConfig, device_config: DeviceConfig,
         # The weights will be initialized as empty tensors.
         with torch.device(device_config.device):
             if _is_support_smoothquant(model_config):
-                model = model_class(model_config.hf_config, linear_method,
-                                    quant_config)
+                model = model_class(model_config.hf_config, linear_method)
             elif hasattr(model_class, "supported_lora_modules"):
                 model = model_class(model_config.hf_config, linear_method,
                                     lora_config)

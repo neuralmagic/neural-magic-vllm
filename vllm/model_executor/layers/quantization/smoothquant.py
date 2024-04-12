@@ -72,7 +72,7 @@ class SmoothQuantConfig(QuantizationConfig):
         return cls(weight_bits, quant_map)
 
     def get_linear_method(self) -> "SQLinearMethod":
-        return SQLinearMethod(Int8GEMM)
+        return SQLinearMethod()
 
     def get_scaled_act_names(self) -> List[str]:
         return []
@@ -95,100 +95,11 @@ class Int8GEMM(object):
     def get_i8cugemm(self):
         return self.i8cugemm
 
-
 class SQLinearMethod(LinearMethodBase):
-    """Linear method for SmoothQuant.
+    """Linear method for AutoSmoothQuant.
     """
 
-    def __init__(self, gemm):
-        i8_gemm = gemm()
-        self.i8cugemm = i8_gemm.get_i8cugemm()
-
-    def create_weights(self, input_size_per_partition: int,
-                       output_size_per_partition: int,
-                       input_size: int,
-                       output_size: int,
-                       params_dtype: torch.dtype,
-                       logical_widths=None) -> Dict[str, Tensor]:
-        weight = Parameter(
-            torch.empty(
-                output_size_per_partition,
-                input_size_per_partition,
-                device="cuda",
-                dtype=torch.int8,
-            ),
-            requires_grad=False,
-        )
-        set_weight_attrs(weight, {
-            "input_dim": 1,
-            "output_dim": 0,
-        })
-        # q k v dequant_scales are used in QKVParallelLinear
-        q_dequant_scale = Parameter(
-            torch.tensor(1.0, dtype=torch.float32, device='cpu'),
-            requires_grad=False,
-        )
-        k_dequant_scale = Parameter(
-            torch.tensor(1.0, dtype=torch.float32, device='cpu'),
-            requires_grad=False,
-        )
-        v_dequant_scale = Parameter(
-            torch.tensor(1.0, dtype=torch.float32, device='cpu'),
-            requires_grad=False,
-        )
-        # gate up dequant_scales are used in MergedColumnParallelLinear
-        gate_dequant_scale = Parameter(
-            torch.tensor(1.0, dtype=torch.float32, device='cpu'),
-            requires_grad=False,
-        )
-        up_dequant_scale = Parameter(
-            torch.tensor(1.0, dtype=torch.float32, device='cpu'),
-            requires_grad=False,
-        )
-        # dequant_scale is used in RowParallelLinear
-        dequant_scale = Parameter(
-            torch.tensor(1.0, dtype=torch.float32, device='cpu'),
-            requires_grad=False,
-        )
-        return {
-            "weight": weight,
-            "q_dequant_scale": q_dequant_scale,
-            "k_dequant_scale": k_dequant_scale,
-            "v_dequant_scale": v_dequant_scale,
-            "gate_dequant_scale": gate_dequant_scale,
-            "up_dequant_scale": up_dequant_scale,
-            "dequant_scale": dequant_scale
-        }
-
-    def apply_weights(self,
-                      weights: Dict[str, Tensor],
-                      x: torch.Tensor,
-                      bias: Optional[torch.Tensor] = None) -> Tensor:
-        assert bias is None
-        weight = weights["weight"]
-        x_shape = x.shape
-        x = x.view(-1, x_shape[-1])
-        y = torch.empty((x.shape[0], weight.shape[0]),
-                        dtype=torch.int32,
-                        device=x.device)
-        self.i8cugemm.linear_a8_w8_o32_(x, weight, y)
-        y = y.view(*x_shape[:-1], -1)
-        return y
-
-
-class FunSQLinearMethod(LinearMethodBase):
-    """Linear method for SmoothQuant.
-    """
-
-    def __init__(
-        self, 
-        per_token_quant,
-        quant_dtype,
-        dequant_dtype,
-    ):
-        self.per_token_quant = per_token_quant
-        self.quant_dtype = quant_dtype
-        self.dequant_dtype = dequant_dtype
+    def __init__(self,):
         self.i8cugemm = Int8GEMM().get_i8cugemm()
 
     def create_weights(
@@ -199,6 +110,7 @@ class FunSQLinearMethod(LinearMethodBase):
         output_size: int,
         params_dtype: torch.dtype,
         logical_widths: Optional[List[int]] = None,
+        per_token_quant:bool = False,
     ) -> Dict[str, Tensor]:
         weight = Parameter(
             torch.empty(
@@ -216,8 +128,8 @@ class FunSQLinearMethod(LinearMethodBase):
         dequant_scale = Parameter(
             torch.tensor(
                 [1.0] * len(logical_widths), 
-                dtype=torch.float32,
-                device='cpu'
+                dtype=params_dtype,
+                device='cuda'
             ), requires_grad=False
         )
 
@@ -225,6 +137,7 @@ class FunSQLinearMethod(LinearMethodBase):
             "weight": weight,
             "dequant_scale": dequant_scale,
             "logical_widths": logical_widths,
+            "per_token_quant": per_token_quant,
         }
 
 
@@ -276,9 +189,10 @@ class FunSQLinearMethod(LinearMethodBase):
         weight = weights["weight"]
         dequant_scale = weights["dequant_scale"]
         logical_widths = weights["logical_widths"]
+        per_token_quant = weights["per_token_quant"]
 
         # Q
-        x_q, activation_scale = self._quantize(x, self.per_token_quant)
+        x_q, activation_scale = self._quantize(x, per_token_quant)
         
         # GEMM
         x_q = x_q.view(-1, x_q.shape[-1])

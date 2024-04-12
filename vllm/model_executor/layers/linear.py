@@ -189,6 +189,7 @@ class ColumnParallelLinear(torch.nn.Module):
             output_size=self.output_size,
             params_dtype=self.params_dtype,
             logical_widths=logical_widths,
+            per_token_quant=False,
         )
         for name, weight in self.linear_weights.items():
             if isinstance(weight, torch.Tensor):
@@ -557,7 +558,8 @@ class RowParallelLinear(torch.nn.Module):
             input_size=self.input_size,
             output_size=self.output_size, 
             params_dtype=self.params_dtype,
-            logical_widths=[self.output_size])
+            logical_widths=[self.output_size],
+            per_token_quant=True,)
         for name, weight in self.linear_weights.items():
             if isinstance(weight, torch.Tensor):
                 self.register_parameter(name, weight)
