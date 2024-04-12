@@ -7,8 +7,7 @@ import random
 from typing import AsyncGenerator, List, Tuple
 
 import numpy as np
-from backend_request_func import (ASYNC_REQUEST_FUNCS, RequestFuncInput,
-                                  RequestFuncOutput)
+from backend_request_func import ASYNC_REQUEST_FUNCS, RequestFuncInput
 from openai import OpenAI
 from tqdm.asyncio import tqdm
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
@@ -115,7 +114,7 @@ async def run(
             asyncio.create_task(
                 request_func(request_func_input=request_func_input,
                              pbar=pbar)))
-    outputs: List[RequestFuncOutput] = await asyncio.gather(*tasks)
+    _ = await asyncio.gather(*tasks)
 
     if not disable_tqdm:
         pbar.close()
