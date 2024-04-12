@@ -145,7 +145,7 @@ def to_block_diagonal_nested(tensors):
     if all(isinstance(t, torch.Tensor) for t in tensors):
         row_total_size = sum(t.size(0) for t in tensors)
         col_total_size = sum(t.size(1) for t in tensors)
-        block_diagonal = torch.zeros(row_total_size, col_total_size)
+        block_diagonal = torch.ones(row_total_size, col_total_size) * torch.finfo(tensors[0].dtype).min
         
         row_offset = 0
         col_offset = 0
@@ -322,7 +322,7 @@ class T5Attention(nn.Module):
         if padded_num_k_tokens-num_k_tokens > 0:
             # Enforce right-most attention bias stride is a multiple of 8
             padding = (0,padded_num_k_tokens-num_k_tokens,0,0,0,0,0,0,)
-            biases = F.pad(biases, padding, "constant", 0)
+            biases = F.pad(biases, padding, "constant", torch.finfo(dtype).min)
             biases = biases[:,:,:,:num_k_tokens]
 
         return [biases] # vLLM Attention wrapper expects biases as a list
