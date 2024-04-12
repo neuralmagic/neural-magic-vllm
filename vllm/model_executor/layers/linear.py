@@ -525,8 +525,12 @@ class RowParallelLinear(torch.nn.Module):
             linear_method = UnquantizedLinearMethod()
         self.linear_method = linear_method
         self.linear_weights = self.linear_method.create_weights(
-            self.input_size_per_partition, self.output_size, self.input_size,
-            self.output_size, self.params_dtype)
+            input_size_per_partition=self.input_size_per_partition,
+            output_size_per_partition=self.output_size,
+            input_size=self.input_size,
+            output_size=self.output_size, 
+            params_dtype=self.params_dtype,
+            logical_widths=[self.output_size])
         for name, weight in self.linear_weights.items():
             if isinstance(weight, torch.Tensor):
                 self.register_parameter(name, weight)
@@ -555,6 +559,11 @@ class RowParallelLinear(torch.nn.Module):
             start_idx = tp_rank * shard_size
             loaded_weight = loaded_weight.narrow(input_dim, start_idx,
                                                  shard_size)
+
+        # TODO: canon
+        if len(loaded_weight.shape) == 0:
+            loaded_weight = loaded_weight.reshape(1)
+
         assert param_data.shape == loaded_weight.shape
         param_data.copy_(loaded_weight)
 

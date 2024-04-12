@@ -1,8 +1,9 @@
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional, Union
 
 import torch
 from torch._tensor import Tensor
 from torch.nn.parameter import Parameter
+from torch.nn import ParameterList
 import threading
 
 from vllm._C import ops
@@ -94,7 +95,6 @@ class Int8GEMM(object):
     def get_i8cugemm(self):
         return self.i8cugemm
 
-
 class SQLinearMethod(LinearMethodBase):
     """Linear method for SmoothQuant.
     """
@@ -106,7 +106,8 @@ class SQLinearMethod(LinearMethodBase):
     def create_weights(self, input_size_per_partition: int,
                        output_size_per_partition: int, input_size: int,
                        output_size: int,
-                       params_dtype: torch.dtype) -> Dict[str, Tensor]:
+                       params_dtype: torch.dtype,
+                       logical_widths=None) -> Dict[str, Tensor]:
         weight = Parameter(
             torch.empty(
                 output_size_per_partition,
@@ -171,6 +172,117 @@ class SQLinearMethod(LinearMethodBase):
         self.i8cugemm.linear_a8_w8_o32_(x, weight, y)
         y = y.view(*x_shape[:-1], -1)
         return y
+
+
+class FunSQLinearMethod(LinearMethodBase):
+    """Linear method for SmoothQuant.
+    """
+
+    def __init__(
+        self, 
+        per_token_quant,
+        quant_dtype,
+        dequant_dtype,
+    ):
+        self.per_token_quant = per_token_quant
+        self.quant_dtype = quant_dtype
+        self.dequant_dtype = dequant_dtype
+        self.i8cugemm = Int8GEMM().get_i8cugemm()
+
+    def create_weights(
+        self,
+        input_size_per_partition: int,
+        output_size_per_partition: int,
+        input_size: int,
+        output_size: int,
+        params_dtype: torch.dtype,
+        logical_widths: Optional[List[int]] = None,
+    ) -> Dict[str, Tensor]:
+        weight = Parameter(
+            torch.empty(
+                output_size_per_partition,
+                input_size_per_partition,
+                device="cuda",
+                dtype=torch.int8,
+            ), requires_grad=False,
+        )
+        set_weight_attrs(weight, {
+            "input_dim": 1,
+            "output_dim": 0,
+        })
+
+        dequant_scale = Parameter(
+            torch.tensor(
+                [1.0] * len(logical_widths), 
+                dtype=torch.float32,
+                device='cpu'
+            ), requires_grad=False
+        )
+
+        return {
+            "weight": weight,
+            "dequant_scale": dequant_scale,
+            "logical_widths": logical_widths,
+        }
+
+
+    def _dequantize(self, x_q, weight_scales, activation_scales, logical_widths):
+        x_dq = torch.empty_like(x_q, dtype=self.dequant_dtype)
+
+        # Split into shards.
+        x_q_split = x_q.split(logical_widths, dim=-1)
+        x_dq_split = x_dq.split(logical_widths, dim=-1)
+
+        # Dequantize each shard.
+        for xq, weight_scale, activation_scale, xdq in zip(
+            x_q_split, weight_scales, activation_scales, x_dq_split):
+            ops.dequant(xdq, xq, activation_scale, weight_scale)
+
+        # Return dequantized activation.
+        return x_dq
+
+
+    def _quantize(self, x, per_token_quant: bool):
+        x_q = torch.empty_like(x, dtype=self.quant_dtype)
+        
+        # Compute activation scale if per token.
+        if per_token_quant:
+            activation_scale = torch.empty(
+                x.numel() // x.shape[-1],
+                dtype=torch.float32,
+                device=x.device)
+            ops.quant(x_q, x, activation_scale)
+        # Set activation scale if per tensor. TODO: why 1.0? << static?
+        else:   
+            activation_scale = None
+            ops.quant(x_q, x, 1.0)
+        
+        return x_q, activation_scale
+
+
+    def apply_weights(self,
+                      weights: Dict[str, Tensor],
+                      x: torch.Tensor,
+                      bias: Optional[torch.Tensor] = None) -> Tensor:
+        assert bias is None
+        weight = weights["weight"]
+        dequant_scale = weights["dequant_scale"]
+        logical_widths = weights["logical_widths"]
+
+        # Q
+        x_q, activation_scale = self._quantize(x, self.per_token_quant)
+        
+        # GEMM
+        x_q = x_q.view(-1, x_q.shape[-1])
+        out_q = torch.empty(
+            (x_q.shape[0], weight.shape[0]),
+            dtype=torch.int32, device=x.device)
+        
+        self.i8cugemm.linear_a8_w8_o32_(x_q, weight, out_q)
+        out_q = out_q.view(*x_q.shape[:-1], -1)
+        
+        # DQ
+        return self._dequantize(out_q, dequant_scale, activation_scale, logical_widths)
 
 
 class SQLinearMethodQKV(SQLinearMethod):

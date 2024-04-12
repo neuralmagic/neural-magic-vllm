@@ -34,6 +34,7 @@ from vllm.model_executor.layers.quantization.smoothquant import (
     SQLinearMethod,
     SQLinearMethodQKV,
     SQLinearMethodOProj,
+    FunSQLinearMethod,
     SQLinearMethodGateUpProj,
     SQLinearMethodDownProj)
 from vllm.model_executor.layers.layernorm import RMSNorm
@@ -93,10 +94,15 @@ class LlamaMLP(nn.Module):
         if self.use_int8:
             # override gate_up linear method
             assert isinstance(linear_method, SQLinearMethod)
-            down_proj_linear_method = SQLinearMethodDownProj(
-                gemm=Int8GEMM,
+            # down_proj_linear_method = SQLinearMethodDownProj(
+            #     gemm=Int8GEMM,
+            #     quant_dtype=torch.int8,
+            #     dequant_dtype=torch.float)
+            down_proj_linear_method = FunSQLinearMethod(
+                per_token_quant=True,
                 quant_dtype=torch.int8,
                 dequant_dtype=torch.float)
+
         self.down_proj = RowParallelLinear(intermediate_size,
                                            hidden_size,
                                            bias=False,
@@ -193,11 +199,10 @@ class LlamaAttention(nn.Module):
         if self.use_int8:
             # override o_proj linear method
             assert isinstance(linear_method, SQLinearMethod)
-            o_proj_linear_method = SQLinearMethodOProj(
-                gemm=Int8GEMM,
-                use_per_token_quant=True, # TODO (varun) : Read from config
-                quant_dtype = torch.int8,
-                dequant_dtype=  torch.float)
+            o_proj_linear_method = FunSQLinearMethod(
+                per_token_quant=True,
+                quant_dtype=torch.int8,
+                dequant_dtype=torch.float)
 
         self.o_proj = RowParallelLinear(
             self.total_num_heads * self.head_dim,
