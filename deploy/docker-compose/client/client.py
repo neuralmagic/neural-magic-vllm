@@ -77,7 +77,7 @@ async def get_request(
         interval = np.random.exponential(1.0 / request_rate)
         # The next request will be sent after the interval.
         await asyncio.sleep(interval)
-    
+
 
 async def run(
     backend: str,
@@ -89,7 +89,7 @@ async def run(
     request_rate: float,
     disable_tqdm: bool,
 ):
-        
+
     if backend in ASYNC_REQUEST_FUNCS:
         request_func = ASYNC_REQUEST_FUNCS.get(backend)
     else:
@@ -122,9 +122,9 @@ async def run(
 
 
 def main(args: argparse.Namespace):
-    
+
     backend = "openai"
-    
+
     base_url = f"http://{args.host}:{args.port}/v1"
     api_url = f"{base_url}/completions"
 
