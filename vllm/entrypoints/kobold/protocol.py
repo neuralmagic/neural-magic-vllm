@@ -5,25 +5,6 @@ from pydantic import BaseModel, Field
 # ========== KoboldAI ========== #
 
 
-class KoboldSamplingParams(BaseModel):
-    n: int = Field(1, alias="n")
-    best_of: Optional[int] = Field(None, alias="best_of")
-    presence_penalty: float = Field(0.0, alias="presence_penalty")
-    frequency_penalty: float = Field(0.0, alias="rep_pen")
-    temperature: float = Field(1.0, alias="temperature")
-    top_p: float = Field(1.0, alias="top_p")
-    top_k: float = Field(-1, alias="top_k")
-    min_p: float = Field(0.0, alias="min_p")
-    use_beam_search: bool = Field(False, alias="use_beam_search")
-    length_penalty: float = Field(1.0, alias="length_penalty")
-    early_stopping: Union[bool, str] = Field(False, alias="early_stopping")
-    stop: Union[None, str, List[str]] = Field(None, alias="stop_sequence")
-    include_stop_str_in_output: Optional[bool] = False
-    ignore_eos: bool = Field(False, alias="ignore_eos")
-    max_tokens: int = Field(16, alias="max_length")
-    logprobs: Optional[int] = Field(None, alias="logprobs")
-
-
 class KAIGenerationInputSchema(BaseModel):
     genkey: Optional[str] = None
     prompt: str
