@@ -1,18 +1,17 @@
-# flake8: noqa
-# UPSTREAM SYNC: noqa is required for passing ruff run on nm-automation
 """Query openai server to simulate load
 """
 import argparse
 import asyncio
 import json
 import random
-from openai import OpenAI
 from typing import AsyncGenerator, List, Tuple
+
+import numpy as np
 from backend_request_func import (ASYNC_REQUEST_FUNCS, RequestFuncInput,
                                   RequestFuncOutput)
+from openai import OpenAI
 from tqdm.asyncio import tqdm
-from transformers import PreTrainedTokenizerBase, AutoTokenizer
-import numpy as np
+from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
 
 def sample_sharegpt_requests(

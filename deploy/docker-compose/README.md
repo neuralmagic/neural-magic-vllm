@@ -16,44 +16,50 @@ Make sure you have Docker and Docker Compose installed.
 
 ### Launch
 
-Launch your services:
+The following spins up an `nm-vllm` instance, a Prometheus server, and a Grafana server:
 
 ```bash
 docker compose up
 ```
 
-### Submit Sample Workload
+### Simulate Client Requests
 
-Submit some sample requests to the server:
+Install requirments for client:
 ```bash
-# download sample dataset
-wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
-
-# install client reqs
-python3 -m venv client-env
-source client-env/bin/activate
 pip install -r client/requirements.txt
-
-# submit sample workload
-python3 client/client.py --dataset-path ShareGPT_V3_unfiltered_cleaned_split.json --request-rate 3.0
 ```
 
-### Monitor Metrics in Grafana
+Download some sample data:
+```bash
+wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
+```
 
-Navigate to the Grafana Client [`http://localhost:3000`](http://localhost:3000) and log in with the default username (`admin`) and password (`admin`).
+Launch clients:
 
-#### Add Prometheus Data Source
+```bash
+python3 client/client.py --dataset-path ShareGPT_V3_unfiltered_cleaned_split.json --request-rate 1.0
+```
 
-There are three steps.
-1. Navigate to [`http://localhost:3000/connections/datasources/new`](http://localhost:3000/connections/datasources/new) and select Prometheus. 
+### Monitor with Grafana
 
-2. On Prometheus configuration page, add `http://prometheus:9090` as the `Prometheus Server URL` in `Connection`.
+There are three steps to monitor your `nm-vllm` service:
 
-3. Click `Save & Test`. You should get a green check saying "Successfully queried the Prometheus API."
+1. Login to Grafana Client
+    - Navigate to the Grafana Client [`http://localhost:3000`](http://localhost:3000) and log in with the default username (`admin`) and password (`admin`).
 
-#### Setup Dashboard
+2. Add Prometheus Data Source
+    - Navigate to [`http://localhost:3000/connections/datasources/new`](http://localhost:3000/connections/datasources/new) and select Prometheus.
+    - On Prometheus configuration page, add `http://prometheus:9090` as the `Prometheus Server URL` in `Connection`.
+    - Click `Save & Test`. You should get a green check saying "Successfully queried the Prometheus API."
 
-Navigate to [`http://localhost:3000/dashboard/import`](http://localhost:3000/dashboard/import), upload `grafana.json` for overview metrics, selecting the `prometheus` datasource.
+3. Navigate to [`http://localhost:3000/dashboard/import`](http://localhost:3000/dashboard/import), upload `grafana.json`, selecting the `prometheus` datasource. You will see a dashboard that looks like the following:
+
+</br>
+<div text-align="center">
+    <img width="75%" src="assets/grafana-dashboard.png" />
+</div>
+
+
 
 ## Prometheus Metric Definitions
 
@@ -74,6 +80,7 @@ The following system state information is exposed:
 ### Token Metrics
 
 The following token metrics information is exposed:
+
 | Metric | Type | Definition |
 |--------|------|------------|
 | `vllm:prompt_tokens_total`        | `counter`    | Number of prompt tokens processed |
@@ -81,6 +88,8 @@ The following token metrics information is exposed:
 
 
 ### Request Metrics
+
+The following request-level information is exposed:
 
 | Metric | Type | Definition |
 |--------|------|------------|
