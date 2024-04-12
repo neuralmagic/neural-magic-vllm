@@ -110,7 +110,7 @@ class SQLinearMethod(LinearMethodBase):
         output_size: int,
         params_dtype: torch.dtype,
         logical_widths: Optional[List[int]] = None,
-        per_token_quant:bool = False,
+        per_token_quant: bool = False,
     ) -> Dict[str, Tensor]:
         self.output_dtype = params_dtype
 
