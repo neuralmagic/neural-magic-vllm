@@ -104,7 +104,8 @@ class SQLinearMethod(LinearMethodBase):
         self.i8cugemm = i8_gemm.get_i8cugemm()
 
     def create_weights(self, input_size_per_partition: int,
-                       output_size_per_partition: int, input_size: int,
+                       output_size_per_partition: int,
+                       input_size: int,
                        output_size: int,
                        params_dtype: torch.dtype,
                        logical_widths=None) -> Dict[str, Tensor]:
@@ -233,10 +234,16 @@ class FunSQLinearMethod(LinearMethodBase):
         x_q_split = x_q.split(logical_widths, dim=-1)
         x_dq_split = x_dq.split(logical_widths, dim=-1)
 
-        # Dequantize each shard.
-        for xq, weight_scale, activation_scale, xdq in zip(
-            x_q_split, weight_scales, activation_scales, x_dq_split):
-            ops.dequant(xdq, xq, activation_scale, weight_scale)
+        # If QuantType is Static per Tensor:
+        if activation_scales is None:
+            for xdq, xq, weight_scale in zip(x_dq_split, x_q_split, weight_scales):
+                ops.dequant(xdq, xq, weight_scale)
+        
+        # If QuantType is Dynamic per Token:
+        else:
+            for xdq, xq, weight_scale, activation_scale in zip(
+                x_dq_split, x_q_split, weight_scales, activation_scales):
+                ops.dequant(xdq, xq, activation_scale, weight_scale)
 
         # Return dequantized activation.
         return x_dq
@@ -315,6 +322,7 @@ class SQLinearMethodQKV(SQLinearMethod):
         q_scale, k_scale, v_scale = (weights['q_dequant_scale'],
                                      weights['k_dequant_scale'],
                                      weights['v_dequant_scale'])
+        
         ops.dequant(q, q_q, q_scale)
         ops.dequant(k, k_q, k_scale)
         ops.dequant(v, v_q, v_scale)

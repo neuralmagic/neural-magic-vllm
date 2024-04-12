@@ -150,6 +150,9 @@ class ColumnParallelLinear(torch.nn.Module):
                        skip adding bias but instead return it.
         params_dtype: Data type for the parameters.
         linear_method: (Maybe quantized) linear method.
+        logical_widths: Optional list of widths for logical weight matrices.
+                        E.g. for QKVParallelLinear, this parameter defines
+                        the width
     """
 
     def __init__(
@@ -161,6 +164,7 @@ class ColumnParallelLinear(torch.nn.Module):
         skip_bias_add: bool = False,
         params_dtype: Optional[torch.dtype] = None,
         linear_method: Optional[LinearMethodBase] = None,
+        logical_widths: Optional[List[int]] = None,
     ):
         super().__init__()
 
@@ -179,8 +183,13 @@ class ColumnParallelLinear(torch.nn.Module):
             linear_method = UnquantizedLinearMethod()
         self.linear_method = linear_method
         self.linear_weights = self.linear_method.create_weights(
-            self.input_size, self.output_size_per_partition, self.input_size,
-            self.output_size, self.params_dtype)
+            input_size_per_partition=self.input_size,
+            output_size_per_partition=self.output_size_per_partition,
+            input_size=self.input_size,
+            output_size=self.output_size,
+            params_dtype=self.params_dtype,
+            logical_widths=logical_widths,
+        )
         for name, weight in self.linear_weights.items():
             if isinstance(weight, torch.Tensor):
                 self.register_parameter(name, weight)
@@ -257,8 +266,15 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
         self.output_sizes = output_sizes
         tp_size = get_tensor_model_parallel_world_size()
         assert all(output_size % tp_size == 0 for output_size in output_sizes)
-        super().__init__(input_size, sum(output_sizes), bias, gather_output,
-                         skip_bias_add, params_dtype, linear_method)
+        super().__init__(
+            input_size=input_size,
+            output_size=sum(output_sizes),
+            bias=bias,
+            gather_output=gather_output,
+            skip_bias_add=skip_bias_add,
+            params_dtype=params_dtype,
+            linear_method=linear_method,
+            logical_widths=output_sizes)
 
     def weight_loader(self,
                       param: Parameter,
@@ -383,8 +399,19 @@ class QKVParallelLinear(ColumnParallelLinear):
         input_size = self.hidden_size
         output_size = (self.num_heads +
                        2 * self.num_kv_heads) * tp_size * self.head_size
-        super().__init__(input_size, output_size, bias, False, skip_bias_add,
-                         params_dtype, linear_method)
+        super().__init__(
+            input_size=input_size,
+            output_size=output_size, 
+            bias=bias, 
+            gather_output=False, 
+            skip_bias_add=skip_bias_add,
+            params_dtype=params_dtype, 
+            linear_method=linear_method,
+            logical_widths = [
+                self.num_heads * self.head_size,            # q_proj
+                self.total_num_kv_heads * self.head_size,   # k_proj
+                self.total_num_kv_heads * self.head_size,   # v_proj 
+            ])
 
     def weight_loader(self,
                       param: Parameter,

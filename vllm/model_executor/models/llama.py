@@ -92,12 +92,7 @@ class LlamaMLP(nn.Module):
 
         down_proj_linear_method = linear_method
         if self.use_int8:
-            # override gate_up linear method
             assert isinstance(linear_method, SQLinearMethod)
-            # down_proj_linear_method = SQLinearMethodDownProj(
-            #     gemm=Int8GEMM,
-            #     quant_dtype=torch.int8,
-            #     dequant_dtype=torch.float)
             down_proj_linear_method = FunSQLinearMethod(
                 per_token_quant=True,
                 quant_dtype=torch.int8,
@@ -181,11 +176,17 @@ class LlamaAttention(nn.Module):
         if self.use_int8:
             # override qkv linear method
             assert isinstance(linear_method, SQLinearMethod)
-            qkv_linear_method = SQLinearMethodQKV(
-                gemm=Int8GEMM,
-                qkv_sizes=(self.q_size, self.kv_size, self.kv_size),
+            # qkv_linear_method = SQLinearMethodQKV(
+            #     gemm=Int8GEMM,
+            #     qkv_sizes=(self.q_size, self.kv_size, self.kv_size),
+            #     quant_dtype=torch.int8,
+            #     dequant_dtype=self.rotary_emb.cos_sin_cache.dtype)
+            qkv_linear_method = FunSQLinearMethod(
+                per_token_quant=False,
                 quant_dtype=torch.int8,
                 dequant_dtype=self.rotary_emb.cos_sin_cache.dtype)
+
+            
         self.qkv_proj = QKVParallelLinear(
             hidden_size,
             self.head_dim,
@@ -483,11 +484,28 @@ class LlamaForCausalLM(nn.Module):
                     for (param_name, weight_name, _) in stacked_params_mapping:
                         if weight_name not in name:
                             continue
+                        
+                        k_proj = "k_proj" in name
+                        v_proj = "v_proj" in name
+                        q_proj = "q_proj" in name
                         name = name.replace(weight_name, param_name)
                         prefix = weight_name.split('_')[0]
                         suffix = name.split('.')[-1]
-                        new_name = prefix + '_' + suffix
-                        param = params_dict[name.replace(suffix, new_name)]
+
+                        if "qkv" in name:
+                            if q_proj:
+                                param = params_dict[name.replace(suffix, "dequant_scale")][0]
+                            elif k_proj:
+                                param = params_dict[name.replace(suffix, "dequant_scale")][1]
+                            else:
+                                assert v_proj
+                                param = params_dict[name.replace(suffix, "dequant_scale")][2]
+                            
+                        else:
+                            suffix = name.split('.')[-1]
+                            new_name = prefix + '_' + suffix
+                            param = params_dict[name.replace(suffix, new_name)]
+                            
                         param.copy_(loaded_weight)
                         is_fusion_scale = True
                         break
