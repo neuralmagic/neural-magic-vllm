@@ -201,31 +201,22 @@ class StatLogger:
                           stats.num_prompt_tokens)
         self._log_counter(self.metrics.counter_generation_tokens,
                           stats.num_generation_tokens)
-        # print("ttft")
         self._log_histogram(self.metrics.histogram_time_to_first_token,
                             stats.time_to_first_tokens)
-        # print("tpot")
         self._log_histogram(self.metrics.histogram_time_per_output_token,
                             stats.time_per_output_tokens)
 
         # Request level data.
-        # print("e2e")
         self._log_histogram(self.metrics.histogram_e2e_time_request,
                             stats.time_e2e_requests)
-        # print("infer")
         self._log_histogram(self.metrics.histogram_inference_time_request,
                             stats.time_inference_requests)
-        # print("queue")
         self._log_histogram(self.metrics.histogram_queue_time_request,
                             stats.time_queue_requests)
-        # print("num_prompt")
         self._log_histogram(self.metrics.histogram_num_prompt_tokens_request, 
                             stats.num_prompt_tokens_requests)
-        # print("num_generation")
-        # print(stats.num_generation_tokens_requests)
         self._log_histogram(self.metrics.histogram_num_generation_tokens_request, 
                             stats.num_generation_tokens_requests)
-        # print("max_generation")
         self._log_histogram(self.metrics.histogram_max_num_generation_tokens_request, 
                             stats.max_num_generation_tokens_requests)
 
