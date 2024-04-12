@@ -79,12 +79,18 @@ class RequestMetrics:
     """Metrics associated with a request.
 
     Attributes:
+        num_prompt_tokens: The number of prompt tokens of the request.
+        num_generated_tokens: The total number of tokens that were generated.
+        max_num_generated_tokens: The maximum number of generated tokens requested.
         arrival_time: The time when the request arrived.
         first_scheduled_time: The time when the request was first scheduled.
         first_token_time: The time when the first token was generated.
         time_in_queue: The time the request spent in the queue.
         finished_time: The time when the request was finished.
     """
+    num_prompt_tokens: int
+    num_generated_tokens: Optional[int]
+    max_num_generated_tokens: int
     arrival_time: float
     last_token_time: float
     first_scheduled_time: Optional[float]
@@ -410,7 +416,10 @@ class SequenceGroup:
         self.request_id = request_id
         self.seqs_dict = {seq.seq_id: seq for seq in seqs}
         self.sampling_params = sampling_params
-        self.metrics = RequestMetrics(arrival_time=arrival_time,
+        self.metrics = RequestMetrics(num_prompt_tokens=len(self.prompt_token_ids),
+                                      num_generated_tokens=None,
+                                      max_num_generated_tokens=sampling_params.max_tokens,
+                                      arrival_time=arrival_time,
                                       last_token_time=arrival_time,
                                       first_scheduled_time=None,
                                       first_token_time=None,
@@ -441,6 +450,11 @@ class SequenceGroup:
         latency = now - self.metrics.last_token_time
         self.metrics.last_token_time = now
         return latency
+
+    def maybe_set_num_generated_tokens(self) -> None:
+        """Sets the number of generated tokens for Request data tracking."""
+        if self.is_finished():
+            self.metrics.num_generated_tokens = self.get_num_generated_tokens()
 
     def maybe_set_first_token_time(self, time: float) -> None:
         """Sets the first token time for Request level timings."""
@@ -529,6 +543,12 @@ class SequenceGroup:
 
     def is_finished(self) -> bool:
         return all(seq.is_finished() for seq in self.get_seqs())
+
+    def get_num_generated_tokens(self) -> int:
+        total_generated = 0
+        for seq in self.get_seqs():
+            total_generated += seq.get_output_len()
+        return total_generated
 
     def is_prefill(self) -> bool:
         # Every sequences should be in the same stage.

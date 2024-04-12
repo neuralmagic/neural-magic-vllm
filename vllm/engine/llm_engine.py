@@ -623,6 +623,7 @@ class LLMEngine:
         for scheduled_seq_group in scheduled_seq_groups:
             seq_group = scheduled_seq_group.seq_group
             seq_group.maybe_set_first_token_time(now)
+            seq_group.maybe_set_num_generated_tokens()
             request_output = RequestOutput.from_seq_group(seq_group)
             request_outputs.append(request_output)
         for seq_group in scheduler_outputs.ignored_seq_groups:
@@ -724,12 +725,18 @@ class LLMEngine:
         num_swapped = len(self.scheduler.swapped)
         num_waiting = len(self.scheduler.waiting)
 
-        # Iteration stats if we have scheduler output.
+        # Iteration stats.
         num_prompt_tokens = 0
         num_generation_tokens = 0
         time_to_first_tokens = []
         time_per_output_tokens = []
+        # Request stats for finished requests.
         time_e2e_requests = []
+        time_inference_requests = []
+        time_queue_requests = []
+        num_prompt_tokens_requests = []
+        num_generation_tokens_requests = []
+        max_num_generation_tokens_requests = []
         if scheduler_outputs is not None:
             prompt_run = scheduler_outputs.num_prefill_groups > 0
 
@@ -746,17 +753,31 @@ class LLMEngine:
             else:
                 num_generation_tokens = scheduler_outputs.num_batched_tokens
 
-            # Latency Timings.
+            # Request level data.
             time_last_iters = []
             for scheduled_seq_group in scheduler_outputs.scheduled_seq_groups:
                 seq_group = scheduled_seq_group.seq_group
                 # Time since last token.
                 # (n.b. updates seq_group.metrics.last_token_time)
                 time_last_iters.append(seq_group.get_last_latency(now))
-                # Time since arrival for all finished requests.
+                
+                # Log all metrics for finished requests.
                 if seq_group.is_finished():
-                    time_e2e_requests.append(now -
-                                             seq_group.metrics.arrival_time)
+                    # Latency timings.
+                    time_e2e_requests.append(
+                        now - seq_group.metrics.arrival_time)
+                    time_queue_requests.append(
+                        seq_group.metrics.first_scheduled_time - seq_group.metrics.arrival_time)
+                    time_inference_requests.append(
+                        now - seq_group.metrics.first_scheduled_time)
+
+                    # Input and output length metadata.
+                    num_prompt_tokens_requests.append(
+                        seq_group.metrics.num_prompt_tokens)
+                    num_generation_tokens_requests.append(
+                        seq_group.metrics.num_generated_tokens)
+                    max_num_generation_tokens_requests.append(
+                        seq_group.metrics.max_num_generated_tokens)
 
             time_to_first_tokens = time_last_iters if prompt_run else []
             time_per_output_tokens = [] if prompt_run else time_last_iters
@@ -773,6 +794,11 @@ class LLMEngine:
             time_to_first_tokens=time_to_first_tokens,
             time_per_output_tokens=time_per_output_tokens,
             time_e2e_requests=time_e2e_requests,
+            time_inference_requests=time_inference_requests,
+            time_queue_requests=time_queue_requests,
+            num_prompt_tokens_requests=num_prompt_tokens_requests,
+            num_generation_tokens_requests=num_generation_tokens_requests,
+            max_num_generation_tokens_requests=max_num_generation_tokens_requests,
         )
 
     def _check_stop(self, seq: Sequence,

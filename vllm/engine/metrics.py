@@ -1,6 +1,6 @@
 import time
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import numpy as np
 from prometheus_client import (REGISTRY, Counter, Gauge, Histogram, Info,
@@ -30,7 +30,7 @@ class Metrics:
             name='vllm:cache_config',
             documentation='information of cache_config')
 
-        # System stats
+        # System state.
         self.gauge_scheduler_running = Gauge(
             name="vllm:num_requests_running",
             documentation="Number of requests currently running on GPU.",
@@ -52,7 +52,7 @@ class Metrics:
             documentation="CPU KV-cache usage. 1 means 100 percent usage.",
             labelnames=labelnames)
 
-        # Raw stats from last model iteration
+        # Iteration-level data.
         self.counter_prompt_tokens = Counter(
             name="vllm:prompt_tokens_total",
             documentation="Number of prefill tokens processed.",
@@ -77,11 +77,41 @@ class Metrics:
                 0.01, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75,
                 1.0, 2.5
             ])
-        self.histogram_e2e_request_latency = Histogram(
+
+        # Request-level data.
+        self.histogram_e2e_time_request = Histogram(
             name="vllm:e2e_request_latency_seconds",
             documentation="Histogram of end to end request latency in seconds.",
             labelnames=labelnames,
             buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0])
+        self.histogram_inference_time_request = Histogram(
+            name="vllm:request_inference_time_seconds",
+            documentation="Histogram of time spent in RUNNING phase for request.",
+            labelnames=labelnames,
+            buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0])
+        self.histogram_queue_time_request = Histogram(
+            name="vllm:request_queue_time_seconds",
+            documentation="Histogram of time spent in WAITING phase for request.",
+            labelnames=labelnames,
+            buckets=[0.1, 1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0])
+        self.histogram_num_prompt_tokens_request = Histogram(
+            name="vllm:request_num_prompt_tokens",
+            documentation="Histogram of number of prompt tokens for requests.",
+            labelnames=labelnames,
+            buckets=[16, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
+        )
+        self.histogram_num_generation_tokens_request = Histogram(
+            name="vllm:request_num_generation_tokens",
+            documentation="Histogram of number of generation tokens for requests.",
+            labelnames=labelnames,
+            buckets=[16, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
+        )
+        self.histogram_max_num_generation_tokens_request = Histogram(
+            name="vllm:request_max_num_generation_tokens",
+            documentation="Histogram of maximum number of requests generation tokens.",
+            labelnames=labelnames,
+            buckets=[16, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
+        )
 
         # Legacy metrics
         self.gauge_avg_prompt_throughput = Gauge(
@@ -116,7 +146,14 @@ class Stats:
     num_generation_tokens: int
     time_to_first_tokens: List[float]
     time_per_output_tokens: List[float]
+
+    # Raw stats for finished requests.
     time_e2e_requests: List[float]
+    time_inference_requests: List[float]
+    time_queue_requests: List[float]
+    num_prompt_tokens_requests: List[int]
+    num_generation_tokens_requests: List[int]
+    max_num_generation_tokens_requests: List[int]
 
 
 class StatLogger:
@@ -147,34 +184,67 @@ class StatLogger:
         return elapsed_time > self.local_interval
 
     def _log_prometheus(self, stats: Stats) -> None:
-        # Set system stat gauges.
-        self.metrics.gauge_scheduler_running.labels(**self.labels).set(
-            stats.num_running)
-        self.metrics.gauge_scheduler_swapped.labels(**self.labels).set(
-            stats.num_swapped)
-        self.metrics.gauge_scheduler_waiting.labels(**self.labels).set(
-            stats.num_waiting)
-        self.metrics.gauge_gpu_cache_usage.labels(**self.labels).set(
-            stats.gpu_cache_usage)
-        self.metrics.gauge_cpu_cache_usage.labels(**self.labels).set(
-            stats.cpu_cache_usage)
+        # System state data.
+        self._log_gauge(self.metrics.gauge_scheduler_running,
+                        stats.num_running)
+        self._log_gauge(self.metrics.gauge_scheduler_swapped,
+                        stats.num_swapped)
+        self._log_gauge(self.metrics.gauge_scheduler_waiting,
+                        stats.num_waiting)
+        self._log_gauge(self.metrics.gauge_gpu_cache_usage,
+                        stats.gpu_cache_usage)
+        self._log_gauge(self.metrics.gauge_cpu_cache_usage,
+                        stats.cpu_cache_usage)
 
-        # Add to token counters.
-        self.metrics.counter_prompt_tokens.labels(**self.labels).inc(
-            stats.num_prompt_tokens)
-        self.metrics.counter_generation_tokens.labels(**self.labels).inc(
-            stats.num_generation_tokens)
+        # Iteration level data.
+        self._log_counter(self.metrics.counter_prompt_tokens,
+                          stats.num_prompt_tokens)
+        self._log_counter(self.metrics.counter_generation_tokens,
+                          stats.num_generation_tokens)
+        # print("ttft")
+        self._log_histogram(self.metrics.histogram_time_to_first_token,
+                            stats.time_to_first_tokens)
+        # print("tpot")
+        self._log_histogram(self.metrics.histogram_time_per_output_token,
+                            stats.time_per_output_tokens)
 
-        # Observe request level latencies in histograms.
-        for ttft in stats.time_to_first_tokens:
-            self.metrics.histogram_time_to_first_token.labels(
-                **self.labels).observe(ttft)
-        for tpot in stats.time_per_output_tokens:
-            self.metrics.histogram_time_per_output_token.labels(
-                **self.labels).observe(tpot)
-        for e2e in stats.time_e2e_requests:
-            self.metrics.histogram_e2e_request_latency.labels(
-                **self.labels).observe(e2e)
+        # Request level data.
+        # print("e2e")
+        self._log_histogram(self.metrics.histogram_e2e_time_request,
+                            stats.time_e2e_requests)
+        # print("infer")
+        self._log_histogram(self.metrics.histogram_inference_time_request,
+                            stats.time_inference_requests)
+        # print("queue")
+        self._log_histogram(self.metrics.histogram_queue_time_request,
+                            stats.time_queue_requests)
+        # print("num_prompt")
+        self._log_histogram(self.metrics.histogram_num_prompt_tokens_request, 
+                            stats.num_prompt_tokens_requests)
+        # print("num_generation")
+        # print(stats.num_generation_tokens_requests)
+        self._log_histogram(self.metrics.histogram_num_generation_tokens_request, 
+                            stats.num_generation_tokens_requests)
+        # print("max_generation")
+        self._log_histogram(self.metrics.histogram_max_num_generation_tokens_request, 
+                            stats.max_num_generation_tokens_requests)
+
+    def _log_gauge(self,
+                   gauge: Gauge,
+                   data: Union[int, float]) -> None:
+        # Convience function for logging to guage.
+        gauge.labels(**self.labels).set(data)
+
+    def _log_counter(self,
+                     counter: Counter,
+                     data: Union[int, float]) -> None:
+        counter.labels(**self.labels).inc(data)
+        
+    def _log_histogram(self,
+                       histogram: Histogram,
+                       data: Union[List[int], List[float]]) -> None:
+        for datum in data:
+            histogram.labels(**self.labels).observe(datum)
 
     def _log_prometheus_interval(self, prompt_throughput: float,
                                  generation_throughput: float) -> None:
