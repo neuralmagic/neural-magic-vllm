@@ -24,7 +24,7 @@ docker compose up
 
 ### Simulate Client Requests
 
-Install requirments for client:
+Install requirements for client:
 ```bash
 pip install -r client/requirements.txt
 ```
