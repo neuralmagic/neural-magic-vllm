@@ -55,5 +55,35 @@ There are three steps.
 
 Navigate to [`http://localhost:3000/dashboard/import`](http://localhost:3000/dashboard/import), upload `grafana.json` for overview metrics, selecting the `prometheus` datasource.
 
-#### Visualize The Data
+## Prometheus Metric Definitions
 
+The Prometheus Metrics are exposed at the `/metrics` endpoint.
+
+### System State
+
+The following system state information is exposed:
+
+| Metric | Type | Definition |
+|--------|------|------------|
+| `vllm:num_requests_running` | `gauge` | Number of requests in the `RUNNING` state (in decode "generation" phase)    | 
+| `vllm:num_requests_waiting` | `gauge` | Number of requests in the `WAITING` state (not get in "generation" phase)   |
+| `vllm:num_requests_swapped` | `gauge` | Number of requests in the `SWAPPED` state (evicted from "generation" phase) |
+| `vllm:gpu_cache_usage_perc` | `gauge` | Percentage of GPU KV cache memory that is currently utilized |
+| `vllm:cpu_cache_usage_perc` | `gauge` | Percentage of CPU KV cache memory that is currently utilized |
+
+### Token Metrics
+
+The following token metrics information is exposed:
+| Metric | Type | Definition |
+|--------|------|------------|
+| `vllm:prompt_tokens_total`        | `counter`    | Number of prompt tokens processed |
+| `vllm:generation_tokens_total`    | `counter`    | Number of generation tokens processed | 
+
+
+### Request Metrics
+
+| Metric | Type | Definition |
+|--------|------|------------|
+| `vllm:time_to_first_token_seconds`    | `histogram`   | Histogram of first token latency in seconds (often called TTFT) |
+| `vllm:time_per_output_token_seconds`  | `histogram`   | Histogram of next token latency in seconds (often called TPOT) |
+| `vllm:e2e_request_latency_seconds`    | `histogram`   | Histogram of end-to-end request latency in seconds |
