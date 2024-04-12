@@ -86,32 +86,35 @@ class Metrics:
             buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0])
         self.histogram_inference_time_request = Histogram(
             name="vllm:request_inference_time_seconds",
-            documentation="Histogram of time spent in RUNNING phase for request.",
+            documentation=
+            "Histogram of time spent in RUNNING phase for request.",
             labelnames=labelnames,
             buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0])
         self.histogram_queue_time_request = Histogram(
             name="vllm:request_queue_time_seconds",
-            documentation="Histogram of time spent in WAITING phase for request.",
+            documentation=
+            "Histogram of time spent in WAITING phase for request.",
             labelnames=labelnames,
-            buckets=[0.1, 1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0])
+            buckets=[
+                0.1, 1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 40.0, 50.0, 60.0
+            ])
         self.histogram_num_prompt_tokens_request = Histogram(
             name="vllm:request_num_prompt_tokens",
             documentation="Histogram of number of prompt tokens for requests.",
             labelnames=labelnames,
-            buckets=[16, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
-        )
+            buckets=[16, 64, 128, 256, 512, 1024, 2048, 4096, 8192])
         self.histogram_num_generation_tokens_request = Histogram(
             name="vllm:request_num_generation_tokens",
-            documentation="Histogram of number of generation tokens for requests.",
+            documentation=
+            "Histogram of number of generation tokens for requests.",
             labelnames=labelnames,
-            buckets=[16, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
-        )
+            buckets=[16, 64, 128, 256, 512, 1024, 2048, 4096, 8192])
         self.histogram_max_num_generation_tokens_request = Histogram(
             name="vllm:request_max_num_generation_tokens",
-            documentation="Histogram of maximum number of requests generation tokens.",
+            documentation=
+            "Histogram of maximum number of requests generation tokens.",
             labelnames=labelnames,
-            buckets=[16, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
-        )
+            buckets=[16, 64, 128, 256, 512, 1024, 2048, 4096, 8192])
 
         # Legacy metrics
         self.gauge_avg_prompt_throughput = Gauge(
@@ -213,27 +216,26 @@ class StatLogger:
                             stats.time_inference_requests)
         self._log_histogram(self.metrics.histogram_queue_time_request,
                             stats.time_queue_requests)
-        self._log_histogram(self.metrics.histogram_num_prompt_tokens_request, 
+        self._log_histogram(self.metrics.histogram_num_prompt_tokens_request,
                             stats.num_prompt_tokens_requests)
-        self._log_histogram(self.metrics.histogram_num_generation_tokens_request, 
-                            stats.num_generation_tokens_requests)
-        self._log_histogram(self.metrics.histogram_max_num_generation_tokens_request, 
-                            stats.max_num_generation_tokens_requests)
+        self._log_histogram(
+            self.metrics.histogram_num_generation_tokens_request,
+            stats.num_generation_tokens_requests)
+        self._log_histogram(
+            self.metrics.histogram_max_num_generation_tokens_request,
+            stats.max_num_generation_tokens_requests)
 
-    def _log_gauge(self,
-                   gauge: Gauge,
-                   data: Union[int, float]) -> None:
-        # Convience function for logging to guage.
+    def _log_gauge(self, gauge: Gauge, data: Union[int, float]) -> None:
+        # Convenience function for logging to gauge.
         gauge.labels(**self.labels).set(data)
 
-    def _log_counter(self,
-                     counter: Counter,
-                     data: Union[int, float]) -> None:
+    def _log_counter(self, counter: Counter, data: Union[int, float]) -> None:
+        # Convenience function for logging to counter.
         counter.labels(**self.labels).inc(data)
-        
-    def _log_histogram(self,
-                       histogram: Histogram,
+
+    def _log_histogram(self, histogram: Histogram,
                        data: Union[List[int], List[float]]) -> None:
+        # Convenience function for logging list to histogram.
         for datum in data:
             histogram.labels(**self.labels).observe(datum)
 

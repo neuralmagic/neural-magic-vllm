@@ -81,7 +81,7 @@ class RequestMetrics:
     Attributes:
         num_prompt_tokens: The number of prompt tokens of the request.
         num_generated_tokens: The total number of tokens that were generated.
-        max_num_generated_tokens: The maximum number of generated tokens requested.
+        max_num_generated_tokens: The max number of generation tokens.
         arrival_time: The time when the request arrived.
         first_scheduled_time: The time when the request was first scheduled.
         first_token_time: The time when the first token was generated.
@@ -416,14 +416,15 @@ class SequenceGroup:
         self.request_id = request_id
         self.seqs_dict = {seq.seq_id: seq for seq in seqs}
         self.sampling_params = sampling_params
-        self.metrics = RequestMetrics(num_prompt_tokens=len(self.prompt_token_ids),
-                                      num_generated_tokens=None,
-                                      max_num_generated_tokens=sampling_params.max_tokens,
-                                      arrival_time=arrival_time,
-                                      last_token_time=arrival_time,
-                                      first_scheduled_time=None,
-                                      first_token_time=None,
-                                      time_in_queue=None)
+        self.metrics = RequestMetrics(
+            num_prompt_tokens=len(self.prompt_token_ids),
+            num_generated_tokens=None,
+            max_num_generated_tokens=sampling_params.max_tokens,
+            arrival_time=arrival_time,
+            last_token_time=arrival_time,
+            first_scheduled_time=None,
+            first_token_time=None,
+            time_in_queue=None)
         self.lora_request = lora_request
         self.prompt_logprobs: Optional[PromptLogprobs] = None
         self.state = SequenceGroupState()

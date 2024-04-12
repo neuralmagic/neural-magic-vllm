@@ -760,14 +760,15 @@ class LLMEngine:
                 # Time since last token.
                 # (n.b. updates seq_group.metrics.last_token_time)
                 time_last_iters.append(seq_group.get_last_latency(now))
-                
+
                 # Log all metrics for finished requests.
                 if seq_group.is_finished():
                     # Latency timings.
-                    time_e2e_requests.append(
-                        now - seq_group.metrics.arrival_time)
+                    time_e2e_requests.append(now -
+                                             seq_group.metrics.arrival_time)
                     time_queue_requests.append(
-                        seq_group.metrics.first_scheduled_time - seq_group.metrics.arrival_time)
+                        seq_group.metrics.first_scheduled_time -
+                        seq_group.metrics.arrival_time)
                     time_inference_requests.append(
                         now - seq_group.metrics.first_scheduled_time)
 
@@ -798,7 +799,8 @@ class LLMEngine:
             time_queue_requests=time_queue_requests,
             num_prompt_tokens_requests=num_prompt_tokens_requests,
             num_generation_tokens_requests=num_generation_tokens_requests,
-            max_num_generation_tokens_requests=max_num_generation_tokens_requests,
+            max_num_generation_tokens_requests=
+            max_num_generation_tokens_requests,
         )
 
     def _check_stop(self, seq: Sequence,
