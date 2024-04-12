@@ -112,6 +112,8 @@ class SQLinearMethod(LinearMethodBase):
         logical_widths: Optional[List[int]] = None,
         per_token_quant:bool = False,
     ) -> Dict[str, Tensor]:
+        self.output_dtype = params_dtype
+
         weight = Parameter(
             torch.empty(
                 output_size_per_partition,
@@ -142,7 +144,7 @@ class SQLinearMethod(LinearMethodBase):
 
 
     def _dequantize(self, x_q, weight_scales, activation_scales, logical_widths):
-        x_dq = torch.empty_like(x_q, dtype=self.dequant_dtype)
+        x_dq = torch.empty_like(x_q, dtype=self.output_dtype)
 
         # Split into shards.
         x_q_split = x_q.split(logical_widths, dim=-1)
@@ -164,7 +166,7 @@ class SQLinearMethod(LinearMethodBase):
 
 
     def _quantize(self, x, per_token_quant: bool):
-        x_q = torch.empty_like(x, dtype=self.quant_dtype)
+        x_q = torch.empty_like(x, dtype=torch.int8)
         
         # Compute activation scale if per token.
         if per_token_quant:
