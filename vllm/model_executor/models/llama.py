@@ -68,7 +68,6 @@ class LlamaMLP(nn.Module):
                                            hidden_size,
                                            bias=False,
                                            linear_method=linear_method)
-
         if hidden_act != "silu":
             raise ValueError(f"Unsupported activation: {hidden_act}. "
                              "Only silu is supported for now.")
@@ -378,7 +377,6 @@ class LlamaForCausalLM(nn.Module):
                      cache_dir: Optional[str] = None,
                      load_format: str = "auto",
                      revision: Optional[str] = None):
-        # For SmoothQuant
         stacked_params_mapping = [
             # (param_name, shard_name, shard_id)
             ("qkv_proj", "q_proj", "q"),
@@ -396,9 +394,6 @@ class LlamaForCausalLM(nn.Module):
                     or "rotary_emb.sin_cached" in name):
                 # Models trained using ColossalAI may include these tensors in
                 # the checkpoint. Skip them.
-                continue
-            # bias is useless for llama
-            if "bias" in name:
                 continue
             # load dequant scale for qkv_proj and gate_up_proj
             int8_fusion = True
