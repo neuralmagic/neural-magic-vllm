@@ -30,13 +30,8 @@ from transformers import LlamaConfig
 from vllm.attention import Attention, AttentionMetadata
 from vllm.config import LoRAConfig
 from vllm.model_executor.layers.quantization.smoothquant import (
-    Int8GEMM,
     SQLinearMethod,
-    SQLinearMethodQKV,
-    SQLinearMethodOProj,
-    FunSQLinearMethod,
-    SQLinearMethodGateUpProj,
-    SQLinearMethodDownProj)
+    FunSQLinearMethod,)
 from vllm.model_executor.layers.layernorm import RMSNorm
 from vllm.model_executor.layers.activation import SiluAndMul
 from vllm.model_executor.layers.linear import (LinearMethodBase,
@@ -78,8 +73,8 @@ class LlamaMLP(nn.Module):
         if self.use_int8:
             # override gate_up linear method
             assert isinstance(linear_method, SQLinearMethod)
-            gate_up_linear_method = SQLinearMethodGateUpProj(
-                gemm=Int8GEMM,
+            gate_up_linear_method = FunSQLinearMethod(
+                per_token_quant=False,
                 quant_dtype=torch.int8,
                 dequant_dtype=torch.float)
         self.gate_up_proj = MergedColumnParallelLinear(
@@ -484,28 +479,21 @@ class LlamaForCausalLM(nn.Module):
                     for (param_name, weight_name, _) in stacked_params_mapping:
                         if weight_name not in name:
                             continue
-                        
-                        k_proj = "k_proj" in name
-                        v_proj = "v_proj" in name
-                        q_proj = "q_proj" in name
-                        name = name.replace(weight_name, param_name)
-                        prefix = weight_name.split('_')[0]
-                        suffix = name.split('.')[-1]
-
-                        if "qkv" in name:
-                            if q_proj:
-                                param = params_dict[name.replace(suffix, "dequant_scale")][0]
-                            elif k_proj:
-                                param = params_dict[name.replace(suffix, "dequant_scale")][1]
-                            else:
-                                assert v_proj
-                                param = params_dict[name.replace(suffix, "dequant_scale")][2]
-                            
+                        if "q_proj" in name:
+                            idx = 0
+                        elif "k_proj" in name:
+                            idx = 1
+                        elif "v_proj" in name:
+                            idx = 2
+                        elif "gate_proj" in name:
+                            idx = 0
                         else:
-                            suffix = name.split('.')[-1]
-                            new_name = prefix + '_' + suffix
-                            param = params_dict[name.replace(suffix, new_name)]
-                            
+                            assert "up_proj" in name
+                            idx = 1
+
+                        name = name.replace(weight_name, param_name)
+                        suffix = name.split('.')[-1]
+                        param = params_dict[name.replace(suffix, "dequant_scale")][idx]
                         param.copy_(loaded_weight)
                         is_fusion_scale = True
                         break
