@@ -64,11 +64,10 @@ class LlamaMLP(nn.Module):
             hidden_size, [intermediate_size] * 2,
             bias=False,
             linear_method=linear_method)
-        
-        self.down_proj = RowParallelLinear(
-            intermediate_size, hidden_size,
-            bias=False,
-            linear_method=linear_method)
+        self.down_proj = RowParallelLinear(intermediate_size,
+                                           hidden_size,
+                                           bias=False,
+                                           linear_method=linear_method)
 
         if hidden_act != "silu":
             raise ValueError(f"Unsupported activation: {hidden_act}. "
@@ -80,6 +79,7 @@ class LlamaMLP(nn.Module):
         x = self.act_fn(gate_up)
         x, _ = self.down_proj(x)
         return x
+
 
 class LlamaAttention(nn.Module):
 
@@ -149,13 +149,11 @@ class LlamaAttention(nn.Module):
             base=rope_theta,
             rope_scaling=rope_scaling,
         )
-
-        self.attn = Attention(
-            self.num_heads,
-            self.head_dim,
-            self.scaling,
-            num_kv_heads=self.num_kv_heads,
-            sliding_window=sliding_window)
+        self.attn = Attention(self.num_heads,
+                              self.head_dim,
+                              self.scaling,
+                              num_kv_heads=self.num_kv_heads,
+                              sliding_window=sliding_window)
 
     def forward(
         self,
@@ -171,6 +169,7 @@ class LlamaAttention(nn.Module):
                                 self.kv_scale)
         output, _ = self.o_proj(attn_output)
         return output
+
 
 class LlamaDecoderLayer(nn.Module):
 
