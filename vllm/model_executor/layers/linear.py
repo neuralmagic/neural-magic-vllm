@@ -65,7 +65,7 @@ class UnquantizedLinearMethod(LinearMethodBase):
     def create_weights(self, input_size_per_partition: int,
                        output_size_per_partition: int, input_size: int,
                        output_size: int,
-                       params_dtype: torch.dtype) -> Dict[str, Any]:
+                       params_dtype: torch.dtype, logical_widths: Optional[List[int]]) -> Dict[str, Any]:
         weight = Parameter(torch.empty(output_size_per_partition,
                                        input_size_per_partition,
                                        dtype=params_dtype),
@@ -195,6 +195,7 @@ class ColumnParallelLinear(torch.nn.Module):
             output_size=self.output_size,
             params_dtype=self.params_dtype,
             logical_widths=logical_widths,
+            # TODO: remove this, should be coming through the quant config.
             per_token_quant=False,
         )
         for name, weight in self.linear_weights.items():
@@ -604,7 +605,9 @@ class RowParallelLinear(torch.nn.Module):
             output_size=self.output_size, 
             params_dtype=self.params_dtype,
             logical_widths=[self.output_size],
-            per_token_quant=True,)
+            # TODO: remove this, should be coming through the quant config.
+            per_token_quant=True,
+        )
         for name, weight in self.linear_weights.items():
             if isinstance(weight, torch.Tensor):
                 self.register_parameter(name, weight)
