@@ -18,7 +18,7 @@ _QUANTIZATION_CONFIG_REGISTRY = {
 
 def get_quantization_config(quantization: str) -> Type[QuantizationConfig]:
     if quantization not in _QUANTIZATION_CONFIG_REGISTRY:
-        raise ValueError(f"Invalid quantization framework: {quantization}")
+        raise ValueError(f"Invalid quantization method: {quantization}")
     return _QUANTIZATION_CONFIG_REGISTRY[quantization]
 
 

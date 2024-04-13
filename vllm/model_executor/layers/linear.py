@@ -123,7 +123,7 @@ class ReplicatedLinear(torch.nn.Module):
         self.linear_method = linear_method
         self.linear_weights = self.linear_method.create_weights(
             self.input_size, self.output_size, self.input_size,
-            self.output_size, self.params_dtype, layer_name=self.layer_name)
+            self.output_size, self.params_dtype, self.layer_name)
         for name, weight in self.linear_weights.items():
             if isinstance(weight, torch.Tensor):
                 self.register_parameter(name, weight)
@@ -176,7 +176,6 @@ class ColumnParallelLinear(torch.nn.Module):
         params_dtype: Optional[torch.dtype] = None,
         linear_method: Optional[LinearMethodBase] = None,
         logical_widths: Optional[List[int]] = None,
-        
     ):
         super().__init__()
 
@@ -595,7 +594,6 @@ class RowParallelLinear(torch.nn.Module):
         linear_method: Optional[LinearMethodBase] = None,
     ):
         super().__init__()
-
         # Keep input parameters
         self.layer_name = layer_name
         self.input_size = input_size
@@ -651,7 +649,7 @@ class RowParallelLinear(torch.nn.Module):
             loaded_weight = loaded_weight.narrow(input_dim, start_idx,
                                                  shard_size)
 
-        # TODO: make this canonical
+        # TODO: canon
         if len(loaded_weight.shape) == 0:
             loaded_weight = loaded_weight.reshape(1)
 
