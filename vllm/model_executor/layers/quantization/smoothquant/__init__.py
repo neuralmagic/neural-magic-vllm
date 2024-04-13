@@ -1,5 +1,3 @@
-from typing import Type
-
 from vllm.model_executor.layers.quantization.smoothquant.formats import (
     SmoothQuantFormat,
     get_sq_format_cls,
@@ -11,9 +9,8 @@ from vllm.model_executor.layers.quantization.smoothquant.config import (
     SmoothQuantLinearMethod
 )
 
-
 __all__ = [
-    SmoothQuantFormat,
+    "SmoothQuantFormat",
     "SmoothQuantConfig",
     "SmoothQuantLinearMethod",
     "get_sq_format_cls",
