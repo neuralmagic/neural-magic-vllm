@@ -43,6 +43,12 @@ class LinearMethodBase(ABC):
                       bias: Optional[torch.Tensor] = None) -> torch.Tensor:
         """Apply the weights to the input tensor."""
         raise NotImplementedError
+    
+    def maybe_update_loaded_weight_name(self, name: str) -> str:
+        """Update the name of a loaded weight to enable generic handling of 
+        cases where serialized state_dict does not match vllm model definition.
+        """
+        return name
 
 
 class UnquantizedLinearMethod(LinearMethodBase):
@@ -283,6 +289,18 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
                       loaded_shard_id: Optional[int] = None):
         param_data = param.data
         output_dim = getattr(param, "output_dim", None)
+        param_shard_splitter = getattr(param, "shard_splitter", None)
+        if output_dim is not None and param_shard_splitter is not None:
+            raise NotImplementedError(
+                "We do not currently support output_dim != None and "
+                "shard_splitter != None for a parameter. Please open an issue."
+            )
+        if loaded_shard_id is None and param_shard_splitter is not None:
+            raise NotImplementedError(
+                "We do not currently support loaded_shard_id == None and "
+                "shard_splitter != None for a parameter. Please open an issue."
+            )
+
         if loaded_shard_id is None:
             # Loaded weight is already packed.
             if output_dim is None:
@@ -335,6 +353,10 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
             start_idx = tp_rank * shard_size
             loaded_weight = loaded_weight.narrow(output_dim, start_idx,
                                                  shard_size)
+        # If a param_shard_splitter is defined by the LinearMethod, use it.
+        elif param_shard_splitter is not None:
+            param_data, loaded_weight = param_shard_splitter(
+                param_data, loaded_weight, loaded_shard_id)
         else:
             ignore_warning = getattr(param, "ignore_warning", False)
             if not ignore_warning:
@@ -342,6 +364,7 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
                     "Loading a weight without `output_dim` attribute in "
                     "MergedColumnParallelLinear, assume the weight is "
                     "the same for all partitions.")
+                
         assert param_data.shape == loaded_weight.shape
         param_data.copy_(loaded_weight)
 
@@ -420,6 +443,18 @@ class QKVParallelLinear(ColumnParallelLinear):
                       loaded_shard_id: Optional[str] = None):
         param_data = param.data
         output_dim = getattr(param, "output_dim", None)
+        param_shard_splitter = getattr(param, "shard_splitter", None)
+        
+        if output_dim is not None and param_shard_splitter is not None:
+            raise NotImplementedError(
+                "We do not currently support output_dim != None and "
+                "shard_splitter != None for a parameter. Please open an issue."
+            )
+        if loaded_shard_id is None and param_shard_splitter is not None:
+            raise NotImplementedError(
+                "We do not currently support loaded_shard_id == None and "
+                "shard_splitter != None for a parameter. Please open an issue."
+            )
 
         if loaded_shard_id is None:
             # Loaded weight is already packed.
@@ -455,6 +490,8 @@ class QKVParallelLinear(ColumnParallelLinear):
 
         tp_rank = get_tensor_model_parallel_rank()
         assert loaded_shard_id in ["q", "k", "v"]
+        
+        # If output dim is defined, use the default loading process.
         if output_dim is not None:
             if loaded_shard_id == "q":
                 shard_offset = 0
@@ -478,15 +515,19 @@ class QKVParallelLinear(ColumnParallelLinear):
                 shard_size, shard_offset = adjust_marlin_shard(
                     param, shard_size, shard_offset)
 
-            param_data = param_data.narrow(output_dim, shard_offset,
-                                           shard_size)
+            param_data = param_data.narrow(
+                output_dim, shard_offset, shard_size)
             if loaded_shard_id == "q":
                 shard_id = tp_rank
             else:
                 shard_id = tp_rank // self.num_kv_head_replicas
             start_idx = shard_id * shard_size
             loaded_weight = loaded_weight.narrow(output_dim, start_idx,
-                                                 shard_size)
+                                                shard_size)
+        # If a param_shard_splitter is defined by the LinearMethod, use it.
+        elif param_shard_splitter is not None:
+            param_data, loaded_weight = param_shard_splitter(
+                param_data, loaded_weight, loaded_shard_id)
         else:
             ignore_warning = getattr(param, "ignore_warning", False)
             if not ignore_warning:
@@ -494,7 +535,11 @@ class QKVParallelLinear(ColumnParallelLinear):
                     "Loading a weight without `output_dim` attribute in "
                     "QKVParallelLinear, assume the weight is the same "
                     "for all partitions.")
-        assert param_data.shape == loaded_weight.shape
+
+        assert (
+            param_data.shape == loaded_weight.shape or
+            (len(param_data.shape) == 0 and len(loaded_weight.shape) == 0)
+        )
         param_data.copy_(loaded_weight)
 
 

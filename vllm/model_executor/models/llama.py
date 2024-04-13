@@ -388,6 +388,9 @@ class LlamaForCausalLM(nn.Module):
         params_dict = dict(self.named_parameters())
         for name, loaded_weight in hf_model_weights_iterator(
                 model_name_or_path, cache_dir, load_format, revision):
+            # Update name of the loaded_weight if needed by the LinearMethod.
+            name = self.linear_method.maybe_update_loaded_weight_name(name)
+
             if "rotary_emb.inv_freq" in name:
                 continue
             if ("rotary_emb.cos_cached" in name
@@ -395,34 +398,6 @@ class LlamaForCausalLM(nn.Module):
                 # Models trained using ColossalAI may include these tensors in
                 # the checkpoint. Skip them.
                 continue
-            # load dequant scale for qkv_proj and gate_up_proj
-            int8_fusion = True
-            if int8_fusion:
-                is_fusion_scale = False
-                if "scale" in name:
-                    for (param_name, weight_name, _) in stacked_params_mapping:
-                        if weight_name not in name:
-                            continue
-                        if "q_proj" in name:
-                            idx = 0
-                        elif "k_proj" in name:
-                            idx = 1
-                        elif "v_proj" in name:
-                            idx = 2
-                        elif "gate_proj" in name:
-                            idx = 0
-                        else:
-                            assert "up_proj" in name
-                            idx = 1
-
-                        name = name.replace(weight_name, param_name)
-                        suffix = name.split('.')[-1]
-                        param = params_dict[name.replace(suffix, "dequant_scale")][idx]
-                        param.copy_(loaded_weight)
-                        is_fusion_scale = True
-                        break
-                    if is_fusion_scale:
-                        continue
             for (param_name, weight_name, shard_id) in stacked_params_mapping:
                 if weight_name not in name:
                     continue

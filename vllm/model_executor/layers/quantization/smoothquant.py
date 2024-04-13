@@ -102,6 +102,15 @@ class SQLinearMethod(LinearMethodBase):
     def __init__(self,):
         self.i8cugemm = Int8GEMM().get_i8cugemm()
 
+    
+    def maybe_update_loaded_weight_name(self, name: str) -> str:
+        # Convert prefix.k_dequant_scale >> prefix.dequant_scale.
+        if "dequant_scale" in name:
+            suffix = name.split('.')[-1]
+            name.replace(suffix, "dequant_scale")
+        return name
+
+
     def create_weights(
         self,
         input_size_per_partition: int,
@@ -134,6 +143,9 @@ class SQLinearMethod(LinearMethodBase):
                 device='cuda'
             ), requires_grad=False
         )
+        set_weight_attrs(dequant_scale, {
+            "shard_splitter": self.shard_splitter_scales,
+        })
 
         return {
             "weight": weight,
@@ -141,6 +153,28 @@ class SQLinearMethod(LinearMethodBase):
             "logical_widths": logical_widths,
             "per_token_quant": per_token_quant,
         }
+
+    @staticmethod
+    def shard_splitter_scales(
+        param: Tensor,
+        loaded_weight: Tensor,
+        shard_id: Union[str, int]
+    ) -> Tuple[Tensor, Tensor]:
+        index_in_param = None
+        if shard_id == "q":
+            index_in_param = 0
+        elif shard_id == "k":
+            index_in_param = 1
+        elif shard_id == "v":
+            index_in_param = 2        
+        elif type(shard_id) == int:
+            index_in_param = shard_id
+        else:
+            raise ValueError(
+                f"shard_id must be 'q', 'k', 'v' or an int, but got {shard_id}"
+            )
+        
+        return param[index_in_param], loaded_weight
 
 
     def _dequantize(self, x_q, weight_scales, activation_scales, logical_widths):
@@ -202,7 +236,7 @@ class SQLinearMethod(LinearMethodBase):
         logical_widths = weights["logical_widths"]
         per_token_quant = weights["per_token_quant"]
 
-        # Q
+        # Q --> GEMM --> DQ
         x_q, activation_scale = self._quantize(x, per_token_quant)
         out_q = self._gemm(x_q, weight)
         return self._dequantize(out_q, dequant_scale, activation_scale, logical_widths) 
