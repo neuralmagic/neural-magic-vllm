@@ -16,6 +16,7 @@ _QUANTIZATION_CONFIG_REGISTRY = {
     "marlin": MarlinConfig,
 }
 
+
 def get_quantization_config(quantization: str) -> Type[QuantizationConfig]:
     if quantization not in _QUANTIZATION_CONFIG_REGISTRY:
         raise ValueError(f"Invalid quantization method: {quantization}")
