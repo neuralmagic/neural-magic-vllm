@@ -55,7 +55,6 @@ class QuantizationConfig(ABC):
         """Get the linear method to use for the quantized linear layer."""
         raise NotImplementedError
 
-
     def get_scaled_act_names(self) -> List[str]:
         """Returns the activation function names that should be post-scaled.
         For now, this is only used by AWQ.
