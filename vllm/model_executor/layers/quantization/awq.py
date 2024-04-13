@@ -11,7 +11,7 @@ from vllm.model_executor.layers.quantization.base_config import (
 
 
 class AWQConfig(QuantizationConfig):
-    """Config class for AWQ.
+    """Config class for AutoAWQ.
 
     Reference: https://arxiv.org/abs/2306.00978
     """

@@ -89,6 +89,7 @@ class ReplicatedLinear(torch.nn.Module):
     """Replicated linear layer.
 
     Args:
+        layer_name: name of the layer in the state dict.
         input_size: input dimension of the linear layer.
         output_size: output dimension of the linear layer.
         bias: If true, add bias.
@@ -99,6 +100,7 @@ class ReplicatedLinear(torch.nn.Module):
 
     def __init__(
         self,
+        layer_name: str,
         input_size: int,
         output_size: int,
         bias: bool = True,
@@ -107,6 +109,7 @@ class ReplicatedLinear(torch.nn.Module):
         linear_method: Optional[LinearMethodBase] = None,
     ):
         super().__init__()
+        self.layer_name = layer_name
 
         # Keep input parameters
         self.input_size = input_size
@@ -120,7 +123,7 @@ class ReplicatedLinear(torch.nn.Module):
         self.linear_method = linear_method
         self.linear_weights = self.linear_method.create_weights(
             self.input_size, self.output_size, self.input_size,
-            self.output_size, self.params_dtype)
+            self.output_size, self.params_dtype, layer_name=self.layer_name)
         for name, weight in self.linear_weights.items():
             if isinstance(weight, torch.Tensor):
                 self.register_parameter(name, weight)
@@ -145,6 +148,7 @@ class ColumnParallelLinear(torch.nn.Module):
     its second dimension as A = [A_1, ..., A_p].
 
     Args:
+        layer_name: name of the layer in the state dict.
         input_size: first dimension of matrix A.
         output_size: second dimension of matrix A.
         bias: If true, add bias.
@@ -163,6 +167,7 @@ class ColumnParallelLinear(torch.nn.Module):
 
     def __init__(
         self,
+        layer_name: str,
         input_size: int,
         output_size: int,
         bias: bool = True,
@@ -171,8 +176,10 @@ class ColumnParallelLinear(torch.nn.Module):
         params_dtype: Optional[torch.dtype] = None,
         linear_method: Optional[LinearMethodBase] = None,
         logical_widths: Optional[List[int]] = None,
+        
     ):
         super().__init__()
+        self.layer_name = layer_name
 
         # Keep input parameters
         self.input_size = input_size
@@ -195,8 +202,7 @@ class ColumnParallelLinear(torch.nn.Module):
             output_size=self.output_size,
             params_dtype=self.params_dtype,
             logical_widths=logical_widths,
-            # TODO: remove this, should be coming through the quant config.
-            per_token_quant=False,
+            layer_name=self.layer_name,
         )
         for name, weight in self.linear_weights.items():
             if isinstance(weight, torch.Tensor):
@@ -263,6 +269,7 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
 
     def __init__(
         self,
+        layer_name: str,
         input_size: int,
         output_sizes: List[int],
         bias: bool = True,
@@ -275,6 +282,7 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
         tp_size = get_tensor_model_parallel_world_size()
         assert all(output_size % tp_size == 0 for output_size in output_sizes)
         super().__init__(
+            layer_name=layer_name,
             input_size=input_size,
             output_size=sum(output_sizes),
             bias=bias,
@@ -381,6 +389,7 @@ class QKVParallelLinear(ColumnParallelLinear):
     be replicated while the query heads are partitioned.
 
     Args:
+        layer_name: name of the layer in the state dict.
         hidden_size: input hidden state size of the transformer.
         head_size: size of each attention head.
         total_num_heads: total number of attention query heads.
@@ -396,6 +405,7 @@ class QKVParallelLinear(ColumnParallelLinear):
 
     def __init__(
         self,
+        layer_name: str,
         hidden_size: int,
         head_size: int,
         total_num_heads: int,
@@ -425,6 +435,7 @@ class QKVParallelLinear(ColumnParallelLinear):
         output_size = (self.num_heads +
                        2 * self.num_kv_heads) * tp_size * self.head_size
         super().__init__(
+            layer_name=layer_name,
             input_size=input_size,
             output_size=output_size, 
             bias=bias, 
@@ -557,6 +568,7 @@ class RowParallelLinear(torch.nn.Module):
               | A_p |
                -   -
     Arguments:
+        layer_name: name of the layer in the state dict.
         input_size: first dimension of matrix A.
         output_size: second dimension of matrix A.
         bias: If true, add bias. Note that bias is not parallelized.
@@ -572,6 +584,7 @@ class RowParallelLinear(torch.nn.Module):
 
     def __init__(
         self,
+        layer_name: str,
         input_size: int,
         output_size: int,
         bias: bool = True,
@@ -582,6 +595,8 @@ class RowParallelLinear(torch.nn.Module):
         linear_method: Optional[LinearMethodBase] = None,
     ):
         super().__init__()
+        self.layer_name = layer_name
+
         # Keep input parameters
         self.input_size = input_size
         self.output_size = output_size
@@ -605,8 +620,7 @@ class RowParallelLinear(torch.nn.Module):
             output_size=self.output_size, 
             params_dtype=self.params_dtype,
             logical_widths=[self.output_size],
-            # TODO: remove this, should be coming through the quant config.
-            per_token_quant=True,
+            layer_name=self.layer_name,
         )
         for name, weight in self.linear_weights.items():
             if isinstance(weight, torch.Tensor):
@@ -637,7 +651,7 @@ class RowParallelLinear(torch.nn.Module):
             loaded_weight = loaded_weight.narrow(input_dim, start_idx,
                                                  shard_size)
 
-        # TODO: canon
+        # TODO: make this canonical
         if len(loaded_weight.shape) == 0:
             loaded_weight = loaded_weight.reshape(1)
 

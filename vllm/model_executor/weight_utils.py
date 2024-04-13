@@ -18,7 +18,7 @@ from tqdm.auto import tqdm
 from vllm.config import ModelConfig
 from vllm.logger import init_logger
 from vllm.model_executor.layers.quantization import (QuantizationConfig,
-                                                     get_quantization_config)
+                                                     get_quant_framework_cls)
 from vllm.model_executor.layers.quantization.schema import QuantParamSchema
 
 logger = init_logger(__name__)
@@ -115,7 +115,7 @@ def convert_bin_to_safetensor_file(
 
 # TODO(woosuk): Move this to other place.
 def get_quant_config(model_config: ModelConfig) -> QuantizationConfig:
-    quant_cls = get_quantization_config(model_config.quantization)
+    quant_cls = get_quant_framework_cls(model_config.quantization)
     # Read the quantization config from the HF model config, if available.
     hf_quant_config = getattr(model_config.hf_config, "quantization_config",
                               None)

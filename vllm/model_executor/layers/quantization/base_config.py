@@ -5,10 +5,8 @@ import torch
 
 from vllm.model_executor.layers.linear import LinearMethodBase
 
-
 class QuantizationConfig(ABC):
-    """Base class for quantization configs."""
-
+    """Base class for compression framework configs."""
     @abstractmethod
     def get_name(self) -> str:
         """Name of the quantization method."""
@@ -34,11 +32,11 @@ class QuantizationConfig(ABC):
     def get_config_filenames() -> List[str]:
         """List of filenames to search for in the model directory."""
         raise NotImplementedError
-
+    
     @classmethod
     @abstractmethod
     def from_config(cls, config: Dict[str, Any]) -> "QuantizationConfig":
-        """Create a config class from the model's quantization config."""
+        """Create a config class from the model's hf quantization config."""
         raise NotImplementedError
 
     @staticmethod
@@ -48,17 +46,28 @@ class QuantizationConfig(ABC):
             if key in config:
                 return config[key]
         raise ValueError(f"Cannot find any of {keys} in the model's "
-                         "quantization config.")
+                         "quantization config.")    
 
-    @abstractmethod
-    def get_linear_method(self) -> LinearMethodBase:
-        """Get the linear method to use for the quantized linear layer."""
-        raise NotImplementedError
-
-    @abstractmethod
     def get_scaled_act_names(self) -> List[str]:
         """Returns the activation function names that should be post-scaled.
-
-        For now, this is only used by AWQ.
         """
+        raise []
+
+    @abstractmethod
+    def get_linear_method(self, name) -> LinearMethodBase:
+        """Get the linear method to use for specific linear layer."""
+        raise NotImplementedError
+    
+
+class QuantizationLayerConfig(ABC):
+    """Base class for framework layer configs."""
+    @classmethod
+    @abstractmethod
+    def from_config(cls, config: Dict[str, Any]) -> "FrameworkLayerConfig":
+        """Create a config for this specfic layer"""
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_linear_method(self, name) -> LinearMethodBase:
+        """Get the linear method to use for the linear layer."""
         raise NotImplementedError
