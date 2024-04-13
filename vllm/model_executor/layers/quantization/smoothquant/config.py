@@ -300,4 +300,3 @@ class SmoothQuantLinearMethod(LinearMethodBase):
 
         # DQ
         return self._dequantize(a_q, activation_scales, static_scales, logical_widths, x.dtype, sq_format)
-    
