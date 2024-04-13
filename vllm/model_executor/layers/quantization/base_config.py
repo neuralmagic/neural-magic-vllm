@@ -7,6 +7,7 @@ from vllm.model_executor.layers.linear import LinearMethodBase
 
 
 class QuantizationConfig(ABC):
+
     """Base class for quantization configs."""
     @abstractmethod
     def get_name(self) -> str:
