@@ -8,7 +8,7 @@ from vllm.model_executor.layers.quantization.marlin import MarlinConfig
 from vllm.model_executor.layers.quantization.squeezellm import SqueezeLLMConfig
 from vllm.model_executor.layers.quantization.smoothquant import SmoothQuantConfig
 
-_FRAMEWORK_CONFIG_REGISTRY = {
+_QUANTIZATION_CONFIG_REGISTRY = {
     "awq": AWQConfig,
     "gptq": GPTQConfig,
     "squeezellm": SqueezeLLMConfig,
@@ -16,13 +16,13 @@ _FRAMEWORK_CONFIG_REGISTRY = {
     "marlin": MarlinConfig,
 }
 
-def get_quant_framework_cls(quantization: str) -> Type[QuantizationConfig]:
-    if quantization not in _FRAMEWORK_CONFIG_REGISTRY:
+def get_quantization_config(quantization: str) -> Type[QuantizationConfig]:
+    if quantization not in _QUANTIZATION_CONFIG_REGISTRY:
         raise ValueError(f"Invalid quantization framework: {quantization}")
-    return _FRAMEWORK_CONFIG_REGISTRY[quantization]
+    return _QUANTIZATION_CONFIG_REGISTRY[quantization]
 
 
 __all__ = [
     "QuantizationConfig",
-    "get_quant_framework_cls",
+    "get_quantization_config",
 ]

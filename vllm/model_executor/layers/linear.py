@@ -179,9 +179,9 @@ class ColumnParallelLinear(torch.nn.Module):
         
     ):
         super().__init__()
-        self.layer_name = layer_name
 
         # Keep input parameters
+        self.layer_name = layer_name
         self.input_size = input_size
         self.output_size = output_size
         self.gather_output = gather_output
@@ -595,9 +595,9 @@ class RowParallelLinear(torch.nn.Module):
         linear_method: Optional[LinearMethodBase] = None,
     ):
         super().__init__()
-        self.layer_name = layer_name
 
         # Keep input parameters
+        self.layer_name = layer_name
         self.input_size = input_size
         self.output_size = output_size
         self.input_is_parallel = input_is_parallel
