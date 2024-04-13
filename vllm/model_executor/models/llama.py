@@ -256,7 +256,6 @@ class LlamaModel(nn.Module):
         lora_config: Optional[LoRAConfig] = None
     ) -> None:
         super().__init__()
-        self.name = "model"
         self.config = config
         self.padding_idx = config.pad_token_id
         lora_vocab = (lora_config.lora_extra_vocab_size *
@@ -269,7 +268,9 @@ class LlamaModel(nn.Module):
             org_num_embeddings=config.vocab_size,
         )
         self.layers = nn.ModuleList([
-            LlamaDecoderLayer(config, parent_name=f"{self.name}.layers.{idx}", linear_method=linear_method)
+            LlamaDecoderLayer(config, 
+                              parent_name=f"model.layers.{idx}", 
+                              linear_method=linear_method)
             for idx in range(config.num_hidden_layers)
         ])
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
