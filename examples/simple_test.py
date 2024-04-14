@@ -11,6 +11,9 @@ MODELS = {
     "gemma-gptq": "TechxGenus/gemma-1.1-2b-it-GPTQ",
     "phi-2-fp16": "abacaj/phi-2-super",
     "phi-2-marlin": "neuralmagic/phi-2-super-marlin",
+    "deepseek-fp16": "deepseek-ai/deepseek-coder-1.3b-instruct",
+    "deepseek-gptq": "TheBloke/deepseek-coder-1.3b-instruct-GPTQ",
+    "deepseek-awq": "TheBloke/deepseek-coder-1.3b-instruct-AWQ",
 }
 
 parser = argparse.ArgumentParser()
