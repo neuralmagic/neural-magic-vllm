@@ -20,6 +20,8 @@ MODELS = {
     "qwen-fp16": "Qwen/Qwen1.5-1.8B",
     "qwen-gptq": "Qwen/Qwen1.5-1.8B-Chat-GPTQ-Int4",
     "qwen-awq": "Qwen/Qwen1.5-1.8B-Chat-AWQ",
+    "gpt2-fp16": "openai-community/gpt2",
+    "gpt2-gptq": "etyacke/GPT2-GPTQ-int4", 
 }
 
 parser = argparse.ArgumentParser()
@@ -39,7 +41,7 @@ messages=[{
     "content": "What is deep learning?"
 }]
 
-model = LLM(model_id, enforce_eager=True, max_model_len=2048, tensor_parallel_size=args.tensor_parallel_size, dtype="float16", trust_remote_code=True)
+model = LLM(model_id, enforce_eager=True, max_model_len=1024, tensor_parallel_size=args.tensor_parallel_size, dtype="float16", trust_remote_code=True)
 prompt = model.llm_engine.tokenizer.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 out = model.generate(prompt, SamplingParams(max_tokens=50))
 print(f"\n-----prompt\n{prompt}")
