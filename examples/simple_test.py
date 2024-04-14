@@ -14,6 +14,9 @@ MODELS = {
     "deepseek-fp16": "deepseek-ai/deepseek-coder-1.3b-instruct",
     "deepseek-gptq": "TheBloke/deepseek-coder-1.3b-instruct-GPTQ",
     "deepseek-awq": "TheBloke/deepseek-coder-1.3b-instruct-AWQ",
+    "deepseek-moe-fp16": "deepseek-ai/deepseek-moe-16b-chat",
+    "baichuan-fp16": "baichuan-inc/Baichuan2-7B-Chat",
+    "baichuan-gptq": "csdc-atl/Baichuan2-7B-Chat-GPTQ-Int4",
 }
 
 parser = argparse.ArgumentParser()
@@ -33,7 +36,7 @@ messages=[{
     "content": "What is deep learning?"
 }]
 
-model = LLM(model_id, enforce_eager=True, max_model_len=2048, tensor_parallel_size=args.tensor_parallel_size, dtype="float16")
+model = LLM(model_id, enforce_eager=True, max_model_len=2048, tensor_parallel_size=args.tensor_parallel_size, dtype="float16", trust_remote_code=True)
 prompt = model.llm_engine.tokenizer.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 out = model.generate(prompt, SamplingParams(max_tokens=50))
 print(f"\n-----prompt\n{prompt}")

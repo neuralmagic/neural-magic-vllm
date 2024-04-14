@@ -55,6 +55,7 @@ class DeepseekMLP(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         hidden_size: int,
         intermediate_size: int,
         hidden_act: str,
@@ -63,14 +64,18 @@ class DeepseekMLP(nn.Module):
     ) -> None:
         super().__init__()
         self.gate_up_proj = MergedColumnParallelLinear(
-            hidden_size, [intermediate_size] * 2,
+            layer_name=f"{parent_name}.gate_up_proj",
+            input_size=hidden_size,
+            output_sizes=[intermediate_size] * 2,
             bias=False,
             linear_method=linear_method)
-        self.down_proj = RowParallelLinear(intermediate_size,
-                                           hidden_size,
-                                           bias=False,
-                                           linear_method=linear_method,
-                                           reduce_results=reduce_results)
+        self.down_proj = RowParallelLinear(
+            layer_name=f"{parent_name}.down_proj",
+            input_size=intermediate_size,
+            output_size=hidden_size,
+            bias=False,
+            linear_method=linear_method,
+            reduce_results=reduce_results)
         if hidden_act != "silu":
             raise ValueError(f"Unsupported activation: {hidden_act}. "
                              "Only silu is supported for now.")
@@ -123,7 +128,7 @@ class DeepseekMoE(nn.Module):
             intermediate_size = (config.moe_intermediate_size *
                                  config.n_shared_experts)
             self.shared_experts = DeepseekMLP(
-                layer_name=f"{parent_name}.shared_experts",
+                parent_name=f"{parent_name}.shared_experts",
                 hidden_size=config.hidden_size,
                 intermediate_size=intermediate_size,
                 hidden_act=config.hidden_act,
