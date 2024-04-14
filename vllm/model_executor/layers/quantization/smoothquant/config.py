@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Tuple, Optional, Union
+from typing import Any, Dict, List, Tuple, Type, Optional, Union
 import threading
 
 import torch
@@ -10,10 +10,21 @@ from vllm.model_executor.layers.linear import (
     set_weight_attrs)
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig)
-from vllm.model_executor.layers.quantization.smoothquant import (
-    get_sq_format_cls,
+from vllm.model_executor.layers.quantization.smoothquant.formats import (
     SmoothQuantFormat,
-    SMOOTHQUANT_FORMAT_REGISTRY)
+    SmoothQuantDynamicPerToken,
+    SmoothQuantStaticPerTensor,
+)
+
+SMOOTHQUANT_FORMAT_REGISTRY = {
+    "per-token": SmoothQuantDynamicPerToken,
+    "per-tensor": SmoothQuantStaticPerTensor,
+}
+
+def get_sq_format_cls(format_key: str) -> Type[SmoothQuantFormat]:
+    if format_key not in SMOOTHQUANT_FORMAT_REGISTRY:
+        raise ValueError(f"Invalid smoothquant format: {format_key}")
+    return SMOOTHQUANT_FORMAT_REGISTRY[format_key]
 
 # TODO: expand this.
 LAYER_KEYS = ["qkv", "out", "fc1", "fc2"]

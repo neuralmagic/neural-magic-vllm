@@ -98,15 +98,3 @@ class SmoothQuantStaticPerTensor(SmoothQuantFormat):
         """
         ops.quant(x_q, x, 1.0)
         return x_q, None
-
-
-SMOOTHQUANT_FORMAT_REGISTRY = {
-    "per-token": SmoothQuantDynamicPerToken,
-    "per-tensor": SmoothQuantStaticPerTensor,
-}
-
-
-def get_sq_format_cls(format_key: str) -> Type["SmoothQuantFormat"]:
-    if format_key not in SMOOTHQUANT_FORMAT_REGISTRY:
-        raise ValueError(f"Invalid smoothquant format: {format_key}")
-    return SMOOTHQUANT_FORMAT_REGISTRY[format_key]
