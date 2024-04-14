@@ -10,15 +10,13 @@ TEST_DIST_MODEL=meta-llama/Llama-2-7b-hf \
     test_basic_distributed_correctness.py
 ```
 """
+import os
 
 import pytest
 import torch
 
-# UPSTREAM SYNC: our automation calls this test differently than upstream
-# which passes the model via an enviornment variable.
 MODELS = [
-    "facebook/opt-125m",
-    "meta-llama/Llama-2-7b-hf",
+    os.environ["TEST_DIST_MODEL"],
 ]
 
 
