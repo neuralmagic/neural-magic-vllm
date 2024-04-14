@@ -109,8 +109,7 @@ class SmoothQuantLinearMethod(LinearMethodBase):
     def __init__(self, sq_config: SmoothQuantConfig) -> None:
         self.sq_config = sq_config
         self.sq_type = None
-        self.i8cugemm = Int8GEMM().get_i8cugemm()
-    
+        self.i8cugemm = Int8GEMM().get_i8cugemm()    
 
     def maybe_update_loaded_weight_name(self, 
                                         name: str) -> str:
@@ -123,7 +122,6 @@ class SmoothQuantLinearMethod(LinearMethodBase):
             suffix = name.split('.')[-1]
             name.replace(suffix, "dequant_scale")
         return name
-
 
     def scales_shard_splitter(self, 
                               param: torch.Tensor,
@@ -143,7 +141,6 @@ class SmoothQuantLinearMethod(LinearMethodBase):
             raise ValueError(f"Invalid shard id {shard_id}")
 
         return param[shard_id], loaded_weight
-
 
     def get_layer_format(self, layer_name: str) -> SmoothQuantFormat:
         """
@@ -195,19 +192,18 @@ class SmoothQuantLinearMethod(LinearMethodBase):
         raise ValueError
         
     def create_weights(self, 
+                       layer_name: str,
                        input_size_per_partition: int,
-                       output_size_per_partition: int,
+                       output_sizes_per_partition: int,
                        input_size: int,
                        output_size: int,
-                       params_dtype: torch.dtype,
-                       layer_name: str,
-                       logical_widths: Optional[List[int]] = None,) -> Dict[str, torch.Tensor]:
+                       params_dtype: torch.dtype) -> Dict[str, torch.Tensor]:
         del input_size, output_size
 
         # Statically Quantized Weights.
         weight = Parameter(
             torch.empty(
-                output_size_per_partition,
+                sum(output_sizes_per_partition),
                 input_size_per_partition,
                 device="cuda", dtype=torch.int8,
             ), requires_grad=False,
@@ -220,7 +216,7 @@ class SmoothQuantLinearMethod(LinearMethodBase):
         # Static scale for each logical weight (e.g. 3 for QKV).
         dequant_scale = Parameter(
             torch.empty(
-                len(logical_widths), 
+                len(output_sizes_per_partition), 
                  device='cuda', dtype=params_dtype,
             ), requires_grad=False
         )
@@ -231,7 +227,7 @@ class SmoothQuantLinearMethod(LinearMethodBase):
         return {
             "weight": weight,
             "dequant_scale": dequant_scale,
-            "logical_widths": logical_widths,
+            "logical_widths": output_sizes_per_partition,
             "sq_format": self.get_layer_format(layer_name)
         }
 
@@ -249,7 +245,6 @@ class SmoothQuantLinearMethod(LinearMethodBase):
         x_q = torch.empty_like(x, dtype=torch.int8)
         x_q, activation_scales = sq_format.quantize_op(x, x_q)
         return x_q, activation_scales
-
 
     def _dequantize(self, 
                     x_q: torch.Tensor, 

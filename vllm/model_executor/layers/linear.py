@@ -29,8 +29,11 @@ class LinearMethodBase(ABC):
     """Base class for different (maybe quantized) linear methods."""
 
     @abstractmethod
-    def create_weights(self, input_size_per_partition: int,
-                       output_size_per_partition: int, input_size: int,
+    def create_weights(self,
+                       layer_name: str,
+                       input_size_per_partition: int,
+                       output_sizes_per_partition: List[int],
+                       input_size: int,
                        output_size: int,
                        params_dtype: torch.dtype) -> Dict[str, Any]:
         """Create weights for a linear layer."""
@@ -62,16 +65,19 @@ class UnquantizedLinearMethod(LinearMethodBase):
     def __init__(self, separate_bias_add: bool = False):
         self.separate_bias_add = separate_bias_add
 
-    def create_weights(self, input_size_per_partition: int,
-                       output_size_per_partition: int, input_size: int,
-                       output_size: int,
-                       params_dtype: torch.dtype, logical_widths: Optional[List[int]]) -> Dict[str, Any]:
-        weight = Parameter(torch.empty(output_size_per_partition,
+    def create_weights(self,
+                       layer_name: str,
+                       input_size_per_partition: int,
+                       output_sizes_per_partition: List[int], 
+                       input_size: int, output_size: int,
+                       params_dtype: torch.dtype) -> Dict[str, Any]:
+        weight = Parameter(torch.empty(sum(output_sizes_per_partition),
                                        input_size_per_partition,
                                        dtype=params_dtype),
                            requires_grad=False)
         set_weight_attrs(weight, {"input_dim": 1, "output_dim": 0})
         return {"weight": weight}
+
 
     def apply_weights(self,
                       weights: Dict[str, torch.Tensor],
@@ -109,9 +115,9 @@ class ReplicatedLinear(torch.nn.Module):
         linear_method: Optional[LinearMethodBase] = None,
     ):
         super().__init__()
-        self.layer_name = layer_name
 
         # Keep input parameters
+        self.layer_name = layer_name
         self.input_size = input_size
         self.output_size = output_size
         self.skip_bias_add = skip_bias_add
@@ -122,8 +128,8 @@ class ReplicatedLinear(torch.nn.Module):
             linear_method = UnquantizedLinearMethod()
         self.linear_method = linear_method
         self.linear_weights = self.linear_method.create_weights(
-            self.input_size, self.output_size, self.input_size,
-            self.output_size, self.params_dtype, self.layer_name)
+            self.layer_name, self.input_size, [self.output_size],
+            self.input_size, self.output_size, self.params_dtype)
         for name, weight in self.linear_weights.items():
             if isinstance(weight, torch.Tensor):
                 self.register_parameter(name, weight)
@@ -175,7 +181,6 @@ class ColumnParallelLinear(torch.nn.Module):
         skip_bias_add: bool = False,
         params_dtype: Optional[torch.dtype] = None,
         linear_method: Optional[LinearMethodBase] = None,
-        logical_widths: Optional[List[int]] = None,
     ):
         super().__init__()
 
@@ -186,7 +191,14 @@ class ColumnParallelLinear(torch.nn.Module):
         self.gather_output = gather_output
         # Divide the weight matrix along the last dimension.
         tp_size = get_tensor_model_parallel_world_size()
-        self.output_size_per_partition = divide(output_size, tp_size)
+        self.output_size_per_partition = divide(self.output_size, tp_size)
+        self.output_sizes_per_partition = [self.output_size_per_partition]
+        # If QKV or MergedColumn, use output size of each partition. 
+        if self.output_sizes is not None:
+            self.output_sizes_per_partition = [
+                divide(output_size, tp_size) for output_size in self.output_sizes
+            ]
+
         self.skip_bias_add = skip_bias_add
         if params_dtype is None:
             params_dtype = torch.get_default_dtype()
@@ -195,13 +207,12 @@ class ColumnParallelLinear(torch.nn.Module):
             linear_method = UnquantizedLinearMethod()
         self.linear_method = linear_method
         self.linear_weights = self.linear_method.create_weights(
+            layer_name=self.layer_name,
             input_size_per_partition=self.input_size,
-            output_size_per_partition=self.output_size_per_partition,
+            output_sizes_per_partition=self.output_sizes_per_partition,
             input_size=self.input_size,
             output_size=self.output_size,
             params_dtype=self.params_dtype,
-            logical_widths=logical_widths,
-            layer_name=self.layer_name,
         )
         for name, weight in self.linear_weights.items():
             if isinstance(weight, torch.Tensor):
@@ -288,8 +299,7 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
             gather_output=gather_output,
             skip_bias_add=skip_bias_add,
             params_dtype=params_dtype,
-            linear_method=linear_method,
-            logical_widths=output_sizes)
+            linear_method=linear_method)
 
     def weight_loader(self,
                       param: Parameter,
@@ -433,6 +443,12 @@ class QKVParallelLinear(ColumnParallelLinear):
         input_size = self.hidden_size
         output_size = (self.num_heads +
                        2 * self.num_kv_heads) * tp_size * self.head_size
+        self.output_sizes = [
+            self.num_heads * self.head_size * tp_size,      # q_proj
+            self.num_kv_heads * self.head_size * tp_size,   # k_proj
+            self.num_kv_heads * self.head_size * tp_size,   # v_proj 
+        ]
+
         super().__init__(
             layer_name=layer_name,
             input_size=input_size,
@@ -441,12 +457,7 @@ class QKVParallelLinear(ColumnParallelLinear):
             gather_output=False, 
             skip_bias_add=skip_bias_add,
             params_dtype=params_dtype, 
-            linear_method=linear_method,
-            logical_widths = [
-                self.num_heads * self.head_size,            # q_proj
-                self.total_num_kv_heads * self.head_size,   # k_proj
-                self.total_num_kv_heads * self.head_size,   # v_proj 
-            ])
+            linear_method=linear_method)
 
     def weight_loader(self,
                       param: Parameter,
@@ -612,13 +623,12 @@ class RowParallelLinear(torch.nn.Module):
             linear_method = UnquantizedLinearMethod()
         self.linear_method = linear_method
         self.linear_weights = self.linear_method.create_weights(
+            layer_name=self.layer_name,
             input_size_per_partition=self.input_size_per_partition,
-            output_size_per_partition=self.output_size,
+            output_sizes_per_partition=[self.output_size],
             input_size=self.input_size,
             output_size=self.output_size, 
             params_dtype=self.params_dtype,
-            logical_widths=[self.output_size],
-            layer_name=self.layer_name,
         )
         for name, weight in self.linear_weights.items():
             if isinstance(weight, torch.Tensor):
