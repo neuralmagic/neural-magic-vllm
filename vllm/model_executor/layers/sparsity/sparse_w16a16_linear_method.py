@@ -37,7 +37,7 @@ class SparseW16A16LinearMethod(LinearMethodBase):
         params_dtype: torch.dtype,
         **extra_weight_attrs,
     ):
-        del input_size, output_size # Unused.
+        del input_size, output_size  # Unused.
 
         supports_linear = (self.storage_format_cls !=
                            SparseBEGemmStorageFormat)

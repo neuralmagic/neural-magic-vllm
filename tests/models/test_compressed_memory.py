@@ -16,7 +16,7 @@ import torch
 MODEL_FORMAT_EXTRABLOCKS = [
     ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned50", "sparse_w16a16", 2000),
     ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned2.4",
-        "semi_structured_sparse_w16a16", 2000),
+     "semi_structured_sparse_w16a16", 2000),
 ]
 
 
