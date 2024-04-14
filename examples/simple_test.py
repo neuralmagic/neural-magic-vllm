@@ -21,7 +21,10 @@ MODELS = {
     "qwen-gptq": "Qwen/Qwen1.5-1.8B-Chat-GPTQ-Int4",
     "qwen-awq": "Qwen/Qwen1.5-1.8B-Chat-AWQ",
     "gpt2-fp16": "openai-community/gpt2",
-    "gpt2-gptq": "etyacke/GPT2-GPTQ-int4", 
+    "gpt2-gptq": "etyacke/GPT2-GPTQ-int4",
+    "starcoder2-fp16": "bigcode/starcoder2-3b",
+    "starcoder2-gptq": "TechxGenus/starcoder2-3b-GPTQ",
+    "starcoder2-awq": "TechxGenus/starcoder2-3b-AWQ",
 }
 
 parser = argparse.ArgumentParser()

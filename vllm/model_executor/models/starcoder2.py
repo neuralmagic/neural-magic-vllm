@@ -46,6 +46,7 @@ from vllm.sequence import SamplerOutput
 class Starcoder2Attention(nn.Module):
 
     def __init__(self,
+                 parent_name: str,
                  config: Starcoder2Config,
                  linear_method: Optional[LinearMethodBase] = None):
         super().__init__()
@@ -76,16 +77,18 @@ class Starcoder2Attention(nn.Module):
         self.sliding_window = config.sliding_window
 
         self.qkv_proj = QKVParallelLinear(
-            self.hidden_size,
-            self.head_dim,
-            self.total_num_heads,
-            self.total_num_kv_heads,
+            layer_name=f"{parent_name}.qkv_proj",
+            hidden_size=self.hidden_size,
+            head_size=self.head_dim,
+            total_num_heads=self.total_num_heads,
+            total_num_kv_heads=self.total_num_kv_heads,
             bias=self.use_bias,
             linear_method=linear_method,
         )
         self.o_proj = RowParallelLinear(
-            self.total_num_heads * self.head_dim,
-            self.hidden_size,
+            layer_name=f"{parent_name}.o_proj",
+            input_size=self.total_num_heads * self.head_dim,
+            output_size=self.hidden_size,
             bias=self.use_bias,
             linear_method=linear_method,
         )
@@ -122,18 +125,21 @@ class Starcoder2Attention(nn.Module):
 class Starcoder2MLP(nn.Module):
 
     def __init__(self,
+                 parent_name: str,
                  config: Starcoder2Config,
                  linear_method: Optional[LinearMethodBase] = None):
         super().__init__()
         self.c_fc = ColumnParallelLinear(
-            config.hidden_size,
-            config.intermediate_size,
+            layer_name=f"{parent_name}.c_fc",
+            input_size=config.hidden_size,
+            output_size=config.intermediate_size,
             bias=config.use_bias,
             linear_method=linear_method,
         )
         self.c_proj = RowParallelLinear(
-            config.intermediate_size,
-            config.hidden_size,
+            layer_name=f"{parent_name}.c_proj",
+            input_size=config.intermediate_size,
+            output_size=config.hidden_size,
             bias=config.use_bias,
             linear_method=linear_method,
         )
@@ -151,13 +157,16 @@ class Starcoder2MLP(nn.Module):
 class Starcoder2DecoderLayer(nn.Module):
 
     def __init__(self,
+                 parent_name: str,
                  config: Starcoder2Config,
                  linear_method: Optional[LinearMethodBase] = None):
         super().__init__()
         self.hidden_size = config.hidden_size
-        self.self_attn = Starcoder2Attention(config,
+        self.self_attn = Starcoder2Attention(parent_name=f"{parent_name}.self_attn",
+                                             config=config,
                                              linear_method=linear_method)
-        self.mlp = Starcoder2MLP(config, linear_method=linear_method)
+        self.mlp = Starcoder2MLP(parent_name=f"{parent_name}.mlp",
+                                 config=config, linear_method=linear_method)
         self.input_layernorm = nn.LayerNorm(config.hidden_size,
                                             eps=config.norm_epsilon)
         self.post_attention_layernorm = nn.LayerNorm(config.hidden_size,
@@ -204,8 +213,9 @@ class Starcoder2Model(nn.Module):
         self.embed_tokens = VocabParallelEmbedding(config.vocab_size,
                                                    config.hidden_size)
         self.layers = nn.ModuleList([
-            Starcoder2DecoderLayer(config, linear_method=linear_method)
-            for _ in range(config.num_hidden_layers)
+            Starcoder2DecoderLayer(parent_name=f"model.layers.{idx}",
+                                   config=config, linear_method=linear_method)
+            for idx in range(config.num_hidden_layers)
         ])
         self.norm = nn.LayerNorm(config.hidden_size, eps=config.norm_epsilon)
 
@@ -232,6 +242,7 @@ class Starcoder2ForCausalLM(nn.Module):
                  linear_method: Optional[LinearMethodBase] = None):
         super().__init__()
         self.config = config
+        self.linear_method = linear_method
         self.model = Starcoder2Model(config, linear_method=linear_method)
         self.vocab_size = config.vocab_size
         self.unpadded_vocab_size = config.vocab_size
@@ -290,6 +301,10 @@ class Starcoder2ForCausalLM(nn.Module):
         params_dict = dict(self.named_parameters(remove_duplicate=False))
         for name, loaded_weight in hf_model_weights_iterator(
                 model_name_or_path, cache_dir, load_format, revision):
+            # Update name of the loaded_weight if needed by the LinearMethod.
+            if self.linear_method:
+                name = self.linear_method.maybe_update_loaded_weight_name(name)
+
             if "rotary_emb.inv_freq" in name:
                 continue
 
