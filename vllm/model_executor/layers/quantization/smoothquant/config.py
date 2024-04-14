@@ -16,18 +16,16 @@ from vllm.model_executor.layers.quantization.smoothquant.formats import (
     SmoothQuantStaticPerTensor,
 )
 
-SMOOTHQUANT_FORMAT_REGISTRY = {
+LAYER_KEYS = ["qkv", "out", "fc1", "fc2"]
+FORMAT_REGISTRY = {
     "per-token": SmoothQuantDynamicPerToken,
     "per-tensor": SmoothQuantStaticPerTensor,
 }
 
 def get_sq_format_cls(format_key: str) -> Type[SmoothQuantFormat]:
-    if format_key not in SMOOTHQUANT_FORMAT_REGISTRY:
+    if format_key not in FORMAT_REGISTRY:
         raise ValueError(f"Invalid smoothquant format: {format_key}")
-    return SMOOTHQUANT_FORMAT_REGISTRY[format_key]
-
-# TODO: expand this.
-LAYER_KEYS = ["qkv", "out", "fc1", "fc2"]
+    return FORMAT_REGISTRY[format_key]
 
 class SmoothQuantConfig(QuantizationConfig):
     """Config class for SmoothQuant.
@@ -44,10 +42,10 @@ class SmoothQuantConfig(QuantizationConfig):
                     f"Found key of {key} in {self.layer_format_map}, " 
                     f"but key must be one of {LAYER_KEYS}"
                 )
-            if format not in SMOOTHQUANT_FORMAT_REGISTRY:
+            if format not in FORMAT_REGISTRY:
                 raise ValueError(
                     f"Found format of {format} in {self.layer_format_map}, "
-                    f"but format must be one of {SMOOTHQUANT_FORMAT_REGISTRY}"
+                    f"but format must be one of {FORMAT_REGISTRY}"
                 )
         for key in LAYER_KEYS:
             if key not in self.layer_format_map:
@@ -56,7 +54,7 @@ class SmoothQuantConfig(QuantizationConfig):
                 )
 
     def __repr__(self) -> str:
-        return (f"SQConfig(layer_format_map={self.layer_format_map})")
+        return (f"SmoothQuantConfig(layer_format_map={self.layer_format_map})")
 
     def get_name(self) -> str:
         return "smoothquant"
@@ -79,9 +77,9 @@ class SmoothQuantConfig(QuantizationConfig):
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> "SmoothQuantConfig":
         layer_format_map: Dict[str, str] = {}
-        for key, value in config.items():
-            if value in SMOOTHQUANT_FORMAT_REGISTRY:
-                layer_format_map[key] = value
+        for layer_key, format in config.items():
+            if format in FORMAT_REGISTRY:
+                layer_format_map[layer_key] = format
         return cls(layer_format_map)
     
     def get_linear_method(self) -> "SmoothQuantLinearMethod":
