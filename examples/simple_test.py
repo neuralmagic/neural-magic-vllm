@@ -17,6 +17,9 @@ MODELS = {
     "deepseek-moe-fp16": "deepseek-ai/deepseek-moe-16b-chat",
     "baichuan-fp16": "baichuan-inc/Baichuan2-7B-Chat",
     "baichuan-gptq": "csdc-atl/Baichuan2-7B-Chat-GPTQ-Int4",
+    "qwen-fp16": "Qwen/Qwen1.5-1.8B",
+    "qwen-gptq": "Qwen/Qwen1.5-1.8B-Chat-GPTQ-Int4",
+    "qwen-awq": "Qwen/Qwen1.5-1.8B-Chat-AWQ",
 }
 
 parser = argparse.ArgumentParser()
