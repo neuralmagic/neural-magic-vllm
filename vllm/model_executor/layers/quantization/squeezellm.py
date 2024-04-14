@@ -68,10 +68,17 @@ class SqueezeLLMLinearMethod(LinearMethodBase):
     def __init__(self, quant_config: SqueezeLLMConfig):
         self.quant_config = quant_config
 
-    def create_weights(self, input_size_per_partition: int,
-                       output_size_per_partition: int, input_size: int,
-                       output_size: int,
-                       params_dtype: torch.dtype) -> Dict[str, Any]:
+    def create_weights(
+        self, 
+        layer_name: str,          
+        input_size_per_partition: int,
+        output_sizes_per_partition: List[int],
+        input_size: int,
+        output_size: int,
+        params_dtype: torch.dtype) -> Dict[str, Any]:
+        del layer_name, input_size # Unused.
+        output_size_per_partition = sum(output_sizes_per_partition)
+
         if input_size_per_partition % self.quant_config.pack_factor != 0:
             raise ValueError(
                 "The input size is not aligned with the quantized "

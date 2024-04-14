@@ -403,7 +403,8 @@ class LlamaForCausalLM(nn.Module):
         for name, loaded_weight in hf_model_weights_iterator(
                 model_name_or_path, cache_dir, load_format, revision):
             # Update name of the loaded_weight if needed by the LinearMethod.
-            name = self.linear_method.maybe_update_loaded_weight_name(name)
+            if self.linear_method:
+                name = self.linear_method.maybe_update_loaded_weight_name(name)
 
             if "rotary_emb.inv_freq" in name:
                 continue
