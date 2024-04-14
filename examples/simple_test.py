@@ -6,6 +6,11 @@ MODELS = {
     "tinyllama-marlin": "neuralmagic/TinyLlama-1.1B-Chat-v1.0-marlin",
     "tinyllama-gptq": "TheBloke/TinyLlama-1.1B-Chat-v1.0-GPTQ",
     "tinyllama-awq": "TheBloke/TinyLlama-1.1B-Chat-v1.0-AWQ",
+    "gemma-fp16": "google/gemma-1.1-2b-it",
+    "gemma-awq": "TechxGenus/gemma-1.1-2b-it-AWQ",
+    "gemma-gptq": "TechxGenus/gemma-1.1-2b-it-GPTQ",
+    "phi-2-fp16": "abacaj/phi-2-super",
+    "phi-2-marlin": "neuralmagic/phi-2-super-marlin",
 }
 
 parser = argparse.ArgumentParser()
@@ -21,9 +26,6 @@ else:
     print(f"Using model_id = {model_id}")
 
 messages=[{
-    "role": "system",
-    "content": "You are a helpful assistant."
-}, {
     "role": "user",
     "content": "What is deep learning?"
 }]
