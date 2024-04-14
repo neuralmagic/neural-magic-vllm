@@ -17,9 +17,9 @@ import pytest
 import torch
 
 MODELS = [
-    os.environ["TEST_DIST_MODEL"],
+    "facebook/opt-125m",
+    "meta-llama/Llama-2-7b-hf",
 ]
-
 
 @pytest.mark.skipif(torch.cuda.device_count() < 2,
                     reason="Need at least 2 GPUs to run the test.")
