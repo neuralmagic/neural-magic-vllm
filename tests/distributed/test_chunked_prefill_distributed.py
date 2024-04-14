@@ -11,11 +11,11 @@ TEST_DIST_MODEL=meta-llama/Llama-2-7b-hf \
     test_chunked_prefill_distributed.py
 ```
 """
-import os
 
 import pytest
 import torch
 
+# UPSTREAM SYNC: our automation does not call via env variables.
 MODELS = [
     "facebook/opt-125m",
     "meta-llama/Llama-2-7b-hf",
