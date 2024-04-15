@@ -73,7 +73,7 @@ class FP8Config(QuantizationConfig):
         # FP8 hardware support is required because
         # torch._scaled_mm is only supported on CUDA devices with
         # compute capability >= 9.0 or 8.9, or ROCm MI300+");
-        return 80
+        return 89
 
     @staticmethod
     def get_config_filenames() -> List[str]:
