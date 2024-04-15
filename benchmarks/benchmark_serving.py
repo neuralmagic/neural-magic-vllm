@@ -48,6 +48,9 @@ class BenchmarkMetrics:
     request_throughput: float
     input_throughput: float
     output_throughput: float
+    mean_latency_s: float
+    median_latency_s: float
+    p99_latency_s: float
     mean_ttft_ms: float
     median_ttft_ms: float
     p99_ttft_ms: float
@@ -55,6 +58,17 @@ class BenchmarkMetrics:
     median_tpot_ms: float
     p99_tpot_ms: float
 
+def make_synthetic_requests(
+    num_input_words: int, 
+    num_output_tokens: int,
+    num_requests: int,
+    tokenizer: PreTrainedTokenizerBase,
+) -> List[Tuple[str, int, int]]:
+    prompt = ("Hello_" * num_input_words)[:-1]
+    num_input_tokens = len(tokenizer(prompt).input_ids)
+    input_requests = [(prompt, num_input_tokens, num_output_tokens)] * num_requests
+    #return input_requests, num_input_tokens, num_output_tokens
+    return input_requests
 
 def sample_sharegpt_requests(
     dataset_path: str,
@@ -212,6 +226,7 @@ def calculate_metrics(
         else:
             actual_output_lens.append(0)
 
+    print(tpots, actual_output_lens)
     metrics = BenchmarkMetrics(
         completed=completed,
         total_input=total_input,
@@ -219,6 +234,9 @@ def calculate_metrics(
         request_throughput=completed / dur_s,
         input_throughput=total_input / dur_s,
         output_throughput=sum(actual_output_lens) / dur_s,
+        mean_latency_s=np.mean([o.latency for o in outputs]),
+        median_latency_s=np.median([o.latency for o in outputs]),
+        p99_latency_s=np.percentile([o.latency for o in outputs], 99),
         mean_ttft_ms=np.mean(ttfts or 0) *
         1000,  # ttfts is empty if streaming is not supported by backend
         median_ttft_ms=np.median(ttfts or 0) * 1000,
@@ -254,6 +272,7 @@ async def benchmark(
     benchmark_start_time = time.perf_counter()
     tasks = []
     async for request in get_request(input_requests, request_rate):
+        #print(request)
         prompt, prompt_len, output_len = request
         request_func_input = RequestFuncInput(
             model=model_id,
@@ -295,6 +314,12 @@ async def benchmark(
                                     metrics.input_throughput))
     print("{:<40} {:<10.2f}".format("Output token throughput (tok/s):",
                                     metrics.output_throughput))
+    print("{s:{c}^{n}}".format(s='Latency', n=50, c='-'))
+    print("{:<40} {:<10.2f}".format("Mean Latency (s):", metrics.mean_latency_s))
+    print("{:<40} {:<10.2f}".format("Median Latency (s):",
+                                    metrics.median_latency_s))
+    print("{:<40} {:<10.2f}".format("P99 Latency (s):", metrics.p99_latency_s))
+
     print("{s:{c}^{n}}".format(s='Time to First Token', n=50, c='-'))
     print("{:<40} {:<10.2f}".format("Mean TTFT (ms):", metrics.mean_ttft_ms))
     print("{:<40} {:<10.2f}".format("Median TTFT (ms):",
@@ -398,6 +423,13 @@ def main(args: argparse.Namespace):
             input_requests = [(prompt_formatted, prompt_len, output_len)
                               for prompt, prompt_formatted, prompt_len,
                               output_len in input_requests]
+    elif args.dataset_name == "synthetic":
+        input_requests = make_synthetic_requests(
+                num_input_words=args.input_len,
+                num_requests=args.num_prompts,
+                num_output_tokens=args.output_len,
+                tokenizer=tokenizer
+        )
 
     else:
         raise ValueError(f"Unknown dataset: {args.dataset_name}")
@@ -490,7 +522,7 @@ if __name__ == "__main__":
         "--dataset-name",
         type=str,
         default="sharegpt",
-        choices=["sharegpt", "sonnet"],
+        choices=["sharegpt", "sonnet", "synthetic"],
         help="Name of the dataset to benchmark on.",
     )
     parser.add_argument("--dataset-path",
@@ -524,14 +556,14 @@ if __name__ == "__main__":
         help="Number of prompts to process.",
     )
     parser.add_argument(
-        "--sonnet-input-len",
+        "--input-len",
         type=int,
         default=550,
         help=
         "Number of input tokens per request, used only for sonnet dataset.",
     )
     parser.add_argument(
-        "--sonnet-output-len",
+        "--output-len",
         type=int,
         default=150,
         help=
