@@ -19,7 +19,8 @@ from vllm.config import ModelConfig
 from vllm.logger import init_logger
 # UPSTREAM SYNC: needed for sparsity
 from vllm.model_executor.layers.parameters import LazyCompressedParameter
-from vllm.model_executor.layers.quantization import (QuantizationConfig,
+from vllm.model_executor.layers.quantization import (FP8Config,
+                                                     QuantizationConfig,
                                                      get_quantization_config)
 from vllm.model_executor.layers.quantization.schema import QuantParamSchema
 
@@ -131,6 +132,8 @@ def get_sparse_config(model_config: ModelConfig):
 # TODO(woosuk): Move this to other place.
 def get_quant_config(model_config: ModelConfig) -> QuantizationConfig:
     quant_cls = get_quantization_config(model_config.quantization)
+    if quant_cls == FP8Config:
+        return FP8Config()
     # Read the quantization config from the HF model config, if available.
     hf_quant_config = getattr(model_config.hf_config, "quantization_config",
                               None)

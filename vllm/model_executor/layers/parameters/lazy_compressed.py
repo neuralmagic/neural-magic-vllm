@@ -1,7 +1,6 @@
 import importlib.util
 from typing import Type
 
-import numpy
 import torch
 from torch.utils._pytree import tree_map
 
@@ -119,16 +118,16 @@ class LazyCompressedParameter(torch.Tensor):
                     "does not have 2:4 sparsity, skipping compression")
                 return
 
-        else:
-            sparsity = 1 - (torch.count_nonzero(self.uncompressed_data).item()
-                            / numpy.prod(self.shape))
+        # else:
+        #     sparsity = 1 - (torch.count_nonzero(self.uncompressed_data).item()
+        #                     / numpy.prod(self.shape))
 
-            # Only compress if we have sufficient sparsity (>=40%)
-            if sparsity < 0.4:
-                logger.warning(
-                    f"Called compress() on tensor of shape {self.shape}, but "
-                    f"only has {sparsity:.2}% sparsity, skipping compression")
-                return
+        #     Only compress if we have sufficient sparsity (>=40%)
+        #     if sparsity < 0.4:
+        #         logger.warning(
+        #             f"Called compress() on tensor of shape {self.shape}, but "
+        #             f"only has {sparsity:.2}% sparsity, skipping compression")
+        #         return
 
         if self.uncompressed_data is None:
             raise ValueError(
