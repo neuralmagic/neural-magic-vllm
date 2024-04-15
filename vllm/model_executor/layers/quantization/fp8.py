@@ -1,19 +1,30 @@
+from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
 import torch
+import torch.nn.functional as F
 from magic_wand import CompressedStorageFormat
 
+from vllm.logger import init_logger
 from vllm.model_executor.layers.linear import (LinearMethodBase,
                                                set_weight_attrs)
 from vllm.model_executor.layers.parameters import LazyCompressedParameter
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig)
 
+logger = init_logger(__name__)
+
+
+@lru_cache(None)
+def warn_once(msg):
+    logger.warning(msg)
+
 
 def fp8_quantize(
     weight,
     qdtype: torch.dtype = torch.float8_e4m3fn
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    dtype = weight.dtype
     finfo = torch.finfo(qdtype)
     # Calculate the scale as dtype max divided by absmax
     scale = finfo.max / weight.abs().max().clamp(min=1e-12)
@@ -24,7 +35,7 @@ def fp8_quantize(
     # Return both float8 data and the inverse scale (as float),
     # as both required as inputs to torch._scaled_mm
     qweight = qweight.to(qdtype)
-    scale = scale.float().reciprocal()
+    scale = scale.to(dtype).reciprocal()
     return qweight, scale
 
 
@@ -72,8 +83,8 @@ class FP8Config(QuantizationConfig):
     def get_min_capability(self) -> int:
         # FP8 hardware support is required because
         # torch._scaled_mm is only supported on CUDA devices with
-        # compute capability >= 9.0 or 8.9, or ROCm MI300+");
-        return 89
+        # compute capability >= 9.0 or 8.9, or ROCm MI300+
+        return 70
 
     @staticmethod
     def get_config_filenames() -> List[str]:
@@ -140,13 +151,24 @@ class FP8LinearMethod(LinearMethodBase):
 
         qx, xscale = fp8_quantize(x)
 
-        output, _ = torch._scaled_mm(
-            qx,
-            w.compressed_data.values,
-            out_dtype=self.dtype,
-            scale_a=xscale,
-            scale_b=w.compressed_data.scale,
-            bias=bias,
-        )
+        cuda_compute_capability = torch.cuda.get_device_capability()
+        if cuda_compute_capability >= (9, 0):
+            output, _ = torch._scaled_mm(
+                qx,
+                w.compressed_data.values,
+                out_dtype=self.dtype,
+                scale_a=xscale,
+                scale_b=w.compressed_data.scale,
+                bias=bias,
+            )
+        else:
+            # For NVIDIA SM < 9.0
+            warn_once("FP8 hardware support doesn't exist for "
+                      "NVIDIA SM < 9.0. Up-conversion to "
+                      "original dtype will be used.")
+
+            output = F.linear(
+                qx.to(self.dtype) * xscale, w.compressed_data.decompress(),
+                bias)
 
         return output
