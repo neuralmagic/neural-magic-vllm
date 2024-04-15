@@ -116,7 +116,7 @@ class FP8LinearMethod(LinearMethodBase):
             torch.empty(
                 output_size_per_partition,
                 input_size_per_partition,
-                dtype=self.quant_config.qdtype,
+                dtype=params_dtype,
             ),
             # For create_weights(..), we initialize an empty tensor to
             # save GPU memory. When the parameter will be loaded from
