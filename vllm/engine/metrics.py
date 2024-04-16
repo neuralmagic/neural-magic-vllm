@@ -61,6 +61,12 @@ class Metrics:
             name="vllm:generation_tokens_total",
             documentation="Number of generation tokens processed.",
             labelnames=labelnames)
+        self.histogram_batch_num_tokens = Histogram(
+            name="vllm:batch_tokens_total",
+            documentation="Histogram of number of total tokens per batch.",
+            labelnames=labelnames,
+            buckets=[1, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
+        )
         self.histogram_time_to_first_token = Histogram(
             name="vllm:time_to_first_token_seconds",
             documentation="Histogram of time to first token in seconds.",
@@ -204,6 +210,8 @@ class StatLogger:
                           stats.num_prompt_tokens)
         self._log_counter(self.metrics.counter_generation_tokens,
                           stats.num_generation_tokens)
+        self._log_histogram(self.metrics.histogram_batch_num_tokens,
+                            [stats.num_prompt_tokens + stats.num_generation_tokens])
         self._log_histogram(self.metrics.histogram_time_to_first_token,
                             stats.time_to_first_tokens)
         self._log_histogram(self.metrics.histogram_time_per_output_token,
