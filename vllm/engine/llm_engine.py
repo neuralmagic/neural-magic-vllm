@@ -785,13 +785,17 @@ class LLMEngine:
 
         return Stats(
             now=now,
+            # System stats.
             num_running=num_running,
             num_swapped=num_swapped,
             num_waiting=num_waiting,
             gpu_cache_usage=gpu_cache_usage,
             cpu_cache_usage=cpu_cache_usage,
+            # Iteration stats.
+            prompt_run=prompt_run,
             num_prompt_tokens=num_prompt_tokens,
             num_generation_tokens=num_generation_tokens,
+            # Request stats.
             time_to_first_tokens=time_to_first_tokens,
             time_per_output_tokens=time_per_output_tokens,
             time_e2e_requests=time_e2e_requests,

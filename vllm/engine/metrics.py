@@ -61,9 +61,29 @@ class Metrics:
             name="vllm:generation_tokens_total",
             documentation="Number of generation tokens processed.",
             labelnames=labelnames)
-        self.histogram_batch_num_tokens = Histogram(
-            name="vllm:batch_tokens_total",
-            documentation="Histogram of number of total tokens per batch.",
+        self.counter_num_prefill_iterations = Counter(
+            name="vllm:prefill_iterations_total",
+            documentation="Number of prefill iterations. "
+                "Iterations with chunked prefill are counted here.",
+            labelnames=labelnames),
+        self.counter_num_decode_iterations = Counter(
+            name="vllm:decode_iterations_total",
+            documentation="Number of decode iterations.",
+            labelnames=labelnames),
+        # self.counter_prefill_iteration_time = Counter(
+        #     name="vllm:prefill_iteration_time_seconds",
+        #     documentation="Amount of time spent in prefill iterations, including "
+        #         "pre and post-processing (schedule / forward / process outputs). "
+        #         "Iterations with chunked prefill are counted here.",
+        #     labelnames=labelnames),
+        # self.counter_decode_iteration_time = Counter(
+        #     name="vllm:decode_iteration_time_seconds",
+        #     documentation="Amount of time spent in decode iterations, including "
+        #         "pre and post-processing (schedule / forward / process outputs). "
+        # ),
+        self.histogram_iteration_num_tokens = Histogram(
+            name="vllm:iteration_num_tokens_total",
+            documentation="Histogram of number of total tokens per iteration.",
             labelnames=labelnames,
             buckets=[1, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192]
         )
@@ -151,12 +171,13 @@ class Stats:
     cpu_cache_usage: float
 
     # Raw stats from last model iteration.
+    prompt_run: bool
     num_prompt_tokens: int
     num_generation_tokens: int
+    
+    # Raw stats for finished requests.
     time_to_first_tokens: List[float]
     time_per_output_tokens: List[float]
-
-    # Raw stats for finished requests.
     time_e2e_requests: List[float]
     time_inference_requests: List[float]
     time_queue_requests: List[float]
@@ -210,7 +231,11 @@ class StatLogger:
                           stats.num_prompt_tokens)
         self._log_counter(self.metrics.counter_generation_tokens,
                           stats.num_generation_tokens)
-        self._log_histogram(self.metrics.histogram_batch_num_tokens,
+        self._log_counter(self.metrics.counter_num_prefill_iterations,
+                          (1 if stats.prompt_run else 0))
+        self._log_counter(self.metrics.counter_num_decode_iterations,
+                          (0 if stats.prompt_run else 1))
+        self._log_histogram(self.metrics.histogram_iteration_num_tokens,
                             [stats.num_prompt_tokens + stats.num_generation_tokens])
         self._log_histogram(self.metrics.histogram_time_to_first_token,
                             stats.time_to_first_tokens)
