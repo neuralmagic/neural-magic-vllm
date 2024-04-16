@@ -145,3 +145,4 @@ def get_model(model_config: ModelConfig, device_config: DeviceConfig,
                 model_config.revision,
             )
     return model.eval()
+
