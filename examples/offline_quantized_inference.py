@@ -17,7 +17,7 @@ sampling_params = SamplingParams(temperature=0.0, top_k = 1,max_tokens=20)
 
 # Create an LLM.
 llm = LLM(
-    model=model_path,
+    model="nm-testing/Nous-Hermes-Llama2-13b-smoothquant",
     gpu_memory_utilization=0.9,
     max_model_len=2048,
     quantization="smoothquant",

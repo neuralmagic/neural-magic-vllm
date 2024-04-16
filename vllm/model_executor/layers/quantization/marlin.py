@@ -91,13 +91,15 @@ class MarlinLinearMethod(LinearMethodBase):
 
     def create_weights(
         self,
+        layer_name: str,
         input_size_per_partition: int,
-        output_size_per_partition: int,
+        output_sizes_per_partition: List[int],
         input_size: int,
         output_size: int,
         params_dtype: torch.dtype,
     ) -> Dict[str, Any]:
-        del output_size  # Unused.
+        del layer_name, input_size, output_size # Unused.
+        output_size_per_partition = sum(output_sizes_per_partition)
 
         if params_dtype != torch.float16:
             raise ValueError(
