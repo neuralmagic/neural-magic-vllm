@@ -89,13 +89,16 @@ class GPTQLinearMethod(LinearMethodBase):
 
     def create_weights(
         self,
+        layer_name: str,
         input_size_per_partition: int,
-        output_size_per_partition: int,
+        output_sizes_per_partition: List[int],
         input_size: int,
         output_size: int,
         params_dtype: torch.dtype,
     ) -> Dict[str, Any]:
-        del output_size  # Unused.
+        del output_size, layer_name  # Unused.
+        output_size_per_partition = sum(output_sizes_per_partition)
+
         if input_size_per_partition % self.quant_config.group_size != 0:
             raise ValueError(
                 "The input size is not aligned with the quantized "

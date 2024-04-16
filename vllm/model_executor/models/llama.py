@@ -57,17 +57,22 @@ class LlamaMLP(nn.Module):
         hidden_size: int,
         intermediate_size: int,
         hidden_act: str,
+        parent_name: str,
         linear_method: Optional[LinearMethodBase] = None,
     ) -> None:
         super().__init__()
         self.gate_up_proj = MergedColumnParallelLinear(
-            hidden_size, [intermediate_size] * 2,
+            layer_name=f"{parent_name}.gate_up_proj",
+            input_size=hidden_size,
+            output_sizes=[intermediate_size] * 2,
             bias=False,
             linear_method=linear_method)
-        self.down_proj = RowParallelLinear(intermediate_size,
-                                           hidden_size,
-                                           bias=False,
-                                           linear_method=linear_method)
+        self.down_proj = RowParallelLinear(
+            layer_name=f"{parent_name}.down_proj",
+            input_size=intermediate_size,
+            output_size=hidden_size,
+            bias=False,
+            linear_method=linear_method)
         if hidden_act != "silu":
             raise ValueError(f"Unsupported activation: {hidden_act}. "
                              "Only silu is supported for now.")
@@ -87,6 +92,7 @@ class LlamaAttention(nn.Module):
         hidden_size: int,
         num_heads: int,
         num_kv_heads: int,
+        parent_name: str,
         rope_theta: float = 10000,
         rope_scaling: Optional[Dict[str, Any]] = None,
         max_position_embeddings: int = 8192,
@@ -127,16 +133,18 @@ class LlamaAttention(nn.Module):
         self.kv_scale = 1.0
 
         self.qkv_proj = QKVParallelLinear(
-            hidden_size,
-            self.head_dim,
-            self.total_num_heads,
-            self.total_num_kv_heads,
+            layer_name=f"{parent_name}.qkv_proj",
+            hidden_size=hidden_size,
+            head_size=self.head_dim,
+            total_num_heads=self.total_num_heads,
+            total_num_kv_heads=self.total_num_kv_heads,
             bias=bias,
             linear_method=linear_method,
         )
         self.o_proj = RowParallelLinear(
-            self.total_num_heads * self.head_dim,
-            hidden_size,
+            layer_name=f"{parent_name}.o_proj",
+            input_size=self.total_num_heads * self.head_dim,
+            output_size=hidden_size,
             bias=bias,
             linear_method=linear_method,
         )
@@ -175,6 +183,7 @@ class LlamaDecoderLayer(nn.Module):
     def __init__(
         self,
         config: LlamaConfig,
+        parent_name: str,
         linear_method: Optional[LinearMethodBase] = None,
     ) -> None:
         super().__init__()
@@ -192,6 +201,7 @@ class LlamaDecoderLayer(nn.Module):
             rope_theta=rope_theta,
             rope_scaling=rope_scaling,
             max_position_embeddings=max_position_embeddings,
+            parent_name=f"{parent_name}.self_attn",
             linear_method=linear_method,
             bias=getattr(config, "bias", False),
             sliding_window=sliding_window,
@@ -200,6 +210,7 @@ class LlamaDecoderLayer(nn.Module):
             hidden_size=self.hidden_size,
             intermediate_size=config.intermediate_size,
             hidden_act=config.hidden_act,
+            parent_name=f"{parent_name}.mlp",
             linear_method=linear_method,
         )
         self.input_layernorm = RMSNorm(config.hidden_size,
@@ -242,7 +253,7 @@ class LlamaModel(nn.Module):
         self,
         config: LlamaConfig,
         linear_method: Optional[LinearMethodBase] = None,
-        lora_config: Optional[LoRAConfig] = None,
+        lora_config: Optional[LoRAConfig] = None
     ) -> None:
         super().__init__()
         self.config = config
@@ -257,8 +268,10 @@ class LlamaModel(nn.Module):
             org_num_embeddings=config.vocab_size,
         )
         self.layers = nn.ModuleList([
-            LlamaDecoderLayer(config, linear_method)
-            for _ in range(config.num_hidden_layers)
+            LlamaDecoderLayer(config, 
+                              parent_name=f"model.layers.{idx}", 
+                              linear_method=linear_method)
+            for idx in range(config.num_hidden_layers)
         ])
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
@@ -386,10 +399,12 @@ class LlamaForCausalLM(nn.Module):
             ("gate_up_proj", "up_proj", 1),
         ]
         params_dict = dict(self.named_parameters())
+
         for name, loaded_weight in hf_model_weights_iterator(
                 model_name_or_path, cache_dir, load_format, revision):
             # Update name of the loaded_weight if needed by the LinearMethod.
-            name = self.linear_method.maybe_update_loaded_weight_name(name)
+            if self.linear_method:
+                name = self.linear_method.maybe_update_loaded_weight_name(name)
 
             if "rotary_emb.inv_freq" in name:
                 continue
