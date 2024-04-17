@@ -51,6 +51,7 @@ jobs:
         with:
             label: aws-avx2-32G-a10g-24G
             timeout: 16
+            gitref: ${{ github.ref }}
             python: 3.10.12
             whl: ${{ needs.BUILD.outputs.whl }}
             tarfile: ${{ needs.BUILD.outputs.tarfile }}
