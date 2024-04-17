@@ -5,6 +5,7 @@ from typing import List, Optional
 import torch
 from xformers import ops as xops
 from xformers.ops.fmha.attn_bias import (BlockDiagonalCausalMask,
+                                         BlockDiagonalMask,
                                          LowerTriangularMaskWithTensorBias)
 
 from vllm.model_executor.input_metadata import InputMetadata
@@ -215,7 +216,16 @@ class XFormersBackend:
                     input_metadata)
 
         if input_metadata.attn_bias == "not_causal":
-            input_metadata.attn_bias = None
+            if self.alibi_slopes is None:
+                attn_bias = BlockDiagonalMask.from_seqlens(
+                    [1,1],input_metadata.prompt_lens)
+                if self.sliding_window is not None:
+                    attn_bias = attn_bias.make_local_attention(
+                        self.sliding_window)
+                input_metadata.attn_bias = [attn_bias]
+            else:
+                assert("Combination of non-causal masking with alibi slopes not yet supported.")
+
 
         op = xops.fmha.MemoryEfficientAttentionFlashAttentionOp[0] if (
             is_hip()) else None

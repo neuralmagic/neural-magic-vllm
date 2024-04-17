@@ -23,7 +23,8 @@ prompts = [
     #"Who are you?",
     #"Who are you?",
     #"How do",
-    "Who aren't you?", # <pad><pad><pad><pad>
+    "Who aren't you?",
+    #"Who aren't you?<pad><pad><pad><pad>", # 
     "Who are you? Write a very long response.",
 ]
 
@@ -64,6 +65,7 @@ sampling_params = SamplingParams(max_tokens=max_tokens, temperature=0)
 
 vllm_outputs = model.generate(
     prompts,
+#    prompt_token_ids=input_ids.tolist(),
     sampling_params=sampling_params
 )
 

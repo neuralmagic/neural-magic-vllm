@@ -16,7 +16,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ PyTorch T5 model."""
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import math
 import copy
@@ -29,6 +29,7 @@ import torch.nn.functional as F
 import torch
 from torch import nn
 from transformers import T5Config
+from transformers.modeling_utils import ModuleUtilsMixin
 
 from vllm.model_executor.input_metadata import InputMetadata
 from vllm.model_executor.layers.activation import get_act_fn
@@ -53,6 +54,94 @@ from vllm.model_executor.weight_utils import (
 
 KVCache = Tuple[torch.Tensor, torch.Tensor]
 
+"""
+afeldman-nm, 2024-04-17:
+
+Taken from
+
+
+
+& modified
+"""
+def _prepare_attention_mask_for_generation(
+    inputs: torch.Tensor,
+    pad_token_id: Optional[int],
+    eos_token_id: Optional[Union[int, List[int]]],
+) -> torch.LongTensor:
+    is_input_ids = len(inputs.shape) == 2 and inputs.dtype in [torch.int, torch.long]
+    is_pad_token_in_inputs = (pad_token_id is not None) and (pad_token_id in inputs)
+    if isinstance(eos_token_id, int):
+        eos_token_id = [eos_token_id]
+    is_pad_token_not_equal_to_eos_token_id = (eos_token_id is None) or (pad_token_id not in eos_token_id)
+
+    # Check if input is input_ids and padded -> only then is attention_mask defined
+    if is_input_ids and is_pad_token_in_inputs and is_pad_token_not_equal_to_eos_token_id:
+        return inputs.ne(pad_token_id).long()
+    else:
+        return torch.ones(inputs.shape[:2], dtype=torch.long, device=inputs.device)
+
+"""
+afeldman-nm, 2024-04-17:
+
+Taken from
+
+https://github.com/huggingface/transformers/blob/main/src/transformers/modeling_utils.py
+
+& modified
+"""
+def get_extended_attention_mask(
+    attention_mask: torch.Tensor, input_shape: Tuple[int], dtype: torch.float , is_decoder: bool, device: torch.device = None
+) -> torch.Tensor:
+    """
+    Makes broadcastable attention and causal masks so that future and masked tokens are ignored.
+
+    Arguments:
+        attention_mask (`torch.Tensor`):
+            Mask with ones indicating tokens to attend to, zeros for tokens to ignore.
+        input_shape (`Tuple[int]`):
+            The shape of the input to the model.
+
+    Returns:
+        `torch.Tensor` The extended attention mask, with a the same dtype as `attention_mask.dtype`.
+    """
+    # if dtype is None:
+    #     dtype = model.dtype
+
+    # if not (attention_mask.dim() == 2 and self.config.is_decoder):
+    #     # show warning only if it won't be shown in `create_extended_attention_mask_for_decoder`
+    #     if device is not None:
+    #         assert False, ""
+    #         warnings.warn(
+    #             "The `device` argument is deprecated and will be removed in v5 of Transformers.", FutureWarning
+    #         )
+
+    # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
+    # ourselves in which case we just need to make it broadcastable to all heads.
+    if attention_mask.dim() == 3:
+        extended_attention_mask = attention_mask[:, None, :, :]
+    elif attention_mask.dim() == 2:
+        # Provided a padding mask of dimensions [batch_size, seq_length]
+        # - if the model is a decoder, apply a causal mask in addition to the padding mask
+        # - if the model is an encoder, make the mask broadcastable to [batch_size, num_heads, seq_length, seq_length]
+        if is_decoder:
+            extended_attention_mask = ModuleUtilsMixin.create_extended_attention_mask_for_decoder(
+                input_shape, attention_mask, device
+            )
+        else:
+            extended_attention_mask = attention_mask[:, None, None, :]
+    else:
+        raise ValueError(
+            f"Wrong shape for input_ids (shape {input_shape}) or attention_mask (shape {attention_mask.shape})"
+        )
+
+    # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
+    # masked positions, this operation will create a tensor which is 0.0 for
+    # positions we want to attend and the dtype's smallest value for masked positions.
+    # Since we are adding it to the raw scores before the softmax, this is
+    # effectively the same as removing these entirely.
+    extended_attention_mask = extended_attention_mask.to(dtype=dtype)  # fp16 compatibility
+    extended_attention_mask = (1.0 - extended_attention_mask) * torch.finfo(dtype).min
+    return extended_attention_mask
 
 class T5LayerNorm(nn.Module):
 
@@ -312,7 +401,7 @@ class T5Attention(nn.Module):
             
             for head in range(self.n_heads):
                 biases[head].append(values[head][:,:key_length])
-        
+
         biases = to_block_diagonal_nested(biases) # List of per-head block-diagonal relative position encoding matrices
         biases = torch.stack(biases).unsqueeze(0).to(dtype).to(device).contiguous() # 1 x (# heads) x (num_tokens) x (num_tokens)
 
@@ -341,6 +430,7 @@ class T5Attention(nn.Module):
         # seq_len = hidden_states.shape[1]
         seq_len = input_metadata.max_seq_len
 
+
         key_cache = None
         value_cache = None
         if kv_cache is not None:
@@ -355,6 +445,9 @@ class T5Attention(nn.Module):
             v, _ = self.v(hidden_states)
 
             if input_metadata.attn_bias is None:
+                # Convert bool attention mask to torch tensor,
+                # then add relative positional encoding
+
                 input_metadata.attn_bias = self.compute_bias(
                     prompt_lens, prompt_lens, dtype=q.dtype, device=q.device)
 
@@ -379,12 +472,31 @@ class T5Attention(nn.Module):
                     # this step (probably one), and the "key side length" equal to the
                     # number of decoder-generated tokens up to this point, *padded to
                     # block size*
+                    total_context_len = sum(context_lens)
+                    padded_context_len = (total_context_len + block_size - 1) // block_size * block_size
+                    last_sequence_padding_len = padded_context_len - total_context_len
+                    padded_last_sequence_len = context_lens[-1] + last_sequence_padding_len
                     input_metadata.attn_bias = self.compute_bias(
-                        context_lens, [(context_len + block_size - 1) // block_size *
-                        block_size for context_len in context_lens], dtype=q.dtype, device=q.device)
+                        context_lens, context_lens[0:-1] + [padded_last_sequence_len], dtype=q.dtype, device=q.device)
+
+                    # Slice attention bias
+                    # Ranges for slicing (start and end indices)
+                    ends = [sum(context_lens[:i+1]) for i in range(len(context_lens))]    # Ending indices of slices (exclusive)
+                    starts = [_end - seq_len for _end in ends]  # Starting indices of slices
+                    #ends = [_end + 1 for _end in ends]
+
+                    # Constructing the full list of indices
+                    indices = []
+                    for start, end in zip(starts, ends):
+                        indices.extend(range(start, end))
+
+                    # Convert indices list to a tensor
+                    indices_tensor = torch.tensor(indices)
+
+                    #input_metadata.attn_bias[0][:,:,-1,:] = torch.finfo(dtype).min
 
                     input_metadata.attn_bias = input_metadata.attn_bias[0][:, :,
-                                                            -seq_len:, :].contiguous()
+                                                            indices_tensor, :].contiguous()
 
                     '''
                     [(context_len + block_size - 1) // block_size *
@@ -590,7 +702,7 @@ class T5Stack(nn.Module):
         input_metadata_dict: InputMetadata,
         encoder_hidden_states: Optional[torch.Tensor],
     ) -> torch.Tensor:
-        hidden_states = self.embed_tokens(input_ids)
+        hidden_states: torch.Tensor = self.embed_tokens(input_ids)
 
         for i, layer_module in enumerate(self.block):
             kv_cache = kv_caches[i] if self.is_decoder else None
