@@ -1,0 +1,121 @@
+name: test
+on:
+    workflow_call:
+        inputs:
+            label:
+                description: "requested runner label (specifies instance)"
+                type: string
+                required: true
+            timeout:
+                description: "time limit for run in minutes "
+                type: string
+                required: true
+            gitref:
+                description: "git commit hash or branch name"
+                type: string
+                required: true
+            python:
+                description: "python version, e.g. 3.10.12"
+                type: string
+                required: true
+            whl:
+                description: "whl to test (variable appears late binding so unusable outside 'download artifact')"
+                type: string
+                required: true
+            tarfile:
+                description: "source distribution (variable appears late binding so unusable outside 'download artifact')"
+                type: string
+                required: true
+
+    workflow_dispatch:
+        inputs:
+            label:
+                description: "requested runner label (specifies instance)"
+                type: string
+                required: true
+            timeout:
+                description: "time limit for run in minutes "
+                type: string
+                required: true
+            gitref:
+                description: "git commit hash or branch name"
+                type: string
+                required: true
+            python:
+                description: "python version, e.g. 3.10.12"
+                type: string
+                required: true
+            whl:
+                description: "whl to test (variable appears late binding so unusable outside 'download artifact')"
+                type: string
+                required: true
+            tarfile:
+                description: "source distribution (variable appears late binding so unusable outside 'download artifact')"
+                type: string
+                required: true
+
+jobs:
+
+    PUBLISH:
+
+        runs-on: ${{ inputs.label }}
+        timeout-minutes: ${{ fromJson(inputs.timeout ) }}
+
+        steps:
+
+            - name: checkout
+              id: checkout
+              uses: actions/checkout@v4
+              with:
+                fetch-depth: 0
+                ref: ${{ inputs.gitref }}
+                submodules: recursive
+
+            - name: setenv
+              id: setenv
+              uses: ./.github/actions/nm-set-env/
+              with:
+                hf_token: ${{ secrets.NM_HF_TOKEN }}
+                Gi_per_thread: 1
+
+            - name: set python
+              id: set_python
+              uses: ./.github/actions/nm-set-python/
+              with:
+                  python: ${{ inputs.python }}
+                  venv: UPLOAD
+
+            - name: download whl
+              id: whl-download
+              uses: actions/download-artifact@v4
+              with:
+                name: ${{ inputs.whl }}
+                path: ${{ inputs.whl }}
+
+            - name: download tarfile
+              id: tarfile-download
+              uses: actions/download-artifact@v4
+              with:
+                name: ${{ inputs.tarfile }}
+                path: ${{ inputs.tarfile }}
+
+            - name: take a look
+              run: |
+                ls -alh dist
+
+            # - name: upload tar.gz
+            #   uses: actions/upload-artifact@v4
+            #   if: success() || failure()
+            #   with:
+            #     name: ${{ inputs.python }}-${{ steps.build.outputs.tarfile }}
+            #     path: dist/${{ steps.build.outputs.tarfile }}
+            #     retention-days: 10
+
+            # - name: upload private pypi
+            #   uses: neuralmagic/nm-actions/actions/nm-upload-whl@main
+            #   with:
+            #     server: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
+            #     port: 8080
+            #     username: ${{ secrets.NM_PRIVATE_PYPI_USER }}
+            #     password: ${{ secrets.NM_PRIVATE_PYPI_AUTH }}
+            #     whl: dist/${{ steps.build.outputs.whl }}
