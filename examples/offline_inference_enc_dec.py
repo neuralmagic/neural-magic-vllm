@@ -17,13 +17,13 @@ warnings.filterwarnings("ignore",
                         category=UserWarning,
                         module="transformers.generation.utils.*")
 
-hf_model_id = "t5-small"
+hf_model_id = "google/flan-t5-small" # t5-small
 dtype = "float32"
 prompts = [
     #"Who are you?",
     #"Who are you?",
     #"How do",
-    "Who aren't you?",
+    #"Who aren't you?",
     #"Who aren't you?<pad><pad><pad><pad>", # 
     "Who are you? Write a very long response.",
 ]
