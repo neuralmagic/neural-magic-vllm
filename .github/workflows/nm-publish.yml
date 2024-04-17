@@ -19,6 +19,14 @@ on:
                 description: "python version, e.g. 3.10.12"
                 type: string
                 required: true
+            whl:
+                description: "whl to test (variable appears late binding so unusable outside 'download artifact')"
+                type: string
+                required: true
+            tarfile:
+                description: "source distribution (variable appears late binding so unusable outside 'download artifact')"
+                type: string
+                required: true
 
     workflow_call:
         inputs:
@@ -36,6 +44,14 @@ on:
                 required: true
             python:
                 description: "python version, e.g. 3.10.12"
+                type: string
+                required: true
+            whl:
+                description: "whl to test (variable appears late binding so unusable outside 'download artifact')"
+                type: string
+                required: true
+            tarfile:
+                description: "source distribution (variable appears late binding so unusable outside 'download artifact')"
                 type: string
                 required: true
 
