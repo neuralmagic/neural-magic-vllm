@@ -65,7 +65,6 @@ sampling_params = SamplingParams(max_tokens=max_tokens, temperature=0)
 
 vllm_outputs = model.generate(
     prompts,
-#    prompt_token_ids=input_ids.tolist(),
     sampling_params=sampling_params
 )
 
