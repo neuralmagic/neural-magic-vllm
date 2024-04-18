@@ -97,14 +97,14 @@ jobs:
                 python: ${{ inputs.python }}
                 venv: ${{ env.VENV_BASE }}
 
-            - name: create testmo run
-              id: create_testmo_run
-              uses: ./.github/actions/nm-testmo-run-create/
-              if: success() || failure()
-              with:
-                testmo_url: https://neuralmagic.testmo.net
-                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-                source: 'build-test'
+            # - name: create testmo run
+            #   id: create_testmo_run
+            #   uses: ./.github/actions/nm-testmo-run-create/
+            #   if: success() || failure()
+            #   with:
+            #     testmo_url: https://neuralmagic.testmo.net
+            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+            #     source: 'build-test'
 
             - name: python lint
               id: lint
@@ -161,10 +161,10 @@ jobs:
                 if [ -z "${BUILD_STATUS}" ] || [ "${BUILD_STATUS}" -ne "0" ]; then exit 1; fi
                 if [ -z "${WHL_STATUS}" ] || [ "${WHL_STATUS}" -ne "0" ]; then exit 1; fi
 
-            - name: complete testmo run
-              uses: ./.github/actions/nm-testmo-run-complete/
-              if: success() || failure()
-              with:
-                testmo_url: https://neuralmagic.testmo.net
-                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-                testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
+            # - name: complete testmo run
+            #   uses: ./.github/actions/nm-testmo-run-complete/
+            #   if: success() || failure()
+            #   with:
+            #     testmo_url: https://neuralmagic.testmo.net
+            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+            #     testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
