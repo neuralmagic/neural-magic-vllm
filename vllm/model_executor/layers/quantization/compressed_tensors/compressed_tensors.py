@@ -17,7 +17,8 @@ class Int8GEMM(object):
 
     def __init__(self):
         if not hasattr(self, "i8cugemm"):
-            self.i8cugemm = ops.I8CUGEMM()
+           # self.i8cugemm = ops.I8CUGEMM()
+           pass
 
     def __new__(cls, *args, **kwargs):
         if not hasattr(Int8GEMM, "_instance"):
@@ -27,7 +28,8 @@ class Int8GEMM(object):
         return Int8GEMM._instance
 
     def get_i8cugemm(self):
-        return self.i8cugemm
+        pass
+        #return self.i8cugemm
 
 
 class CompressedTensorsConfig(QuantizationConfig):
@@ -41,13 +43,26 @@ class CompressedTensorsConfig(QuantizationConfig):
         # activations and weight attributes
         self._config_to_schema_mapping = {}
 
+    def get_linear_method(self) -> "CompressedTensorsLinearMethod":
+        return CompressedTensorsLinearMethod(self)
+
+    def get_scaled_act_names(self) -> List[str]:
+        return []
+
+    # Needed to v
+    def get_supported_act_dtypes(cls) -> List[torch.dtype]:
+        return [torch.float16]
+
+    # Need to figure it out
+    def get_min_capability(self) -> int:
+        return 60
+
     # Need a smart way to store the combinations
     @property
     def config_to_schema_mapping(self):
         return self._config_to_schema_mapping
 
-    @classmethod
-    def get_name(cls) -> str:
+    def get_name(self) -> str:
         return "compressed_tensors"
 
     # parse through the quantization_config keys
@@ -63,7 +78,9 @@ class CompressedTensorsConfig(QuantizationConfig):
         ignore = config.get("ignore")
         fake_quant = config.get("format") == "fake_quant"
 
-        for key, quant_config in config.items():
+        print(config["config_groups"])
+
+        for key, quant_config in config["config_groups"].items():
             weight_attributes = quant_config.get("weights")
             targets = quant_config.get(
                 "targets")  # list of layers to target with this configuration
@@ -73,6 +90,7 @@ class CompressedTensorsConfig(QuantizationConfig):
                 layer_quant_details[target]["weight"] = weight_attributes
                 layer_quant_details[target]["act"] = input_activations
 
+        print("INSIDE from_config")
         return cls(layer_quant_details=layer_quant_details,
                    ignore=ignore,
                    fake_quant=fake_quant)
@@ -88,8 +106,8 @@ class CompressedTensorsConfig(QuantizationConfig):
     # Take the layer name and get the appropriate scheme
     # Have to first map target to linear name
     # Then use attributes to determine the scheme mapping
-    def get_scheme(self, layer: torch.nn.Module, layer_name: str):
-        if layer_name in self.ignore:
+    def get_scheme(self, layer: torch.nn.Module):
+        if layer in self.ignore:
             return None
 
         for target in self.layer_quant_details:
@@ -120,19 +138,19 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
                        output_sizes_per_partition: List[int], input_size: int,
                        output_size: int, params_dtype: torch.dtype):
 
-        scheme = self.quantization_config.get_scheme(layer_name)
+        scheme = self.quantization_config.get_scheme(layer)
         weights = dict()
 
         # From the state dict
         input_scale = Parameter(
-            torch.empty(1, device="cuda", dtype=torch.float32))
+            torch.empty(1, device="cuda", dtype=torch.float32), requires_grad=False)
         input_zero_point = Parameter(
-            torch.empty(1, device="cuda", dtype=torch.int8))
+            torch.empty(1, device="cuda", dtype=torch.int8), requires_grad=False)
 
         weight_scale = Parameter(
-            torch.empty(1, device="cuda", dtype=torch.float32))
+            torch.empty(1, device="cuda", dtype=torch.float32), requires_grad=False)
         weight_zero_point = Parameter(
-            torch.empty(1, device="cuda", dtype=torch.int8))
+            torch.empty(1, device="cuda", dtype=torch.int8), requires_grad=False)
 
         # Will be float16/32 if self.fake_quant is set to True
         print(params_dtype)
@@ -149,10 +167,10 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         weights["weight"] = weight
 
         weights["input_scale"] = input_scale
-        weights["input_zero_point"] = input_zero_point
+        #weights["input_zero_point"] = input_zero_point
 
         weights["weight_scale"] = weight_scale
-        weights["weight_zero_point"] = weight_zero_point
+        #weights["weight_zero_point"] = weight_zero_point
 
         weights["logical_widths"] = output_sizes_per_partition
 
