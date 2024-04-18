@@ -14,7 +14,7 @@ _QUANTIZATION_CONFIG_REGISTRY = {
     "gptq": GPTQConfig,
     "squeezellm": SqueezeLLMConfig,
     "marlin": MarlinConfig,
-    "compressed_tensors": CompressedTensorsConfig
+    "sparseml": CompressedTensorsConfig
 }
 
 

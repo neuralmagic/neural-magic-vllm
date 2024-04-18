@@ -69,7 +69,7 @@ class LlamaMLP(nn.Module):
         self.down_proj = RowParallelLinear(
             layer_name=f"{parent_name}.down_proj",
             input_size=intermediate_size,
-            hidden_sizes=hidden_size,
+            output_size=hidden_size,
             bias=False,
             linear_method=linear_method)
         if hidden_act != "silu":
@@ -398,6 +398,9 @@ class LlamaForCausalLM(nn.Module):
             ("gate_up_proj", "up_proj", 1),
         ]
         params_dict = dict(self.named_parameters())
+        for k in params_dict:
+            print(k)
+            print("\n")
         for name, loaded_weight in weights:
             if "rotary_emb.inv_freq" in name:
                 continue

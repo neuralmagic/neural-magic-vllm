@@ -119,7 +119,7 @@ class ModelConfig:
 
     def _verify_quantization(self) -> None:
         supported_quantization = [
-            "awq", "gptq", "squeezellm", "marlin", "compressed_tensors"
+            "awq", "gptq", "squeezellm", "marlin", "sparseml"
         ]
         rocm_not_supported_quantization = ["awq", "marlin"]
         if self.quantization is not None:
@@ -152,6 +152,7 @@ class ModelConfig:
                     f"({self.quantization}).")
 
         if self.quantization is not None:
+            print(self.quantization)
             if self.quantization not in supported_quantization:
                 raise ValueError(
                     f"Unknown quantization method: {self.quantization}. Must "
