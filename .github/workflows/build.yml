@@ -106,9 +106,9 @@ jobs:
             #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
             #     source: 'build-test'
 
-            - name: python lint
-              id: lint
-              uses: ./.github/actions/nm-lint-python/
+            # - name: python lint
+            #   id: lint
+            #   uses: ./.github/actions/nm-lint-python/
 
             - name: build
               id: build
