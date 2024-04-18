@@ -22,7 +22,7 @@ runs:
         pyenv local ${{ inputs.python }}
         COMMIT=${{ github.sha }}
         VENV="${{ inputs.venv }}-${COMMIT:0:7}"
-        pyenv virtualenv ${VENV}
+        pyenv virtualenv ${VENV} || true
         source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
         pyenv versions
         VERSION=$(python --version)
