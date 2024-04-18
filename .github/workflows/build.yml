@@ -70,6 +70,10 @@ jobs:
 
         steps:
 
+            - name: okay
+              run: |
+                whoami
+
             - name: checkout
               id: checkout
               uses: actions/checkout@v4
