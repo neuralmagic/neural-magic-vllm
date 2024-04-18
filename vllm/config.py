@@ -118,7 +118,9 @@ class ModelConfig:
         self.tokenizer_mode = tokenizer_mode
 
     def _verify_quantization(self) -> None:
-        supported_quantization = ["awq", "gptq", "squeezellm", "marlin"]
+        supported_quantization = [
+            "awq", "gptq", "squeezellm", "marlin", "compressed_tensors"
+        ]
         rocm_not_supported_quantization = ["awq", "marlin"]
         if self.quantization is not None:
             self.quantization = self.quantization.lower()
@@ -883,6 +885,7 @@ class VisionLanguageConfig:
 
 
 _STR_DTYPE_TO_TORCH_DTYPE = {
+    "int8": torch.int8,
     "half": torch.float16,
     "float16": torch.float16,
     "float": torch.float32,
