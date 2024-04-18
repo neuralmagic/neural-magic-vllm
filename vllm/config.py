@@ -952,6 +952,7 @@ class VisionLanguageConfig:
 
 
 _STR_DTYPE_TO_TORCH_DTYPE = {
+    "int8": torch.int8,
     "half": torch.float16,
     "float16": torch.float16,
     "float": torch.float32,

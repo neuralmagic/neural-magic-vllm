@@ -1,4 +1,5 @@
-from enum import Enum 
+from enum import Enum
+
 
 class Strategy(Enum):
     TENSOR = "tensor"
