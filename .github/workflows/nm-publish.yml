@@ -81,3 +81,21 @@ jobs:
               with:
                 python: ${{ inputs.python }}
                 venv: UPLOAD
+
+            - name: download whl
+              id: whl-download
+              uses: actions/download-artifact@v4
+              with:
+                name: ${{ inputs.whl }}
+                path: downloads/${{ inputs.whl }}
+
+            - name: download whl
+              id: tarfile-download
+              uses: actions/download-artifact@v4
+              with:
+                name: ${{ inputs.tarfile }}
+                path: downloads/${{ inputs.tarfile }}
+
+            - name: take a look
+              run: |
+                ls -alhr downloads
