@@ -18,7 +18,7 @@ QUANTIZATION_METHODS = {
     "gptq": GPTQConfig,
     "squeezellm": SqueezeLLMConfig,
     "marlin": MarlinConfig,
-    "compressed_tensors": CompressedTensorsConfig
+    "sparseml": CompressedTensorsConfig
 }
 
 
