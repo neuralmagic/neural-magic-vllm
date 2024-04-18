@@ -56,6 +56,9 @@ on:
         type: string
         required: true
 
+env:
+    VENV_BASE: "BUILD"
+
 jobs:
 
     BUILD:
@@ -88,13 +91,7 @@ jobs:
               uses: ./.github/actions/nm-set-python/
               with:
                 python: ${{ inputs.python }}
-                venv: TEST
-
-            - name: hf cache
-              id: hf_cache
-              uses: ./.github/actions/nm-hf-cache/
-              with:
-                fs_cache: ${{ secrets.HF_FS_CACHE }}
+                venv: ${{ env.VENV_BASE }}
 
             - name: create testmo run
               id: create_testmo_run
@@ -114,7 +111,7 @@ jobs:
               uses: ./.github/actions/nm-build-vllm/
               with:
                 python: ${{ inputs.python }}
-                venv: TEST
+                venv: ${{ env.VENV_BASE }}
                 pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
 
             - name: upload whl
