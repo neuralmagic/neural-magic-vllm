@@ -1,5 +1,5 @@
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 from torch.nn.parameter import Parameter
@@ -9,6 +9,7 @@ from vllm.model_executor.layers.linear import LinearMethodBase
 from vllm.model_executor.layers.quantization.base_config import (  # noqa: E501
     QuantizationConfig)
 from vllm.model_executor.utils import set_weight_attrs
+
 
 # Why is this needed?
 class Int8GEMM(object):
@@ -87,13 +88,13 @@ class CompressedTensorsConfig(QuantizationConfig):
     # Take the layer name and get the appropriate scheme
     # Have to first map target to linear name
     # Then use attributes to determine the scheme mapping
-    def get_scheme(self, layer_name: str):
+    def get_scheme(self, layer: torch.nn.Module, layer_name: str):
         if layer_name in self.ignore:
             return None
 
         for target in self.layer_quant_details:
             # Probably need something smarter than this?
-            if target.lower() in layer_name:
+            if target.lower() in layer.__class__.__name__.lower():
                 weight_quant = self.layer_quant_details[target]["weight"]
                 act_quant = self.layer_quant_details[target]["act"]
 
@@ -114,8 +115,9 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
 
     # Fetch the appropriate schema based on the layer name
     # Create weights using the scheme
-    def create_weights(self, layer_name: str, input_size_per_partition: int,
-                       output_size_per_partition: List[int], input_size: int,
+    def create_weights(self, layer: torch.nn.Module, layer_name: str,
+                       input_size_per_partition: int,
+                       output_sizes_per_partition: List[int], input_size: int,
                        output_size: int, params_dtype: torch.dtype):
 
         scheme = self.quantization_config.get_scheme(layer_name)
@@ -135,7 +137,7 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         # Will be float16/32 if self.fake_quant is set to True
         print(params_dtype)
         # Why is it this way (dim1/dim0 swapped?)
-        weight = Parameter(torch.empty(sum(output_size_per_partition),
+        weight = Parameter(torch.empty(sum(output_sizes_per_partition),
                                        input_size_per_partition,
                                        device="cuda",
                                        dtype=params_dtype),
@@ -152,9 +154,27 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         weights["weight_scale"] = weight_scale
         weights["weight_zero_point"] = weight_zero_point
 
-        weights["logical_widths"] = output_size_per_partition
+        weights["logical_widths"] = output_sizes_per_partition
 
         return weights
+
+    def scales_shard_splitter(
+            self, param: torch.Tensor, loaded_weight: torch.Tensor,
+            shard_id: Union[str, int]) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Index into param for for loading.
+        
+        This function is called by QKVColumnLinear and MergedColumnParallelLinear
+        during weight loading to put the scales from disk in the right spot.
+        """
+        if type(shard_id) == str:
+            qkv_idxs = {"q": 0, "k": 1, "v": 2}
+            if shard_id not in qkv_idxs:
+                raise ValueError(f"Invalid shard_id {shard_id}")
+            shard_id = qkv_idxs[shard_id]
+        elif type(shard_id) != int:
+            raise ValueError(f"Invalid shard id {shard_id}")
+
+        return param[shard_id], loaded_weight
 
     def _quantize(self, weight: torch.Tensor, weight_scale: torch.Tensor,
                   x: torch.Tensor, act_scale: torch.Tensor):
@@ -195,7 +215,7 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
                                        x=x,
                                        act_scale=act_scale)
 
-        act_weight_scale = weight_scale * act_scale # A16out = A8Out * (sw * sa)
+        act_weight_scale = weight_scale * act_scale  # A16out = A8Out * (sw * sa)
 
         x_q = x_q.view(-1, x_q.shape[-1])
         # empty tensor to store the output from the gem

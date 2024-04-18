@@ -995,7 +995,6 @@ class CUDAGraphRunner(nn.Module):
         # Return the output tensor.
         return self.output_buffers["hidden_states"]
 
-
     def __call__(self, *args, **kwargs):
         return self.forward(*args, **kwargs)
 
