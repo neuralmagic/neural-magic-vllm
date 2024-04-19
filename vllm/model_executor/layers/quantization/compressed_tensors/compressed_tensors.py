@@ -141,19 +141,24 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         scheme = self.quantization_config.get_scheme(layer)
         weights = dict()
 
-        # From the state dict
-        input_scale = Parameter(
-            torch.empty(1, device="cuda", dtype=torch.float32), requires_grad=False)
-        input_zero_point = Parameter(
-            torch.empty(1, device="cuda", dtype=torch.int8), requires_grad=False)
+        if layer_name not in self.quantization_config.ignore:
+            # From the state dict
+            input_scale = Parameter(
+                torch.empty(1, device="cuda", dtype=torch.float32), requires_grad=False)
+            input_zero_point = Parameter(
+                torch.empty(1, device="cuda", dtype=torch.int8), requires_grad=False)
 
-        weight_scale = Parameter(
-            torch.empty(1, device="cuda", dtype=torch.float32), requires_grad=False)
-        weight_zero_point = Parameter(
-            torch.empty(1, device="cuda", dtype=torch.int8), requires_grad=False)
+            weight_scale = Parameter(
+                torch.empty(1, device="cuda", dtype=torch.float32), requires_grad=False)
+            weight_zero_point = Parameter(
+                torch.empty(1, device="cuda", dtype=torch.int8), requires_grad=False)
+            
+            weights["input_scale"] = input_scale
+            weights["input_zero_point"] = input_zero_point
 
-        # Will be float16/32 if self.fake_quant is set to True
-        print(params_dtype)
+            weights["weight_scale"] = weight_scale
+            weights["weight_zero_point"] = weight_zero_point
+
         # Why is it this way (dim1/dim0 swapped?)
         weight = Parameter(torch.empty(sum(output_sizes_per_partition),
                                        input_size_per_partition,
@@ -165,12 +170,6 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
 
         weights["scheme"] = scheme
         weights["weight"] = weight
-
-        weights["input_scale"] = input_scale
-        #weights["input_zero_point"] = input_zero_point
-
-        weights["weight_scale"] = weight_scale
-        #weights["weight_zero_point"] = weight_zero_point
 
         weights["logical_widths"] = output_sizes_per_partition
 
@@ -205,6 +204,7 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
 
     def _dequantize(self, x_q: torch.Tensor, logical_widths: List[int],
                     dtype: torch.dtype, act_weight_scale: torch.Tensor):
+                    
         x_q_split = x_q.split(logical_widths, dim=-1)
         x_dq = torch.empty_like(x_q, dtype=dtype)
         x_dq_split = x_dq.split(logical_widths, dim=-1)
