@@ -394,6 +394,11 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
                     "MergedColumnParallelLinear, assume the weight is "
                     "the same for all partitions.")
 
+        if len(loaded_weight.shape) == 0:
+            loaded_weight = loaded_weight.reshape(1)
+        print(param, loaded_weight)
+        print(param_data.shape, loaded_weight.shape)
+        print("\n")
         assert param_data.shape == loaded_weight.shape
         param_data.copy_(loaded_weight)
 
@@ -575,8 +580,12 @@ class QKVParallelLinear(ColumnParallelLinear):
                     "QKVParallelLinear, assume the weight is the same "
                     "for all partitions.")
 
-        assert (param_data.shape == loaded_weight.shape or
-                (len(param_data.shape) == 0 and len(loaded_weight.shape) == 0))
+        if len(loaded_weight.shape) == 0:
+            loaded_weight = loaded_weight.reshape(1)
+        print(param_data, loaded_weight)
+        print(param_data.shape, loaded_weight.shape)
+        print("\n")
+        assert param_data.shape == loaded_weight.shape
         param_data.copy_(loaded_weight)
 
 
