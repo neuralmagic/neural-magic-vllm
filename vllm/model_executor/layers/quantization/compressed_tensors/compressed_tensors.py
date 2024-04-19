@@ -17,8 +17,8 @@ class Int8GEMM(object):
 
     def __init__(self):
         if not hasattr(self, "i8cugemm"):
-           # self.i8cugemm = ops.I8CUGEMM()
-           pass
+            # self.i8cugemm = ops.I8CUGEMM()
+            pass
 
     def __new__(cls, *args, **kwargs):
         if not hasattr(Int8GEMM, "_instance"):
@@ -143,15 +143,23 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
 
         dim = len(output_sizes_per_partition)
         if layer_name not in self.quantization_config.ignore:
-            input_scale = Parameter(
-                torch.empty(dim, device="cuda", dtype=torch.float32), requires_grad=False)
-            input_zero_point = Parameter(
-                torch.empty(1, device="cuda", dtype=torch.int8), requires_grad=False)
+            input_scale = Parameter(torch.empty(dim,
+                                                device="cuda",
+                                                dtype=torch.float32),
+                                    requires_grad=False)
+            input_zero_point = Parameter(torch.empty(1,
+                                                     device="cuda",
+                                                     dtype=torch.int8),
+                                         requires_grad=False)
 
-            weight_scale = Parameter(
-                torch.empty(dim, device="cuda", dtype=torch.float32), requires_grad=False)
-            weight_zero_point = Parameter(
-                torch.empty(1, device="cuda", dtype=torch.int8), requires_grad=False)
+            weight_scale = Parameter(torch.empty(dim,
+                                                 device="cuda",
+                                                 dtype=torch.float32),
+                                     requires_grad=False)
+            weight_zero_point = Parameter(torch.empty(1,
+                                                      device="cuda",
+                                                      dtype=torch.int8),
+                                          requires_grad=False)
 
             if dim != 1:
                 set_weight_attrs(weight_scale, {
@@ -161,7 +169,7 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
                 set_weight_attrs(input_scale, {
                     "shard_splitter": self.scales_shard_splitter,
                 })
-            
+
             weights["input_scale"] = input_scale
             weights["input_zero_point"] = input_zero_point
 
@@ -200,18 +208,15 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
 
         return param[shard_id], loaded_weight
 
-    def _quantize(self, weight: torch.Tensor, weight_scale: torch.Tensor,
-                  x: torch.Tensor, act_scale: torch.Tensor):
-        weight_q = torch.empty_like(weight, dtype=torch.int8)
-        ops.quant(weight_q, weight, weight_scale)
+    def _quantize(self, x: torch.Tensor, act_scale: torch.Tensor):
 
         x_q = torch.empty_like(x, dtype=torch.int8)
         ops.quant(x_q, x, act_scale)
-        return weight_q, x_q
+        return x_q
 
     def _dequantize(self, x_q: torch.Tensor, logical_widths: List[int],
                     dtype: torch.dtype, act_weight_scale: torch.Tensor):
-                    
+
         x_q_split = x_q.split(logical_widths, dim=-1)
         x_dq = torch.empty_like(x_q, dtype=dtype)
         x_dq_split = x_dq.split(logical_widths, dim=-1)
@@ -235,10 +240,12 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
 
         logical_widths = weights.get("logical_widths")
 
-        weight_q, x_q = self._quantize(weight=weight_dq,
-                                       weight_scale=weight_scale,
-                                       x=x,
-                                       act_scale=act_scale)
+        x_q = self._quantize(x=x, act_scale=act_scale)
+        weight_q = torch.clamp(
+            torch.round(x / weight_scale, ),
+            -128,
+            127,
+        )
 
         act_weight_scale = weight_scale * act_scale  # A16out = A8Out * (sw * sa)
 
