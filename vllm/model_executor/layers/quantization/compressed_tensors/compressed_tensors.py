@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import torch
 from torch.nn.parameter import Parameter
 
-from vllm._C import ops
+#from vllm._C import ops
 from vllm.model_executor.layers.linear import LinearMethodBase
 from vllm.model_executor.layers.quantization.base_config import (  # noqa: E501
     QuantizationConfig)
@@ -141,17 +141,26 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         scheme = self.quantization_config.get_scheme(layer)
         weights = dict()
 
+        dim = len(output_sizes_per_partition)
         if layer_name not in self.quantization_config.ignore:
-            # From the state dict
             input_scale = Parameter(
-                torch.empty(1, device="cuda", dtype=torch.float32), requires_grad=False)
+                torch.empty(dim, device="cuda", dtype=torch.float32), requires_grad=False)
             input_zero_point = Parameter(
                 torch.empty(1, device="cuda", dtype=torch.int8), requires_grad=False)
 
             weight_scale = Parameter(
-                torch.empty(1, device="cuda", dtype=torch.float32), requires_grad=False)
+                torch.empty(dim, device="cuda", dtype=torch.float32), requires_grad=False)
             weight_zero_point = Parameter(
                 torch.empty(1, device="cuda", dtype=torch.int8), requires_grad=False)
+
+            if dim != 1:
+                set_weight_attrs(weight_scale, {
+                    "shard_splitter": self.scales_shard_splitter,
+                })
+
+                set_weight_attrs(input_scale, {
+                    "shard_splitter": self.scales_shard_splitter,
+                })
             
             weights["input_scale"] = input_scale
             weights["input_zero_point"] = input_zero_point
@@ -159,7 +168,6 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
             weights["weight_scale"] = weight_scale
             weights["weight_zero_point"] = weight_zero_point
 
-        # Why is it this way (dim1/dim0 swapped?)
         weight = Parameter(torch.empty(sum(output_sizes_per_partition),
                                        input_size_per_partition,
                                        device="cuda",
@@ -172,7 +180,6 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         weights["weight"] = weight
 
         weights["logical_widths"] = output_sizes_per_partition
-
         return weights
 
     def scales_shard_splitter(
