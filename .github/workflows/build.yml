@@ -70,10 +70,6 @@ jobs:
 
         steps:
 
-            - name: okay
-              run: |
-                whoami
-
             - name: checkout
               id: checkout
               uses: actions/checkout@v4
@@ -97,20 +93,14 @@ jobs:
                 python: ${{ inputs.python }}
                 venv: ${{ env.VENV_BASE }}
 
-            # - name: create testmo run
-            #   id: create_testmo_run
-            #   uses: ./.github/actions/nm-testmo-run-create/
-            #   if: success() || failure()
-            #   with:
-            #     testmo_url: https://neuralmagic.testmo.net
-            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-            #     source: 'build-test'
-
-            # TODO: DELETE
-            # stop replicating ruff check ... other workflows do this already
-            # - name: python lint
-            #   id: lint
-            #   uses: ./.github/actions/nm-lint-python/
+            - name: create testmo run
+              id: create_testmo_run
+              uses: ./.github/actions/nm-testmo-run-create/
+              if: success() || failure()
+              with:
+                testmo_url: https://neuralmagic.testmo.net
+                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+                source: 'build-test'
 
             - name: build
               id: build
@@ -144,7 +134,6 @@ jobs:
                 gitref: ${{ inputs.gitref }}
                 testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
                 python: ${{ steps.set_python.outputs.version }}
-                lint_status: ${{ steps.lint.outputs.status }}
                 build_status: ${{ steps.build.outputs.build_status }}
                 whl_status: ${{ steps.build.outputs.whl_status }}
 
@@ -152,21 +141,18 @@ jobs:
               id: run_status
               if: success() || failure()
               env:
-                LINT_STATUS: ${{ steps.lint.outputs.status }}
                 BUILD_STATUS: ${{ steps.build.outputs.build_status }}
                 WHL_STATUS: ${{ steps.build.outputs.whl_status }}
               run: |
-                echo "lint status: ${LINT_STATUS}"
                 echo "build status: ${BUILD_STATUS}"
                 echo "build status: ${WHL_STATUS}"
-                if [ -z "${LINT_STATUS}" ] || [ "${LINT_STATUS}" -ne "0" ]; then exit 1; fi
                 if [ -z "${BUILD_STATUS}" ] || [ "${BUILD_STATUS}" -ne "0" ]; then exit 1; fi
                 if [ -z "${WHL_STATUS}" ] || [ "${WHL_STATUS}" -ne "0" ]; then exit 1; fi
 
-            # - name: complete testmo run
-            #   uses: ./.github/actions/nm-testmo-run-complete/
-            #   if: success() || failure()
-            #   with:
-            #     testmo_url: https://neuralmagic.testmo.net
-            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-            #     testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
+            - name: complete testmo run
+              uses: ./.github/actions/nm-testmo-run-complete/
+              if: success() || failure()
+              with:
+                testmo_url: https://neuralmagic.testmo.net
+                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+                testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
