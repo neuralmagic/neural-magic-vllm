@@ -314,6 +314,7 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
         output_dim = getattr(param, "output_dim", None)
         is_metadata = getattr(param, "is_metadata", False)
         param_shard_splitter = getattr(param, "shard_splitter", None)
+
         if output_dim is not None and param_shard_splitter is not None:
             raise NotImplementedError(
                 "We do not currently support output_dim != None and "
@@ -394,11 +395,13 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
                     "MergedColumnParallelLinear, assume the weight is "
                     "the same for all partitions.")
 
+        
+        if len(param_data.shape) == 0:
+            param_data = param_data.reshape(1)
+
         if len(loaded_weight.shape) == 0:
             loaded_weight = loaded_weight.reshape(1)
-        print(param, loaded_weight)
-        print(param_data.shape, loaded_weight.shape)
-        print("\n")
+
         assert param_data.shape == loaded_weight.shape
         param_data.copy_(loaded_weight)
 
@@ -535,6 +538,7 @@ class QKVParallelLinear(ColumnParallelLinear):
                 shard_offset = 0
                 shard_size = self.num_heads * self.head_size
             elif loaded_shard_id == "k":
+                # 
                 shard_offset = self.num_heads * self.head_size
                 shard_size = self.num_kv_heads * self.head_size
             elif loaded_shard_id == "v":
@@ -543,6 +547,10 @@ class QKVParallelLinear(ColumnParallelLinear):
                 shard_size = self.num_kv_heads * self.head_size
             # If quantized, we need to adjust the offset and size to account
             # for the packing.
+            # quantization specific: 4bit weight packed into 32bit dtype
+            # shard size based index will move you 32 bits at a time, not 4bits
+            # indices in the tensor move 32bits over (if data is 32bits)
+            # but you want to move 4bits over
             packed_dim = getattr(param, "packed_dim", None)
             if packed_dim == output_dim:
                 shard_size = shard_size // param.pack_factor
@@ -580,12 +588,12 @@ class QKVParallelLinear(ColumnParallelLinear):
                     "QKVParallelLinear, assume the weight is the same "
                     "for all partitions.")
 
-        if len(loaded_weight.shape) == 0:
-            loaded_weight = loaded_weight.reshape(1)
-        print(param_data, loaded_weight)
-        print(param_data.shape, loaded_weight.shape)
-        print("\n")
-        assert param_data.shape == loaded_weight.shape
+
+        if len(param_data.shape) == 0:
+            param_data = param_data.reshape(1) 
+        #assert param_data.shape == loaded_weight.shape or (
+        #    len(loaded_weight.shape) == len(param_data.shape)
+        #)
         param_data.copy_(loaded_weight)
 
 
