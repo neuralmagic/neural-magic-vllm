@@ -106,6 +106,8 @@ jobs:
             #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
             #     source: 'build-test'
 
+            # TODO: DELETE
+            # stop replicating ruff check ... other workflows do this already
             # - name: python lint
             #   id: lint
             #   uses: ./.github/actions/nm-lint-python/

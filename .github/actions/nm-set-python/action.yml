@@ -25,6 +25,7 @@ runs:
         pyenv virtualenv ${VENV} || true
         source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
         pyenv versions
+        pip3 install -r requirements-dev.txt
         VERSION=$(python --version)
         echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
       shell: bash
