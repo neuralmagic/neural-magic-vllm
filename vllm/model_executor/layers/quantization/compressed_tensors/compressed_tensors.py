@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import torch
 from torch.nn.parameter import Parameter
 
-#from vllm._C import ops
+from vllm._C import ops
 from vllm.model_executor.layers.linear import LinearMethodBase
 from vllm.model_executor.layers.quantization.base_config import (  # noqa: E501
     QuantizationConfig)
@@ -90,7 +90,6 @@ class CompressedTensorsConfig(QuantizationConfig):
                 layer_quant_details[target]["weight"] = weight_attributes
                 layer_quant_details[target]["act"] = input_activations
 
-        print("INSIDE from_config")
         return cls(layer_quant_details=layer_quant_details,
                    ignore=ignore,
                    fake_quant=fake_quant)
@@ -161,14 +160,13 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
                                                       dtype=torch.int8),
                                           requires_grad=False)
 
-            if dim != 1:
-                set_weight_attrs(weight_scale, {
-                    "shard_splitter": self.scales_shard_splitter,
-                })
+            set_weight_attrs(weight_scale, {
+                "shard_splitter": self.scales_shard_splitter,
+            })
 
-                set_weight_attrs(input_scale, {
-                    "shard_splitter": self.scales_shard_splitter,
-                })
+            set_weight_attrs(input_scale, {
+                "shard_splitter": self.scales_shard_splitter,
+            })
 
             weights["input_scale"] = input_scale
             weights["input_zero_point"] = input_zero_point
@@ -242,7 +240,7 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
 
         x_q = self._quantize(x=x, act_scale=act_scale)
         weight_q = torch.clamp(
-            torch.round(x / weight_scale, ),
+            torch.round(weight_dq / weight_scale, ),
             -128,
             127,
         )
