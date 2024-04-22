@@ -54,10 +54,10 @@ class LlamaMLP(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         hidden_size: int,
         intermediate_size: int,
         hidden_act: str,
-        parent_name: str,
         linear_method: Optional[LinearMethodBase] = None,
     ) -> None:
         super().__init__()
@@ -89,10 +89,10 @@ class LlamaAttention(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         hidden_size: int,
         num_heads: int,
         num_kv_heads: int,
-        parent_name: str,
         rope_theta: float = 10000,
         rope_scaling: Optional[Dict[str, Any]] = None,
         max_position_embeddings: int = 8192,
@@ -134,7 +134,7 @@ class LlamaAttention(nn.Module):
 
         self.qkv_proj = QKVParallelLinear(
             layer_name=f"{parent_name}.qkv_proj",
-            hidden_size=hidden_size,
+            hidden_size=self.hidden_size,
             head_size=self.head_dim,
             total_num_heads=self.total_num_heads,
             total_num_kv_heads=self.total_num_kv_heads,
@@ -144,7 +144,7 @@ class LlamaAttention(nn.Module):
         self.o_proj = RowParallelLinear(
             layer_name=f"{parent_name}.o_proj",
             input_size=self.total_num_heads * self.head_dim,
-            output_size=hidden_size,
+            output_size=self.hidden_size,
             bias=bias,
             linear_method=linear_method,
         )
@@ -182,8 +182,8 @@ class LlamaDecoderLayer(nn.Module):
 
     def __init__(
         self,
-        config: LlamaConfig,
         parent_name: str,
+        config: LlamaConfig,
         linear_method: Optional[LinearMethodBase] = None,
     ) -> None:
         super().__init__()
@@ -194,6 +194,7 @@ class LlamaDecoderLayer(nn.Module):
                                           8192)
         sliding_window = getattr(config, "sliding_window", None)
         self.self_attn = LlamaAttention(
+            parent_name=f"{parent_name}.self_attn",
             hidden_size=self.hidden_size,
             num_heads=config.num_attention_heads,
             num_kv_heads=getattr(config, "num_key_value_heads",
@@ -201,16 +202,15 @@ class LlamaDecoderLayer(nn.Module):
             rope_theta=rope_theta,
             rope_scaling=rope_scaling,
             max_position_embeddings=max_position_embeddings,
-            parent_name=f"{parent_name}.self_attn",
             linear_method=linear_method,
             bias=getattr(config, "bias", False),
             sliding_window=sliding_window,
         )
         self.mlp = LlamaMLP(
+            parent_name=f"{parent_name}.mlp",
             hidden_size=self.hidden_size,
             intermediate_size=config.intermediate_size,
             hidden_act=config.hidden_act,
-            parent_name=f"{parent_name}.mlp",
             linear_method=linear_method,
         )
         self.input_layernorm = RMSNorm(config.hidden_size,
@@ -268,8 +268,8 @@ class LlamaModel(nn.Module):
             org_num_embeddings=config.vocab_size,
         )
         self.layers = nn.ModuleList([
-            LlamaDecoderLayer(config, 
-                              parent_name=f"model.layers.{idx}", 
+            LlamaDecoderLayer(parent_name=f"model.layers.{idx}",
+                              config=config,
                               linear_method=linear_method)
             for idx in range(config.num_hidden_layers)
         ])

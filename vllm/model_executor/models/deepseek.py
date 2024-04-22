@@ -55,6 +55,7 @@ class DeepseekMLP(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         hidden_size: int,
         intermediate_size: int,
         hidden_act: str,
@@ -63,14 +64,18 @@ class DeepseekMLP(nn.Module):
     ) -> None:
         super().__init__()
         self.gate_up_proj = MergedColumnParallelLinear(
-            hidden_size, [intermediate_size] * 2,
+            layer_name=f"{parent_name}.gate_up_proj",
+            input_size=hidden_size,
+            output_sizes=[intermediate_size] * 2,
             bias=False,
             linear_method=linear_method)
-        self.down_proj = RowParallelLinear(intermediate_size,
-                                           hidden_size,
-                                           bias=False,
-                                           linear_method=linear_method,
-                                           reduce_results=reduce_results)
+        self.down_proj = RowParallelLinear(
+            layer_name=f"{parent_name}.down_proj",
+            input_size=intermediate_size,
+            output_size=hidden_size,
+            bias=False,
+            linear_method=linear_method,
+            reduce_results=reduce_results)
         if hidden_act != "silu":
             raise ValueError(f"Unsupported activation: {hidden_act}. "
                              "Only silu is supported for now.")
@@ -87,6 +92,7 @@ class DeepseekMoE(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         config: PretrainedConfig,
         linear_method: Optional[LinearMethodBase] = None,
     ):
@@ -102,7 +108,8 @@ class DeepseekMoE(nn.Module):
                 f"the number of experts {self.n_routed_experts}.")
 
         self.experts = nn.ModuleList([
-            DeepseekMLP(hidden_size=config.hidden_size,
+            DeepseekMLP(parent_name=f"{parent_name}.experts",
+                        hidden_size=config.hidden_size,
                         intermediate_size=config.moe_intermediate_size,
                         hidden_act=config.hidden_act,
                         linear_method=linear_method,
@@ -111,8 +118,9 @@ class DeepseekMoE(nn.Module):
         ])
         self.pack_params()
 
-        self.gate = ReplicatedLinear(config.hidden_size,
-                                     self.n_routed_experts,
+        self.gate = ReplicatedLinear(layer_name=f"{parent_name}.gate",
+                                     input_size=config.hidden_size,
+                                     output_size=self.n_routed_experts,
                                      bias=False,
                                      linear_method=None)
 
@@ -120,6 +128,7 @@ class DeepseekMoE(nn.Module):
             intermediate_size = (config.moe_intermediate_size *
                                  config.n_shared_experts)
             self.shared_experts = DeepseekMLP(
+                parent_name=f"{parent_name}.shared_experts",
                 hidden_size=config.hidden_size,
                 intermediate_size=intermediate_size,
                 hidden_act=config.hidden_act,
@@ -173,6 +182,7 @@ class DeepseekAttention(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         hidden_size: int,
         num_heads: int,
         num_kv_heads: int,
@@ -205,17 +215,19 @@ class DeepseekAttention(nn.Module):
         self.max_position_embeddings = max_position_embeddings
 
         self.qkv_proj = QKVParallelLinear(
-            hidden_size,
-            self.head_dim,
-            self.total_num_heads,
-            self.total_num_kv_heads,
+            layer_name=f"{parent_name}.qkv_proj",
+            hidden_size=hidden_size,
+            head_size=self.head_dim,
+            total_num_heads=self.total_num_heads,
+            total_num_kv_heads=self.total_num_kv_heads,
             bias=False,
             linear_method=linear_method,
         )
 
         self.o_proj = RowParallelLinear(
-            self.total_num_heads * self.head_dim,
-            hidden_size,
+            layer_name=f"{parent_name}.o_proj",
+            input_size=self.total_num_heads * self.head_dim,
+            output_size=hidden_size,
             bias=False,
             linear_method=linear_method,
         )
@@ -251,6 +263,7 @@ class DeepseekDecoderLayer(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         config: PretrainedConfig,
         layer_idx: int,
         linear_method: Optional[LinearMethodBase] = None,
@@ -262,6 +275,7 @@ class DeepseekDecoderLayer(nn.Module):
         max_position_embeddings = getattr(config, "max_position_embeddings",
                                           8192)
         self.self_attn = DeepseekAttention(
+            parent_name=f"{parent_name}.self_attn",
             hidden_size=self.hidden_size,
             num_heads=config.num_attention_heads,
             num_kv_heads=config.num_key_value_heads,
@@ -273,9 +287,11 @@ class DeepseekDecoderLayer(nn.Module):
         if (config.n_routed_experts is not None
                 and layer_idx >= config.first_k_dense_replace
                 and layer_idx % config.moe_layer_freq == 0):
-            self.mlp = DeepseekMoE(config=config, linear_method=linear_method)
+            self.mlp = DeepseekMoE(parent_name=f"{parent_name}.mlp",
+                                   config=config, linear_method=linear_method)
         else:
             self.mlp = DeepseekMLP(
+                parent_name=f"{parent_name}.mlp",
                 hidden_size=config.hidden_size,
                 intermediate_size=config.intermediate_size,
                 hidden_act=config.hidden_act,
@@ -331,10 +347,10 @@ class DeepseekModel(nn.Module):
             config.hidden_size,
         )
         self.layers = nn.ModuleList([
-            DeepseekDecoderLayer(config,
-                                 layer_idx,
+            DeepseekDecoderLayer(parent_name=f"model.layers.{idx}",
+                                 config=config, layer_idx=idx,
                                  linear_method=linear_method)
-            for layer_idx in range(config.num_hidden_layers)
+            for idx in range(config.num_hidden_layers)
         ])
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
@@ -417,6 +433,10 @@ class DeepseekForCausalLM(nn.Module):
                 load_format,
                 revision,
                 fall_back_to_pt=False):
+            # Update name of the loaded_weight if needed by the LinearMethod.
+            if self.linear_method:
+                name = self.linear_method.maybe_update_loaded_weight_name(name)
+
             if "rotary_emb.inv_freq" in name:
                 continue
             for (param_name, weight_name, shard_id) in stacked_params_mapping:

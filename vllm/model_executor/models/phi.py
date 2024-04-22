@@ -63,6 +63,7 @@ from vllm.sequence import SamplerOutput
 class PhiAttention(nn.Module):
 
     def __init__(self,
+                 parent_name: str,
                  config: PretrainedConfig,
                  linear_method: Optional[LinearMethodBase] = None):
         super().__init__()
@@ -78,15 +79,17 @@ class PhiAttention(nn.Module):
 
         # pylint: disable=C0103
         self.qkv_proj = QKVParallelLinear(
-            self.hidden_size,
-            self.head_size,
-            self.total_num_heads,
+            layer_name=f"{parent_name}.qkv_proj",
+            hidden_size=self.hidden_size,
+            head_size=self.head_size,
+            total_num_heads=self.total_num_heads,
             bias=True,
             linear_method=linear_method,
         )
         self.dense = RowParallelLinear(
-            self.hidden_size,
-            self.hidden_size,
+            layer_name=f"{parent_name}.dense",
+            input_size=self.hidden_size,
+            output_size=self.hidden_size,
             linear_method=linear_method,
         )
 
@@ -126,6 +129,7 @@ class PhiAttention(nn.Module):
 class PhiMLP(nn.Module):
 
     def __init__(self,
+                 parent_name: str,
                  config: PretrainedConfig,
                  linear_method: Optional[LinearMethodBase] = None):
         super().__init__()
@@ -134,13 +138,15 @@ class PhiMLP(nn.Module):
         n_inner = n_inner if n_inner is not None else 4 * config.hidden_size
 
         self.fc1 = ColumnParallelLinear(
-            config.hidden_size,
-            n_inner,
+            layer_name=f"{parent_name}.fc1",
+            input_size=config.hidden_size,
+            output_size=n_inner,
             linear_method=linear_method,
         )
         self.fc2 = RowParallelLinear(
-            n_inner,
-            config.hidden_size,
+            layer_name=f"{parent_name}.fc2",
+            input_size=n_inner,
+            output_size=config.hidden_size,
             linear_method=linear_method,
         )
         quant_config = getattr(linear_method, "quant_config", None)
@@ -156,13 +162,18 @@ class PhiMLP(nn.Module):
 class PhiLayer(nn.Module):
 
     def __init__(self,
+                 parent_name: str,
                  config: PretrainedConfig,
                  linear_method: Optional[LinearMethodBase] = None):
         super().__init__()
         self.input_layernorm = nn.LayerNorm(config.hidden_size,
                                             eps=config.layer_norm_eps)
-        self.self_attn = PhiAttention(config, linear_method)
-        self.mlp = PhiMLP(config, linear_method)
+        self.self_attn = PhiAttention(
+            parent_name=f"{parent_name}.self_attn",
+            config=config, linear_method=linear_method)
+        self.mlp = PhiMLP(
+            parent_name=f"{parent_name}.mlp",
+            config=config, linear_method=linear_method)
 
     def forward(
         self,
@@ -195,8 +206,10 @@ class PhiModel(nn.Module):
         self.embed_tokens = VocabParallelEmbedding(config.vocab_size,
                                                    config.hidden_size)
         self.layers = nn.ModuleList([
-            PhiLayer(config, linear_method)
-            for _ in range(config.num_hidden_layers)
+            PhiLayer(parent_name=f"model.layers.{idx}",
+                     config=config,
+                     linear_method=linear_method)
+            for idx in range(config.num_hidden_layers)
         ])
         self.final_layernorm = nn.LayerNorm(config.hidden_size,
                                             eps=config.layer_norm_eps)
@@ -281,6 +294,10 @@ class PhiForCausalLM(nn.Module):
 
         for name, loaded_weight in hf_model_weights_iterator(
                 model_name_or_path, cache_dir, load_format, revision):
+            # Update name of the loaded_weight if needed by the LinearMethod.
+            if self.linear_method:
+                name = self.linear_method.maybe_update_loaded_weight_name(name)
+
             if "rotary_emb.inv_freq" in name:
                 continue
 

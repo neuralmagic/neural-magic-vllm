@@ -75,6 +75,7 @@ class GemmaMLP(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         hidden_size: int,
         intermediate_size: int,
         hidden_act: Optional[str] = None,
@@ -83,13 +84,17 @@ class GemmaMLP(nn.Module):
     ) -> None:
         super().__init__()
         self.gate_up_proj = MergedColumnParallelLinear(
-            hidden_size, [intermediate_size] * 2,
+            layer_name=f"{parent_name}.gate_up_proj",
+            input_size=hidden_size,
+            output_sizes=[intermediate_size] * 2,
             bias=False,
             linear_method=linear_method)
-        self.down_proj = RowParallelLinear(intermediate_size,
-                                           hidden_size,
-                                           bias=False,
-                                           linear_method=linear_method)
+        self.down_proj = RowParallelLinear(
+            layer_name=f"{parent_name}.down_proj",
+            input_size=intermediate_size,
+            output_size=hidden_size,
+            bias=False,
+            linear_method=linear_method)
         self.act_fn = _get_gemma_act_fn(hidden_act, hidden_activation)
 
     def forward(self, x):
@@ -102,6 +107,7 @@ class GemmaMLP(nn.Module):
 class GemmaAttention(nn.Module):
 
     def __init__(self,
+                 parent_name: str,
                  hidden_size: int,
                  num_heads: int,
                  num_kv_heads: int,
@@ -132,16 +138,18 @@ class GemmaAttention(nn.Module):
         self.rope_theta = rope_theta
 
         self.qkv_proj = QKVParallelLinear(
-            hidden_size,
-            self.head_dim,
-            self.total_num_heads,
-            self.total_num_kv_heads,
+            layer_name=f"{parent_name}.qkv_proj",
+            hidden_size=hidden_size,
+            head_size=self.head_dim,
+            total_num_heads=self.total_num_heads,
+            total_num_kv_heads=self.total_num_kv_heads,
             bias=False,
             linear_method=linear_method,
         )
         self.o_proj = RowParallelLinear(
-            self.total_num_heads * self.head_dim,
-            hidden_size,
+            layer_name=f"{parent_name}.o_proj",
+            input_size=self.total_num_heads * self.head_dim,
+            output_size=hidden_size,
             bias=False,
             linear_method=linear_method,
         )
@@ -177,12 +185,14 @@ class GemmaDecoderLayer(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         config: GemmaConfig,
         linear_method: Optional[LinearMethodBase] = None,
     ) -> None:
         super().__init__()
         self.hidden_size = config.hidden_size
         self.self_attn = GemmaAttention(
+            parent_name=f"{parent_name}.self_attn",
             hidden_size=self.hidden_size,
             num_heads=config.num_attention_heads,
             num_kv_heads=config.num_key_value_heads,
@@ -192,6 +202,7 @@ class GemmaDecoderLayer(nn.Module):
             linear_method=linear_method,
         )
         self.mlp = GemmaMLP(
+            parent_name=f"{parent_name}.mlp",
             hidden_size=self.hidden_size,
             intermediate_size=config.intermediate_size,
             hidden_act=config.hidden_act,
@@ -247,8 +258,10 @@ class GemmaModel(nn.Module):
             config.hidden_size,
         )
         self.layers = nn.ModuleList([
-            GemmaDecoderLayer(config, linear_method)
-            for _ in range(config.num_hidden_layers)
+            GemmaDecoderLayer(parent_name=f"model.layers.{idx}",
+                              config=config,
+                              linear_method=linear_method)
+            for idx in range(config.num_hidden_layers)
         ])
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
@@ -364,6 +377,10 @@ class GemmaForCausalLM(nn.Module):
         loaded_params = set()
         for name, loaded_weight in hf_model_weights_iterator(
                 model_name_or_path, cache_dir, load_format, revision):
+            # Update name of the loaded_weight if needed by the LinearMethod.
+            if self.linear_method:
+                name = self.linear_method.maybe_update_loaded_weight_name(name)
+
             for (param_name, shard_name, shard_id) in stacked_params_mapping:
                 if shard_name not in name:
                     continue
