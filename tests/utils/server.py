@@ -41,7 +41,7 @@ class ServerContext:
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         """
-        Stops the server if it's still running and captures/logs its output.
+        Stops the server if it's still running.
         """
         if self.server_runner is not None:
             del self.server_runner
