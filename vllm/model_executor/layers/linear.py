@@ -11,8 +11,7 @@ from vllm.distributed import (divide, get_tensor_model_parallel_rank,
                               get_tensor_model_parallel_world_size,
                               split_tensor_along_last_dim,
                               tensor_model_parallel_all_gather,
-                              tensor_model_parallel_all_reduce,
-                              tensor_model_parallel_gather)
+                              tensor_model_parallel_all_reduce)
 from vllm.model_executor.utils import set_weight_attrs
 
 logger = init_logger(__name__)
@@ -589,7 +588,7 @@ class QKVParallelLinear(ColumnParallelLinear):
 
         if len(param_data.shape) == 0:
             param_data = param_data.reshape(1)
-        
+
         if len(loaded_weight.shape) == 0:
             loaded_weight = loaded_weight.reshape(1)
 

@@ -17,8 +17,7 @@ class Int8GEMM(object):
 
     def __init__(self):
         if not hasattr(self, "i8cugemm"):
-            # self.i8cugemm = ops.I8CUGEMM()
-            pass
+            self.i8cugemm = ops.I8CUGEMM()
 
     def __new__(cls, *args, **kwargs):
         if not hasattr(Int8GEMM, "_instance"):
@@ -28,8 +27,7 @@ class Int8GEMM(object):
         return Int8GEMM._instance
 
     def get_i8cugemm(self):
-        pass
-        #return self.i8cugemm
+        return self.i8cugemm
 
 
 class CompressedTensorsConfig(QuantizationConfig):
@@ -184,6 +182,8 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
 
         weights["scheme"] = scheme
         weights["weight"] = weight
+        weights["layer_name"] = layer_name
+        weights["output_size"] = output_size
 
         weights["logical_widths"] = output_sizes_per_partition
         return weights
@@ -219,41 +219,54 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         x_dq = torch.empty_like(x_q, dtype=dtype)
         x_dq_split = x_dq.split(logical_widths, dim=-1)
 
-        for xdq, xq in zip(x_dq_split, x_q_split):
-            ops.dequant(xdq, xq, act_weight_scale)
+        for xdq, xq, value in zip(x_dq_split, x_q_split, act_weight_scale):
+            ops.dequant(xdq, xq, value)
         return x_dq
 
     # Apply weights using the scheme; schema should be one of the inputs
     # to the function
+    def apply_dense(self, weight, input):
+        return torch.matmul(input, torch.transpose(weight, 0, 1))
+
     def apply_weights(self,
                       weights: Dict,
                       x: torch.Tensor,
                       bias: Optional[torch.Tensor] = None):
-        # x: inputs at floating points
 
         weight_dq = weights.get("weight")
         weight_scale = weights.get("weight_scale")
-
         act_scale = weights.get("input_scale")
-
         logical_widths = weights.get("logical_widths")
+        layer_name = weights.get("layer_name")
 
-        x_q = self._quantize(x=x, act_scale=act_scale)
-        weight_q = torch.clamp(
-            torch.round(weight_dq / weight_scale, ),
-            -128,
-            127,
-        )
+        if layer_name in self.quantization_config.ignore:
+            return self.apply_dense(weight_dq, x)
 
         act_weight_scale = weight_scale * act_scale  # A16out = A8Out * (sw * sa)
+        x_q = self._quantize(x=x, act_scale=1.0)
 
-        x_q = x_q.view(-1, x_q.shape[-1])
+        start = 0
+        weight_q = None
+
+        for i in range(len(logical_widths)):
+            end = start + logical_widths[i]
+            weight_dq_sub = weight_dq[start:end, :]
+            weight_q_sub = torch.clamp(
+                torch.div(weight_dq_sub, weight_scale[i]), -128,
+                127).type(torch.int8)
+
+            start = end
+            if weight_q is None:
+                weight_q = weight_q_sub
+            else:
+                weight_q = torch.cat((weight_q, weight_q_sub), axis=0)
+
         # empty tensor to store the output from the gem
         a_q = torch.empty((x_q.shape[0], weight_q.shape[0]),
                           dtype=torch.int32,
                           device="cuda")
+
         self.i8cugemm.linear_a8_w8_o32_(x_q, weight_q, a_q)
-        a_q = a_q.view(*x_q.shape[:-1], -1)
 
         return self._dequantize(a_q,
                                 logical_widths=logical_widths,

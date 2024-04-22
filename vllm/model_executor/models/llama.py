@@ -425,16 +425,6 @@ class LlamaForCausalLM(nn.Module):
                 weight_loader = getattr(param, "weight_loader",
                                         default_weight_loader)
                 weight_loader(param, loaded_weight)
-        
-        '''
-        x = params_dict.get("model.layers.7.self_attn.qkv_proj.weight")
-
-        print(x[0:2048, :])
-        print(x[2048:2048+256, :])
-        print(x[2048+256:256+2048+256, :])
-        print(params_dict.get("model.layers.7.self_attn.qkv_proj.weight").shape)
-        '''
-        print(params_dict.get("model.layers.7.mlp.gate_up_proj.weight_scale"))
 
     # If this function is called, it should always initialize KV cache scale
     # factors (or else raise an exception). Thus, handled exceptions should
