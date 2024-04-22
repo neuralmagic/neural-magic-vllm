@@ -15,54 +15,6 @@ SCALE = [0.1, 0.5, 0.8, 1.2, 2.1]
 @pytest.mark.parametrize("seed", SEEDS)
 @pytest.mark.parametrize("scale", SCALE)
 @torch.inference_mode()
-def test_dequant(num_tokens: int, hidden_size: int, dtype: torch.dtype,
-                 seed: int, scale: float) -> None:
-    torch.random.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    x = torch.randint(
-        torch.iinfo(torch.int32).min,
-        torch.iinfo(torch.int32).max,
-        (num_tokens, hidden_size),
-        dtype=torch.int32,
-        device="cuda",
-    )
-
-    out1 = (x * scale).to(dtype)
-    out2 = torch.empty_like(x, dtype=dtype)
-    ops.dequant(out2, x, scale)
-    assert torch.allclose(out1, out2, atol=0.001)
-
-
-@pytest.mark.parametrize("num_tokens", NUM_TOKENS)
-@pytest.mark.parametrize("hidden_size", HIDDEN_SIZES)
-@pytest.mark.parametrize("dtype", DTYPES)
-@pytest.mark.parametrize("seed", SEEDS)
-@torch.inference_mode()
-def test_per_token_dequant(num_tokens: int, hidden_size: int,
-                           dtype: torch.dtype, seed: int) -> None:
-    torch.random.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    x = torch.randint(
-        torch.iinfo(torch.int32).min,
-        torch.iinfo(torch.int32).max,
-        (num_tokens, hidden_size),
-        dtype=torch.int32,
-        device="cuda",
-    )
-    scale = torch.rand(num_tokens, 1, dtype=torch.float32, device="cuda")
-    out1 = (x * scale).to(dtype)
-    out2 = torch.empty_like(x, dtype=dtype)
-    scale = torch.squeeze(scale)
-    ops.dequant(out2, x, scale)
-    assert torch.allclose(out1, out2, atol=0.001)
-
-
-@pytest.mark.parametrize("num_tokens", NUM_TOKENS)
-@pytest.mark.parametrize("hidden_size", HIDDEN_SIZES)
-@pytest.mark.parametrize("dtype", DTYPES)
-@pytest.mark.parametrize("seed", SEEDS)
-@pytest.mark.parametrize("scale", SCALE)
-@torch.inference_mode()
 def test_quant(num_tokens: int, hidden_size: int, dtype: torch.dtype,
                seed: int, scale: float) -> None:
     torch.random.manual_seed(seed)

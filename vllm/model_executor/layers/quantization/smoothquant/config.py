@@ -1,10 +1,8 @@
 from typing import Any, Dict, List, Tuple, Type, Optional, Union
-import threading
 
 import torch
 from torch.nn.parameter import Parameter
 
-from vllm._C import ops
 from vllm.model_executor.layers.linear import (
     LinearMethodBase,
     set_weight_attrs)
@@ -88,31 +86,10 @@ class SmoothQuantConfig(QuantizationConfig):
     def get_linear_method(self) -> "SmoothQuantLinearMethod":
         return SmoothQuantLinearMethod(self)
 
-
-# TODO: why is this needed?
-class Int8GEMM(object):
-    _instance_lock = threading.Lock()
-
-    def __init__(self):
-        if not hasattr(self, "i8cugemm"):
-            self.i8cugemm = ops.I8CUGEMM()
-
-    def __new__(cls, *args, **kwargs):
-        if not hasattr(Int8GEMM, "_instance"):
-            with Int8GEMM._instance_lock:
-                if not hasattr(Int8GEMM, "_instance"):
-                    Int8GEMM._instance = object.__new__(cls)
-        return Int8GEMM._instance
-
-    def get_i8cugemm(self):
-        return self.i8cugemm
-
-
 class SmoothQuantLinearMethod(LinearMethodBase):
     def __init__(self, sq_config: SmoothQuantConfig) -> None:
         self.sq_config = sq_config
         self.sq_type = None
-        self.i8cugemm = Int8GEMM().get_i8cugemm()    
 
     def maybe_update_loaded_weight_name(self, 
                                         name: str) -> str:
@@ -256,34 +233,6 @@ class SmoothQuantLinearMethod(LinearMethodBase):
         x_q = torch.empty_like(x, dtype=torch.int8)
         x_q, activation_scales = sq_format.quantize_op(x, x_q)
         return x_q, activation_scales
-
-    def _dequantize(self, 
-                    x_q: torch.Tensor, 
-                    dynamic_scales: Optional[torch.Tensor],
-                    static_scales: torch.Tensor,
-                    logical_widths: List[int],
-                    dtype: torch.dtype,
-                    sq_format: SmoothQuantFormat) -> torch.Tensor:
-        """Dequantize activations.
-
-        Args:
-            x_q: quantized activations.
-            dynamic_scales: Optional dynamic scales.
-            static_scales: Static dequantization scales.
-            logical_widths: Width of each logical activation (for QKV case).
-            dtype: Datatype to dequantize to.
-        Returns:
-            x_dq: dequantized activation at output_dtype precision
-
-        NOTE: This function is unused, but could be handy when debugging.
-        """
-        # Split X_q and X_dq buffer into logical activations (for QKV case).
-        x_q_split = x_q.split(logical_widths, dim=-1)
-        x_dq = torch.empty_like(x_q, dtype=dtype)
-        x_dq_split = x_dq.split(logical_widths, dim=-1)
-        # Dequantize in place and return.
-        sq_format.dequantize_op(x_q_split, x_dq_split, dynamic_scales, static_scales)
-        return x_dq
 
     def apply_weights(self,
                       weights: Dict[str, torch.Tensor],
