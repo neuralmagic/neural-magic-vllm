@@ -9,7 +9,7 @@ import re
 import subprocess
 import sys
 from shutil import which
-from typing import List
+from typing import Dict, List
 
 import torch
 from packaging.version import Version, parse
@@ -56,7 +56,7 @@ class CMakeExtension(Extension):
 
 class cmake_build_ext(build_ext):
     # A dict of extension directories that have been configured.
-    did_config = {}
+    did_config: Dict[str, bool] = {}
 
     #
     # Determine number of compilation jobs and optionally nvcc compile threads.
@@ -265,6 +265,7 @@ def get_nvcc_cuda_version() -> Version:
 
     Adapted from https://github.com/NVIDIA/apex/blob/8b7a1ff183741dd8f9b87e7bafd04cfde99cea28/setup.py
     """
+    assert CUDA_HOME is not None, "CUDA_HOME is not set"
     nvcc_output = subprocess.check_output([CUDA_HOME + "/bin/nvcc", "-V"],
                                           universal_newlines=True)
     output = nvcc_output.split()
@@ -329,22 +330,38 @@ def read_readme() -> str:
 
 def get_requirements() -> List[str]:
     """Get Python package dependencies from requirements.txt."""
+
+    def _read_requirements(filename: str) -> List[str]:
+        with open(get_path(filename)) as f:
+            requirements = f.read().strip().split("\n")
+        resolved_requirements = []
+        for line in requirements:
+            if line.startswith("-r "):
+                resolved_requirements += _read_requirements(line.split()[1])
+            else:
+                resolved_requirements.append(line)
+        return resolved_requirements
+
     if _is_cuda():
-        with open(get_path("requirements.txt")) as f:
-            requirements = f.read().strip().split("\n")
+        requirements = _read_requirements("requirements-cuda.txt")
+        cuda_major = torch.version.cuda.split(".")[0]
+        modified_requirements = []
+        for req in requirements:
+            if "vllm-nccl-cu12" in req:
+                modified_requirements.append(
+                    req.replace("vllm-nccl-cu12", f"vllm-nccl-cu{cuda_major}"))
+            else:
+                modified_requirements.append(req)
+        requirements = modified_requirements
     elif _is_hip():
-        with open(get_path("requirements-rocm.txt")) as f:
-            requirements = f.read().strip().split("\n")
+        requirements = _read_requirements("requirements-rocm.txt")
     elif _is_neuron():
-        with open(get_path("requirements-neuron.txt")) as f:
-            requirements = f.read().strip().split("\n")
+        requirements = _read_requirements("requirements-neuron.txt")
     elif _is_cpu():
-        with open(get_path("requirements-cpu.txt")) as f:
-            requirements = f.read().strip().split("\n")
+        requirements = _read_requirements("requirements-cpu.txt")
     else:
         raise ValueError(
-            "Unsupported platform, please use CUDA, ROCM or Neuron.")
-
+            "Unsupported platform, please use CUDA, ROCm, Neuron, or CPU.")
     return requirements
 
 
@@ -360,7 +377,7 @@ if not _is_neuron():
     ext_modules.append(CMakeExtension(name="vllm._C"))
 
 # UPSTREAM SYNC: needed for sparsity
-_sparsity_deps = ["nm-magic-wand"]
+_sparsity_deps = ["nm-magic-wand-nightly"]
 
 
 def get_extra_requirements() -> dict:
