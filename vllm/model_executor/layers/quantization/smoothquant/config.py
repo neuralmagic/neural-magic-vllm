@@ -1,6 +1,9 @@
 from typing import Any, Dict, List, Tuple, Type, Optional, Union
 import threading
 
+import cutlass
+from cutlass import Tensor as FakeTensor
+import cutlass.epilogue
 import torch
 from torch.nn.parameter import Parameter
 
@@ -272,6 +275,99 @@ class SmoothQuantLinearMethod(LinearMethodBase):
         sq_format.dequantize_op(x_q_split, x_dq_split, dynamic_scales, static_scales)
         return x_dq
 
+    def cutlass_gemm(self,
+                     x_q : torch.Tensor,
+                     w_q : torch.Tensor,
+                     o_q : torch.Tensor) -> torch.Tensor:
+
+        print (f"cutlass gemm : x_q {x_q.shape} {x_q.dtype} \n \
+                w_q {w_q.shape} {w_q.dtype} \n \
+                o_q {o_q.shape} {o_q.dtype}")
+
+        plan = cutlass.op.Gemm(element_A=x_q.dtype, element_B=w_q.dtype,
+                               element_C=o_q.dtype, element_D=o_q.dtype,
+                               layout_A=cutlass.LayoutType.RowMajor, 
+                               layout_B=cutlass.LayoutType.ColumnMajor,
+                               layout_C=cutlass.LayoutType.RowMajor, 
+                               element_accumulator=torch.int32,
+                               # TODO (varun) : lets not have kernel cc here please.
+                               kernel_cc=80)
+
+        plan.run(x_q, w_q.t(), o_q, o_q, alpha=1, beta=0, print_module=False)
+        return o_q
+
+    def setup_dequant_epilogue(self,
+                               plan : cutlass.op.Gemm,
+                               dq: torch.Tensor, 
+                               static_scales: Optional[torch.Tensor],
+                               activation_scales: Optional[torch.Tensor]) -> Tuple[cutlass.op.Gemm, Dict]:
+
+        if all([static_scales is None, activation_scales is None]):
+            return plan, None
+        assert static_scales is not None
+
+        def epilog_with_scales_and_act_scales(accum, scales, act_scales):
+            D = accum * scales * act_scales
+            return D
+
+        def epilog_with_scales(accum, scales):
+            D = accum * scales
+            return D
+
+        epilog_tensors =  {
+            'scales' : static_scales,
+            'D' : dq
+        }
+        epilogue_trace_tensors = {
+            "accum": FakeTensor(element=torch.int32, shape=dq.shape,
+                                layout_tag=cutlass.LayoutType.RowMajor),
+            'scales' : static_scales,
+            'D' : dq,
+        }
+        epilog_fn = epilog_with_scales
+
+        if activation_scales is not None:
+            epilog_tensors['act_scales'] = activation_scales
+            epilogue_trace_tensors['act_scales'] = activation_scales
+            epilog_fn = epilog_with_scales_and_act_scales
+
+        plan.epilogue_visitor = cutlass.epilogue.trace(epilog_fn, epilogue_trace_tensors)
+        return plan, epilog_tensors 
+
+    def cutlass_gemm_dq(self,
+                     x_q : torch.Tensor,
+                     w_q : torch.Tensor,
+                     static_scales: torch.Tensor,
+                     # TODO : move optional to end
+                     activation_scales: Optional[torch.Tensor],
+                     dtype: torch.dtype) -> torch.Tensor:
+
+        dq = torch.empty((x_q.shape[0], w_q.shape[0]),
+                          dtype=dtype, device="cuda")
+
+        print(f"cutlass gemm : x_q {x_q.shape} {x_q.dtype} \n \
+                w_q {w_q.shape} {w_q.dtype} \n \
+                a_q {dq.shape} {dq.dtype} \n \
+                static scales {static_scales} {static_scales.shape} \n")
+        if activation_scales is not None:
+            print (f"activation_scales - {activation_scales} {activation_scales.shape}")
+
+        plan = cutlass.op.Gemm(element_A=x_q.dtype, element_B=w_q.dtype,
+                               element_C=dq.dtype, element_D=dq.dtype,
+                               layout_A=cutlass.LayoutType.RowMajor, 
+                               layout_B=cutlass.LayoutType.ColumnMajor,
+                               layout_C=cutlass.LayoutType.RowMajor, 
+                               element_accumulator=torch.int32,
+                               # TODO (varun) : lets not have kernel cc here please.
+                               kernel_cc=80)
+
+        plan, visitor_args = self.setup_dequant_epilogue(plan, dq, static_scales, activation_scales)
+
+        plan.run(x_q, w_q.t(), dq, dq, alpha=1, beta=0,
+                 visitor_args=visitor_args, print_module=False)
+
+        dq = dq.view(*x_q.shape[:-1], -1)
+        return dq
 
     def apply_weights(self,
                       weights: Dict[str, torch.Tensor],
@@ -296,11 +392,44 @@ class SmoothQuantLinearMethod(LinearMethodBase):
         # Q
         x_q, activation_scales = self._quantize(x, sq_format)
 
-        # GEMM
-        x_q = x_q.view(-1, x_q.shape[-1])
-        a_q = torch.empty((x_q.shape[0], weight_q.shape[0]), dtype=torch.int32, device="cuda")
-        self.i8cugemm.linear_a8_w8_o32_(x_q, weight_q, a_q)
-        a_q = a_q.view(*x_q.shape[:-1], -1)
+        if isinstance(sq_format, SmoothQuantStaticPerTensor):
+            # TODO (varun) : Move scale_to_broadcast to create_weights
+            scale_to_broadcast = torch.zeros((sum(logical_widths)))
+            filled_idx = 0 
+            for scale, size in zip(static_scales, logical_widths):
+                indices = torch.arange(filled_idx, filled_idx + size)
+                scale_to_broadcast.index_fill_(0, indices, scale)
+                filled_idx += size
 
-        # DQ
-        return self._dequantize(a_q, activation_scales, static_scales, logical_widths, x.dtype, sq_format)
+            return self.cutlass_gemm_dq(x_q, weight_q,
+                                        scale_to_broadcast,
+                                        None,
+                                        x.dtype)
+        else:
+
+            # GEMM
+            x_q = x_q.view(-1, x_q.shape[-1])
+            a_q = torch.empty((x_q.shape[0], weight_q.shape[0]), dtype=torch.int32, device="cuda")
+            print (f"a_q {a_q.shape} {a_q.dtype} - activation_scales {activation_scales.shape} {activation_scales.dtype} \n")
+            self.i8cugemm.linear_a8_w8_o32_(x_q, weight_q, a_q)
+            a_q = a_q.view(*x_q.shape[:-1], -1)
+            # DQ
+            dq = self._dequantize(a_q, activation_scales, static_scales,
+                                  logical_widths, x.dtype, sq_format)
+
+            # TODO (varun) : Move scale_to_broadcast to create_weights
+            scale_to_broadcast = torch.zeros((sum(logical_widths)))
+            filled_idx = 0 
+            for scale, size in zip(static_scales, logical_widths):
+                indices = torch.arange(filled_idx, filled_idx + size)
+                scale_to_broadcast.index_fill_(0, indices, scale)
+                filled_idx += size
+
+            activation_scales = activation_scales[:, None]
+
+            cutlass_dq = self.cutlass_gemm_dq(x_q, weight_q, scale_to_broadcast,
+                                              activation_scales, x.dtype)
+            
+            torch.allclose(dq, cutlass_dq)
+            return cutlass_dq
+
