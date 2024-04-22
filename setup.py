@@ -380,14 +380,6 @@ if not _is_neuron():
 # UPSTREAM SYNC: needed for sparsity
 _sparsity_deps = ["nm-magic-wand-nightly"]
 
-
-def get_extra_requirements() -> dict:
-    return {
-        "sparse": _sparsity_deps,
-        "sparsity": _sparsity_deps,
-    }
-
-
 package_data = {
     "vllm": ["py.typed", "model_executor/layers/fused_moe/configs/*.json"]
 }
@@ -427,9 +419,10 @@ setup(
                                     "tests")),
     python_requires=">=3.8",
     install_requires=get_requirements(),
-    extras_require=get_extra_requirements(),
     ext_modules=ext_modules,
     extras_require={
+        "sparse": _sparsity_deps,
+        "sparsity": _sparsity_deps,
         "tensorizer": ["tensorizer==2.9.0a1"],
     },
     cmdclass={"build_ext": cmake_build_ext} if not _is_neuron() else {},

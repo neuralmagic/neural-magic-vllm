@@ -20,7 +20,8 @@ from vllm.model_executor.model_loader.utils import (get_model_architecture,
                                                     set_default_torch_dtype)
 from vllm.model_executor.model_loader.weight_utils import (
     download_weights_from_hf, filter_files_not_needed_for_inference,
-    get_quant_config, initialize_dummy_weights, np_cache_weights_iterator,
+    # UPSTREAM SYNC: get_sparse_config needed for sparsity
+    get_quant_config, get_sparse_config, initialize_dummy_weights, np_cache_weights_iterator,
     pt_weights_iterator, safetensors_weights_iterator)
 from vllm.model_executor.models.llava import LlavaForConditionalGeneration
 
@@ -57,6 +58,24 @@ def _get_linear_method(
                 f"{supported_dtypes}")
 
         linear_method = quant_config.get_linear_method()
+    # UPSTREAM SYNC: needed to support sparsity
+    if model_config.sparsity is not None:
+        sparse_config = get_sparse_config(model_config)
+        capability = torch.cuda.get_device_capability()
+        capability = capability[0] * 10 + capability[1]
+        if capability < sparse_config.get_min_capability():
+            raise ValueError(
+                f"The sparsity method {model_config.sparsity} is not "
+                "supported for the current GPU. "
+                f"Minimum capability: {sparse_config.get_min_capability()}. "
+                f"Current capability: {capability}.")
+        supported_dtypes = sparse_config.get_supported_act_dtypes()
+        if model_config.dtype not in supported_dtypes:
+            raise ValueError(
+                f"{model_config.dtype} is not supported for sparsity "
+                f"method {model_config.sparsity}. Supported dtypes: "
+                f"{supported_dtypes}")
+        linear_method = sparse_config.get_linear_method()
     return linear_method
 
 
