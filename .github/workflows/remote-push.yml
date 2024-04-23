@@ -11,32 +11,68 @@ concurrency:
 
 jobs:
 
-    # multi-gpu
-    BUILD-TEST:
-        strategy:
-            matrix:
-                python: [3.10.12]
-        uses: ./.github/workflows/build-test.yml
+    BUILD:
+        uses: ./.github/workflows/build.yml
         with:
             build_label: gcp-build-static
-            timeout: 240
-            gitref: '${{ github.ref }}'
+            timeout: 60
+            gitref: ${{ github.ref }}
             Gi_per_thread: 1
             nvcc_threads: 4
-            python: ${{ matrix.python }}
-            test_skip_list: neuralmagic/tests/skip-for-remote-push.txt
+            python: 3.10.12
         secrets: inherit
 
-    # Benchmarks
-    AWS-AVX2-32G-A10G-24G-Benchmark:
+    TEST-SOLO:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/test.yml
+        with:
+            test_label: aws-avx2-32G-a10g-24G
+            timeout: 480
+            gitref: ${{ github.ref }}
+            python: 3.10.12
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_list: neuralmagic/tests/skip-almost-all.txt
+        secrets: inherit
+
+    BENCHMARK:
+        needs: [BUILD]
+        if: success()
         uses: ./.github/workflows/nm-benchmark.yml
         with:
             label: aws-avx2-32G-a10g-24G
             benchmark_config_list_file:  ./.github/data/nm_benchmark_remote_push_configs_list.txt
             timeout: 180
             gitref: '${{ github.ref }}'
-            Gi_per_thread: 1
-            nvcc_threads: 4
             python: 3.10.12
             push_benchmark_results_to_gh_pages: "false"
-        secrets: inherit
+
+    # # multi-gpu
+    # BUILD-TEST:
+    #     strategy:
+    #         matrix:
+    #             python: [3.10.12]
+    #     uses: ./.github/workflows/build-test.yml
+    #     with:
+    #         build_label: gcp-build-static
+    #         timeout: 240
+    #         gitref: '${{ github.ref }}'
+    #         Gi_per_thread: 1
+    #         nvcc_threads: 4
+    #         python: ${{ matrix.python }}
+    #         test_skip_list: neuralmagic/tests/skip-for-remote-push.txt
+    #     secrets: inherit
+
+    # # Benchmarks
+    # AWS-AVX2-32G-A10G-24G-Benchmark:
+    #     uses: ./.github/workflows/nm-benchmark.yml
+    #     with:
+    #         label: aws-avx2-32G-a10g-24G
+    #         benchmark_config_list_file:  ./.github/data/nm_benchmark_remote_push_configs_list.txt
+    #         timeout: 180
+    #         gitref: '${{ github.ref }}'
+    #         Gi_per_thread: 1
+    #         nvcc_threads: 4
+    #         python: 3.10.12
+    #         push_benchmark_results_to_gh_pages: "false"
+    #     secrets: inherit
