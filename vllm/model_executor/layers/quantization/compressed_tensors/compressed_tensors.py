@@ -49,7 +49,7 @@ class CompressedTensorsConfig(QuantizationConfig):
 
     # Needed to v
     def get_supported_act_dtypes(cls) -> List[torch.dtype]:
-        return [torch.float16]
+        return [torch.float32]
 
     # Need to figure it out
     def get_min_capability(self) -> int:
@@ -100,9 +100,6 @@ class CompressedTensorsConfig(QuantizationConfig):
     def _get_schema(self, weight_quant: Dict, act_quant: Dict):
         return None
 
-    # Take the layer name and get the appropriate scheme
-    # Have to first map target to linear name
-    # Then use attributes to determine the scheme mapping
     def get_scheme(self, layer: torch.nn.Module):
         if layer in self.ignore:
             return None
@@ -117,9 +114,6 @@ class CompressedTensorsConfig(QuantizationConfig):
                     return self._get_schema(weight_quant, act_quant)
                 except NotImplementedError as e:
                     raise e
-
-        # What happens to the rest of the layers?
-        # Are only linear layers passed in through this loading format?
 
 
 class CompressedTensorsLinearMethod(LinearMethodBase):
@@ -207,8 +201,7 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         return param[shard_id], loaded_weight
 
     def _quantize(self, x: torch.Tensor, act_scale: torch.Tensor):
-
-        x_q = torch.empty_like(x, dtype=torch.int8)
+        x_q = torch.empty_like(x, dtype=torch.int8, device="cuda")
         ops.quant(x_q, x, act_scale)
         return x_q
 
@@ -216,11 +209,15 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
                     dtype: torch.dtype, act_weight_scale: torch.Tensor):
 
         x_q_split = x_q.split(logical_widths, dim=-1)
-        x_dq = torch.empty_like(x_q, dtype=dtype)
+        x_dq = torch.empty_like(x_q, dtype=dtype, device="cuda")
         x_dq_split = x_dq.split(logical_widths, dim=-1)
 
-        for xdq, xq, value in zip(x_dq_split, x_q_split, act_weight_scale):
-            ops.dequant(xdq, xq, value)
+        for i in range(len(act_weight_scale)):
+            xdq = x_dq_split[i]
+            xq = x_q_split[i]
+            v = act_weight_scale[i].item()
+            ops.dequant(xdq, xq, v)
+
         return x_dq
 
     # Apply weights using the scheme; schema should be one of the inputs
@@ -242,26 +239,25 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         if layer_name in self.quantization_config.ignore:
             return self.apply_dense(weight_dq, x)
 
-        act_weight_scale = weight_scale * act_scale  # A16out = A8Out * (sw * sa)
+        act_weight_scale = torch.empty_like(weight_scale,
+                                            dtype=weight_scale.dtype,
+                                            device="cuda")
+        for i in range(len(weight_scale)):
+            act_weight_scale[i] = weight_scale[i].item() * act_scale[i].item()
+
         x_q = self._quantize(x=x, act_scale=1.0)
 
-        start = 0
-        weight_q = None
+        weight_q = torch.empty_like(weight_dq, dtype=torch.int8, device="cuda")
 
-        for i in range(len(logical_widths)):
-            end = start + logical_widths[i]
-            weight_dq_sub = weight_dq[start:end, :]
-            weight_q_sub = torch.clamp(
-                torch.div(weight_dq_sub, weight_scale[i]), -128,
-                127).type(torch.int8)
+        weight_dq_split = weight_dq.split(logical_widths, dim=0)
+        weight_q_split = weight_q.split(logical_widths, dim=0)
 
-            start = end
-            if weight_q is None:
-                weight_q = weight_q_sub
-            else:
-                weight_q = torch.cat((weight_q, weight_q_sub), axis=0)
+        for i in range(len(weight_scale)):
+            w_q = weight_q_split[i]
+            w = weight_dq_split[i]
+            v = weight_scale[i].item()
+            ops.quant(w_q, w, v)
 
-        # empty tensor to store the output from the gem
         a_q = torch.empty((x_q.shape[0], weight_q.shape[0]),
                           dtype=torch.int32,
                           device="cuda")
