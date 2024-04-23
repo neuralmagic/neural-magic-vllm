@@ -5,6 +5,7 @@ from dataclasses import dataclass, fields
 from typing import TYPE_CHECKING, ClassVar, Optional, Union
 
 import torch
+from compressed_tensors import SPARSITY_CONFIG_NAME
 from packaging.version import Version
 from transformers import PretrainedConfig
 
@@ -184,27 +185,31 @@ class ModelConfig:
     def _verify_sparsity(self) -> None:
         supported_sparsity = ["sparse_w16a16", "semi_structured_sparse_w16a16"]
 
+        hf_sparsity_config = getattr(self.hf_config, SPARSITY_CONFIG_NAME,
+                                     None)
+        if hf_sparsity_config is not None:
+            if "sparsity_structure" not in hf_sparsity_config:
+                raise ValueError(
+                    "Detected HuggingFace sparsity config for the model, "
+                    "but it does not have a mandatory "
+                    "attribute: `sparsity_structure` ")
+            hf_sparsity_structure = str(
+                hf_sparsity_config["sparsity_structure"]).lower()
+            if self.sparsity is not None:
+                logger.info(
+                    "Overriding the sparsity structure from the config: "
+                    f"{hf_sparsity_structure} with: {self.sparsity}")
+            self.sparsity = self.sparsity or hf_sparsity_structure
+            if self.sparsity not in supported_sparsity:
+                logger.warning(
+                    f"Unknown sparsity_structure: {self.sparsity}. Must "
+                    f"be one of {supported_sparsity}. Running the models "
+                    "without sparse kernels.")
+                self.sparsity = None
+
         if self.quantization is not None and self.sparsity is not None:
             raise ValueError("Both sparsity and quantization detected. Only "
                              "one or the other is supported at a time.")
-
-        if (self.sparsity is not None
-                and self.sparsity not in supported_sparsity):
-            raise ValueError(f"Unknown sparse method: {self.sparsity}. Must "
-                             f"be one of {supported_sparsity}.")
-
-        hf_sparsity_config = getattr(self.hf_config, "sparsity_config", None)
-        if hf_sparsity_config is not None:
-            hf_sparsity_method = str(
-                hf_sparsity_config["sparse_method"]).lower()
-            if self.sparsity is None:
-                self.sparsity = hf_sparsity_method
-            elif self.sparsity != hf_sparsity_method:
-                raise ValueError(
-                    "Sparsity method specified in the model config "
-                    f"({hf_sparsity_method}) does not match the sparsity "
-                    f"method specified in the `sparsity` argument "
-                    f"({self.sparsity}).")
 
     def _verify_quantization(self) -> None:
         supported_quantization = ["awq", "gptq", "squeezellm", "marlin"]

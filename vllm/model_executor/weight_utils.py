@@ -11,6 +11,8 @@ import filelock
 import huggingface_hub.constants
 import numpy as np
 import torch
+from compressed_tensors import infer_compressor_from_model_config
+from compressed_tensors.config import CompressionFormat
 from huggingface_hub import HfFileSystem, snapshot_download
 from safetensors.torch import load_file, safe_open, save_file
 from tqdm.auto import tqdm
@@ -19,7 +21,8 @@ from vllm.config import ModelConfig
 from vllm.logger import init_logger
 # UPSTREAM SYNC: needed for sparsity
 from vllm.model_executor.layers.parameters import LazyCompressedParameter
-from sparsetensors import infer_compressor_from_model_config
+from vllm.model_executor.layers.quantization import (QuantizationConfig,
+                                                     get_quantization_config)
 from vllm.model_executor.layers.quantization.schema import QuantParamSchema
 
 logger = init_logger(__name__)
@@ -292,18 +295,19 @@ def hf_model_weights_iterator(
                 param = np.load(f)
             yield name, torch.from_numpy(param)
     elif use_safetensors:
-        # UPSTREAM SYNC: needed for compressed loading
+        # UPSTREAM SYNC: needed for loading compressed tensors
+        # (see neural-magic/compressed-tensors repository)
         compressor = infer_compressor_from_model_config(hf_folder)
         compression_format = compressor.config.format if compressor else None
-        if compressor is None or compression_format == "dense_sparsity":
+        if compressor is None or compression_format == CompressionFormat.dense_sparsity.value:  # noqa E501
             for st_file in hf_weights_files:
                 with safe_open(st_file, framework="pt") as f:
                     for name in f.keys():  # noqa: SIM118
                         param = f.get_tensor(name)
                         yield name, param
         else:
-            # a non-trivial (not dense) compressor inferred, 
-            # the models weights are compressed (sparse), so 
+            # a non-trivial (not dense) compressor inferred,
+            # the models weights are compressed (sparse), so
             # they need decompressing before loading
             for name, param in compressor.decompress(hf_folder):
                 yield name, param
