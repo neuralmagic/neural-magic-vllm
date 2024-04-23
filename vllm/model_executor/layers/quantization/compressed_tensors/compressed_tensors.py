@@ -10,25 +10,9 @@ from vllm.model_executor.layers.quantization.base_config import (  # noqa: E501
     QuantizationConfig)
 from vllm.model_executor.utils import set_weight_attrs
 
-
-# Why is this needed?
-class Int8GEMM(object):
-    _instance_lock = threading.Lock()
-
-    def __init__(self):
-        if not hasattr(self, "i8cugemm"):
-            self.i8cugemm = ops.I8CUGEMM()
-
-    def __new__(cls, *args, **kwargs):
-        if not hasattr(Int8GEMM, "_instance"):
-            with Int8GEMM._instance_lock:
-                if not hasattr(Int8GEMM, "_instance"):
-                    Int8GEMM._instance = object.__new__(cls)
-        return Int8GEMM._instance
-
-    def get_i8cugemm(self):
-        return self.i8cugemm
-
+from vllm.model_executor.layers.quantization.compressed_tensors.cutlass_gemm import (
+    cutlass_gemm_dq
+)
 
 class CompressedTensorsConfig(QuantizationConfig):
 
@@ -120,7 +104,6 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
 
     def __init__(self, quantization_config: CompressedTensorsConfig):
         self.quantization_config = quantization_config
-        self.i8cugemm = Int8GEMM().get_i8cugemm()
 
     # Fetch the appropriate schema based on the layer name
     # Create weights using the scheme
@@ -132,8 +115,11 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         scheme = self.quantization_config.get_scheme(layer)
         weights = dict()
 
-        dim = len(output_sizes_per_partition)
         if layer_name not in self.quantization_config.ignore:
+
+            is_tensor_partitioned = len(output_sizes_per_partition) != 1
+            dim = sum(output_sizes_per_partition) if is_tensor_partitioned else 1
+
             input_scale = Parameter(torch.empty(dim,
                                                 device="cuda",
                                                 dtype=torch.float32),
@@ -152,13 +138,13 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
                                                       dtype=torch.int8),
                                           requires_grad=False)
 
-            set_weight_attrs(weight_scale, {
-                "shard_splitter": self.scales_shard_splitter,
-            })
-
-            set_weight_attrs(input_scale, {
-                "shard_splitter": self.scales_shard_splitter,
-            })
+            if is_tensor_partitioned:
+                set_weight_attrs(input_scale,
+                                 {"shard_splitter" : self.scales_shard_splitter,
+                                  "logical_widths" : output_sizes_per_partition})
+                set_weight_attrs(weight_scale,
+                                 {"shard_splitter" : self.scales_shard_splitter,
+                                  "logical_widths" : output_sizes_per_partition})
 
             weights["input_scale"] = input_scale
             weights["input_zero_point"] = input_zero_point
@@ -182,43 +168,39 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         weights["logical_widths"] = output_sizes_per_partition
         return weights
 
-    def scales_shard_splitter(
-            self, param: torch.Tensor, loaded_weight: torch.Tensor,
-            shard_id: Union[str, int]) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Index into param for for loading.
-        
-        This function is called by QKVColumnLinear and MergedColumnParallelLinear
-        during weight loading to put the scales from disk in the right spot.
-        """
-        if type(shard_id) == str:
-            qkv_idxs = {"q": 0, "k": 1, "v": 2}
-            if shard_id not in qkv_idxs:
-                raise ValueError(f"Invalid shard_id {shard_id}")
-            shard_id = qkv_idxs[shard_id]
-        elif type(shard_id) != int:
-            raise ValueError(f"Invalid shard id {shard_id}")
+    def shard_id_as_int(self, shard_id: Union[str, int]) -> int:
+        if isinstance(shard_id, int):
+            return shard_id
 
-        return param[shard_id], loaded_weight
+        assert isinstance(shard_id, str)
+        qkv_idxs = { "q": 0, "k": 1, "v": 2 }
+        assert shard_id in qkv_idxs
+        return qkv_idxs[shard_id]
 
-    def _quantize(self, x: torch.Tensor, act_scale: torch.Tensor):
+    def scales_shard_splitter(self,
+                              param: torch.Tensor,
+                              loaded_weight: torch.Tensor,
+                              shard_id: Union[str, int],
+                              logical_widths: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        shard_id = self.shard_id_as_int(shard_id)
+        offset = sum(logical_widths[:shard_id]) 
+        size = logical_widths[shard_id]
+        # update loaded weight with copies for broadcast.
+        loaded_weight = loaded_weight.repeat(size)
+        return param[offset : offset + size], loaded_weight
+
+    def _quantize(self, x: torch.Tensor, scales: torch.Tensor,
+                  logical_widths: List[int], split_dim : int = 0) -> torch.Tensor:
+
+        assert (torch.numel(scales) == len(logical_widths))
         x_q = torch.empty_like(x, dtype=torch.int8, device="cuda")
-        ops.quant(x_q, x, act_scale)
+        x_q_split = x_q.split(logical_widths, dim=split_dim)
+        x_split = x.split(logical_widths, dim=split_dim)
+
+        for q, dq, scale in zip(x_q_split, x_split, scales):
+            ops.quant(q, dq, scale.item())
+
         return x_q
-
-    def _dequantize(self, x_q: torch.Tensor, logical_widths: List[int],
-                    dtype: torch.dtype, act_weight_scale: torch.Tensor):
-
-        x_q_split = x_q.split(logical_widths, dim=-1)
-        x_dq = torch.empty_like(x_q, dtype=dtype, device="cuda")
-        x_dq_split = x_dq.split(logical_widths, dim=-1)
-
-        for i in range(len(act_weight_scale)):
-            xdq = x_dq_split[i]
-            xq = x_q_split[i]
-            v = act_weight_scale[i].item()
-            ops.dequant(xdq, xq, v)
-
-        return x_dq
 
     # Apply weights using the scheme; schema should be one of the inputs
     # to the function
@@ -239,32 +221,16 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         if layer_name in self.quantization_config.ignore:
             return self.apply_dense(weight_dq, x)
 
-        act_weight_scale = torch.empty_like(weight_scale,
-                                            dtype=weight_scale.dtype,
-                                            device="cuda")
-        for i in range(len(weight_scale)):
-            act_weight_scale[i] = weight_scale[i].item() * act_scale[i].item()
+        # Input quantize
+        x_scales = torch.FloatTensor([act_scale[0].item()], device=torch.device("cpu"))
+        x_q = self._quantize(x, x_scales, [x.shape[0]])
 
-        x_q = self._quantize(x=x, act_scale=act_scale[0].item())
+        # Weight quantize
+        # TODO : try not to remove device-to-host copy. i.e. keep the non-duplicated version
+        # of scales in the CPU
+        w_scales = [weight_scale[sum(logical_widths[:i])].item() for i in range(len(logical_widths))]
+        w_scales = torch.FloatTensor(w_scales, device=torch.device("cpu"))
+        w_q = self._quantize(weight_dq, w_scales, logical_widths)
 
-        weight_q = torch.empty_like(weight_dq, dtype=torch.int8, device="cuda")
-
-        weight_dq_split = weight_dq.split(logical_widths, dim=0)
-        weight_q_split = weight_q.split(logical_widths, dim=0)
-
-        for i in range(len(weight_scale)):
-            w_q = weight_q_split[i]
-            w = weight_dq_split[i]
-            v = weight_scale[i].item()
-            ops.quant(w_q, w, v)
-
-        a_q = torch.empty((x_q.shape[0], weight_q.shape[0]),
-                          dtype=torch.int32,
-                          device="cuda")
-
-        self.i8cugemm.linear_a8_w8_o32_(x_q, weight_q, a_q)
-
-        return self._dequantize(a_q,
-                                logical_widths=logical_widths,
-                                dtype=x.dtype,
-                                act_weight_scale=act_weight_scale)
+        # GEMM and dq
+        return cutlass_gemm_dq(x_q, w_q, x.dtype, weight_scale, act_scale)

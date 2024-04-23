@@ -1,7 +1,6 @@
 #include "cache.h"
 #include "cuda_utils.h"
 #include "ops.h"
-#include "quantization/smoothquant/int8gemm/int8_gemm.h"
 #include <torch/extension.h>
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -51,21 +50,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     &fused_add_rms_norm,
     "In-place fused Add and RMS Normalization");
   ops.def(
-    "dequant",
-    py::overload_cast<
-    torch::Tensor&,
-    torch::Tensor&,
-    float>(&dequant),
-    "Dequant.");
-  ops.def(
-    "dequant",
-    py::overload_cast<
-    torch::Tensor&,
-    torch::Tensor&,
-    torch::Tensor&,
-    float>(&dequant),
-    "Per-token dequant.");
-  ops.def(
     "quant",
     py::overload_cast<
     torch::Tensor&,
@@ -104,12 +88,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   ops.def("gptq_gemm", &gptq_gemm, "Quantized GEMM for GPTQ");
   ops.def("gptq_shuffle", &gptq_shuffle, "Post processing for GPTQ");
   ops.def("squeezellm_gemm", &squeezellm_gemm, "Quantized GEMM for SqueezeLLM");
-  pybind11::class_<I8CUGEMM>(ops, "I8CUGEMM")
-    .def(pybind11::init<>())
-    .def("linear_a8_w8_o32", &I8CUGEMM::linear_a8_w8_o32)
-    .def("linear_a8_w8_o8", &I8CUGEMM::linear_a8_w8_o8)
-    .def("linear_a8_w8_o8_", &I8CUGEMM::linear_a8_w8_o8_)
-    .def("linear_a8_w8_o32_", &I8CUGEMM::linear_a8_w8_o32_);
   ops.def(
     "moe_align_block_size",
     &moe_align_block_size,

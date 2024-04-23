@@ -384,8 +384,10 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
             param_data = param_data.narrow(0, shard_offset, shard_size)
         # If a param_shard_splitter is defined by the LinearMethod, use it.
         elif param_shard_splitter is not None:
+            logical_widths = getattr(param, "logical_widths")
             param_data, loaded_weight = param_shard_splitter(
-                param_data, loaded_weight, loaded_shard_id)
+                param_data, loaded_weight, loaded_shard_id, logical_widths)
+
         else:
             ignore_warning = getattr(param, "ignore_warning", False)
             if not ignore_warning:
@@ -576,8 +578,10 @@ class QKVParallelLinear(ColumnParallelLinear):
                                            shard_size)
         # If a param_shard_splitter is defined by the LinearMethod, use it.
         elif param_shard_splitter is not None:
+            logical_widths = getattr(param, "logical_widths")
             param_data, loaded_weight = param_shard_splitter(
-                param_data, loaded_weight, loaded_shard_id)
+                param_data, loaded_weight, loaded_shard_id, logical_widths)
+
         else:
             ignore_warning = getattr(param, "ignore_warning", False)
             if not ignore_warning:
