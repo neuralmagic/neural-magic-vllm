@@ -108,18 +108,12 @@ jobs:
           name: ${{ inputs.whl }}
           path: ${{ inputs.whl }}
 
-      # need to install the nm-vllm whl and magic wand
-      - name: to be action
-        run: |
-            COMMIT=${{ github.sha }}
-            VENV="${{ env.VENV_BASE }}-${COMMIT:0:7}"
-            source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
-            pip3 install -r requirements-cuda.txt -r requirements-dev.txt
-            pip3 install nm-magic-wand-nightly
-            BASE=$(./.github/scripts/convert-version ${{ inputs.python }})
-            WHL=$(find . -type f -iname "*${BASE}*.whl")
-            WHL_BASENAME=$(basename ${WHL})
-            pip3 install ${WHL}
+      - name: install whl
+        id: install_whl
+        uses: ./.github/actions/nm-install-whl/
+        with:
+            python: ${{ inputs.python }}
+            venv: ${{ env.VENV_BASE }}
 
       - name: run benchmarks
         uses: ./.github/actions/nm-benchmark/
@@ -157,7 +151,7 @@ jobs:
           # Metrics that we only want to observe are stored here
           observation_metrics_output_file_path: gh-action-benchmark-jsons/observation_metrics.json
           python: ${{ inputs.python }}
-          venv: TEST
+          venv: ${{ env.VENV_BASE }}
 
       - name: set gh action benchmark input artifact name
         id: set_gh_action_benchmark_input_artifact_name
