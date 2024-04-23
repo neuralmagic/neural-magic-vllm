@@ -245,7 +245,7 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         for i in range(len(weight_scale)):
             act_weight_scale[i] = weight_scale[i].item() * act_scale[i].item()
 
-        x_q = self._quantize(x=x, act_scale=1.0)
+        x_q = self._quantize(x=x, act_scale=act_scale[0].item())
 
         weight_q = torch.empty_like(weight_dq, dtype=torch.int8, device="cuda")
 
