@@ -12,6 +12,10 @@ runs:
   steps:
     - id: install_whl
       run: |
+        # move source directories
+        mv vllm vllm-ignore
+        mv csrc csrc-ignore
+        # activate and install
         COMMIT=${{ github.sha }}
         VENV="${{ env.VENV_BASE }}-${COMMIT:0:7}"
         source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
