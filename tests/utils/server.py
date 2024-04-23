@@ -1,11 +1,78 @@
 import logging
+import os
 import shlex
-from typing import Any, Dict, List
+import subprocess
+import sys
+import time
+from typing import Any, Dict, List, Optional
 
 import ray
+import requests
+import torch
 
-from tests.entrypoints.test_openai_server import ServerRunner
 from tests.utils.logging import log_banner
+
+MAX_SERVER_START_WAIT = 600  # time (seconds) to wait for server to start
+
+
+@ray.remote(num_gpus=torch.cuda.device_count())
+class ServerRunner:
+
+    def __init__(self,
+                 args: List[str],
+                 *,
+                 logger: Optional[logging.Logger] = None):
+        env = os.environ.copy()
+        env["PYTHONUNBUFFERED"] = "1"
+        self.startup_command = [
+            sys.executable,
+            "-m",
+            "vllm.entrypoints.openai.api_server",
+            *args,
+        ]
+
+        if logger:
+            log_banner(
+                logger,
+                "server startup command",
+                shlex.join(self.startup_command),
+                logging.DEBUG,
+            )
+
+        self.proc = subprocess.Popen(
+            [
+                sys.executable, "-m", "vllm.entrypoints.openai.api_server",
+                *args
+            ],
+            env=env,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+        )
+        self._wait_for_server()
+
+    def ready(self):
+        return True
+
+    def _wait_for_server(self):
+        # run health check
+        start = time.time()
+        while True:
+            try:
+                if requests.get(
+                        "http://localhost:8000/health").status_code == 200:
+                    break
+            except Exception as err:
+                if self.proc.poll() is not None:
+                    raise RuntimeError("Server exited unexpectedly.") from err
+
+                time.sleep(0.5)
+                if time.time() - start > MAX_SERVER_START_WAIT:
+                    raise RuntimeError(
+                        "Server failed to start in time.") from err
+
+    def __del__(self):
+        if hasattr(self, "proc"):
+            self.proc.terminate()
 
 
 class ServerContext:
@@ -27,15 +94,9 @@ class ServerContext:
 
     def __enter__(self):
         """Executes the server process and waits for it to become ready."""
-        log_banner(
-            self._logger,
-            "server startup command args",
-            shlex.join(self._args),
-            logging.DEBUG,
-        )
-
         ray.init(ignore_reinit_error=True)
-        self.server_runner = ServerRunner.remote(self._args)
+        self.server_runner = ServerRunner.remote(self._args,
+                                                 logger=self._logger)
         ray.get(self.server_runner.ready.remote())
         return self.server_runner
 
