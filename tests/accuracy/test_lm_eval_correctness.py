@@ -52,7 +52,11 @@ def test_lm_eval_correctness(
 
     model_name = eval_data["model_name"]
     logger.info("building server startup args")
-    vllm_args = {"--model": model_name, "--disable-log-requests": None}
+    vllm_args = {
+        "--model": model_name,
+        "--disable-log-requests": None,
+        "--max-model-len": 4096,
+    }
 
     if eval_data.get("enable_tensor_parallel") is True:
         tp = torch.cuda.device_count()
@@ -62,13 +66,11 @@ def test_lm_eval_correctness(
     if extra_args := eval_data.get("extra_args"):
         vllm_args.update(extra_args)
 
-    openai_args = ",".join(
-        [
-            f"model={model_name}",
-            "tokenizer_backend=huggingface",
-            "base_url=http://localhost:8000/v1",
-        ]
-    )
+    openai_args = ",".join([
+        f"model={model_name}",
+        "tokenizer_backend=huggingface",
+        "base_url=http://localhost:8000/v1",
+    ])
 
     logger.info("launching server")
     with ServerContext(vllm_args, logger=logger) as _:
