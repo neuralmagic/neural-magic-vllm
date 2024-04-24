@@ -95,6 +95,8 @@ class ServerContext:
     def __enter__(self):
         """Executes the server process and waits for it to become ready."""
         ray.init(ignore_reinit_error=True)
+        log_banner(self._logger, "server startup command args",
+                   shlex.join(self._args))
         self.server_runner = ServerRunner.remote(self._args,
                                                  logger=self._logger)
         ray.get(self.server_runner.ready.remote())
