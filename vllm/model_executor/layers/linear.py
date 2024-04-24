@@ -166,9 +166,6 @@ class ColumnParallelLinear(torch.nn.Module):
                        skip adding bias but instead return it.
         params_dtype: Data type for the parameters.
         linear_method: (Maybe quantized) linear method.
-        logical_widths: Optional list of widths for logical weight matrices.
-                        E.g. for QKVParallelLinear, this parameter defines
-                        the width
     """
 
     def __init__(
@@ -308,6 +305,7 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
         param_data = param.data
         output_dim = getattr(param, "output_dim", None)
         param_shard_splitter = getattr(param, "shard_splitter", None)
+
         if output_dim is not None and param_shard_splitter is not None:
             raise NotImplementedError(
                 "We do not currently support output_dim != None and "
@@ -373,8 +371,11 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
                                                  shard_size)
         # If a param_shard_splitter is defined by the LinearMethod, use it.
         elif param_shard_splitter is not None:
+            logical_widths = getattr(param, "logical_widths")
             param_data, loaded_weight = param_shard_splitter(
-                param_data, loaded_weight, loaded_shard_id)
+                param_data, loaded_weight, loaded_shard_id, logical_widths
+            )
+
         else:
             ignore_warning = getattr(param, "ignore_warning", False)
             if not ignore_warning:
@@ -466,7 +467,7 @@ class QKVParallelLinear(ColumnParallelLinear):
         param_data = param.data
         output_dim = getattr(param, "output_dim", None)
         param_shard_splitter = getattr(param, "shard_splitter", None)
-        
+
         if output_dim is not None and param_shard_splitter is not None:
             raise NotImplementedError(
                 "We do not currently support output_dim != None and "
@@ -548,8 +549,10 @@ class QKVParallelLinear(ColumnParallelLinear):
                                                 shard_size)
         # If a param_shard_splitter is defined by the LinearMethod, use it.
         elif param_shard_splitter is not None:
+            logical_widths = getattr(param, "logical_widths")
             param_data, loaded_weight = param_shard_splitter(
-                param_data, loaded_weight, loaded_shard_id)
+                param_data, loaded_weight, loaded_shard_id, logical_widths)
+
         else:
             ignore_warning = getattr(param, "ignore_warning", False)
             if not ignore_warning:

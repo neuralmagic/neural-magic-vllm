@@ -7,27 +7,6 @@
 #include "quant_utils.cuh"
 
 namespace vllm {
-template <typename scalar_t, bool use_per_token_dequant>
-__global__ void dequant_kernel(
-  const int32_t* __restrict__ input,
-  scalar_t* __restrict__ out,
-  const float scale,
-  const int m,
-  const int hidden_size,
-  const int input_stride,
-  const int out_stride,
-  const float* __restrict__ act_scale = nullptr) {
-  const int tid = threadIdx.x;
-  const int token_idx = blockIdx.x;
-  float scale_ = scale;
-  if constexpr (use_per_token_dequant) {
-    scale_ = scale * act_scale[token_idx];
-  }
-  for (int i = tid; i < hidden_size; i += blockDim.x) {
-    out[token_idx * out_stride + i] =
-    (scalar_t)(((float)input[token_idx * input_stride + i]) * scale_);
-  }
-}
 
 template <typename scalar_t, typename scale_type, bool use_per_token_quant>
 __global__ void quant_kernel(
@@ -70,56 +49,6 @@ __global__ void quant_kernel(
   }
 }
 } // namespace vllm
-
-void dequant(
-  torch::Tensor& out,   // [..., hidden_size]
-  torch::Tensor& input, // [..., hidden_size]
-  float scale) {
-  int hidden_size = input.size(-1);
-  int num_tokens = input.numel() / hidden_size;
-  dim3 grid(num_tokens);
-  dim3 block(std::min(hidden_size, 1024));
-  int input_stride = input.stride(-2);
-  int out_stride = out.stride(-2);
-
-  const cudaStream_t stream = at::cuda::getCurrentCUDAStream();
-  VLLM_DISPATCH_FLOATING_TYPES(out.scalar_type(), "dequant_kernel", [&] {
-    vllm::dequant_kernel<scalar_t, false><<<grid, block, 0, stream>>>(
-      input.data_ptr<int32_t>(),
-      out.data_ptr<scalar_t>(),
-      scale,
-      num_tokens,
-      hidden_size,
-      input_stride,
-      out_stride);
-  });
-}
-
-void dequant(
-  torch::Tensor& out,   // [..., hidden_size]
-  torch::Tensor& input, // [..., hidden_size]
-  torch::Tensor& scale,
-  float weight_dequant_scale) {
-  int hidden_size = input.size(-1);
-  int num_tokens = input.numel() / hidden_size;
-  dim3 grid(num_tokens);
-  dim3 block(std::min(hidden_size, 1024));
-  int input_stride = input.stride(-2);
-  int out_stride = out.stride(-2);
-
-  const cudaStream_t stream = at::cuda::getCurrentCUDAStream();
-  VLLM_DISPATCH_FLOATING_TYPES(out.scalar_type(), "dequant_kernel", [&] {
-    vllm::dequant_kernel<scalar_t, true><<<grid, block, 0, stream>>>(
-      input.data_ptr<int32_t>(),
-      out.data_ptr<scalar_t>(),
-      weight_dequant_scale,
-      num_tokens,
-      hidden_size,
-      input_stride,
-      out_stride,
-      scale.data_ptr<float>());
-  });
-}
 
 void quant(
   torch::Tensor& out,   // [..., hidden_size]
