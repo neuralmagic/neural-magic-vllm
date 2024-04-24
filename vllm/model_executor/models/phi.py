@@ -168,12 +168,12 @@ class PhiLayer(nn.Module):
         super().__init__()
         self.input_layernorm = nn.LayerNorm(config.hidden_size,
                                             eps=config.layer_norm_eps)
-        self.self_attn = PhiAttention(
-            parent_name=f"{parent_name}.self_attn",
-            config=config, linear_method=linear_method)
-        self.mlp = PhiMLP(
-            parent_name=f"{parent_name}.mlp",
-            config=config, linear_method=linear_method)
+        self.self_attn = PhiAttention(parent_name=f"{parent_name}.self_attn",
+                                      config=config,
+                                      linear_method=linear_method)
+        self.mlp = PhiMLP(parent_name=f"{parent_name}.mlp",
+                          config=config,
+                          linear_method=linear_method)
 
     def forward(
         self,

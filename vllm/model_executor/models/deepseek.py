@@ -288,7 +288,8 @@ class DeepseekDecoderLayer(nn.Module):
                 and layer_idx >= config.first_k_dense_replace
                 and layer_idx % config.moe_layer_freq == 0):
             self.mlp = DeepseekMoE(parent_name=f"{parent_name}.mlp",
-                                   config=config, linear_method=linear_method)
+                                   config=config,
+                                   linear_method=linear_method)
         else:
             self.mlp = DeepseekMLP(
                 parent_name=f"{parent_name}.mlp",
@@ -348,7 +349,8 @@ class DeepseekModel(nn.Module):
         )
         self.layers = nn.ModuleList([
             DeepseekDecoderLayer(parent_name=f"model.layers.{idx}",
-                                 config=config, layer_idx=idx,
+                                 config=config,
+                                 layer_idx=idx,
                                  linear_method=linear_method)
             for idx in range(config.num_hidden_layers)
         ])

@@ -266,11 +266,10 @@ class BaiChuanModel(nn.Module):
             config.hidden_size,
         )
         self.layers = nn.ModuleList([
-            BaiChuanDecoderLayer(
-                parent_name=f"model.layers.{idx}",
-                config=config,
-                position_embedding=position_embedding,
-                linear_method=linear_method)
+            BaiChuanDecoderLayer(parent_name=f"model.layers.{idx}",
+                                 config=config,
+                                 position_embedding=position_embedding,
+                                 linear_method=linear_method)
             for idx in range(config.num_hidden_layers)
         ])
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
@@ -371,7 +370,7 @@ class BaiChuanBaseForCausalLM(nn.Module):
             # Update name of the loaded_weight if needed by the LinearMethod.
             if self.linear_method:
                 name = self.linear_method.maybe_update_loaded_weight_name(name)
-                
+
             if "rotary_emb.inv_freq" in name:
                 continue
             if name == "lm_head.weight":

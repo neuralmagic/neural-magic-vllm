@@ -39,13 +39,16 @@ else:
     model_id = MODELS[args.model]
     print(f"Using model_id = {model_id}")
 
-messages=[{
-    "role": "user",
-    "content": "What is deep learning?"
-}]
+messages = [{"role": "user", "content": "What is deep learning?"}]
 
-model = LLM(model_id, enforce_eager=True, max_model_len=1024, tensor_parallel_size=args.tensor_parallel_size, dtype="float16", trust_remote_code=True)
-prompt = model.llm_engine.tokenizer.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+model = LLM(model_id,
+            enforce_eager=True,
+            max_model_len=1024,
+            tensor_parallel_size=args.tensor_parallel_size,
+            dtype="float16",
+            trust_remote_code=True)
+prompt = model.llm_engine.tokenizer.tokenizer.apply_chat_template(
+    messages, tokenize=False, add_generation_prompt=True)
 out = model.generate(prompt, SamplingParams(max_tokens=50))
 print(f"\n-----prompt\n{prompt}")
 print(f"\n-----generation\n{out[0].outputs[0].text}")

@@ -249,12 +249,10 @@ class LlamaDecoderLayer(nn.Module):
 
 class LlamaModel(nn.Module):
 
-    def __init__(
-        self,
-        config: LlamaConfig,
-        linear_method: Optional[LinearMethodBase] = None,
-        lora_config: Optional[LoRAConfig] = None
-    ) -> None:
+    def __init__(self,
+                 config: LlamaConfig,
+                 linear_method: Optional[LinearMethodBase] = None,
+                 lora_config: Optional[LoRAConfig] = None) -> None:
         super().__init__()
         self.config = config
         self.padding_idx = config.pad_token_id

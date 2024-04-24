@@ -140,11 +140,13 @@ class GPT2Block(nn.Module):
 
         self.ln_1 = nn.LayerNorm(hidden_size, eps=config.layer_norm_epsilon)
         self.attn = GPT2Attention(parent_name=f"{parent_name}.attn",
-                                  config=config, linear_method=linear_method)
+                                  config=config,
+                                  linear_method=linear_method)
         self.ln_2 = nn.LayerNorm(hidden_size, eps=config.layer_norm_epsilon)
         self.mlp = GPT2MLP(parent_name=f"{parent_name}.mlp",
                            intermediate_size=inner_dim,
-                           config=config, linear_method=linear_method)
+                           config=config,
+                           linear_method=linear_method)
 
     def forward(
         self,
@@ -186,9 +188,9 @@ class GPT2Model(nn.Module):
         self.wte = VocabParallelEmbedding(config.vocab_size, self.embed_dim)
         self.wpe = nn.Embedding(config.max_position_embeddings, self.embed_dim)
         self.h = nn.ModuleList([
-            GPT2Block(
-                parent_name=f"transformer.h.{idx}",
-                config=config, linear_method=linear_method)
+            GPT2Block(parent_name=f"transformer.h.{idx}",
+                      config=config,
+                      linear_method=linear_method)
             for idx in range(config.num_hidden_layers)
         ])
         self.ln_f = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_epsilon)
@@ -263,7 +265,7 @@ class GPT2LMHeadModel(nn.Module):
             # Update name of the loaded_weight if needed by the LinearMethod.
             if self.linear_method:
                 name = self.linear_method.maybe_update_loaded_weight_name(name)
-            
+
             if "lm_head.weight" in name:
                 # GPT-2 ties the weights of the embedding layer and the final
                 # linear layer.

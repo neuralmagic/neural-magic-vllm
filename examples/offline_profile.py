@@ -28,11 +28,13 @@ class ProfileContext:
     tensor_parallel_size: int
     allow_cuda_graphs: bool
 
-def get_dtype(dtype:str):
+
+def get_dtype(dtype: str):
     if dtype == "torch.float":
         return torch.float
     else:
         return dtype
+
 
 def run_profile(context: ProfileContext, csv_output: Optional[str],
                 json_output: Optional[str]):
@@ -45,17 +47,17 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
 
     # Sparsity is in the future
     # Create LLM
-    llm = LLM(
-        model=context.model,
-        tokenizer=context.tokenizer if context.tokenizer is not None else context.model,
-        revision=context.model_revision,
-        enforce_eager=not context.allow_cuda_graphs,
-        tensor_parallel_size=context.tensor_parallel_size,
-        gpu_memory_utilization=0.9,
-        max_model_len=context.max_seq_len,
-        quantization=context.quantization,
-        dtype=get_dtype(context.dtype),
-        max_num_batched_tokens=context.max_num_batched_tokens)
+    llm = LLM(model=context.model,
+              tokenizer=context.tokenizer
+              if context.tokenizer is not None else context.model,
+              revision=context.model_revision,
+              enforce_eager=not context.allow_cuda_graphs,
+              tensor_parallel_size=context.tensor_parallel_size,
+              gpu_memory_utilization=0.9,
+              max_model_len=context.max_seq_len,
+              quantization=context.quantization,
+              dtype=get_dtype(context.dtype),
+              max_num_batched_tokens=context.max_num_batched_tokens)
 
     batch_size = context.batch_size
     prompt_len = context.prompt_len
@@ -168,11 +170,10 @@ if __name__ == "__main__":
         type=str,
         required=True,
         help='The name or path of a HuggingFace Transformers model.')
-    parser.add_argument(
-        "--tokenizer",
-        type=str,
-        default=None,
-        help="path to the tokenizer")
+    parser.add_argument("--tokenizer",
+                        type=str,
+                        default=None,
+                        help="path to the tokenizer")
 
     parser.add_argument("--model-revision", type=str, default=None)
     parser.add_argument(
@@ -196,12 +197,12 @@ if __name__ == "__main__":
         choices=['awq', 'gptq', 'squeezellm', 'marlin', 'smoothquant', None],
         default=None,
         help="The method used to quantize the model weights, "
-        "options are \"marlin\", \"awq\", \"gptq\", \"squeezellm\", \"smoothquant\"")
-    parser.add_argument(
-        "--dtype",
-        type=str,
-        default='auto',
-        help="model dtype")
+        "options are \"marlin\", \"awq\", \"gptq\", \"squeezellm\", \"smoothquant\""
+    )
+    parser.add_argument("--dtype",
+                        type=str,
+                        default='auto',
+                        help="model dtype")
     parser.add_argument(
         "--max-seq-len",
         type=int,

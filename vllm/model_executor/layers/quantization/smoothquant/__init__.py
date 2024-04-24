@@ -1,11 +1,8 @@
 from vllm.model_executor.layers.quantization.smoothquant.formats import (
-    SmoothQuantFormat
-)
+    SmoothQuantFormat)
 
 from vllm.model_executor.layers.quantization.smoothquant.config import (
-    SmoothQuantConfig,
-    SmoothQuantLinearMethod
-)
+    SmoothQuantConfig, SmoothQuantLinearMethod)
 
 __all__ = [
     "SmoothQuantFormat",

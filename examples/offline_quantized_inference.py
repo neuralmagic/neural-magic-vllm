@@ -1,8 +1,8 @@
 from vllm import LLM, SamplingParams
 import torch
 
-hf_path="nm-testing/Nous-Hermes-Llama2-13b-smoothquant"
-model_path=hf_path
+hf_path = "nm-testing/Nous-Hermes-Llama2-13b-smoothquant"
+model_path = hf_path
 
 # Sample prompts.
 prompts = [
@@ -13,18 +13,17 @@ prompts = [
 ]
 
 # Create a sampling params object.
-sampling_params = SamplingParams(temperature=0.0, top_k = 1,max_tokens=20)
+sampling_params = SamplingParams(temperature=0.0, top_k=1, max_tokens=20)
 
 # Create an LLM.
-llm = LLM(
-    model="nm-testing/Nous-Hermes-Llama2-13b-smoothquant",
-    gpu_memory_utilization=0.9,
-    max_model_len=2048,
-    quantization="smoothquant",
-    dtype=torch.float,
-    enforce_eager=True,
-    tensor_parallel_size=1,
-    max_num_batched_tokens=7000)
+llm = LLM(model="nm-testing/Nous-Hermes-Llama2-13b-smoothquant",
+          gpu_memory_utilization=0.9,
+          max_model_len=2048,
+          quantization="smoothquant",
+          dtype=torch.float,
+          enforce_eager=True,
+          tensor_parallel_size=1,
+          max_num_batched_tokens=7000)
 
 # Generate texts from the prompts. The output is a list of RequestOutput objects
 # that contain the prompt, generated text, and other information.

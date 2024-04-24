@@ -88,7 +88,8 @@ def get_model(model_config: ModelConfig, device_config: DeviceConfig,
                     model = model_class(model_config.hf_config,
                                         vision_language_config, linear_method)
 
-            if not hasattr(model_class, "supported_lora_modules") and lora_config:
+            if not hasattr(model_class,
+                           "supported_lora_modules") and lora_config:
                 raise ValueError(
                     f"Model {model_class.__name__} does not support LoRA, "
                     "but LoRA is enabled. Support for this model may "

@@ -3,9 +3,8 @@ from typing import Any, Dict, List, Tuple, Type, Optional, Union
 import torch
 from torch.nn.parameter import Parameter
 
-from vllm.model_executor.layers.linear import (
-    LinearMethodBase,
-    set_weight_attrs)
+from vllm.model_executor.layers.linear import (LinearMethodBase,
+                                               set_weight_attrs)
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig)
 from vllm.model_executor.layers.quantization.smoothquant.formats import (
@@ -14,8 +13,7 @@ from vllm.model_executor.layers.quantization.smoothquant.formats import (
     SmoothQuantStaticPerTensor,
 )
 from vllm.model_executor.layers.quantization.smoothquant.cutlass_gemm import (
-    cutlass_gemm_dq
-)
+    cutlass_gemm_dq)
 
 LAYER_KEYS = ["qkv", "out", "fc1", "fc2"]
 FORMAT_REGISTRY = {
@@ -23,36 +21,34 @@ FORMAT_REGISTRY = {
     "per-tensor": SmoothQuantStaticPerTensor,
 }
 
+
 def get_sq_format_cls(format_key: str) -> Type[SmoothQuantFormat]:
     if format_key not in FORMAT_REGISTRY:
         raise ValueError(f"Invalid smoothquant format: {format_key}")
     return FORMAT_REGISTRY[format_key]
+
 
 class SmoothQuantConfig(QuantizationConfig):
     """Config class for SmoothQuant.
 
     Reference: https://github.com/mit-han-lab/smoothquant
     """
-    def __init__(self,
-                 layer_format_map: Dict[str, str]) -> None:
+
+    def __init__(self, layer_format_map: Dict[str, str]) -> None:
         self.layer_format_map = layer_format_map
 
         for key, format in self.layer_format_map.items():
             if key not in LAYER_KEYS:
                 raise ValueError(
-                    f"Found key of {key} in {self.layer_format_map}, " 
-                    f"but key must be one of {LAYER_KEYS}"
-                )
+                    f"Found key of {key} in {self.layer_format_map}, "
+                    f"but key must be one of {LAYER_KEYS}")
             if format not in FORMAT_REGISTRY:
                 raise ValueError(
                     f"Found format of {format} in {self.layer_format_map}, "
-                    f"but format must be one of {FORMAT_REGISTRY}"
-                )
+                    f"but format must be one of {FORMAT_REGISTRY}")
         for key in LAYER_KEYS:
             if key not in self.layer_format_map:
-                raise ValueError(
-                    f"Could not find {key} in {layer_format_map}"
-                )
+                raise ValueError(f"Could not find {key} in {layer_format_map}")
 
     def __repr__(self) -> str:
         return (f"SmoothQuantConfig(layer_format_map={self.layer_format_map})")
@@ -82,17 +78,18 @@ class SmoothQuantConfig(QuantizationConfig):
             if format in FORMAT_REGISTRY:
                 layer_format_map[layer_key] = format
         return cls(layer_format_map)
-    
+
     def get_linear_method(self) -> "SmoothQuantLinearMethod":
         return SmoothQuantLinearMethod(self)
 
+
 class SmoothQuantLinearMethod(LinearMethodBase):
+
     def __init__(self, sq_config: SmoothQuantConfig) -> None:
         self.sq_config = sq_config
         self.sq_type = None
 
-    def maybe_update_loaded_weight_name(self, 
-                                        name: str) -> str:
+    def maybe_update_loaded_weight_name(self, name: str) -> str:
         """Convert serialized name k_dequant_scale to dequant_scale.
 
         This function is called by model_cls.load_weights() during the weight
@@ -108,21 +105,20 @@ class SmoothQuantLinearMethod(LinearMethodBase):
             return shard_id
 
         assert isinstance(shard_id, str)
-        qkv_idxs = { "q": 0, "k": 1, "v": 2 }
+        qkv_idxs = {"q": 0, "k": 1, "v": 2}
         assert shard_id in qkv_idxs
         return qkv_idxs[shard_id]
 
-    def scales_shard_splitter(self,
-                              param: torch.Tensor,
-                              loaded_weight: torch.Tensor,
-                              shard_id: Union[str, int],
-                              logical_widths: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def scales_shard_splitter(
+            self, param: torch.Tensor, loaded_weight: torch.Tensor,
+            shard_id: Union[str, int],
+            logical_widths: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         shard_id = self.shard_id_as_int(shard_id)
-        offset = sum(logical_widths[:shard_id]) 
+        offset = sum(logical_widths[:shard_id])
         size = logical_widths[shard_id]
         # update loaded weight with copies for broadcast.
         loaded_weight = loaded_weight.repeat(size)
-        return param[offset : offset + size], loaded_weight
+        return param[offset:offset + size], loaded_weight
 
     def get_layer_format(self, layer_name: str) -> SmoothQuantFormat:
         """
@@ -137,7 +133,7 @@ class SmoothQuantLinearMethod(LinearMethodBase):
             layer_name: Name of the layer we are creating the LinearMethod for.
         Returns
             sq_linear_method: SmoothQuantLinearMethod with the right SQFormat.
-        """      
+        """
         # Note: AutoSmoothQuant Serialization is not very good yet.
         #
         # It looks like the following (which does not map to layer names in the model):
@@ -160,24 +156,21 @@ class SmoothQuantLinearMethod(LinearMethodBase):
         #           return get_sq_format_cls(sq_format)()
 
         HACKED_REMAP_FOR_LLAMA = {
-            "qkv": "qkv", 
-            "o_proj": "out", 
-            "gate_up": 
-            "fc1", "down": "fc2",
+            "qkv": "qkv",
+            "o_proj": "out",
+            "gate_up": "fc1",
+            "down": "fc2",
         }
 
         for match_key, lookup_key in HACKED_REMAP_FOR_LLAMA.items():
             if match_key in layer_name:
                 sq_format = self.sq_config.layer_format_map[lookup_key]
                 return get_sq_format_cls(sq_format)()
-            
+
         raise ValueError
-        
-    def create_weights(self, 
-                       layer_name: str,
-                       input_size_per_partition: int,
-                       output_sizes_per_partition: int,
-                       input_size: int,
+
+    def create_weights(self, layer_name: str, input_size_per_partition: int,
+                       output_sizes_per_partition: int, input_size: int,
                        output_size: int,
                        params_dtype: torch.dtype) -> Dict[str, torch.Tensor]:
         del input_size, output_size
@@ -187,8 +180,10 @@ class SmoothQuantLinearMethod(LinearMethodBase):
             torch.empty(
                 sum(output_sizes_per_partition),
                 input_size_per_partition,
-                device="cuda", dtype=torch.int8,
-            ), requires_grad=False,
+                device="cuda",
+                dtype=torch.int8,
+            ),
+            requires_grad=False,
         )
         set_weight_attrs(weight, {
             "input_dim": 1,
@@ -197,20 +192,22 @@ class SmoothQuantLinearMethod(LinearMethodBase):
 
         if len(output_sizes_per_partition) == 1:
             # Single static scale for the entire tensor.
-            dequant_scale = Parameter(
-                torch.empty((1),device='cuda', dtype=params_dtype),
-                requires_grad=False
-            )
+            dequant_scale = Parameter(torch.empty((1),
+                                                  device='cuda',
+                                                  dtype=params_dtype),
+                                      requires_grad=False)
         else:
             # Static scale for each logical weight (e.g. 3 for QKV).
-            dequant_scale = Parameter(
-                torch.empty((sum(output_sizes_per_partition)),
-                             device='cuda', dtype=params_dtype),
-                requires_grad=False
-            )
-            set_weight_attrs(dequant_scale,
-                             {"shard_splitter": self.scales_shard_splitter,
-                              "logical_widths" : output_sizes_per_partition})
+            dequant_scale = Parameter(torch.empty(
+                (sum(output_sizes_per_partition)),
+                device='cuda',
+                dtype=params_dtype),
+                                      requires_grad=False)
+            set_weight_attrs(
+                dequant_scale, {
+                    "shard_splitter": self.scales_shard_splitter,
+                    "logical_widths": output_sizes_per_partition
+                })
 
         return {
             "weight": weight,
@@ -219,9 +216,9 @@ class SmoothQuantLinearMethod(LinearMethodBase):
             "sq_format": self.get_layer_format(layer_name)
         }
 
-    def _quantize(self,
-                  x: torch.Tensor,
-                  sq_format: SmoothQuantFormat) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
+    def _quantize(
+        self, x: torch.Tensor, sq_format: SmoothQuantFormat
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """Quantize activations.
 
         Args:
@@ -257,5 +254,5 @@ class SmoothQuantLinearMethod(LinearMethodBase):
         x_q, activation_scales = self._quantize(x, sq_format)
 
         # GEMM and DQ
-        return cutlass_gemm_dq(x_q, weight_q, x.dtype, static_scales, activation_scales)
-
+        return cutlass_gemm_dq(x_q, weight_q, x.dtype, static_scales,
+                               activation_scales)

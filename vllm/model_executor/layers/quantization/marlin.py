@@ -98,7 +98,7 @@ class MarlinLinearMethod(LinearMethodBase):
         output_size: int,
         params_dtype: torch.dtype,
     ) -> Dict[str, Any]:
-        del layer_name, input_size, output_size # Unused.
+        del layer_name, input_size, output_size  # Unused.
         output_size_per_partition = sum(output_sizes_per_partition)
 
         if params_dtype != torch.float16:

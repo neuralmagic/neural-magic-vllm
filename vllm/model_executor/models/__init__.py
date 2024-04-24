@@ -123,6 +123,7 @@ class ModelRegistry:
     def get_supported_smoothquant_archs() -> List[str]:
         return list(_SUPPORTED_SMOOTHQUANT_MODELS.keys())
 
+
 __all__ = [
     "ModelRegistry",
 ]

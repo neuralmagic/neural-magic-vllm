@@ -86,18 +86,16 @@ class Qwen2MLP(nn.Module):
 
 class Qwen2Attention(nn.Module):
 
-    def __init__(
-        self,
-        parent_name: str,
-        hidden_size: int,
-        num_heads: int,
-        num_kv_heads: int,
-        max_position: int = 4096 * 32,
-        rope_theta: float = 10000,
-        use_sliding_window: bool = False,
-        linear_method: Optional[LinearMethodBase] = None,
-        sliding_window: Optional[int] = None
-    ) -> None:
+    def __init__(self,
+                 parent_name: str,
+                 hidden_size: int,
+                 num_heads: int,
+                 num_kv_heads: int,
+                 max_position: int = 4096 * 32,
+                 rope_theta: float = 10000,
+                 use_sliding_window: bool = False,
+                 linear_method: Optional[LinearMethodBase] = None,
+                 sliding_window: Optional[int] = None) -> None:
         super().__init__()
         self.hidden_size = hidden_size
         tp_size = get_tensor_model_parallel_world_size()
@@ -249,7 +247,8 @@ class Qwen2Model(nn.Module):
         )
         self.layers = nn.ModuleList([
             Qwen2DecoderLayer(parent_name=f"model.layers.{idx}",
-                              config=config, layer_idx=idx, 
+                              config=config,
+                              layer_idx=idx,
                               linear_method=linear_method)
             for idx in range(config.num_hidden_layers)
         ])
