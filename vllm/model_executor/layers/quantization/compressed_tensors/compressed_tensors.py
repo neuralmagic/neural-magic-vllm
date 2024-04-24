@@ -9,6 +9,7 @@ from vllm.model_executor.layers.quantization.base_config import (  # noqa: E501
 from vllm.model_executor.layers.quantization.compressed_tensors.schemes import (
     CompressedTensorsW8A8StaticTensor, CompressedTensorsUnquantized,
     CompressedTensorsScheme)
+from vllm.model_executor.utils import set_weight_attrs
 
 
 class CompressedTensorsConfig(QuantizationConfig):
@@ -116,24 +117,28 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
     def create_weights(self, layer: torch.nn.Module, layer_name: str,
                        input_size_per_partition: int,
                        output_sizes_per_partition: List[int], input_size: int,
-                       output_size: int, params_dtype: torch.dtype):
+                       output_size: int, params_dtype: torch.dtype,
+                       **extra_weight_attrs):
         """
         Use the CompressedTensorsScheme associated with each layer to create the 
         necessary parameters for the layer.
         """
+        weight_loader = extra_weight_attrs.get("weight_loader")
 
         scheme = self.quantization_config.get_scheme(layer=layer,
                                                      layer_name=layer_name)
-        weights = scheme.create_weights(
+        scheme.create_weights(
+            layer=layer,
             input_size_per_partition=input_size_per_partition,
             output_sizes_per_partition=output_sizes_per_partition,
             output_size=output_size,
-            params_dtype=params_dtype)
-        weights["scheme"] = scheme
-        return weights
+            params_dtype=params_dtype,
+            weight_loader=weight_loader)
+
+        set_weight_attrs(layer, {"scheme": scheme})
 
     def apply_weights(self,
-                      weights: Dict,
+                      layer: torch.nn.Module,
                       x: torch.Tensor,
                       bias: Optional[torch.Tensor] = None):
         """
@@ -144,7 +149,7 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         if bias is not None:
             raise ValueError("bias is not supported for this linear method")
 
-        scheme = weights.get("scheme")
+        scheme = layer.scheme
         if scheme is None:
             raise ValueError("A scheme must be defined for each layer")
-        return scheme.apply_weights(weights, x)
+        return scheme.apply_weights(layer, x)

@@ -1,5 +1,5 @@
 import torch
-from typing import Dict, List, Any, Union, Tuple
+from typing import List, Union, Tuple, Callable
 from vllm.model_executor.layers.quantization.compressed_tensors.cutlass_gemm import (
     cutlass_gemm_dq)
 from vllm.model_executor.layers.quantization.compressed_tensors.schemes import (
@@ -56,13 +56,13 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsScheme):
         loaded_weight = loaded_weight.repeat(size)
         return param[offset:offset + size], loaded_weight
 
-    def create_weights(self, output_sizes_per_partition: List[int],
+    def create_weights(self, layer: torch.nn.Module,
+                       output_sizes_per_partition: List[int],
                        input_size_per_partition: int,
-                       params_dtype: torch.dtype, **kwargs):
+                       params_dtype: torch.dtype, weight_loader: Callable,
+                       **kwargs):
 
         # TODO: remove zero_point parameters once the configs given remove them
-
-        weights: Dict[str, Any] = dict()
         is_tensor_partitioned = len(output_sizes_per_partition) != 1
         dim = sum(output_sizes_per_partition) if is_tensor_partitioned else 1
 
@@ -97,19 +97,26 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsScheme):
                 "logical_widths": output_sizes_per_partition
             })
 
-        weights["weight"] = weight
-        weights["input_scale"] = input_scale
-        weights["input_zero_point"] = input_zero_point
-        weights["weight_scale"] = weight_scale
-        weights["weight_zero_point"] = weight_zero_point
-        weights["logical_widths"] = output_sizes_per_partition
-        return weights
+        # Register parameter with the layer; register weight loader with each parameter
+        layer.register_parameter("weight", weight)
+        set_weight_attrs(weight, {"weight_loader": weight_loader})
+        set_weight_attrs(weight,
+                         {"logical_widths": output_sizes_per_partition})
 
-    def apply_weights(self, weights: Dict, x: torch.Tensor):
-        weight = weights.get("weight")
-        weight_scale = weights.get("weight_scale")
-        act_scale = weights.get("input_scale")
-        logical_widths = weights.get("logical_widths")
+        layer.register_parameter("input_scale", input_scale)
+        set_weight_attrs(input_scale, {"weight_loader": weight_loader})
+        layer.register_parameter("input_zero_point", input_zero_point)
+        set_weight_attrs(input_zero_point, {"weight_loader": weight_loader})
+        layer.register_parameter("weight_scale", weight_scale)
+        set_weight_attrs(weight_scale, {"weight_loader": weight_loader})
+        layer.register_parameter("weight_zero_point", weight_zero_point)
+        set_weight_attrs(weight_zero_point, {"weight_loader": weight_loader})
+
+    def apply_weights(self, layer: torch.nn.Module, x: torch.Tensor):
+        weight = layer.weight
+        weight_scale = layer.weight_scale
+        act_scale = layer.input_scale
+        logical_widths = weight.logical_widths
 
         # Input quantize
         #x_scales = torch.FloatTensor([act_scale[0].item()], device=torch.device("cpu"))
