@@ -74,7 +74,7 @@ class CompressedTensorsConfig(QuantizationConfig):
 
         is_8_bits = weight_bit == input_bit == 8
         is_tensor = weight_strategy == input_strategy == "tensor"
-        is_symmetric = weight_symmetric == input_symmetric
+        is_symmetric = weight_symmetric and input_symmetric
 
         if is_8_bits and is_tensor and is_symmetric:
             return CompressedTensorsW8A8StaticTensor(

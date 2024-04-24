@@ -1,14 +1,16 @@
 from abc import ABC, abstractmethod
-import torch 
+import torch
 from typing import Dict
 
 __all__ = ["CompressedTensorsScheme"]
+
 
 class CompressedTensorsScheme(ABC):
     """
     Abstract class used to describe the weight creation and forward pass of different
     quantization schemes supported by CompressedTensors.
     """
+
     @abstractmethod
     def create_weights(self, *args, **kwargs):
         """
@@ -16,7 +18,6 @@ class CompressedTensorsScheme(ABC):
 
         """
         raise NotImplementedError
-    
 
     @abstractmethod
     def apply_weights(self, weights: Dict, x: torch.Tensor):
