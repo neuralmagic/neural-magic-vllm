@@ -26,6 +26,8 @@ docker compose up
 
 Install requirements for client:
 ```bash
+python3 -m venv venv
+source venv/bin/activate
 pip install -r client/requirements.txt
 ```
 
