@@ -2,10 +2,11 @@ import enum
 import json
 import os
 from dataclasses import dataclass, fields
-from typing import TYPE_CHECKING, ClassVar, Optional, Union
+from enum import Enum
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional, Union
 
 import torch
-from compressed_tensors import SPARSITY_CONFIG_NAME
+from compressed_tensors import SPARSITY_CONFIG_NAME, CompressionConfig
 from packaging.version import Version
 from transformers import PretrainedConfig
 
@@ -20,6 +21,11 @@ if TYPE_CHECKING:
 logger = init_logger(__name__)
 
 _GB = 1 << 30
+
+
+class SparsityStructure(Enum):
+    sparse_w16a16 = "sparse_w16a16"
+    semi_structured_sparse_w16a16 = "semi_structured_sparse_w16a16"
 
 
 class ModelConfig:
@@ -183,33 +189,69 @@ class ModelConfig:
 
     # UPSTREAM SYNC: keep sparsity
     def _verify_sparsity(self) -> None:
-        supported_sparsity = ["sparse_w16a16", "semi_structured_sparse_w16a16"]
+        supported_sparsity = {
+            sparsity_structure.value
+            for sparsity_structure in SparsityStructure
+        }
 
         hf_sparsity_config = getattr(self.hf_config, SPARSITY_CONFIG_NAME,
                                      None)
         if hf_sparsity_config is not None:
-            if "sparsity_structure" not in hf_sparsity_config:
-                raise ValueError(
-                    "Detected HuggingFace sparsity config for the model, "
-                    "but it does not have a mandatory "
-                    "attribute: `sparsity_structure` ")
-            hf_sparsity_structure = str(
-                hf_sparsity_config["sparsity_structure"]).lower()
+            sparsity_structure = self._sparsity_structure_from_config(
+                hf_sparsity_config, dtype=self.dtype)
             if self.sparsity is not None:
-                logger.info(
-                    "Overriding the sparsity structure from the config: "
-                    f"{hf_sparsity_structure} with: {self.sparsity}")
-            self.sparsity = self.sparsity or hf_sparsity_structure
-            if self.sparsity not in supported_sparsity:
-                logger.warning(
+                logger.info("Overriding the sparsity structure "
+                            "inferred from the config: "
+                            f"{sparsity_structure} with: {self.sparsity}")
+            self.sparsity = self.sparsity or sparsity_structure
+            if self.sparsity not in supported_sparsity and self.sparsity is not None:  # noqa E501
+                raise ValueError(
                     f"Unknown sparsity_structure: {self.sparsity}. Must "
                     f"be one of {supported_sparsity}. Running the models "
                     "without sparse kernels.")
-                self.sparsity = None
 
         if self.quantization is not None and self.sparsity is not None:
             raise ValueError("Both sparsity and quantization detected. Only "
                              "one or the other is supported at a time.")
+
+    @staticmethod
+    def _sparsity_structure_from_config(
+            sparsity_config: Dict[str, Any],
+            dtype: torch.dtype) -> SparsityStructure:
+        """
+        Translate from the sparsity_config to an appropriate sparsity structure.
+        
+        :param sparsity_config: A dictionary specifying the sparsity config
+        :return The appropriate sparsity structure as string
+        """
+        supported_sparsity_dtypes = {torch.float16, torch.bfloat16}
+
+        # check the validy of sparsity_config
+        potentially_missing_keys = set(sparsity_config.keys()).difference(
+            CompressionConfig.model_fields.keys())
+        if potentially_missing_keys:
+            raise ValueError("The detected sparsity_config is "
+                             f"missing keys: {potentially_missing_keys}")
+
+        # check for valid dtype
+        if dtype not in supported_sparsity_dtypes:
+            logger.warning(
+                "Sparsity is only supported for float16 and bfloat16 "
+                "dtypes. Running the models without sparse kernels.")
+            return None
+
+        # choose the sparsity structure based on the sparsity config
+        if sparsity_config["sparsity_structure"] in {"unstructured", "0:0"}:
+            return SparsityStructure.sparse_w16a16
+
+        elif sparsity_config["sparsity_structure"] == "2:4":
+            return SparsityStructure.semi_structured_sparse_w16a16
+
+        # if the sparsity config is not recognized, return None
+        logger.warning("The valid sparsity structure cannot be inferred from "
+                       "the valid sparsity config. Running the models without "
+                       "sparse kernels.")
+        return None
 
     def _verify_quantization(self) -> None:
         supported_quantization = ["awq", "gptq", "squeezellm", "marlin"]
