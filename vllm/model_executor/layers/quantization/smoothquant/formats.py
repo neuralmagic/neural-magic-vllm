@@ -30,7 +30,7 @@ class SmoothQuantDynamicPerToken(SmoothQuantFormat):
         """Notes:
         Returns quantized activaiton and dynamic activation scales.
         """
-        activation_scales = torch.empty(x.numel() // x.shape[-1], dtype=x.dtype, device=x.device)
+        activation_scales = torch.empty((x.numel() // x.shape[-1], 1), dtype=x.dtype, device=x.device)
         ops.quant(x_q, x, activation_scales)
         return x_q, activation_scales
     

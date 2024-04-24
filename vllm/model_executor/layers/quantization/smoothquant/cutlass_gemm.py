@@ -57,15 +57,6 @@ def cutlass_gemm_dq(x_q : torch.Tensor,
     dq = torch.empty((x_q.shape[0], w_q.shape[0]),
                       dtype=dtype, device="cuda")
 
-    log_str = (f"cutlass_gemm_dq: \n"
-               f" - x_q {x_q.shape} {x_q.dtype} \n"
-               f" - w_q {w_q.shape} {w_q.dtype} \n"
-               f" - o_dq {dq.shape} {dq.dtype} \n"
-               f" - static scales {static_scales} {static_scales.shape} \n"
-               "" if activation_scales is None else \
-                f" - activation_scales - {activation_scales} {activation_scales.shape} \n") 
-    logger.debug(log_str)
-
     plan = cutlass.op.Gemm(element_A=x_q.dtype, element_B=w_q.dtype,
                            element_C=dq.dtype, element_D=dq.dtype,
                            layout_A=cutlass.LayoutType.RowMajor, 

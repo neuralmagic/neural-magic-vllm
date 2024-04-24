@@ -230,7 +230,7 @@ class SmoothQuantLinearMethod(LinearMethodBase):
             x_q: Quantized activation at INT8
             activation_scales: Optional dynamic scales for each token.
         """
-        x_q = torch.empty_like(x, dtype=torch.int8)
+        x_q = torch.empty_like(x, dtype=torch.int8, device="cuda")
         x_q, activation_scales = sq_format.quantize_op(x, x_q)
         return x_q, activation_scales
 
@@ -257,7 +257,5 @@ class SmoothQuantLinearMethod(LinearMethodBase):
         x_q, activation_scales = self._quantize(x, sq_format)
 
         # GEMM and DQ
-        if activation_scales is not None:
-            activation_scales = activation_scales[:, None]
         return cutlass_gemm_dq(x_q, weight_q, x.dtype, static_scales, activation_scales)
 
