@@ -205,7 +205,8 @@ class ModelConfig:
                             "inferred from the config: "
                             f"{sparsity_structure} with: {self.sparsity}")
             self.sparsity = self.sparsity or sparsity_structure
-            if self.sparsity not in supported_sparsity and self.sparsity is not None:  # noqa E501
+            if (self.sparsity not in supported_sparsity) and \
+               (self.sparsity is not None):
                 raise ValueError(
                     f"Unknown sparsity_structure: {self.sparsity}. Must "
                     f"be one of {supported_sparsity}. Running the models "
@@ -238,21 +239,21 @@ class ModelConfig:
         # check for valid dtype
         if dtype not in supported_sparsity_dtypes:
             logger.warning(
-                "Sparsity is only supported for float16 and bfloat16 "
+                f"Sparsity is only supported for {supported_sparsity_dtypes}"
                 "dtypes. Running the models without sparse kernels.")
             return None
 
         # choose the sparsity structure based on the sparsity config
         if sparsity_config["sparsity_structure"] in {"unstructured", "0:0"}:
-            return SparsityStructure.sparse_w16a16
+            return SparsityStructure.sparse_w16a16.value
 
         elif sparsity_config["sparsity_structure"] == "2:4":
-            return SparsityStructure.semi_structured_sparse_w16a16
+            return SparsityStructure.semi_structured_sparse_w16a16.value
 
         # if the sparsity config is not recognized, return None
         logger.warning("The valid sparsity structure cannot be inferred from "
-                       "the valid sparsity config. Running the models without "
-                       "sparse kernels.")
+                       "the valid sparsity config:\n{sparsity_config}"
+                       "\n Running the models without sparse kernels.")
         return None
 
     def _verify_quantization(self) -> None:

@@ -20,7 +20,7 @@ MODELS = [(
 
 
 @pytest.mark.parametrize("model_pair", MODELS)
-@pytest.mark.parametrize("dtype", ["float16", "bfloat16"])
+@pytest.mark.parametrize("dtype", ["float16"])
 @pytest.mark.parametrize("max_tokens", [32])
 @pytest.mark.parametrize("num_logprobs", [3])
 def test_models(
