@@ -222,6 +222,7 @@ class ModelConfig:
         Translate from the sparsity_config to an appropriate sparsity structure.
         
         :param sparsity_config: A dictionary specifying the sparsity config
+        :param dtype: The dtype of the model in question
         :return The appropriate sparsity structure as string
         """
         supported_sparsity_dtypes = {torch.float16, torch.bfloat16}
