@@ -23,6 +23,7 @@ logger = init_logger(__name__)
 _GB = 1 << 30
 
 
+# UPSTREAM SYNC: keep sparsity
 class SparsityStructure(Enum):
     sparse_w16a16 = "sparse_w16a16"
     semi_structured_sparse_w16a16 = "semi_structured_sparse_w16a16"
