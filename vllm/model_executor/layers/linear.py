@@ -81,7 +81,7 @@ class UnquantizedLinearMethod(LinearMethodBase):
         set_weight_attrs(weight, extra_weight_attrs)
 
     def apply_weights(self,
-                      weights: Dict[str, torch.Tensor],
+                      layer: torch.nn.Module,
                       x: torch.Tensor,
                       bias: Optional[torch.Tensor] = None) -> torch.Tensor:
         weight = layer.weight
@@ -686,7 +686,6 @@ class RowParallelLinear(torch.nn.Module):
             loaded_weight = loaded_weight.narrow(input_dim, start_idx,
                                                  shard_size)
 
-        # TODO: canon
         if len(loaded_weight.shape) == 0:
             loaded_weight = loaded_weight.reshape(1)
 
