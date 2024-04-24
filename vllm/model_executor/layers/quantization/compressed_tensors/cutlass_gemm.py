@@ -62,10 +62,7 @@ def cutlass_gemm_dq(
     log_str = (f"cutlass_gemm_dq: \n"
                f" - x_q {x_q.shape} {x_q.dtype} \n"
                f" - w_q {w_q.shape} {w_q.dtype} \n"
-               f" - o_dq {dq.shape} {dq.dtype} \n"
-               f" - static scales {static_scales} {static_scales.shape} \n"
-               "" if activation_scales is None else \
-                f" - activation_scales - {activation_scales} {activation_scales.shape} \n")
+               f" - o_dq {dq.shape} {dq.dtype} \n")
     logger.debug(log_str)
 
     plan = cutlass.op.Gemm(
