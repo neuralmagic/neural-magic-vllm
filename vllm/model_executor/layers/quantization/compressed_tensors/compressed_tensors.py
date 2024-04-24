@@ -89,8 +89,7 @@ class CompressedTensorsConfig(QuantizationConfig):
         if layer_name in self.ignore:
             return CompressedTensorsUnquantized()
 
-        # TODO: need a better matching function. vllm layer class names have layer names
-        # from sparseml but likely need better parsing
+        # TODO: need a better matching function; can adapt shared function with sparseml
         layer_type_name = None
         layer_name_class = type(layer).__name__.lower()
         for target in self.layer_quant_details:

@@ -156,7 +156,6 @@ class ModelConfig:
                     f"({self.quantization}).")
 
         if self.quantization is not None:
-            print(self.quantization)
             if self.quantization not in supported_quantization:
                 raise ValueError(
                     f"Unknown quantization method: {self.quantization}. Must "
