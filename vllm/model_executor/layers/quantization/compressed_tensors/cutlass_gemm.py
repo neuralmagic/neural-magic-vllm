@@ -73,9 +73,7 @@ def cutlass_gemm_dq(
         layout_A=cutlass.LayoutType.RowMajor,
         layout_B=cutlass.LayoutType.ColumnMajor,
         layout_C=cutlass.LayoutType.RowMajor,
-        element_accumulator=torch.int32,
-        # TODO (varun) : lets not have kernel cc here please.
-        kernel_cc=80)
+        element_accumulator=torch.int32)
 
     plan, visitor_args = setup_dequant_epilogue(plan, dq, static_scales,
                                                 activation_scales)
