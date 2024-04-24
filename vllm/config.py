@@ -227,7 +227,7 @@ class ModelConfig:
         """
         supported_sparsity_dtypes = {torch.float16, torch.bfloat16}
 
-        # check the validy of sparsity_config
+        # check the validity of sparsity_config
         potentially_missing_keys = set(sparsity_config.keys()).difference(
             CompressionConfig.model_fields.keys())
         if potentially_missing_keys:
