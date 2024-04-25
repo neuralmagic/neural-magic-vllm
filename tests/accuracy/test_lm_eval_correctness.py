@@ -22,7 +22,7 @@ class Task(TypedDict):
 
 
 # to support python3.8 typing prior to adding `Required`/`NotRequired`, this
-# class stores the optional keys and the `EvalDefinition` subclass inherits
+# class stores the optional keys and the `EvalTaskDefinition` subclass inherits
 # those alongside the required keys it defines.
 class EvalTaskDefinitionOpts(TypedDict, total=False):
     enable_tensor_parallel: bool
