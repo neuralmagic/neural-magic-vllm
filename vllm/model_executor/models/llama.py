@@ -32,6 +32,7 @@ from vllm.config import CacheConfig, LoRAConfig
 from vllm.distributed import (get_pp_group, get_pp_indices,
                               get_tensor_model_parallel_rank,
                               get_tensor_model_parallel_world_size)
+from vllm.ex.ex import backend, make_backend
 from vllm.model_executor.layers.activation import SiluAndMul
 from vllm.model_executor.layers.layernorm import RMSNorm
 from vllm.model_executor.layers.linear import (MergedColumnParallelLinear,
@@ -51,6 +52,7 @@ from vllm.sequence import IntermediateTensors, SamplerOutput
 from vllm.utils import is_hip, print_warning_once
 
 from .interfaces import SupportsLoRA
+
 
 
 class LlamaMLP(nn.Module):
@@ -78,7 +80,10 @@ class LlamaMLP(nn.Module):
                              "Only silu is supported for now.")
         self.act_fn = SiluAndMul()
 
+    @torch.compile(backend=make_backend(backend=None))
     def forward(self, x):
+        # TODO: fix fusion bug when this is present
+        # x = x + 1
         gate_up, _ = self.gate_up_proj(x)
         x = self.act_fn(gate_up)
         x, _ = self.down_proj(x)
