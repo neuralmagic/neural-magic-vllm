@@ -21,9 +21,9 @@ class Task(TypedDict):
     metrics: List[Metric]
 
 
-# to support python3.8 typing prior to adding `Required`/`NotRequired`, this class
-# stores the optional keys and the `EvalDefinition` subclass inherits those alongside
-# the required keys it defines.
+# to support python3.8 typing prior to adding `Required`/`NotRequired`, this
+# class stores the optional keys and the `EvalDefinition` subclass inherits
+# those alongside the required keys it defines.
 class EvalTaskDefinitionOpts(TypedDict, total=False):
     enable_tensor_parallel: bool
     extra_args: Dict[str, Any]
@@ -99,6 +99,4 @@ def test_lm_eval_correctness(
                 measured_value,
             )
 
-            # Metrics must be within 1% of the larger of the two values. This
-            # corresponds to a 99% accuracy threshold.
             assert numpy.isclose(ground_truth, measured_value, rtol=0.05)
