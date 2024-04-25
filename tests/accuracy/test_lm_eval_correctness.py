@@ -55,7 +55,7 @@ def test_lm_eval_correctness(
     vllm_args = {
         "--model": model_name,
         "--disable-log-requests": None,
-        "--max-model-len": 4096,
+        "--max-model-len": 2048,
     }
 
     if eval_data.get("enable_tensor_parallel") is True:
