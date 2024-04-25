@@ -31,9 +31,14 @@ def extract_type(arg: torch.fx.node.Argument):
         return None
 
 
+def extract_node_tensor_meta(n: torch.fx.Node):
+    if 'tensor_meta' in n.meta:
+        return n.meta['tensor_meta']
+    return None
+
 def extract_node_type(n: torch.fx.Node):
     if 'tensor_meta' in n.meta:
-        print(f"META {n.meta['tensor_meta']}")
+        #print(f"META {n}: {n.meta['tensor_meta']}")
         # this can be a tuple but why?
         return n.meta['tensor_meta'].dtype
     return None
@@ -266,31 +271,35 @@ class FusedOpGenerator:
         return op
 
     def build_ops(self) -> Dict[torch.fx.node.Target, Callable]:
-        with open(self.filename, "w") as out:
-            for l in self.fused_op:
-                out.write(l)
-                out.write('\n')
+        try:
+            with open(self.filename, "w") as out:
+                for l in self.fused_op:
+                    out.write(l)
+                    out.write('\n')
 
-        build_extension(f"fused_ops{self.N}", self.filename)
+            build_extension(f"fused_ops{self.N}", self.filename)
 
-        for k, v in self.callables.items():
-            # there has to be a better way than eval?
-            fn = eval(v)
-            print(f'{self.callables[k]} = {fn}')
-            self.callables[k] = fn
+            for k, v in self.callables.items():
+                # there has to be a better way than eval?
+                fn = eval(v)
+                print(f'{self.callables[k]} = {fn}')
+                self.callables[k] = fn
 
-        print(f"CALLABLES {self.callables}")
+            print(f"CALLABLES {self.callables}")
 
-        callables = self.callables
+            callables = self.callables
 
-        self.reset_fused_op()
-        self.callables = dict()
+            self.reset_fused_op()
+            self.callables = dict()
 
-        # prevent multiple libraries with the same name
-        FusedOpGenerator.N = FusedOpGenerator.N + 1
-        self.N = FusedOpGenerator.N
+            # prevent multiple libraries with the same name
+            FusedOpGenerator.N = FusedOpGenerator.N + 1
+            self.N = FusedOpGenerator.N
 
-        return callables
+            return callables
+
+        except Exception as ex:
+            raise FusionFail(ex)
 
 
 #
@@ -305,7 +314,8 @@ def fuse_graph_nodes(
     outputs = [n for n in mod.graph.nodes if n.op == 'output']
     inputs = [n for n in mod.graph.nodes if n.op == 'placeholder']
 
-    print(f"input_meta = {[n.meta for n in inputs]}")
+    newline = "\n"
+    print(f"input_meta:\n{newline.join([f'{n}: {extract_node_tensor_meta(n)}' for n in inputs])}")
 
     # for now
     assert len(outputs) == 1
@@ -329,13 +339,15 @@ def fuse_graph_nodes(
 
         nodes_to_erase.append(n)
 
-    fn_key = fgen.make_fused_op(inputs, outputs, nodes_to_erase, kwargs)
+    try:
+        fn_key = fgen.make_fused_op(inputs, outputs, nodes_to_erase, kwargs)
+        fn_dict = fgen.build_ops()
+        assert fn_key in fn_dict
+        fn = fn_dict[fn_key]
+    except FusionFail as ff:
+        print(f"fusion failed for {mod}")
+        return mod
 
-    fn_dict = fgen.build_ops()
-
-    assert fn_key in fn_dict
-
-    fn = fn_dict[fn_key]
     #print(f"fused fn = {fn}, {type(fn)}, {isinstance(fn, torch.nn.Module)}, {str(fn)}")
 
     mod.graph.inserting_after(first)
@@ -409,9 +421,14 @@ def is_compute_fusable_pair(a: torch.fx.Node, b: torch.fx.Node) -> bool:
     return (is_fusable(a) or is_compute(a)) and is_fusable(b)
 
 
+# TODO: reject singleton/nop partitions
 def is_fused_subgraph(mod: torch.fx.GraphModule) -> bool:
     fg = FlowGraph(mod)
     saw_call = False
+
+    if len([n for n in mod.graph.nodes if n.op == 'call_function']) <= 1:
+        return False
+
     for n in mod.graph.nodes:
         if n.op == 'call_module' or n.op == 'call_method':
             return False
@@ -427,6 +444,9 @@ def is_fused_subgraph(mod: torch.fx.GraphModule) -> bool:
 
     return True
 
+
+class FusionFail(Exception):
+    pass
 
 
 # 1. create Partition objects from sequences of fusable nodes
@@ -554,8 +574,9 @@ def pointwise_fusion(
 
             print(f"FUSING GRAPH NODES {cname}")
             cm.graph.print_tabular()
+            print(cm.graph.python_code(cm).src)
             #graph_print_tabular(cm.graph)
-            fuse_graph_nodes(fgen, cm)
+            cm = fuse_graph_nodes(fgen, cm)
             print(f"CM {cname}: {cm}")
             cm.recompile()
 
@@ -767,3 +788,4 @@ def backend(gm: torch.fx.GraphModule, example_inputs: List[torch.Tensor]) -> Cal
 
 def make_backend(final: str = 'inductor') -> backend_class:
     return backend_class(final)
+
