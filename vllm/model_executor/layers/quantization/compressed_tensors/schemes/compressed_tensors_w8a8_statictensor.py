@@ -84,6 +84,8 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsScheme):
                                                   dtype=torch.int8),
                                       requires_grad=False)
 
+        if not self.fake_quant:
+            params_dtype = torch.int8
         weight = Parameter(torch.empty(sum(output_sizes_per_partition),
                                        input_size_per_partition,
                                        device="cuda",
