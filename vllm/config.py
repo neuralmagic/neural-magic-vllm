@@ -240,7 +240,7 @@ class ModelConfig:
         if dtype not in supported_sparsity_dtypes:
             logger.warning(
                 f"Sparsity is only supported for {supported_sparsity_dtypes}"
-                "dtypes. Running the models without sparse kernels.")
+                f"dtypes, not {dtype}. Running the models without sparse kernels.")
             return None
 
         # choose the sparsity structure based on the sparsity config
@@ -248,12 +248,12 @@ class ModelConfig:
             return SparsityStructure.sparse_w16a16.value
 
         elif sparsity_config["sparsity_structure"] == "2:4":
-            return SparsityStructure.semi_structured_sparse_w16a16.value
+            return SparsityStructure.semi_structured_sparse_w16a16
 
         # if the sparsity config is not recognized, return None
         logger.warning("The valid sparsity structure cannot be inferred from "
                        "the valid sparsity config:\n{sparsity_config}"
-                       "\n Running the models without sparse kernels.")
+                       "\nRunning the models without sparse kernels.")
         return None
 
     def _verify_quantization(self) -> None:

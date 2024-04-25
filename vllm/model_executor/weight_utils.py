@@ -11,8 +11,8 @@ import filelock
 import huggingface_hub.constants
 import numpy as np
 import torch
-from compressed_tensors import infer_compressor_from_model_config
-from compressed_tensors.config import CompressionFormat
+from compressed_tensors import load_compressed, SPARSITY_CONFIG_NAME
+from compressed_tensors.config import CompressionConfig
 from huggingface_hub import HfFileSystem, snapshot_download
 from safetensors.torch import load_file, safe_open, save_file
 from tqdm.auto import tqdm
@@ -297,20 +297,12 @@ def hf_model_weights_iterator(
     elif use_safetensors:
         # UPSTREAM SYNC: needed for loading compressed tensors
         # (see neural-magic/compressed-tensors repository)
-        compressor = infer_compressor_from_model_config(hf_folder)
-        compression_format = compressor.config.format if compressor else None
-        if compressor is None or compression_format == CompressionFormat.dense_sparsity.value:  # noqa E501
-            for st_file in hf_weights_files:
-                with safe_open(st_file, framework="pt") as f:
-                    for name in f.keys():  # noqa: SIM118
-                        param = f.get_tensor(name)
-                        yield name, param
-        else:
-            # a non-trivial (not dense) compressor inferred,
-            # the models weights are compressed (sparse), so
-            # they need decompressing before loading
-            for name, param in compressor.decompress(hf_folder):
-                yield name, param
+        hf_config = AutoConfig.from_pretrained(hf_folder)
+        compression_config = None
+        if hasattr(config, SPARSITY_CONFIG_NAME):
+            compression_config = CompressionConfig.load_from_registry(**getattr(config, SPARSITY_CONFIG_NAME))
+        for name, param in load_compressed(hf_folder, compression_config = compression_config):
+            yield name, param
 
     else:
         for bin_file in hf_weights_files:

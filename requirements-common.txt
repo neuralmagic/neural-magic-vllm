@@ -4,6 +4,7 @@ psutil
 sentencepiece  # Required for LLaMA tokenizer.
 numpy
 requests
+compressed-tensors
 py-cpuinfo
 transformers >= 4.39.1  # Required for StarCoder2 & Llava.
 fastapi

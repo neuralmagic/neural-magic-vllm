@@ -1,8 +1,8 @@
-"""Compare the outputs from identical models:
-    - one that is loaded from uncompressed safetensors
-    - one that is loaded form `compressed-tensors`.
-    The expectation is for the inference result in same
-    behavior
+"""
+Compare the outputs from identical models:
+- one that is loaded from uncompressed safetensors
+- one that is loaded form `compressed-tensors`.
+The expectation is for the inference result in same behavior
 """
 from typing import Tuple
 
@@ -11,16 +11,16 @@ from compare_utils import check_logprobs_close
 
 MODEL_MAX_LEN = 1024
 
-# pair of same models with compressed and ordinary safetensors
+# pair of same models with weight safed as 
+# compressed-tensors (compressed) 
+# and ordinary safetensors (uncompressed)
 MODELS = [(
-    "neuralmagic/llama2.c-stories110M-pruned50",  # uncompressed
-    "dtransposed/llama2.c-stories110M-pruned50-compressed-tensors"
-)  # compressed
-          ]
-
+    "neuralmagic/llama2.c-stories110M-pruned50",
+    "nm-testing/llama2.c-stories110M-pruned50-compressed-tensors"
+) ]
 
 @pytest.mark.parametrize("model_pair", MODELS)
-@pytest.mark.parametrize("dtype", ["float16"])
+@pytest.mark.parametrize("dtype", ["float16", "bfloat16"])
 @pytest.mark.parametrize("max_tokens", [32])
 @pytest.mark.parametrize("num_logprobs", [3])
 def test_models(
@@ -52,7 +52,8 @@ def test_models(
 
     del vllm_model_1
 
-    # loop through the prompts
+    # make sure that both weight types result in same
+    # models i.e. same outputs
     check_logprobs_close(
         outputs_0_lst=vllm_outputs_0,
         outputs_1_lst=vllm_outputs_1,
