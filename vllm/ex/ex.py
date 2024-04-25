@@ -33,6 +33,8 @@ def extract_type(arg: torch.fx.node.Argument):
 
 def extract_node_type(n: torch.fx.Node):
     if 'tensor_meta' in n.meta:
+        print(f"META {n.meta['tensor_meta']}")
+        # this can be a tuple but why?
         return n.meta['tensor_meta'].dtype
     return None
 
@@ -57,6 +59,7 @@ class FlowGraph:
         self.succs[src].add(dst)
         self.preds[dst].add(src)
 
+    # TODO: turn getitems into "reader views"?
     def build(self):
         self.succs = dict()
         self.preds = dict()
@@ -109,6 +112,7 @@ class FlowGraph:
 def is_node_supported(submodules: Mapping[str, torch.nn.Module], node: torch.fx.Node) -> bool:
     return node.op == 'call_function' and (get_node_target(submodules, node) == '_operator.add' or
                                            get_node_target(submodules, node) == '_operator.mul' or
+                                           get_node_target(submodules, node) == '_operator.getitem' or
                                            get_node_target(submodules, node) == 'torch.matmul' or
                                            get_node_target(submodules, node) == 'torch.relu' or
                                            get_node_target(submodules, node) == 'torch.nn.functional.silu' or
@@ -275,12 +279,6 @@ class FusedOpGenerator:
             print(f'{self.callables[k]} = {fn}')
             self.callables[k] = fn
 
-            # This works
-            #a = torch.tensor([[1.0, -1.0],[2.0, 3.0]])
-            #b = torch.tensor([[2.0, -2.0],[3.0, 4.0]])
-            #c = fn(a, b)
-            #print(f'FN ANSWER: {c}')
-
         print(f"CALLABLES {self.callables}")
 
         callables = self.callables
@@ -379,7 +377,7 @@ def fuse_graph_nodes(
 
 # TODO: add more stuff
 def is_fusable(a: torch.fx.Node) -> bool:
-    pointwise = ['_operator.add', '_operator.mul', 'torch.relu', 'torch.nn.functional.silu']
+    pointwise = ['_operator.add', '_operator.mul', '_operator.getitem', 'torch.relu', 'torch.nn.functional.silu']
     if a.op == 'call_function':
         submodules = dict(a.graph.owning_module.named_modules())
         target = get_node_target(submodules, a)
@@ -390,14 +388,22 @@ def is_fusable(a: torch.fx.Node) -> bool:
 # TODO: add more stuff
 def is_compute(a: torch.fx.Node) -> bool:
     if a.op != 'call_function':
-        return false
+        return False
     submodules = dict(a.graph.owning_module.named_modules())
     return (get_node_target(submodules, a) == 'torch.matmul' or
             get_node_target(submodules, a) == 'torch._C._nn.linear')
 
 
+def is_getitem(a: torch.fx.Node) -> bool:
+    if a.op != 'call_function':
+        return False
+    submodules = dict(a.graph.owning_module.named_modules())
+    return get_node_target(submodules, a) == '_operator.getitem'
+
+
 def is_fusable_pair(a: torch.fx.Node, b: torch.fx.Node) -> bool:
     return is_fusable(a) and is_fusable(b)
+
 
 def is_compute_fusable_pair(a: torch.fx.Node, b: torch.fx.Node) -> bool:
     return (is_fusable(a) or is_compute(a)) and is_fusable(b)
@@ -420,6 +426,7 @@ def is_fused_subgraph(mod: torch.fx.GraphModule) -> bool:
             return False
 
     return True
+
 
 
 # 1. create Partition objects from sequences of fusable nodes
@@ -449,18 +456,28 @@ def pointwise_fusion(
     print("start fusion")
 
     # create partition groups
-    for n in mod.graph.nodes:
+    # run in reverse order so predecesors of non-unary ops will appear
+    # in the same partition.
+    for n in reversed(mod.graph.nodes):
+        #print(f"CONSIDER {n}")
+
         if n.op != 'call_function':
+            #print(f"  REJECT {n} not call")
             node_map[n] = 0
             continue
 
-        if not all([is_fusable_pair(n, s) for s in fg.successors(n)]):
+        # TODO: handle get_attr ops
+        # should probably be lifted/put in partition 0 but not prevent fusion
+
+        if not all([is_fusable_pair(n, s) for s in fg.predecessors(n)]):
             if not n in node_map:
+                #print(f"  REJECT {n} no fusable preds and not in map")
                 node_map[n] = 0
             continue
 
         # don't support anything with kwargs for now
         if n.kwargs and len(n.kwargs) > 0:
+            #print(f"  REJECT {n} kwargs")
             node_map[n] = 0
             continue
 
@@ -468,21 +485,23 @@ def pointwise_fusion(
             partition = partition + 1
             node_map[n] = partition
 
-        for s in fg.successors(n):
+        for s in fg.predecessors(n):
             node_map[s] = node_map[n]
 
     print(f"node_map = {node_map}")
 
     def same_partition(nodes: Set[torch.fx.Node]) -> bool:
         if len(nodes) > 0:
-            part = next(iter(nodes))
+            part = node_map[next(iter(nodes))]
+            #print(f"{part}: {[node_map[n] for n in nodes]}")
             return all([node_map[n] == part for n in nodes])
         return False
 
 
     def only_pointwise(partition: int) -> bool:
-        nodes = [n for n, p in node_map if p == parition]
+        nodes = [n for n, p in node_map.items() if p == partition]
         return all([is_fusable(n) and not is_compute(n) for n in nodes])
+
 
     if fuse_with_compute:
         for n in mod.graph.nodes:
@@ -494,13 +513,17 @@ def pointwise_fusion(
             else:
                 nodes = fg.successors(n)
 
-            if not is_compute(n) or not same_partition(nodes):
+            if not is_compute(n):
+                continue
+
+            if not same_partition(nodes):
+                #print(f"REJECT {n} not all neighbors in same partition {nodes}")
                 continue
 
             fuse_part = next(iter(nodes))
 
             if only_pointwise(fuse_part):
-                node_map[n] = fuse_part
+                node_map[n] = node_map[fuse_part]
 
     print(f"final node_map = {node_map}")
 
@@ -509,6 +532,7 @@ def pointwise_fusion(
     qualname_map=dict()
 
     print(f"mod {mod.print_readable(False)}")
+    mod.graph.print_tabular()
 
     # create submodules for each fusable set of nodes
     new_mod = split_module(
@@ -656,6 +680,7 @@ class backend_class:
 
     def __call__(self, gm: torch.fx.GraphModule, example_inputs: List[torch.Tensor]) -> Callable:
         print(f"ORIGINAL {gm.graph}")
+        #print(f"ORIGINAL PYTHON {gm.graph.python_code(gm, verbose=True).src}")
         #    fg = FlowGraph(gm)
         #    fg.visit(lambda n: print(n))
 
