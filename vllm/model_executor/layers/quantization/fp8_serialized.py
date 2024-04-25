@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import os
 import torch
 from torch.nn.parameter import Parameter
 
@@ -7,7 +8,6 @@ from vllm.model_executor.layers.linear import (LinearMethodBase,
                                                set_weight_attrs)
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig)
-
 
 class FP8Config(QuantizationConfig):
     """Config class for FP8."""
@@ -75,17 +75,27 @@ class FP8LinearMethod(LinearMethodBase):
         set_weight_attrs(weight, {"input_dim": 1, "output_dim": 0})
         set_weight_attrs(weight, extra_weight_attrs)
 
-        weight_scale = Parameter(
-            torch.empty(
-                len(output_partition_sizes), 
-                 device='cuda', dtype=torch.float32,
-            ), requires_grad=False
-        )
-        layer.register_parameter("weight_scale", weight_scale)
-        set_weight_attrs(weight_scale, extra_weight_attrs)
-        set_weight_attrs(weight_scale, {
-            "shard_indexer": self.scales_shard_indexer,
-        })
+        if len(output_partition_sizes) == 1:
+            weight_scale = Parameter(
+                torch.empty(len(output_partition_sizes), dtype=torch.float32),
+                requires_grad=False
+            )
+            layer.register_parameter("weight_scale", weight_scale)
+            set_weight_attrs(weight_scale, extra_weight_attrs)
+            set_weight_attrs(weight_scale, {
+                "shard_indexer": self.scales_shard_indexer,
+            })
+        else:
+            weight_scale = Parameter(
+                torch.empty(sum(output_partition_sizes), dtype=torch.float32),
+                requires_grad=False
+            )
+            layer.register_parameter("weight_scale", weight_scale)
+            set_weight_attrs(weight_scale, extra_weight_attrs)
+            set_weight_attrs(weight_scale, {
+                "shard_indexer": self.scales_shard_indexer_NKK,
+                "logical_widths": output_partition_sizes
+            })
 
         if self.quant_config.scheme == "static":
             act_scale = Parameter(
@@ -111,26 +121,28 @@ class FP8LinearMethod(LinearMethodBase):
         assert shard_id in qkv_idxs
         return qkv_idxs[shard_id]
 
-    # def scales_shard_splitter_NKK(
-    #     self,
-    #     param: torch.Tensor,
-    #     loaded_weight: torch.Tensor,
-    #     shard_id: Union[str, int],
-    #     logical_widths: torch.Tensor
-    # ) -> Tuple[torch.Tensor, torch.Tensor]:
-    #     shard_id = self.shard_id_as_int(shard_id)
-    #     offset = sum(logical_widths[:shard_id]) 
-    #     size = logical_widths[shard_id]
-    #     # update loaded weight with copies for broadcast.
-    #     loaded_weight = loaded_weight.repeat(size)
-    #     return param[offset : offset + size], loaded_weight
+    def scales_shard_indexer_NKK(
+        self,
+        param: torch.Tensor,
+        loaded_weight: torch.Tensor,
+        shard_id: Union[str, int],
+        logical_widths,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        shard_id = self.shard_id_as_int(shard_id)
+        offset = sum(logical_widths[:shard_id]) 
+        size = logical_widths[shard_id]
+        # update loaded weight with copies for broadcast.
+        loaded_weight = loaded_weight.repeat(size)
+        return param[offset : offset + size], loaded_weight
     
     def scales_shard_indexer(
         self,
         param: torch.Tensor,
         loaded_weight: torch.Tensor,
         shard_id: Union[str, int],
+        logical_widths,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
+        del logical_widths
         return param[self.shard_id_as_int(shard_id)], loaded_weight
 
     def apply_weights(self,
@@ -138,33 +150,54 @@ class FP8LinearMethod(LinearMethodBase):
                       x: torch.Tensor,
                       bias: Optional[torch.Tensor] = None) -> torch.Tensor:
 
-        w_scale = layer.weight_scale.max()
-
+        # Quantize Input
         if self.quant_config.scheme == "dynamic":
             qinput, x_scale = per_tensor_quantize_dyanmic(x)
+
         elif self.quant_config.scheme == "static":
             # empirically, these are all the same
             x_scale = layer.act_scale.max()
             qinput = per_tensor_quantize_static(x, x_scale)
-        
-        # FOR LOOP TO BE REPLACED BY CUTLASS KERNEL W/ EPILOGUE FUSION
-        output = torch.zeros(x.shape[0], layer.weight.shape[0], dtype=x.dtype, device="cuda")
-        start_offset = 0
-        for _, (logical_width, w_scale) in enumerate(zip(layer.logical_widths, layer.weight_scale)):
-            end_offset = start_offset + logical_width
 
+        # NON LOGICAL SHARDED MATRIX
+        if len(layer.logical_widths) == 1:
             out, _ = torch._scaled_mm(
                 qinput,
-                layer.weight[start_offset:end_offset, :].t(),
+                layer.weight.t(),
                 out_dtype=x.dtype,
                 scale_a=x_scale,
-                scale_b=w_scale,
+                scale_b=layer.weight_scale,
                 bias=bias,
             )
-            output[:, start_offset:end_offset] = out
-            start_offset = end_offset
+            return out  
 
-        return output
+        # LOGICAL SHARDED MATRIC
+        # FOR LOOP TO BE REPLACED BY CUTLASS KERNEL W/ EPILOGUE FUSION
+        else:
+            output = torch.zeros(x.shape[0], layer.weight.shape[0], dtype=x.dtype, device="cuda")
+
+            start_offset = 0
+            for logical_width in layer.logical_widths:
+                end_offset = start_offset + logical_width
+
+                # pass w_scales directly here
+                w_scales = layer.weight_scale[start_offset:end_offset]
+                w_scale = w_scales.max()
+                assert torch.all(w_scales == w_scale)
+
+                # pass w_scales here
+                out, _ = torch._scaled_mm(
+                    qinput,
+                    layer.weight[start_offset:end_offset, :].t(),
+                    out_dtype=x.dtype,
+                    scale_a=x_scale,
+                    scale_b=w_scale,
+                    bias=bias,
+                )
+                output[:, start_offset:end_offset] = out
+                start_offset = end_offset
+
+            return output
 
 
 def per_tensor_quantize_static(tensor: torch.Tensor, inv_scale: float) -> torch.Tensor:
