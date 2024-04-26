@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Iterable
 
 import torch
 
@@ -84,12 +84,22 @@ class CompressedTensorsConfig(QuantizationConfig):
             "Scheme not supported. Only 8-bit static symmtetric "
             "per tensor quantization is currently supported")
 
+
     def get_scheme(self, layer: torch.nn.Module,
                    layer_name: str) -> "CompressedTensorsScheme":
+
+        if self._find_first_name_or_class_match(layer_name, layer, self.ignore):
+            return CompressedTensorsUnquantized()
+
+        layer_type_name =self._find_first_name_or_class_match(layer_name, layer,  list(self.layer_quant_details.keys()))
+        print(layer_type_name)
+
+        """
         # TODO: How are layers which are combined in vllm listed in the ignore list?
         if layer_name in self.ignore:
             return CompressedTensorsUnquantized()
 
+     
         # TODO: need a better matching function; can adapt shared function with sparseml
         layer_type_name = None
         layer_name_class = type(layer).__name__.lower()
@@ -97,6 +107,7 @@ class CompressedTensorsConfig(QuantizationConfig):
             if target.lower() in layer_name_class:
                 layer_type_name = target
                 break
+        """
 
         layer_quant_details = self.layer_quant_details.get(layer_type_name)
         if layer_quant_details is None:
@@ -108,6 +119,27 @@ class CompressedTensorsConfig(QuantizationConfig):
         except NotImplementedError as e:
             raise e
 
+    def _find_first_name_or_class_match(self, name: str, module: torch.nn.Module, targets: Iterable[str]) -> Optional[str]:
+        # first element of targets that matches the given name
+        # if no name matches returns first target that matches the class name
+        # returns None otherwise
+        print(targets, name, module.__class__.__name__)
+        return self._find_first_match(name, targets) or self._find_first_match(
+            module.__class__.__name__, targets
+        )
+
+    def _find_first_match(self, value: str, targets: Iterable[str]) -> Optional[str]:
+        # returns first element of target that matches value either
+        # exactly or as a regex after 're:'
+        import re
+        for target in targets:
+            if target:
+                #pattern = target[3:]
+                if re.match(target, value):
+                    return target
+            elif target == value:
+                return target
+        return None
 
 class CompressedTensorsLinearMethod(LinearMethodBase):
 
