@@ -883,27 +883,6 @@ class Scheduler:
             num_lookahead_slots=self._get_num_lookahead_slots(is_prefill),
         )
 
-    def _can_append_slots(self, seq_group: SequenceGroup) -> bool:
-        """Determine whether or not we have enough space in the KV cache to
-        continue generation of the sequence group.
-        """
-        # Appending slots only occurs in decoding.
-        is_prefill = False
-
-        return self.block_manager.can_append_slots(
-            seq_group=seq_group,
-            num_lookahead_slots=self._get_num_lookahead_slots(is_prefill),
-        )
-
-    def _can_swap_in(self, seq_group: SequenceGroup) -> bool:
-        # Swapping in is considered decode.
-        is_prefill = False
-
-        return self.block_manager.can_swap_in(
-            seq_group=seq_group,
-            num_lookahead_slots=self._get_num_lookahead_slots(is_prefill),
-        )
-
     def schedule(self) -> Tuple[List[SequenceGroupMetadata], SchedulerOutputs]:
         # Schedule sequence groups.
         # This function call changes the internal states of the scheduler
