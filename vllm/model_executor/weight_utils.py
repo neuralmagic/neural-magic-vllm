@@ -11,11 +11,12 @@ import filelock
 import huggingface_hub.constants
 import numpy as np
 import torch
-from compressed_tensors import load_compressed, SPARSITY_CONFIG_NAME
+from compressed_tensors import SPARSITY_CONFIG_NAME, load_compressed
 from compressed_tensors.config import CompressionConfig
 from huggingface_hub import HfFileSystem, snapshot_download
-from safetensors.torch import load_file, safe_open, save_file
+from safetensors.torch import load_file, save_file
 from tqdm.auto import tqdm
+from transformers import AutoConfig
 
 from vllm.config import ModelConfig
 from vllm.logger import init_logger
@@ -299,9 +300,11 @@ def hf_model_weights_iterator(
         # (see neural-magic/compressed-tensors repository)
         hf_config = AutoConfig.from_pretrained(hf_folder)
         compression_config = None
-        if hasattr(config, SPARSITY_CONFIG_NAME):
-            compression_config = CompressionConfig.load_from_registry(**getattr(config, SPARSITY_CONFIG_NAME))
-        for name, param in load_compressed(hf_folder, compression_config = compression_config):
+        if hasattr(hf_config, SPARSITY_CONFIG_NAME):
+            compression_config = CompressionConfig.load_from_registry(
+                **getattr(hf_config, SPARSITY_CONFIG_NAME))
+        for name, param in load_compressed(
+                hf_folder, compression_config=compression_config):
             yield name, param
 
     else:

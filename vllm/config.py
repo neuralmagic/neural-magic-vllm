@@ -240,7 +240,8 @@ class ModelConfig:
         if dtype not in supported_sparsity_dtypes:
             logger.warning(
                 f"Sparsity is only supported for {supported_sparsity_dtypes}"
-                f"dtypes, not {dtype}. Running the models without sparse kernels.")
+                f"dtypes, not {dtype}. "
+                "Running the models without sparse kernels.")
             return None
 
         # choose the sparsity structure based on the sparsity config

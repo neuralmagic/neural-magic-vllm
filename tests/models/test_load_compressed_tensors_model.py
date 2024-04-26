@@ -11,13 +11,12 @@ from compare_utils import check_logprobs_close
 
 MODEL_MAX_LEN = 1024
 
-# pair of same models with weight safed as 
-# compressed-tensors (compressed) 
+# pair of same models with weight safed as
+# compressed-tensors (compressed)
 # and ordinary safetensors (uncompressed)
-MODELS = [(
-    "neuralmagic/llama2.c-stories110M-pruned50",
-    "nm-testing/llama2.c-stories110M-pruned50-compressed-tensors"
-) ]
+MODELS = [("neuralmagic/llama2.c-stories110M-pruned50",
+           "nm-testing/llama2.c-stories110M-pruned50-compressed-tensors")]
+
 
 @pytest.mark.parametrize("model_pair", MODELS)
 @pytest.mark.parametrize("dtype", ["float16", "bfloat16"])
