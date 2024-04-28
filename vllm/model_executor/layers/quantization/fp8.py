@@ -181,16 +181,18 @@ class Fp8LinearMethod(LinearMethodBase):
         # so, just cleanup the Parameters for easier use in apply().
         else:
             # WEIGHT
-            #   Transpose weight for passing to torch._scaled_mm
+            # Transpose weight for passing to torch._scaled_mm
             weight = layer.weight
             layer.weight = Parameter(weight.t(), requires_grad=False)
 
             # WEIGHT_SCALE
-            #   If we only have one logical shard, avoid the loop in apply().
-            if len(layer.logical_widths) == 1:
+            #   If all weight_scales are equal, use a single scale to avoid naive loop.
+            if all_close_1d(layer.weight_scale):
                 layer.weight_scale = Parameter(layer.weight_scale.max(),
                                                requires_grad=False)
                 layer.logical_widths = None
+            else:
+                assert False
 
             # ACT_SCALE
             #   Dynamic: set to None (required input to ops.scaled_fp8_quant).
@@ -217,7 +219,7 @@ class Fp8LinearMethod(LinearMethodBase):
         #   If static,  layer.act_scale is scalar and x_scale set to act_scale.
         qinput, x_scale = ops.scaled_fp8_quant(x, layer.act_scale)
 
-        # Case 1: we have one single scale for N logical weights.
+        # Case 1: we have 1 weight_scale for N logical weights.
         if layer.logical_widths is None:
             output, _ = torch._scaled_mm(
                 qinput,
