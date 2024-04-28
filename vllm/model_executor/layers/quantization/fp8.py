@@ -166,7 +166,7 @@ class Fp8LinearMethod(LinearMethodBase):
                 or not layer.process_after_load):
             return
 
-        # If checkpoint is fp1616 (not serialized fp8), quantize the weights.
+        # If checkpoint is fp/bf16 (not serialized fp8), quantize the weights.
         if not self.quant_config.is_serialized:
             qweight, weight_scale = ops.scaled_fp8_quant(layer.weight,
                                                          scale=None)
@@ -181,7 +181,7 @@ class Fp8LinearMethod(LinearMethodBase):
         # so, just cleanup the Parameters for easier use in apply().
         else:
             # WEIGHT
-            # Transpose weight for passing to torch._scaled_mm
+            #   Transpose weight for passing to torch._scaled_mm
             weight = layer.weight
             layer.weight = Parameter(weight.t(), requires_grad=False)
 
@@ -191,8 +191,6 @@ class Fp8LinearMethod(LinearMethodBase):
                 layer.weight_scale = Parameter(layer.weight_scale.max(),
                                                requires_grad=False)
                 layer.logical_widths = None
-            else:
-                assert False
 
             # ACT_SCALE
             #   Dynamic: set to None (required input to ops.scaled_fp8_quant).
