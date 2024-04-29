@@ -31,7 +31,7 @@ class LinearMethodBase(ABC):
     @abstractmethod
     def create_weights(self, layer: torch.nn.Module, layer_name: str,
                        input_size_per_partition: int,
-                       output_sizes_per_partition: List[int], input_size: int,
+                       output_partition_sizes: List[int], input_size: int,
                        output_size: int, params_dtype: torch.dtype,
                        **extra_weight_attrs) -> Dict[str, Any]:
       
@@ -80,10 +80,10 @@ class UnquantizedLinearMethod(LinearMethodBase):
 
     def create_weights(self, layer: torch.nn.Module, layer_name: str,
                        input_size_per_partition: int,
-                       output_sizes_per_partition: List[int], input_size: int,
+                       output_partition_sizes: List[int], input_size: int,
                        output_size: int, params_dtype: torch.dtype,
                        **extra_weight_attrs) -> Dict[str, Any]:
-        weight = Parameter(torch.empty(sum(output_sizes_per_partition),
+        weight = Parameter(torch.empty(sum(output_partition_sizes),
                                        input_size_per_partition,
                                        dtype=params_dtype),
                            requires_grad=False)
@@ -177,9 +177,8 @@ class ColumnParallelLinear(torch.nn.Module):
                        skip adding bias but instead return it.
         params_dtype: Data type for the parameters.
         linear_method: (Maybe quantized) linear method.
-        logical_widths: Optional list of widths for logical weight matrices.
-                        E.g. for QKVParallelLinear, this parameter defines
-                        the width
+        output_sizes: list of output sizes packed into one output, like for QKV
+                       the list would be size 3.
     """
 
     def __init__(
@@ -204,10 +203,10 @@ class ColumnParallelLinear(torch.nn.Module):
         # Divide the weight matrix along the last dimension.
         tp_size = get_tensor_model_parallel_world_size()
         self.output_size_per_partition = divide(self.output_size, tp_size)
-        self.output_sizes_per_partition = [self.output_size_per_partition]
+        self.output_partition_sizes = [self.output_size_per_partition]
         # If QKV or MergedColumn, use output size of each partition.
         if self.output_sizes is not None:
-            self.output_sizes_per_partition = [
+            self.output_partition_sizes = [
                 divide(output_size, tp_size)
                 for output_size in self.output_sizes
             ]
@@ -225,7 +224,7 @@ class ColumnParallelLinear(torch.nn.Module):
             layer=self,
             layer_name=self.layer_name,
             input_size_per_partition=self.input_size,
-            output_sizes_per_partition=self.output_sizes_per_partition,
+            output_partition_sizes=self.output_partition_sizes,
             input_size=self.input_size,
             output_size=self.output_size,
             params_dtype=self.params_dtype,
@@ -668,7 +667,7 @@ class RowParallelLinear(torch.nn.Module):
             layer=self,
             layer_name=self.layer_name,
             input_size_per_partition=self.input_size_per_partition,
-            output_sizes_per_partition=[self.output_size],
+            output_partition_sizes=[self.output_size],
             input_size=self.input_size,
             output_size=self.output_size,
             params_dtype=self.params_dtype,

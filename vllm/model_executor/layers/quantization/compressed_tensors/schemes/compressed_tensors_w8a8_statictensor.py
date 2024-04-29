@@ -57,14 +57,14 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsScheme):
         return param[offset:offset + size], loaded_weight
 
     def create_weights(self, layer: torch.nn.Module,
-                       output_sizes_per_partition: List[int],
+                       output_partition_sizes: List[int],
                        input_size_per_partition: int,
                        params_dtype: torch.dtype, weight_loader: Callable,
                        **kwargs):
 
         # TODO: remove zero_point parameters once the configs given remove them
-        is_tensor_partitioned = len(output_sizes_per_partition) != 1
-        dim = sum(output_sizes_per_partition) if is_tensor_partitioned else 1
+        is_tensor_partitioned = len(output_partition_sizes) != 1
+        dim = sum(output_partition_sizes) if is_tensor_partitioned else 1
 
         input_scale = Parameter(torch.empty(1,
                                             device="cuda",
@@ -86,24 +86,18 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsScheme):
 
         if not self.fake_quant:
             params_dtype = torch.int8
-        weight = Parameter(torch.empty(sum(output_sizes_per_partition),
+        weight = Parameter(torch.empty(sum(output_partition_sizes),
                                        input_size_per_partition,
                                        device="cuda",
                                        dtype=params_dtype),
                            requires_grad=False)
 
-        set_weight_attrs(weight, {"input_dim": 1, "output_dim": 0})
-        set_weight_attrs(
-            weight_scale, {
-                "shard_splitter": self.scales_shard_splitter,
-                "logical_widths": output_sizes_per_partition
-            })
-
-        # Register parameter with the layer; register weight loader with each parameter
         layer.register_parameter("weight", weight)
+        set_weight_attrs(weight, {"input_dim": 1, "output_dim": 0})
+        # Register parameter with the layer; register weight loader with each parameter
         set_weight_attrs(weight, {"weight_loader": weight_loader})
         set_weight_attrs(weight,
-                         {"logical_widths": output_sizes_per_partition})
+                         {"logical_widths": output_partition_sizes})
 
         layer.register_parameter("input_scale", input_scale)
         set_weight_attrs(input_scale, {"weight_loader": weight_loader})
@@ -111,6 +105,11 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsScheme):
         set_weight_attrs(input_zero_point, {"weight_loader": weight_loader})
         layer.register_parameter("weight_scale", weight_scale)
         set_weight_attrs(weight_scale, {"weight_loader": weight_loader})
+        set_weight_attrs(
+            weight_scale, {
+                "shard_splitter": self.scales_shard_splitter,
+                "logical_widths": output_partition_sizes
+            })
         layer.register_parameter("weight_zero_point", weight_zero_point)
         set_weight_attrs(weight_zero_point, {"weight_loader": weight_loader})
 

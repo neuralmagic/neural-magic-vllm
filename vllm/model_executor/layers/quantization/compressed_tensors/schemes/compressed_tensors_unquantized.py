@@ -16,12 +16,12 @@ class CompressedTensorsUnquantized(CompressedTensorsScheme):
     """
 
     def create_weights(self, layer: torch.nn.Module,
-                       output_sizes_per_partition: List[int],
+                       output_partition_sizes: List[int],
                        input_size_per_partition: int,
                        params_dtype: torch.dtype, weight_loader: Callable,
                        **kwargs):
 
-        weight = Parameter(torch.empty(sum(output_sizes_per_partition),
+        weight = Parameter(torch.empty(sum(output_partition_sizes),
                                        input_size_per_partition,
                                        device="cuda",
                                        dtype=params_dtype),

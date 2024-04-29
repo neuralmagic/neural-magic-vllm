@@ -116,7 +116,7 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
 
     def create_weights(self, layer: torch.nn.Module, layer_name: str,
                        input_size_per_partition: int,
-                       output_sizes_per_partition: List[int], input_size: int,
+                       output_partition_sizes: List[int], input_size: int,
                        output_size: int, params_dtype: torch.dtype,
                        **extra_weight_attrs):
         """
@@ -130,13 +130,13 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         scheme.create_weights(
             layer=layer,
             input_size_per_partition=input_size_per_partition,
-            output_sizes_per_partition=output_sizes_per_partition,
+            output_partition_sizes=output_partition_sizes,
             output_size=output_size,
             params_dtype=params_dtype,
             weight_loader=weight_loader)
 
-        set_weight_attrs(layer, {"scheme": scheme})
-
+        layer.scheme = scheme
+        
     def apply_weights(self,
                       layer: torch.nn.Module,
                       x: torch.Tensor,
