@@ -146,15 +146,10 @@ void gptq_shuffle(
   torch::Tensor q_perm,
   int bit);
 
-void quant(
+void quant_per_tensor(
   torch::Tensor& out,
   torch::Tensor& input,
   float scale);
-
-void quant(
-  torch::Tensor& out,
-  torch::Tensor& input,
-  torch::Tensor& scale);
 
 void scaled_fp8_quant(
   torch::Tensor& out,
