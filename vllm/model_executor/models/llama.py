@@ -133,7 +133,7 @@ class LlamaAttention(nn.Module):
 
         self.qkv_proj = QKVParallelLinear(
             layer_name=f"{parent_name}.qkv_proj",
-            hidden_size=hidden_size,
+            hidden_size=self.hidden_size,
             head_size=self.head_dim,
             total_num_heads=self.total_num_heads,
             total_num_kv_heads=self.total_num_kv_heads,
@@ -143,7 +143,7 @@ class LlamaAttention(nn.Module):
         self.o_proj = RowParallelLinear(
             layer_name=f"{parent_name}.o_proj",
             input_size=self.total_num_heads * self.head_dim,
-            output_size=hidden_size,
+            output_size=self.hidden_size,
             bias=bias,
             linear_method=linear_method,
         )

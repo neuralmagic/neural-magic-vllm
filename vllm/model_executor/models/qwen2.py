@@ -51,6 +51,7 @@ class Qwen2MLP(nn.Module):
 
     def __init__(
         self,
+        parent_name: str, 
         hidden_size: int,
         intermediate_size: int,
         hidden_act: str,
@@ -58,11 +59,14 @@ class Qwen2MLP(nn.Module):
     ) -> None:
         super().__init__()
         self.gate_up_proj = MergedColumnParallelLinear(
-            hidden_size, [intermediate_size] * 2,
+            layer_name=f"{parent_name}.gate_up_proj",
+            input_size=hidden_size,
+            output_sizes=[intermediate_size] * 2,
             bias=False,
             linear_method=linear_method)
-        self.down_proj = RowParallelLinear(intermediate_size,
-                                           hidden_size,
+        self.down_proj = RowParallelLinear(layer_name=f"{parent_name}.down_proj",
+                                           input_size=intermediate_size,
+                                           output_size=hidden_size,
                                            bias=False,
                                            linear_method=linear_method)
         if hidden_act != "silu":
@@ -80,6 +84,7 @@ class Qwen2MLP(nn.Module):
 class Qwen2Attention(nn.Module):
 
     def __init__(self,
+                 parent_name: str,
                  hidden_size: int,
                  num_heads: int,
                  num_kv_heads: int,
@@ -112,16 +117,18 @@ class Qwen2Attention(nn.Module):
         self.sliding_window = sliding_window if use_sliding_window else None
 
         self.qkv_proj = QKVParallelLinear(
-            hidden_size,
-            self.head_dim,
-            self.total_num_heads,
-            self.total_num_kv_heads,
+            layer_name=f"{parent_name}.qkv_proj",
+            hidden_size=hidden_size,
+            head_size=self.head_dim,
+            total_num_heads=self.total_num_heads,
+            total_num_kv_heads=self.total_num_kv_heads,
             bias=True,
             linear_method=linear_method,
         )
         self.o_proj = RowParallelLinear(
-            self.total_num_heads * self.head_dim,
-            hidden_size,
+            layer_name=f"{parent_name}.o_proj",
+            input_size=self.total_num_heads * self.head_dim,
+            output_size=self.hidden_size,
             bias=False,
             linear_method=linear_method,
         )
@@ -157,6 +164,7 @@ class Qwen2DecoderLayer(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         config: Qwen2Config,
         layer_idx: int,
         linear_method: Optional[LinearMethodBase] = None,
@@ -168,6 +176,7 @@ class Qwen2DecoderLayer(nn.Module):
         use_sliding_window = (config.use_sliding_window
                               and layer_idx < config.max_window_layers)
         self.self_attn = Qwen2Attention(
+            parent_name=f"{parent_name}.self_attn",
             hidden_size=self.hidden_size,
             num_heads=config.num_attention_heads,
             max_position=config.max_position_embeddings,
@@ -177,6 +186,7 @@ class Qwen2DecoderLayer(nn.Module):
             linear_method=linear_method,
             sliding_window=config.sliding_window)
         self.mlp = Qwen2MLP(
+            parent_name=f"{parent_name}.mlp",
             hidden_size=self.hidden_size,
             intermediate_size=config.intermediate_size,
             hidden_act=config.hidden_act,
@@ -233,8 +243,10 @@ class Qwen2Model(nn.Module):
             config.hidden_size,
         )
         self.layers = nn.ModuleList([
-            Qwen2DecoderLayer(config, layer_idx, linear_method)
-            for layer_idx in range(config.num_hidden_layers)
+            Qwen2DecoderLayer(parent_name=f"model.layers.{idx}",
+                              config=config, layer_idx=idx, 
+                              linear_method=linear_method)
+            for idx in range(config.num_hidden_layers)
         ])
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 

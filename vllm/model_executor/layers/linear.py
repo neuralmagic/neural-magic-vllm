@@ -205,7 +205,7 @@ class ColumnParallelLinear(torch.nn.Module):
         self.output_size_per_partition = divide(self.output_size, tp_size)
         self.output_partition_sizes = [self.output_size_per_partition]
         # If QKV or MergedColumn, use output size of each partition.
-        if self.output_sizes is not None:
+        if hasattr(self, "output_sizes"):
             self.output_partition_sizes = [
                 divide(output_size, tp_size)
                 for output_size in self.output_sizes
