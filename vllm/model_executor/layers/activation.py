@@ -25,6 +25,7 @@ class SiluAndMul(nn.Module):
     """
 
     # TODO: get original forward method to work
+    # or, control which forward to use via annotation?
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """PyTorch-native implementation equivalent to forward()."""
         d = x.shape[-1] // 2

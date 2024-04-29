@@ -128,14 +128,47 @@ def is_node_supported(submodules: Mapping[str, torch.nn.Module], node: torch.fx.
 # See: torch.fx.passes.infra.partitioner
 def partition_graph(gm: torch.fx.GraphModule, example_inputs: List[torch.Tensor]) -> Tuple[torch.fx.GraphModule, List[Partition]]:
     support = create_op_support(is_node_supported)
+
+    holders = dict()
+    for n in gm.graph.nodes:
+        if (
+            n.op == "placeholder" and
+            (val := n.meta.get("example_value")) is not None and
+            isinstance(val, torch.SymInt)
+        ):
+            holders[str(val)] = n
+
     p = CapabilityBasedPartitioner(
         gm,
         support,
-        allows_single_node_partition=True, #False,
+        allows_single_node_partition=False, #True
         non_compute_ops=None,
         allowed_single_node_partition_ops=None
     )
     parts = p.propose_partitions()
+
+    def ff(n):
+        return f"{n.format_node()}"# "{n.meta}"
+
+    for i, pp in enumerate(parts):
+        syms = []
+        newline = "  \n"
+        print(f"PART{i}: {newline.join([ff(n) for n in pp.nodes])}")
+        for n in pp.nodes:
+            if n.meta.get('example_value') is not None:
+                val = n.meta['example_value']
+                print(f"example_value {val} {type(val)}")
+                if isinstance(val, FakeTensor):
+                    print(f"FAKE_TENSOR {val.size()}{any([isinstance(d, torch.SymInt) for d in val.size()])}")
+                    for d in val.size():
+                        if isinstance(d, torch.SymInt) and not d in syms:
+                            syms.append(d)
+
+        print(f"SYMS: {syms}")
+        for s in syms:
+            continue
+            #pp.nodes.add(holders[str(s)])
+
     return p.fuse_partitions(parts), parts
 
 
@@ -263,6 +296,7 @@ class FusedOpGenerator:
         self.fused_op.append('}')
         self.fused_op.append(f'TORCH_LIBRARY_EXPAND(fused_ops{self.N}, m) {oc} m.def("{op}({arg_sig}) -> Tensor"); {cc}')
         self.fused_op.append(f'TORCH_LIBRARY_IMPL_EXPAND(fused_ops{self.N}, CPU, m) {oc} m.impl("{op}", &{op}); {cc}')
+        self.fused_op.append(f'TORCH_LIBRARY_IMPL_EXPAND(fused_ops{self.N}, CUDA, m) {oc} m.impl("{op}", &{op}); {cc}')
         # TODO: make sure this does the "right thing"
         self.fused_op.append(f'TORCH_LIBRARY_IMPL_EXPAND(fused_ops{self.N}, Meta, m) {oc} m.impl("{op}", &{op}); {cc}')
 
@@ -271,6 +305,9 @@ class FusedOpGenerator:
         return op
 
     def build_ops(self) -> Dict[torch.fx.node.Target, Callable]:
+        # prevent multiple libraries with the same name
+        FusedOpGenerator.N = FusedOpGenerator.N + 1
+
         try:
             with open(self.filename, "w") as out:
                 for l in self.fused_op:
@@ -278,6 +315,7 @@ class FusedOpGenerator:
                     out.write('\n')
 
             build_extension(f"fused_ops{self.N}", self.filename)
+            self.N = FusedOpGenerator.N
 
             for k, v in self.callables.items():
                 # there has to be a better way than eval?
@@ -291,10 +329,6 @@ class FusedOpGenerator:
 
             self.reset_fused_op()
             self.callables = dict()
-
-            # prevent multiple libraries with the same name
-            FusedOpGenerator.N = FusedOpGenerator.N + 1
-            self.N = FusedOpGenerator.N
 
             return callables
 
@@ -360,7 +394,8 @@ def fuse_graph_nodes(
     # Note: we do not update the meta info for cf here.  It should
     # not be required after transformation anyway.
 
-    # which way is best?  the else seems more general
+    # which way is best?  the 'else' seems more general
+    # see also eliminate_dead_code()
     if False:
         outputs[0].prev.replace_all_uses_with(cf)
     else:
@@ -591,6 +626,16 @@ def pointwise_fusion(
 
 ###############################################################################
 #
+# Inline
+#
+###############################################################################
+
+def inline_submodules(mod: torch.fx.GraphModule) -> torch.fx.GraphModule:
+    mod.graph = torch.fx.Tracer().trace(mod)
+    return mod
+
+###############################################################################
+#
 # Backend
 #
 ###############################################################################
@@ -603,7 +648,7 @@ def optimize(
 ) -> torch.fx.GraphModule:
     mod = add_quantization(mod)
     mod = pointwise_fusion(fgen, mod, example_inputs)
-    # the inductor should(?) handle this.
+    # TODO: should we re-trace here to inline?  or will inductor handle it?
     # mod = inline_submodules(mod)
     return mod
 
@@ -700,13 +745,23 @@ class backend_class:
         self.final = final
 
     def __call__(self, gm: torch.fx.GraphModule, example_inputs: List[torch.Tensor]) -> Callable:
+        # Must make a copy so that inductor backend doesn't choke.
+        gm = copy.copy(gm)
+
         print(f"ORIGINAL {gm.graph}")
+
+        # hack to get around https://github.com/pytorch/pytorch/issues/108446
+        print(f"inputs: {[type(inp) for inp in example_inputs]}")
+        for node in gm.graph.nodes:
+            if node.op == 'placeholder' and 'example_value' in node.meta:
+                val = node.meta['example_value']
+                if isinstance(val, FakeTensor) and any([isinstance(d, torch.SymInt) for d in val.size()]):
+                    print(f"FAKE_TENSOR {val.size()}{any([isinstance(d, torch.SymInt) for d in val.size()])}")
+                    return gm
+
         #print(f"ORIGINAL PYTHON {gm.graph.python_code(gm, verbose=True).src}")
         #    fg = FlowGraph(gm)
         #    fg.visit(lambda n: print(n))
-
-        # Must make a copy so that inductor backend doesn't choke.
-        gm = copy.copy(gm)
 
         #gm = torch.fx.Tracer().trace(gm)
         #gm = torch.fx.symbolic_trace(gm)
@@ -720,10 +775,12 @@ class backend_class:
 
         print(f"BEFORE forward: {part_gm.forward}")
 
-        print(f"part_gm: {part_gm}")
+        print(f"part_gm: {part_gm.print_readable(False)}")
         #graph_print_tabular(part_gm.graph)
         print(f"parts: {parts}")
-        print(f"children: {[(cname, cm.print_readable(False)) for cname, cm in part_gm.named_children()]}")
+        newline = "\n"
+        print(f"children: {newline.join([f'{cname}: {cm.print_readable(False)}' for cname, cm in part_gm.named_children()])}")
+        print(f"end children")
 
         # get the current FakeTensorMode (there should be one since we are in a backend)
         fake_mode = torch._guards.detect_fake_mode()
@@ -776,8 +833,13 @@ class backend_class:
                 if self.final != None:
                     m.forward = backend_compile(m, module_inputs, backend=self.final)
 
+        #part_gm.recompile()
+        #part_gm = inline_submodules(part_gm)
+
         part_gm.recompile()
+
         print(f"FULL FINAL GRAPH: {part_gm.print_readable(False)}")
+        # Add option for backend for this graph?
         #return backend_compile(part_gm, example_inputs)
         return part_gm.forward
 
