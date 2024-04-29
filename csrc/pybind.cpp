@@ -49,21 +49,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     "fused_add_rms_norm",
     &fused_add_rms_norm,
     "In-place fused Add and RMS Normalization");
-  ops.def(
-    "quant",
-    py::overload_cast<
-    torch::Tensor&,
-    torch::Tensor&,
-    float>(&quant),
-    "Quant.");
-  ops.def(
-    "quant",
-    py::overload_cast<
-    torch::Tensor&,
-    torch::Tensor&,
-    torch::Tensor&>(
-    &quant),
-    "Per-token quant.");
 
   // Rotary embedding
   ops.def(
@@ -93,6 +78,15 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     "moe_align_block_size",
     &moe_align_block_size,
     "Aligning the number of tokens to be processed by each expert such that it is divisible by the block size.");
+
+  ops.def(
+    "quant_per_tensor",
+    py::overload_cast<
+    torch::Tensor&,
+    torch::Tensor&,
+    float>(&quant_per_tensor),
+    "Per-tensor Quantization");
+
 
   // Cache ops
   pybind11::module cache_ops = m.def_submodule("cache_ops", "vLLM cache ops");

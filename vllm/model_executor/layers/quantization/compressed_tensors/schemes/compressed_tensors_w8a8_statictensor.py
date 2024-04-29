@@ -27,13 +27,13 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsScheme):
         x_split = x.split(logical_widths, dim=split_dim)
 
         for q, dq, scale in zip(x_q_split, x_split, scales):
-            ops.quant(q, dq, scale.item())
+            ops.quant_per_tensor(q, dq, scale.item())
 
         return x_q
 
     def _quantize_new(self, x: torch.Tensor, scale: float):
         x_q = torch.empty_like(x, dtype=torch.int8, device="cuda")
-        ops.quant(x_q, x, scale)
+        ops.quant_per_tensor(x_q, x, scale)
         return x_q
 
     def _shard_id_as_int(self, shard_id: Union[str, int]) -> int:

@@ -5,4 +5,3 @@
 #include "dtype_float32.cuh"
 #include "dtype_bfloat16.cuh"
 #include "dtype_fp8.cuh"
-#include "dtype_int8.cuh"
