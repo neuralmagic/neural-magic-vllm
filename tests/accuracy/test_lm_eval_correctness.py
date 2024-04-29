@@ -1,14 +1,20 @@
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, TypedDict
+from typing import TYPE_CHECKING, Any, Dict, List, TypedDict
 
-import lm_eval
 import numpy
 import pytest
 import torch
 import yaml
 
 from tests.utils.server import ServerContext
+
+if TYPE_CHECKING:
+    import lm_eval as lm_eval_t
+
+# requires a particular lm-evaluation-harness
+# pip install git+https://github.com/EleutherAI/lm-evaluation-harness.git@9516087b81a61d0e220b22cc1b75be76de23bc10
+lm_eval: lm_eval_t = pytest.importorskip("lm_eval", reason="lm_eval required")
 
 
 class Metric(TypedDict):
