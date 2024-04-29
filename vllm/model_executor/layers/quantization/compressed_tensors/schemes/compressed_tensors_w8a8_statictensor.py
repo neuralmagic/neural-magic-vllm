@@ -31,7 +31,7 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsScheme):
 
         return x_q
 
-    def _quantize_new(self, x: torch.Tensor, scale: float):
+    def _quantize_single(self, x: torch.Tensor, scale: float):
         x_q = torch.empty_like(x, dtype=torch.int8, device="cuda")
         ops.quant_per_tensor(x_q, x, scale)
         return x_q
@@ -120,9 +120,7 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsScheme):
         logical_widths = weight.logical_widths
 
         # Input quantize
-        #x_scales = torch.FloatTensor([act_scale[0].item()], device=torch.device("cpu"))
-        #x_q = self._quantize(x, x_scales, [x.shape[0]])
-        x_q = self._quantize_new(x, act_scale[0].item())
+        x_q = self._quantize_single(x, act_scale[0].item())
 
         # Weight quantize
         # TODO : try not to remove device-to-host copy. i.e. keep the non-duplicated version
