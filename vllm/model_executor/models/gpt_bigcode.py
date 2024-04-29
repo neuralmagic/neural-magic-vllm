@@ -44,6 +44,7 @@ class GPTBigCodeAttention(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         config: GPTBigCodeConfig,
         linear_method: Optional[LinearMethodBase] = None,
     ):
@@ -67,17 +68,19 @@ class GPTBigCodeAttention(nn.Module):
             self.num_kv_heads = self.num_heads
         self.kv_dim = self.head_dim * self.num_kv_heads
         self.c_attn = QKVParallelLinear(
-            self.hidden_size,
-            self.head_dim,
-            total_num_heads,
-            total_num_kv_heads,
+            layer_name=f"{parent_name}.c_attn",
+            hidden_size=self.hidden_size,
+            head_size=self.head_dim,
+            total_num_heads=total_num_heads,
+            total_num_kv_heads=total_num_kv_heads,
             bias=True,
             linear_method=linear_method,
         )
 
         self.c_proj = RowParallelLinear(
-            self.hidden_size,
-            self.hidden_size,
+            layer_name=f"{parent_name}.c_proj",
+            input_size=self.hidden_size,
+            output_size=self.hidden_size,
             bias=True,
             linear_method=linear_method,
         )
@@ -109,6 +112,7 @@ class GPTBigMLP(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         intermediate_size: int,
         config: GPTBigCodeConfig,
         linear_method: Optional[LinearMethodBase] = None,
@@ -116,14 +120,16 @@ class GPTBigMLP(nn.Module):
         super().__init__()
         hidden_size = config.hidden_size
         self.c_fc = ColumnParallelLinear(
-            hidden_size,
-            intermediate_size,
+            layer_name=f"{parent_name}.c_fc",
+            input_size=hidden_size,
+            output_size=intermediate_size,
             bias=True,
             linear_method=linear_method,
         )
         self.c_proj = RowParallelLinear(
-            intermediate_size,
-            hidden_size,
+            layer_name=f"{parent_name}.c_proj",
+            input_size=intermediate_size,
+            output_size=hidden_size,
             bias=True,
             linear_method=linear_method,
         )
@@ -142,6 +148,7 @@ class GPTBigCodeBlock(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         config: GPTBigCodeConfig,
         linear_method: Optional[LinearMethodBase] = None,
     ):
@@ -151,9 +158,11 @@ class GPTBigCodeBlock(nn.Module):
                      hidden_size)
 
         self.ln_1 = nn.LayerNorm(hidden_size, eps=config.layer_norm_epsilon)
-        self.attn = GPTBigCodeAttention(config, linear_method)
+        self.attn = GPTBigCodeAttention(parent_name=f"{parent_name}.attn", config=config, linear_method=linear_method)
         self.ln_2 = nn.LayerNorm(hidden_size, eps=config.layer_norm_epsilon)
-        self.mlp = GPTBigMLP(inner_dim, config, linear_method)
+        self.mlp = GPTBigMLP(parent_name=f"{parent_name}.mlp",
+                           intermediate_size=inner_dim,
+                           config=config, linear_method=linear_method)
 
     def forward(
         self,
@@ -195,8 +204,10 @@ class GPTBigCodeModel(nn.Module):
         self.wte = VocabParallelEmbedding(config.vocab_size, self.embed_dim)
         self.wpe = nn.Embedding(config.max_position_embeddings, self.embed_dim)
         self.h = nn.ModuleList([
-            GPTBigCodeBlock(config, linear_method)
-            for _ in range(config.num_hidden_layers)
+            GPTBigCodeBlock(parent_name=f"transformer.h.{idx}",
+                config=config, 
+                linear_method=linear_method)
+            for idx in range(config.num_hidden_layers)
         ])
         self.ln_f = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_epsilon)
 
