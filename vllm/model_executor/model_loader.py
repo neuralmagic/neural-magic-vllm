@@ -6,10 +6,10 @@ import torch
 import torch.nn as nn
 
 from vllm.config import DeviceConfig, ModelConfig
+from vllm.model_executor.layers.sparsity import get_sparsity_config
 from vllm.model_executor.models import ModelRegistry
 from vllm.model_executor.models.llava import LlavaForConditionalGeneration
 from vllm.model_executor.weight_utils import (get_quant_config,
-                                              get_sparse_config,
                                               initialize_dummy_weights)
 
 _VISION_MODEL_CLASSES = [
@@ -75,7 +75,7 @@ def get_model(model_config: ModelConfig, device_config: DeviceConfig,
         linear_method = quant_config.get_linear_method()
     # UPSTREAM SYNC: needed to support sparsity
     if model_config.sparsity is not None:
-        sparse_config = get_sparse_config(model_config)
+        sparse_config = get_sparsity_config(model_config)
         capability = torch.cuda.get_device_capability()
         capability = capability[0] * 10 + capability[1]
         if capability < sparse_config.get_min_capability():

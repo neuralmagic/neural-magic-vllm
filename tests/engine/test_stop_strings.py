@@ -4,7 +4,7 @@ import pytest
 
 from vllm import CompletionOutput, LLMEngine, SamplingParams
 
-MODEL = "meta-llama/llama-2-7b-hf"
+MODEL = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 MAX_TOKENS = 200
 
 
@@ -16,66 +16,66 @@ def vllm_model(vllm_runner):
 @pytest.mark.skip_global_cleanup
 def test_stop_basic(vllm_model):
     _test_stopping(vllm_model.model.llm_engine,
-                   stop=["."],
+                   stop=["in"],
                    include_in_output=False,
-                   expected_output="VLLM is a 100% volunteer organization",
-                   expected_reason=".")
+                   expected_output="\nVLLM is a company that specializes ",
+                   expected_reason="in")
 
     _test_stopping(vllm_model.model.llm_engine,
-                   stop=["."],
+                   stop=["in"],
                    include_in_output=True,
-                   expected_output="VLLM is a 100% volunteer organization.",
-                   expected_reason=".")
+                   expected_output="\nVLLM is a company that specializes in",
+                   expected_reason="in")
 
 
 @pytest.mark.skip_global_cleanup
 def test_stop_multi_tokens(vllm_model):
-    _test_stopping(
-        vllm_model.model.llm_engine,
-        stop=["group of peo", "short"],
-        include_in_output=False,
-        expected_output="VLLM is a 100% volunteer organization. We are a ",
-        expected_reason="group of peo")
+    _test_stopping(vllm_model.model.llm_engine,
+                   stop=["providing virtual", "short"],
+                   include_in_output=False,
+                   expected_output="\nVLLM is a company that specializes in ",
+                   expected_reason="providing virtual")
 
-    _test_stopping(
-        vllm_model.model.llm_engine,
-        stop=["group of peo", "short"],
-        include_in_output=True,
-        expected_output=
-        "VLLM is a 100% volunteer organization. We are a group of peo",
-        expected_reason="group of peo")
+    _test_stopping(vllm_model.model.llm_engine,
+                   stop=["providing virtual", "short"],
+                   include_in_output=True,
+                   expected_output=
+                   "\nVLLM is a company that specializes in providing virtual",
+                   expected_reason="providing virtual")
 
 
 @pytest.mark.skip_global_cleanup
 def test_stop_partial_token(vllm_model):
     _test_stopping(vllm_model.model.llm_engine,
-                   stop=["gani"],
+                   stop=["izes"],
                    include_in_output=False,
-                   expected_output="VLLM is a 100% volunteer or",
-                   expected_reason="gani")
+                   expected_output="\nVLLM is a company that special",
+                   expected_reason="izes")
 
     _test_stopping(vllm_model.model.llm_engine,
-                   stop=["gani"],
+                   stop=["izes"],
                    include_in_output=True,
-                   expected_output="VLLM is a 100% volunteer organi",
-                   expected_reason="gani")
+                   expected_output="\nVLLM is a company that specializes",
+                   expected_reason="izes")
 
 
 @pytest.mark.skip_global_cleanup
 def test_stop_token_id(vllm_model):
-    # token id 13013 => " organization"
+    # token id 6901 => "virtual"
+
+    _test_stopping(
+        vllm_model.model.llm_engine,
+        stop_token_ids=[6901],
+        include_in_output=False,
+        expected_output="\nVLLM is a company that specializes in providing",
+        expected_reason=6901)
 
     _test_stopping(vllm_model.model.llm_engine,
-                   stop_token_ids=[13013],
-                   include_in_output=False,
-                   expected_output="VLLM is a 100% volunteer",
-                   expected_reason=13013)
-
-    _test_stopping(vllm_model.model.llm_engine,
-                   stop_token_ids=[13013],
+                   stop_token_ids=[6901],
                    include_in_output=True,
-                   expected_output="VLLM is a 100% volunteer organization",
-                   expected_reason=13013)
+                   expected_output=
+                   "\nVLLM is a company that specializes in providing virtual",
+                   expected_reason=6901)
 
 
 def _test_stopping(llm_engine: LLMEngine,

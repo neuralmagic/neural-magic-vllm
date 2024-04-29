@@ -2,7 +2,6 @@ import enum
 import json
 import os
 from dataclasses import dataclass, fields
-from enum import Enum
 from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional, Union
 
 import torch
@@ -11,6 +10,7 @@ from packaging.version import Version
 from transformers import PretrainedConfig
 
 from vllm.logger import init_logger
+from vllm.model_executor.layers.sparsity import SparsityStructures
 from vllm.transformers_utils.config import get_config, get_hf_text_config
 from vllm.utils import (get_cpu_memory, get_nvcc_cuda_version, is_cpu, is_hip,
                         is_neuron)
@@ -21,12 +21,6 @@ if TYPE_CHECKING:
 logger = init_logger(__name__)
 
 _GB = 1 << 30
-
-
-# UPSTREAM SYNC: keep sparsity
-class SparsityStructure(Enum):
-    sparse_w16a16 = "sparse_w16a16"
-    semi_structured_sparse_w16a16 = "semi_structured_sparse_w16a16"
 
 
 class ModelConfig:
@@ -190,13 +184,11 @@ class ModelConfig:
 
     # UPSTREAM SYNC: keep sparsity
     def _verify_sparsity(self) -> None:
-        supported_sparsity = {
-            sparsity_structure.value
-            for sparsity_structure in SparsityStructure
-        }
+        supported_sparsity = set(SparsityStructures.keys())
 
         hf_sparsity_config = getattr(self.hf_config, SPARSITY_CONFIG_NAME,
                                      None)
+
         if hf_sparsity_config is not None:
             sparsity_structure = self._sparsity_structure_from_config(
                 hf_sparsity_config, dtype=self.dtype)
@@ -217,9 +209,8 @@ class ModelConfig:
                              "one or the other is supported at a time.")
 
     @staticmethod
-    def _sparsity_structure_from_config(
-            sparsity_config: Dict[str, Any],
-            dtype: torch.dtype) -> SparsityStructure:
+    def _sparsity_structure_from_config(sparsity_config: Dict[str, Any],
+                                        dtype: torch.dtype) -> str:
         """
         Translate from the sparsity_config to an appropriate sparsity structure.
         
@@ -246,10 +237,10 @@ class ModelConfig:
 
         # choose the sparsity structure based on the sparsity config
         if sparsity_config["sparsity_structure"] in {"unstructured", "0:0"}:
-            return SparsityStructure.sparse_w16a16.value
+            return SparsityStructures['sparse_w16a16'].name
 
         elif sparsity_config["sparsity_structure"] == "2:4":
-            return SparsityStructure.semi_structured_sparse_w16a16
+            return SparsityStructures['semi_structured_sparse_w16a16'].name
 
         # if the sparsity config is not recognized, return None
         logger.warning("The valid sparsity structure cannot be inferred from "

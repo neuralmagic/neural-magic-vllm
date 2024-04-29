@@ -118,19 +118,6 @@ def convert_bin_to_safetensor_file(
             raise RuntimeError(f"The output tensors do not match for key {k}")
 
 
-# UPSTREAM SYNC: needed for sparsity
-# TODO: (MLE) load compressed models from here
-def get_sparse_config(model_config: ModelConfig):
-    from vllm.model_executor.layers.sparsity import get_sparsity_config
-    sparsity_cls = get_sparsity_config(model_config.sparsity)
-    hf_sparsity_config = getattr(model_config.hf_config, "sparsity_config",
-                                 None)
-    if hf_sparsity_config is not None:
-        raise NotImplementedError(
-            "Loading hf sparsity config not yet supported")
-    return sparsity_cls()
-
-
 # TODO(woosuk): Move this to other place.
 def get_quant_config(model_config: ModelConfig) -> QuantizationConfig:
     quant_cls = get_quantization_config(model_config.quantization)
@@ -298,11 +285,11 @@ def hf_model_weights_iterator(
     elif use_safetensors:
         # UPSTREAM SYNC: needed for loading compressed tensors
         # (see neural-magic/compressed-tensors repository)
-        hf_config = AutoConfig.from_pretrained(hf_folder)
-        compression_config = None
-        if hasattr(hf_config, SPARSITY_CONFIG_NAME):
-            compression_config = CompressionConfig.load_from_registry(
-                **getattr(hf_config, SPARSITY_CONFIG_NAME))
+        sparsity_config = getattr(AutoConfig.from_pretrained(hf_folder),
+                                  SPARSITY_CONFIG_NAME, None)
+        compression_config = None if sparsity_config is None \
+                             else CompressionConfig.load_from_registry(
+            name=sparsity_config['format'], **sparsity_config)
         for name, param in load_compressed(
                 hf_folder, compression_config=compression_config):
             yield name, param
