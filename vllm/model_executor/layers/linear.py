@@ -34,6 +34,7 @@ class LinearMethodBase(ABC):
                        output_sizes_per_partition: List[int], input_size: int,
                        output_size: int, params_dtype: torch.dtype,
                        **extra_weight_attrs) -> Dict[str, Any]:
+      
         """Create weights for a linear layer. 
            The weights will be set as attributes of the layer.
         
