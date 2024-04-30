@@ -18,7 +18,7 @@ jobs:
             gitref: ${{ github.ref }}
 
             test_label_solo: aws-avx2-32G-a10g-24G
-            test_label_multi: n/a
+            test_label_multi: ignore
             test_timeout: 480
             test_skip_list: neuralmagic/tests/skip-almost-all.txt
 

@@ -150,6 +150,18 @@ jobs:
             test_skip_list: ${{ inputs.test_skip_list }}
         secrets: inherit
 
+    PUBLISH:
+        needs: [TEST-SOLO, TEST-MULTI]
+        uses: ./.github/workflows/nm-publish.yml
+        with:
+            label: ${{ inputs.build_label }}
+            timeout: ${{ inputs.build_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            tarfile: ${{ needs.BUILD.outputs.tarfile }}
+        secrets: inherit
+
     BENCHMARK:
         needs: [BUILD]
         if: success()
