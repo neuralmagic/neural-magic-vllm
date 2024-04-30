@@ -113,6 +113,7 @@ on:
 
 jobs:
     DEBUG:
+        if: success() && contains(fromJSON('["NIGHTLY", "RELEASE"]'), inputs.wf_category)
         runs-on: ubuntu-latest
         steps:
             - name: take a look
