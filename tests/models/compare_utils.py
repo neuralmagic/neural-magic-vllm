@@ -6,9 +6,52 @@ import pandas as pd
 
 
 def check_logprobs_close(outputs_0_lst, outputs_1_lst, name_0, name_1):
+    # Loop through responses to each prompt.
+    for prompt_idx, (outputs_0,
+                     outputs_1) in enumerate(zip(outputs_0_lst,
+                                                 outputs_1_lst)):
+        output_ids_0, output_str_0, logprobs_0 = outputs_0
+        output_ids_1, output_str_1, logprobs_1 = outputs_1
 
+        # Loop through generated tokens.
+        for idx, (output_id_0,
+                  output_id_1) in enumerate(zip(output_ids_0, output_ids_1)):
+
+            # If generated tokens don't match, then
+            if output_id_0 != output_id_1:
+                # Each predicted token must be in top N logprobs of the other
+                assert output_id_0 in logprobs_1[idx], (
+                    f"Test{prompt_idx}:"
+                    f"\n{name_0}:\t{output_str_0!r}"
+                    f"\n{name_1}:\t{output_str_1!r}")
+                assert output_id_1 in logprobs_0[idx], (
+                    f"Test{prompt_idx}:"
+                    f"\n{name_0}:\t{output_str_0!r}"
+                    f"\n{name_1}:\t{output_str_1!r}")
+
+                # Break out since sequences will now diverge.
+                break
+
+
+def check_logprobs_str_close(outputs_0_lst, outputs_1_lst, name_0, name_1):
+    """
+    given the named outputs from two different inference engines. compare them
+    to confirm that each of the tokens are the same, or at least show up in
+    the topk logprobs of the other engine.
+    The outputs consist of a Tuple holding;
+     * a list of token ids or strings, one per token,
+     * the full string of the response,
+     * a list of dict holding the topk logprobs for each token
+
+    :param outputs_0_lst:
+    :param outputs_1_lst:
+    :param name_0:
+    :param name_1:
+    :return:
+    """
     # Loop through responses to each prompt.
     prompts_in_error = dict()
+    response_strings = dict()
     for prompt_idx, (outputs_0,
                      outputs_1) in enumerate(zip(outputs_0_lst,
                                                  outputs_1_lst)):
@@ -19,12 +62,15 @@ def check_logprobs_close(outputs_0_lst, outputs_1_lst, name_0, name_1):
                                   0: f"{name_0}_tokens_index",
                                   2: f"{name_0}_keyed_logprobs"
                               })
+        response_strings[prompt_idx] = dict()
+        response_strings[prompt_idx][f"{name_0}_response"] = outputs_0[1]
         outputs_1_df = pd.DataFrame.from_records(outputs_1).transpose().drop(
             columns=1).dropna(axis=0,
                               how="all").rename(columns={
                                   0: f"{name_1}_tokens_index",
                                   2: f"{name_1}_keyed_logprobs"
                               })
+        response_strings[prompt_idx][f"{name_1}_response"] = outputs_1[1]
         all_outputs_df = pd.concat([outputs_0_df, outputs_1_df],
                                    axis="columns")
 
@@ -32,15 +78,15 @@ def check_logprobs_close(outputs_0_lst, outputs_1_lst, name_0, name_1):
         # logprobs
         all_outputs_df[
             f"{name_0}_token_in_{name_1}_logprobs"] = all_outputs_df.apply(
-                lambda row: any(kee.strip() in row[f"{name_0}_tokens_index"]
-                                for kee in row[f"{name_1}_keyed_logprobs"]),
+                lambda row: str(row[f"{name_0}_tokens_index"]).strip() in
+                [str(kee).strip() for kee in row[f"{name_1}_keyed_logprobs"]],
                 axis=1)
         # find name_1 tokens that appear in any of the keys of the name_0
         # logprobs
         all_outputs_df[
             f"{name_1}_token_in_{name_0}_logprobs"] = all_outputs_df.apply(
-                lambda row: any(kee.strip() in row[f"{name_1}_tokens_index"]
-                                for kee in row[f"{name_0}_keyed_logprobs"]),
+                lambda row: str(row[f"{name_1}_tokens_index"]).strip() in
+                [str(kee).strip() for kee in row[f"{name_0}_keyed_logprobs"]],
                 axis=1)
 
         # both of the above columns have to be True for a token to match
@@ -49,9 +95,7 @@ def check_logprobs_close(outputs_0_lst, outputs_1_lst, name_0, name_1):
             all_outputs_df[f"{name_0}_token_in_{name_1}_logprobs"]
             & all_outputs_df[f"{name_1}_token_in_{name_0}_logprobs"])
 
-        # Record the tokens that do not match for this prompt, if any
-        # TODO: should we limit this check to the first half dozen tokens,
-        #  instead of the whole list?
+        # Identify the tokens that do not match for this prompt, if any
         if any(all_outputs_df["tokens_in_error"]):
             prompts_in_error[prompt_idx] = all_outputs_df[
                 all_outputs_df["tokens_in_error"]][[
@@ -61,8 +105,14 @@ def check_logprobs_close(outputs_0_lst, outputs_1_lst, name_0, name_1):
 
     error_message = "response for some prompts did not closely match:"
     for pidx in prompts_in_error:
+        name_0_response = f"{response_strings[pidx][f'{name_0}_response']}\n"
+        name_1_response = f"{response_strings[pidx][f'{name_1}_response']}\n"
+        prompts_in_error_json = prompts_in_error[pidx].iloc[0].to_json(
+            orient='index', indent=2)
         error_message = "\n".join([
-            error_message, "\n", f"prompt index {pidx}",
-            prompts_in_error[pidx].to_json(orient='index', indent=2)
+            error_message,
+            "\n",
+            f"prompt index {pidx}:\n{name_0_response}\n{name_1_response}\n"
+            f"first token in error:\n{prompts_in_error_json}",
         ])
     assert not prompts_in_error, error_message

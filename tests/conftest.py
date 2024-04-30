@@ -2,7 +2,7 @@ import contextlib
 import gc
 import logging
 import os
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import pytest
 import torch
@@ -288,12 +288,31 @@ def hf_runner():
 # UPSTREAM SYNC: needed for nm-automation
 class HfRunnerNM(HfRunner):
 
+    def _logprobs_from_generated_hidden_states(self, output):
+        """
+        generates a list of logprobs from the output of self.model.generate()
+        """
+        seq_logprobs = []
+        for _, hidden_states in enumerate(output.hidden_states):
+            last_hidden_states = hidden_states[-1][0]
+            logits = torch.matmul(
+                last_hidden_states,
+                self.model.get_output_embeddings().weight.t(),
+            )
+            if self.model.get_output_embeddings().bias is not None:
+                logits += self.model.get_output_embeddings().bias.unsqueeze(0)
+            logprobs = torch.nn.functional.log_softmax(logits,
+                                                       dim=-1,
+                                                       dtype=torch.float32)
+            seq_logprobs.append(logprobs)
+        return seq_logprobs
+
     def generate_greedy_logprobs_nm(
         self,
         prompts: List[str],
         max_tokens: int,
         num_logprobs: int,
-    ) -> List[Tuple[List[int], str]]:
+    ) -> List[Tuple[List[int], str, List[Dict]]]:
         all_logprobs = []
         all_output_ids = []
         all_output_strs = []
@@ -309,20 +328,7 @@ class HfRunnerNM(HfRunner):
                 return_dict_in_generate=True,
             )
 
-            seq_logprobs = []
-            for _, hidden_states in enumerate(output.hidden_states):
-                last_hidden_states = hidden_states[-1][0]
-                logits = torch.matmul(
-                    last_hidden_states,
-                    self.model.get_output_embeddings().weight.t(),
-                )
-                if self.model.get_output_embeddings().bias is not None:
-                    logits += self.model.get_output_embeddings(
-                    ).bias.unsqueeze(0)
-                logprobs = torch.nn.functional.log_softmax(logits,
-                                                           dim=-1,
-                                                           dtype=torch.float32)
-                seq_logprobs.append(logprobs)
+            seq_logprobs = self._logprobs_from_generated_hidden_states(output)
 
             # convert to dict
             seq_logprobs_lst = []
@@ -349,14 +355,39 @@ class HfRunnerNM(HfRunner):
         return [(output_ids, output_str, output_logprobs)
                 for output_ids, output_str, output_logprobs in outputs]
 
+    def _decode_token_by_position_index(
+            self,
+            token_index: int,
+            token_ids: List[int],
+            clean_up_tokenization_spaces: bool = True) -> str:
+        """
+        helper function to calculate a token string at the specified index
+        based on the previous tokens.
+
+        :param token_index: position in the list of token ids where you would
+            like the token string
+        :param token_ids: the list of token ids
+        :param clean_up_tokenization_spaces: option to pass to
+            `tokenizer.decode()`
+        """
+        lookback = 4
+        prior_str = self.tokenizer.decode(
+            token_ids[token_index - lookback:token_index - 1],
+            clean_up_tokenization_spaces=clean_up_tokenization_spaces)
+        current_str = self.tokenizer.decode(
+            token_ids[token_index - lookback:token_index],
+            clean_up_tokenization_spaces=clean_up_tokenization_spaces)
+        token = current_str[-(len(current_str) - len(prior_str)):]
+        return token
+
     def generate_greedy_logprobs_nm_use_tokens(
         self,
         prompts: List[str],
         max_tokens: int,
-        num_logprobs: int,
-    ) -> List[Tuple[List[int], str]]:
+        topk_logprobs_count: int,
+    ) -> List[Tuple[List[int], str, List[Dict]]]:
         all_logprobs = []
-        all_output_ids = []
+        all_output_tokens = []
         all_output_strs = []
 
         for prompt in prompts:
@@ -370,50 +401,44 @@ class HfRunnerNM(HfRunner):
                 return_dict_in_generate=True,
             )
 
-            seq_logprobs = []
-            for _, hidden_states in enumerate(output.hidden_states):
-                last_hidden_states = hidden_states[-1][0]
-                logits = torch.matmul(
-                    last_hidden_states,
-                    self.model.get_output_embeddings().weight.t(),
-                )
-                if self.model.get_output_embeddings().bias is not None:
-                    logits += self.model.get_output_embeddings(
-                    ).bias.unsqueeze(0)
-                logprobs = torch.nn.functional.log_softmax(logits,
-                                                           dim=-1,
-                                                           dtype=torch.float32)
-                seq_logprobs.append(logprobs)
+            seq_logprobs = self._logprobs_from_generated_hidden_states(output)
 
-            # convert to dict
-            seq_logprobs_lst = []
+            # convert sequence of logprobs to a dict keyed on the selected token
+            seq_ids = output.sequences[0]
+            input_len = input_ids.shape[1]
+            seq_logprobs_lst = list()
+            output_tokens = list()
+
             for tok_idx, tok_logprobs in enumerate(seq_logprobs):
                 # drop prompt logprobs
                 if tok_idx == 0:
                     tok_logprobs = tok_logprobs[-1, :].reshape(1, -1)
-                topk = tok_logprobs.topk(num_logprobs)
+                topk = tok_logprobs.topk(topk_logprobs_count)
 
                 tok_logprobs_dct = {}
-                for token_id, logprob in zip(topk.indices[0], topk.values[0]):
-                    tok_logprobs_dct[self.tokenizer.decode(
-                        token_id.item())] = logprob.item()
+                # add 1 to the index here to be in sync with the skipped prompt
+                # in the logprobs
+                indexed_seq = seq_ids[:input_len + tok_idx + 1].tolist()
+                token_str = self._decode_token_by_position_index(
+                    input_len + tok_idx + 1,
+                    indexed_seq,
+                    clean_up_tokenization_spaces=False)
+                output_tokens.append(token_str)
+                for token_idx, logprob in zip(topk.indices[0], topk.values[0]):
+                    # the topk.indices() is actually returning the token id,
+                    # not an index into seq_ids, so decode that directly.
+                    logprob_str = self.tokenizer.decode(
+                        token_idx, clean_up_tokenization_spaces=False)
+                    tok_logprobs_dct[logprob_str] = logprob.item()
 
                 seq_logprobs_lst.append(tok_logprobs_dct)
 
             all_logprobs.append(seq_logprobs_lst)
-            seq_ids = output.sequences[0]
-            output_len = seq_ids.shape[0] - input_ids.shape[1]
-            output_ids = seq_ids[-output_len:]
-            all_output_ids.append([
-                self.tokenizer.decode(id, clean_up_tokenization_spaces=False)
-                for id in output_ids
-            ])
-            all_output_strs.append("".join([
-                self.tokenizer.decode(id, clean_up_tokenization_spaces=False)
-                for id in output_ids
-            ]))
 
-        outputs = zip(all_output_ids, all_output_strs, all_logprobs)
+            all_output_tokens.append(output_tokens)
+            all_output_strs.append("".join(output_tokens))
+
+        outputs = zip(all_output_tokens, all_output_strs, all_logprobs)
         return [(output_ids, output_str, output_logprobs)
                 for output_ids, output_str, output_logprobs in outputs]
 
