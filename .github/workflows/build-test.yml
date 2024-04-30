@@ -112,13 +112,6 @@ on:
         required: true
 
 jobs:
-    DEBUG:
-        if: success() && contains(fromJSON('["NIGHTLY", "RELEASE"]'), inputs.wf_category)
-        runs-on: ubuntu-latest
-        steps:
-            - name: take a look
-              run: |
-                  echo "wf_category=${{ inputs.wf_category }}"
 
     BUILD:
         uses: ./.github/workflows/build.yml
@@ -133,7 +126,7 @@ jobs:
 
     TEST-SOLO:
         needs: [BUILD]
-        if: success() && contains(fromJSON('["NIGHTLY", "RELEASE"]'), inputs.wf_category)
+        if: success()
         uses: ./.github/workflows/test.yml
         with:
             test_label: ${{ inputs.test_label_solo }}
