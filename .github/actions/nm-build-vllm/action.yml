@@ -44,6 +44,7 @@ runs:
       # whl
       SUCCESS=0
       pip3 wheel --no-deps -w dist . || SUCCESS=$?
+      pyenv uninstall --force ${{ inputs.python}}/envs/${VENV}
       echo "whl_status=${SUCCESS}" >> "$GITHUB_OUTPUT"
       BASE=$(./.github/scripts/convert-version ${{ inputs.python }})
       ls -alh dist
