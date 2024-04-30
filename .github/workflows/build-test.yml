@@ -137,10 +137,9 @@ jobs:
             test_skip_list: ${{ inputs.test_skip_list }}
         secrets: inherit
 
-    # TODO: this should only run if doing a NIGHTLY or RELEASE
     TEST-MULTI:
         needs: [BUILD]
-        if: success()
+        if: success() && ${{ inputs.wf_category == 'NIGHTLY' || inputs.wf_category == 'RELEASE' }}
         uses: ./.github/workflows/test.yml
         with:
             test_label: ${{ inputs.test_label_multi }}
