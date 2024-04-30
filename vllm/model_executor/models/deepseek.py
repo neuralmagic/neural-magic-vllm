@@ -63,16 +63,17 @@ class DeepseekMLP(nn.Module):
         super().__init__()
         self.gate_up_proj = MergedColumnParallelLinear(
             layer_name=f"{parent_name}.gate_up_proj",
-            input_size=hidden_size, 
+            input_size=hidden_size,
             output_sizes=[intermediate_size] * 2,
             bias=False,
             linear_method=linear_method)
-        self.down_proj = RowParallelLinear(layer_name=f"{parent_name}.down_proj",
-                                           input_size=intermediate_size,
-                                           output_size=hidden_size,
-                                           bias=False,
-                                           linear_method=linear_method,
-                                           reduce_results=reduce_results)
+        self.down_proj = RowParallelLinear(
+            layer_name=f"{parent_name}.down_proj",
+            input_size=intermediate_size,
+            output_size=hidden_size,
+            bias=False,
+            linear_method=linear_method,
+            reduce_results=reduce_results)
         if hidden_act != "silu":
             raise ValueError(f"Unsupported activation: {hidden_act}. "
                              "Only silu is supported for now.")
@@ -115,7 +116,7 @@ class DeepseekMoE(nn.Module):
         ])
         self.pack_params()
 
-        self.gate = ReplicatedLinear(layer_name=f"{parent_name}.gate", 
+        self.gate = ReplicatedLinear(layer_name=f"{parent_name}.gate",
                                      input_size=config.hidden_size,
                                      output_size=self.n_routed_experts,
                                      bias=False,
@@ -284,10 +285,12 @@ class DeepseekDecoderLayer(nn.Module):
         if (config.n_routed_experts is not None
                 and layer_idx >= config.first_k_dense_replace
                 and layer_idx % config.moe_layer_freq == 0):
-            self.mlp = DeepseekMoE(parent_name=f"{parent_name}.mlp", config=config, linear_method=linear_method)
+            self.mlp = DeepseekMoE(parent_name=f"{parent_name}.mlp",
+                                   config=config,
+                                   linear_method=linear_method)
         else:
             self.mlp = DeepseekMLP(
-                parent_name=f"{parent_name}.mlp"
+                parent_name=f"{parent_name}.mlp",
                 hidden_size=config.hidden_size,
                 intermediate_size=config.intermediate_size,
                 hidden_act=config.hidden_act,
@@ -345,7 +348,7 @@ class DeepseekModel(nn.Module):
             config.hidden_size,
         )
         self.layers = nn.ModuleList([
-            DeepseekDecoderLayer(parent_name=f"model.layers.{idx}", 
+            DeepseekDecoderLayer(parent_name=f"model.layers.{idx}",
                                  config=config,
                                  layer_idx=idx,
                                  linear_method=linear_method)

@@ -87,11 +87,12 @@ class BaiChuanMLP(nn.Module):
             output_sizes=[intermediate_size] * 2,
             bias=False,
             linear_method=linear_method)
-        self.down_proj = RowParallelLinear(layer_name=f"{parent_name}.down_proj",
-                                           input_size=intermediate_size,
-                                           output_size=hidden_size,
-                                           bias=False,
-                                           linear_method=linear_method)
+        self.down_proj = RowParallelLinear(
+            layer_name=f"{parent_name}.down_proj",
+            input_size=intermediate_size,
+            output_size=hidden_size,
+            bias=False,
+            linear_method=linear_method)
         if hidden_act != "silu":
             raise ValueError(f"Unsupported activation: {hidden_act}. "
                              "Only silu is supported for now.")
@@ -264,7 +265,10 @@ class BaiChuanModel(nn.Module):
             config.hidden_size,
         )
         self.layers = nn.ModuleList([
-            BaiChuanDecoderLayer(parent_name=f"model.layers.{idx}", config=config, position_embedding=position_embedding, linear_method=linear_method)
+            BaiChuanDecoderLayer(parent_name=f"model.layers.{idx}",
+                                 config=config,
+                                 position_embedding=position_embedding,
+                                 linear_method=linear_method)
             for idx in range(config.num_hidden_layers)
         ])
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)

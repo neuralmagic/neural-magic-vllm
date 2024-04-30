@@ -51,7 +51,7 @@ class Qwen2MLP(nn.Module):
 
     def __init__(
         self,
-        parent_name: str, 
+        parent_name: str,
         hidden_size: int,
         intermediate_size: int,
         hidden_act: str,
@@ -64,11 +64,12 @@ class Qwen2MLP(nn.Module):
             output_sizes=[intermediate_size] * 2,
             bias=False,
             linear_method=linear_method)
-        self.down_proj = RowParallelLinear(layer_name=f"{parent_name}.down_proj",
-                                           input_size=intermediate_size,
-                                           output_size=hidden_size,
-                                           bias=False,
-                                           linear_method=linear_method)
+        self.down_proj = RowParallelLinear(
+            layer_name=f"{parent_name}.down_proj",
+            input_size=intermediate_size,
+            output_size=hidden_size,
+            bias=False,
+            linear_method=linear_method)
         if hidden_act != "silu":
             raise ValueError(f"Unsupported activation: {hidden_act}. "
                              "Only silu is supported for now.")
@@ -244,7 +245,8 @@ class Qwen2Model(nn.Module):
         )
         self.layers = nn.ModuleList([
             Qwen2DecoderLayer(parent_name=f"model.layers.{idx}",
-                              config=config, layer_idx=idx, 
+                              config=config,
+                              layer_idx=idx,
                               linear_method=linear_method)
             for idx in range(config.num_hidden_layers)
         ])

@@ -32,6 +32,7 @@ class QWenMLP(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         hidden_size: int,
         intermediate_size: int,
         hidden_act: str = "silu",
@@ -39,11 +40,14 @@ class QWenMLP(nn.Module):
     ):
         super().__init__()
         self.gate_up_proj = MergedColumnParallelLinear(
-            hidden_size, [intermediate_size] * 2,
+            layer_name=f"{parent_name}.gate_up_proj",
+            input_size=hidden_size,
+            output_sizes=[intermediate_size] * 2,
             bias=False,
             linear_method=linear_method)
-        self.c_proj = RowParallelLinear(intermediate_size,
-                                        hidden_size,
+        self.c_proj = RowParallelLinear(layer_name=f"{parent_name}.c_proj",
+                                        input_size=intermediate_size,
+                                        output_size=hidden_size,
                                         bias=False,
                                         linear_method=linear_method)
         if hidden_act != "silu":
@@ -62,6 +66,7 @@ class QWenAttention(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         hidden_size: int,
         num_heads: int,
         max_position_embeddings: int,
@@ -79,15 +84,17 @@ class QWenAttention(nn.Module):
                           tensor_model_parallel_world_size)
         self.head_dim = hidden_size // self.total_num_heads
         self.c_attn = QKVParallelLinear(
-            hidden_size,
-            self.head_dim,
-            self.total_num_heads,
+            layer_name=f"{parent_name}.c_attn",
+            hidden_size=self.hidden_size,
+            head_size=self.head_dim,
+            total_num_heads=self.total_num_heads,
             bias=True,
             linear_method=linear_method,
         )
         self.c_proj = RowParallelLinear(
-            self.total_num_heads * self.head_dim,
-            hidden_size,
+            layer_name=f"{parent_name}.c_proj",
+            input_size=self.total_num_heads * self.head_dim,
+            output_size=self.hidden_size,
             bias=False,
             linear_method=linear_method,
         )
@@ -121,6 +128,7 @@ class QWenBlock(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         config: PretrainedConfig,
         linear_method: Optional[LinearMethodBase] = None,
     ):
@@ -129,17 +137,19 @@ class QWenBlock(nn.Module):
 
         rope_theta = getattr(config, "rope_theta", 10000)
         rope_scaling = getattr(config, "rope_scaling", None)
-        self.attn = QWenAttention(config.hidden_size,
-                                  config.num_attention_heads,
-                                  config.max_position_embeddings,
+        self.attn = QWenAttention(parent_name=f"{parent_name}.self_attn",
+                                  hidden_size=config.hidden_size,
+                                  num_heads=config.num_attention_heads,
+                                  max_position=config.max_position_embeddings,
                                   rope_theta=rope_theta,
                                   rope_scaling=rope_scaling,
                                   linear_method=linear_method)
 
         self.ln_2 = RMSNorm(config.hidden_size, eps=config.layer_norm_epsilon)
 
-        self.mlp = QWenMLP(config.hidden_size,
-                           config.intermediate_size // 2,
+        self.mlp = QWenMLP(parent_name=f"{parent_name}.mlp",
+                           hidden_size=config.hidden_size,
+                           intermediate_size=config.intermediate_size // 2,
                            linear_method=linear_method)
 
     def forward(
@@ -185,8 +195,10 @@ class QWenModel(nn.Module):
             config.hidden_size,
         )
         self.h = nn.ModuleList([
-            QWenBlock(config, linear_method)
-            for _ in range(config.num_hidden_layers)
+            QWenBlock(parent_name=f"model.layers.{idx}",
+                      config=config,
+                      linear_method=linear_method)
+            for idx in range(config.num_hidden_layers)
         ])
         self.ln_f = RMSNorm(config.hidden_size, eps=config.layer_norm_epsilon)
 

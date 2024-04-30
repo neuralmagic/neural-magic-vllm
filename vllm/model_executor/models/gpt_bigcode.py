@@ -158,11 +158,14 @@ class GPTBigCodeBlock(nn.Module):
                      hidden_size)
 
         self.ln_1 = nn.LayerNorm(hidden_size, eps=config.layer_norm_epsilon)
-        self.attn = GPTBigCodeAttention(parent_name=f"{parent_name}.attn", config=config, linear_method=linear_method)
+        self.attn = GPTBigCodeAttention(parent_name=f"{parent_name}.attn",
+                                        config=config,
+                                        linear_method=linear_method)
         self.ln_2 = nn.LayerNorm(hidden_size, eps=config.layer_norm_epsilon)
         self.mlp = GPTBigMLP(parent_name=f"{parent_name}.mlp",
-                           intermediate_size=inner_dim,
-                           config=config, linear_method=linear_method)
+                             intermediate_size=inner_dim,
+                             config=config,
+                             linear_method=linear_method)
 
     def forward(
         self,
@@ -205,8 +208,8 @@ class GPTBigCodeModel(nn.Module):
         self.wpe = nn.Embedding(config.max_position_embeddings, self.embed_dim)
         self.h = nn.ModuleList([
             GPTBigCodeBlock(parent_name=f"transformer.h.{idx}",
-                config=config, 
-                linear_method=linear_method)
+                            config=config,
+                            linear_method=linear_method)
             for idx in range(config.num_hidden_layers)
         ])
         self.ln_f = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_epsilon)

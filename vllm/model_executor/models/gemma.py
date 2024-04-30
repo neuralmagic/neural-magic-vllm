@@ -87,11 +87,12 @@ class GemmaMLP(nn.Module):
             output_sizes=[intermediate_size] * 2,
             bias=False,
             linear_method=linear_method)
-        self.down_proj = RowParallelLinear(layer_name=f"{parent_name}.down_proj",
-                                           input_size=intermediate_size,
-                                           output_size=hidden_size,
-                                           bias=False,
-                                           linear_method=linear_method)
+        self.down_proj = RowParallelLinear(
+            layer_name=f"{parent_name}.down_proj",
+            input_size=intermediate_size,
+            output_size=hidden_size,
+            bias=False,
+            linear_method=linear_method)
         self.act_fn = _get_gemma_act_fn(hidden_act, hidden_activation)
 
     def forward(self, x):

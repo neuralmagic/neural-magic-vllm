@@ -43,6 +43,7 @@ class GPTJAttention(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         config: GPTJConfig,
         linear_method: Optional[LinearMethodBase] = None,
     ):
@@ -52,15 +53,17 @@ class GPTJAttention(nn.Module):
         self.head_size = self.hidden_size // self.total_num_heads
 
         self.qkv_proj = QKVParallelLinear(
-            config.hidden_size,
-            self.head_size,
-            self.total_num_heads,
+            layer_name=f"{parent_name}.qkv_proj",
+            hidden_size=self.hidden_size,
+            head_size=self.head_size,
+            total_num_heads=self.total_num_heads,
             bias=False,
             linear_method=linear_method,
         )
         self.out_proj = RowParallelLinear(
-            config.hidden_size,
-            config.hidden_size,
+            layer_name=f"{parent_name}.out_proj",
+            input_size=self.hidden_size,
+            output_size=self.hidden_size,
             bias=False,
             linear_method=linear_method,
         )
@@ -103,6 +106,7 @@ class GPTJMLP(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         intermediate_size: int,
         config: GPTJConfig,
         linear_method: Optional[LinearMethodBase] = None,
@@ -110,13 +114,15 @@ class GPTJMLP(nn.Module):
         super().__init__()
         hidden_size = config.n_embd
         self.fc_in = ColumnParallelLinear(
-            hidden_size,
-            intermediate_size,
+            layer_name=f"{parent_name}.fc_in",
+            input_size=hidden_size,
+            output_size=intermediate_size,
             linear_method=linear_method,
         )
         self.fc_out = RowParallelLinear(
-            intermediate_size,
-            hidden_size,
+            layer_name=f"{parent_name}.fc_out",
+            input_size=intermediate_size,
+            output_size=hidden_size,
             linear_method=linear_method,
         )
         quant_config = getattr(linear_method, "quant_config", None)
@@ -134,6 +140,7 @@ class GPTJBlock(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         config: GPTJConfig,
         linear_method: Optional[LinearMethodBase] = None,
     ):
@@ -141,8 +148,13 @@ class GPTJBlock(nn.Module):
         inner_dim = (4 * config.n_embd
                      if config.n_inner is None else config.n_inner)
         self.ln_1 = nn.LayerNorm(config.n_embd, eps=config.layer_norm_epsilon)
-        self.attn = GPTJAttention(config, linear_method)
-        self.mlp = GPTJMLP(inner_dim, config, linear_method)
+        self.attn = GPTJAttention(parent_name=f"{parent_name}.attn",
+                                  config=config,
+                                  linear_method=linear_method)
+        self.mlp = GPTJMLP(parent_name=f"{parent_name}.mlp",
+                           intermediate_size=inner_dim,
+                           config=config,
+                           linear_method=linear_method)
 
     def forward(
         self,
@@ -178,8 +190,12 @@ class GPTJModel(nn.Module):
             config.vocab_size,
             self.embed_dim,
         )
-        self.h = nn.ModuleList(
-            [GPTJBlock(config, linear_method) for _ in range(config.n_layer)])
+        self.h = nn.ModuleList([
+            GPTJBlock(parent_name=f"transformer.h.{idx}",
+                      config=config,
+                      linear_method=linear_method)
+            for idx in range(config.n_layer)
+        ])
         self.ln_f = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_epsilon)
 
     def forward(

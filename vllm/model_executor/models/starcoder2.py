@@ -160,11 +160,13 @@ class Starcoder2DecoderLayer(nn.Module):
                  linear_method: Optional[LinearMethodBase] = None):
         super().__init__()
         self.hidden_size = config.hidden_size
-        self.self_attn = Starcoder2Attention(parent_name=f"{parent_name}.self_attn", 
-                                            config=config,
-                                            linear_method=linear_method)
+        self.self_attn = Starcoder2Attention(
+            parent_name=f"{parent_name}.self_attn",
+            config=config,
+            linear_method=linear_method)
         self.mlp = Starcoder2MLP(parent_name=f"{parent_name}.mlp",
-                                 config=config, linear_method=linear_method)
+                                 config=config,
+                                 linear_method=linear_method)
         self.input_layernorm = nn.LayerNorm(config.hidden_size,
                                             eps=config.norm_epsilon)
         self.post_attention_layernorm = nn.LayerNorm(config.hidden_size,
@@ -212,7 +214,8 @@ class Starcoder2Model(nn.Module):
                                                    config.hidden_size)
         self.layers = nn.ModuleList([
             Starcoder2DecoderLayer(parent_name=f"model.layers.{idx}",
-                                   config=config, linear_method=linear_method)
+                                   config=config,
+                                   linear_method=linear_method)
             for idx in range(config.num_hidden_layers)
         ])
         self.norm = nn.LayerNorm(config.hidden_size, eps=config.norm_epsilon)
