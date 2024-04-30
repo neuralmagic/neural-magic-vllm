@@ -18,7 +18,7 @@ on:
 jobs:
 
     BUILD-TEST:
-        uses: ./.github/workflows/build.yml
+        uses: ./.github/workflows/build-test.yml
         with:
             wf_category: NIGHTLY
             python: 3.10.12
