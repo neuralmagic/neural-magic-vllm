@@ -51,11 +51,13 @@ def fuse_graph_nodes(
 
         nodes_to_erase.append(n)
 
+    # TODO: wrap CodeCache around this bit (fn_key is the mangled name)
     try:
         fn_key = fgen.make_fused_op(inputs, outputs, nodes_to_erase, kwargs)
         fn_dict = fgen.build_ops()
         assert fn_key in fn_dict
-        fn, sig, meta_fn = fn_dict[fn_key]
+        fn, _, _ = fn_dict[fn_key]
+
     except FusionFail as ff:
         print(f"fusion failed '{ff}' for module: {mod}")
         return mod
