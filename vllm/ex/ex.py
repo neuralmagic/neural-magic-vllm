@@ -36,12 +36,23 @@ def extract_node_tensor_meta(n: torch.fx.Node):
         return n.meta['tensor_meta']
     return None
 
+
 def extract_node_type(n: torch.fx.Node):
     if 'tensor_meta' in n.meta:
         #print(f"META {n}: {n.meta['tensor_meta']}")
         # this can be a tuple but why?
         return n.meta['tensor_meta'].dtype
     return None
+
+
+# compose two functions
+def compose2(f: Callable, g: Callable) -> Callable:
+    return lambda *a, **kw: f(g(*a, **kw))
+
+
+# compose a list of functions
+def compose(*fs: List[Callable]) -> Callable:
+    return functools.reduce(compose2, fs)
 
 
 ###############################################################################
@@ -294,17 +305,95 @@ class FusedOpGenerator:
         self.fused_op.append(f"  return {self.mangle(outputs[0].args[0].name, '_')};")
 
         self.fused_op.append('}')
-        self.fused_op.append(f'TORCH_LIBRARY_EXPAND(fused_ops{self.N}, m) {oc} m.def("{op}({arg_sig}) -> Tensor"); {cc}')
+        #self.fused_op.append(f'TORCH_LIBRARY_EXPAND(fused_ops{self.N}, m) {oc} m.def("{op}({arg_sig}) -> Tensor"); {cc}')
         self.fused_op.append(f'TORCH_LIBRARY_IMPL_EXPAND(fused_ops{self.N}, CPU, m) {oc} m.impl("{op}", &{op}); {cc}')
         self.fused_op.append(f'TORCH_LIBRARY_IMPL_EXPAND(fused_ops{self.N}, CUDA, m) {oc} m.impl("{op}", &{op}); {cc}')
         # TODO: make sure this does the "right thing"
-        self.fused_op.append(f'TORCH_LIBRARY_IMPL_EXPAND(fused_ops{self.N}, Meta, m) {oc} m.impl("{op}", &{op}); {cc}')
+        #self.fused_op.append(f'TORCH_LIBRARY_IMPL_EXPAND(fused_ops{self.N}, Meta, m) {oc} m.impl("{op}", &{op}); {cc}')
 
-        self.callables[op] = f"torch.ops.fused_ops{self.N}.{op}"
+        self.callables[op] = (
+            f"torch.ops.fused_ops{self.N}.{op}",
+            self.generate_op_signature(inputs, outputs, nodes, kwargs),
+            self.generate_meta_function(inputs, outputs, nodes, kwargs)
+        )
 
         return op
 
-    def build_ops(self) -> Dict[torch.fx.node.Target, Callable]:
+    # should be derivable from types on input/output nodes
+    def generate_op_signature(
+        self,
+        inputs: List[torch.fx.Node],
+        outputs: List[torch.fx.Node],
+        nodes: List[torch.fx.Node],
+        # make this a list of Dict?
+        kwargs: Dict[str, torch.fx.node.Argument]
+    ):
+        #submodules = dict(nodes[0].graph.owning_module.named_modules())
+        #fn_names = [self.rename(get_node_target(submodules, n)) for n in nodes]
+        #op = self.mangle("_".join(fn_names)) + '_fused'
+
+        #print(f"inputs = {[n.format_node() for n in inputs]}")
+
+        sep = f"("
+        arg_sig = ""
+        for i, n in enumerate(inputs):
+            # TODO: the default here is sketchy
+            arg_type = self.mangle(n.type.__name__ if n.type is not None else "Tensor", '::')
+            arg_name = self.mangle(n.name, '_')
+            arg_sig = arg_sig + sep + f"{arg_type} {arg_name}"
+            sep = ", "
+        arg_sig = arg_sig + ") -> "
+
+        sep = "(" if len(outputs) != 1 else ""
+
+        for i, n in enumerate(outputs):
+            # TODO: the default here is sketchy
+            arg_type = self.mangle(n.type.__name__ if n.type is not None else "Tensor", '::')
+            arg_sig = arg_sig + sep + arg_type
+            sep = ", "
+
+        if len(outputs) != 1:
+            arg_sig = arg_sig + ")"
+
+        return arg_sig
+
+    def generate_meta_function(
+        self,
+        inputs: List[torch.fx.Node],
+        outputs: List[torch.fx.Node],
+        nodes: List[torch.fx.Node],
+        # make this a list of Dict?
+        kwargs: Dict[str, torch.fx.node.Argument]
+    ) -> Callable:
+        submodules = dict(nodes[0].graph.owning_module.named_modules())
+        fn_names = [self.rename(get_node_target(submodules, n)) for n in nodes]
+        op = self.mangle("_".join(fn_names)) + '_fused'
+
+        # TODO: need to lift inputs/outputs
+        fns = [n.target for n in nodes]
+
+        # See functools.partial
+        return compose(*fns)
+
+
+    def register_op_sig(self, lib: str, op: str, sig: str):
+        # TODO: registration
+        #lib = torch.library.Library(f"fused_ops{self.N}", "DEF") ?
+        op = self.mangle(op, '::').replace("torch::ops::", "")
+        print(f"ARG_SIG = {op}, {sig}")
+        torch.library.define(f"{op}", sig)
+
+
+    def register_meta_function(self, lib: str, op: str, meta_fn: Callable):
+        # torch.library.impl(qualname, types, func=None, *, lib=None)
+        # torch.library.impl_abstract(qualname, func=None, *, lib=None, _stacklevel=1)
+        #torch.library.impl(lib, f"torch.ops.fused_ops{self.N}.{op}", "Meta")
+        op = self.mangle(op, '::').replace("torch::ops::", "")
+        print(f"META_FN = {op}, {str(meta_fn)}")
+        torch.library.impl(f"{op}", "Meta", func=meta_fn)
+
+
+    def build_ops(self) -> Dict[torch.fx.node.Target, Tuple[Callable, str, Callable]]:
         # prevent multiple libraries with the same name
         FusedOpGenerator.N = FusedOpGenerator.N + 1
 
@@ -314,14 +403,22 @@ class FusedOpGenerator:
                     out.write(l)
                     out.write('\n')
 
-            build_extension(f"fused_ops{self.N}", self.filename)
+            op_lib = f"fused_ops{self.N}"
+
+            for k, v in self.callables.items():
+                self.register_op_sig(op_lib, v[0], v[1])
+                self.register_meta_function(op_lib, v[0], v[2])
+
+            build_extension(op_lib, self.filename)
             self.N = FusedOpGenerator.N
 
             for k, v in self.callables.items():
                 # there has to be a better way than eval?
-                fn = eval(v)
+                fn = eval(v[0])
                 print(f'{self.callables[k]} = {fn}')
-                self.callables[k] = fn
+                self.callables[k] = (fn, v[1], v[2])
+                #self.register_op_sig(op_lib, v[0], v[1])
+                #self.register_meta_function(op_lib, v[0], v[2])
 
             print(f"CALLABLES {self.callables}")
 
@@ -377,9 +474,9 @@ def fuse_graph_nodes(
         fn_key = fgen.make_fused_op(inputs, outputs, nodes_to_erase, kwargs)
         fn_dict = fgen.build_ops()
         assert fn_key in fn_dict
-        fn = fn_dict[fn_key]
+        fn, sig, meta_fn = fn_dict[fn_key]
     except FusionFail as ff:
-        print(f"fusion failed for {mod}")
+        print(f"fusion failed '{ff}' for module: {mod}")
         return mod
 
     #print(f"fused fn = {fn}, {type(fn)}, {isinstance(fn, torch.nn.Module)}, {str(fn)}")
@@ -631,6 +728,7 @@ def pointwise_fusion(
 ###############################################################################
 
 def inline_submodules(mod: torch.fx.GraphModule) -> torch.fx.GraphModule:
+    #mod.graph = torch.fx.symbolic_trace(mod)
     mod.graph = torch.fx.Tracer().trace(mod)
     return mod
 
@@ -739,6 +837,8 @@ def graph_print_tabular(g: torch.fx.Graph):
 # See https://github.com/pytorch/pytorch/blob/40cbf342d3c000712da92cfafeaca651b3e0bd3e/torch/fx/experimental/optimization.py#L50
 # maybe useful https://github.com/huggingface/optimum/blob/main/optimum/fx/optimization/transformations.py
 # TODO: see if transforms can work here
+#gm = AnnotateTypesWithSchema(gm).transform()
+# TODO: see schema_type_annotation.py/AnnotateTypesWithSchema
 
 class backend_class:
     def __init__(self, final='inductor'):
@@ -751,6 +851,7 @@ class backend_class:
         print(f"ORIGINAL {gm.graph}")
 
         # hack to get around https://github.com/pytorch/pytorch/issues/108446
+        # probably not a good long term solution.
         print(f"inputs: {[type(inp) for inp in example_inputs]}")
         for node in gm.graph.nodes:
             if node.op == 'placeholder' and 'example_value' in node.meta:
@@ -759,24 +860,11 @@ class backend_class:
                     print(f"FAKE_TENSOR {val.size()}{any([isinstance(d, torch.SymInt) for d in val.size()])}")
                     return gm
 
-        #print(f"ORIGINAL PYTHON {gm.graph.python_code(gm, verbose=True).src}")
-        #    fg = FlowGraph(gm)
-        #    fg.visit(lambda n: print(n))
-
-        #gm = torch.fx.Tracer().trace(gm)
-        #gm = torch.fx.symbolic_trace(gm)
-        #gm = AnnotateTypesWithSchema(gm).transform()
-
-        # TODO: see schema_type_annotation.py/AnnotateTypesWithSchema
-
         part_gm, parts = partition_graph(gm, example_inputs)
-
-        #ShapeProp(part_gm).propagate(*example_inputs)
 
         print(f"BEFORE forward: {part_gm.forward}")
 
         print(f"part_gm: {part_gm.print_readable(False)}")
-        #graph_print_tabular(part_gm.graph)
         print(f"parts: {parts}")
         newline = "\n"
         print(f"children: {newline.join([f'{cname}: {cm.print_readable(False)}' for cname, cm in part_gm.named_children()])}")
