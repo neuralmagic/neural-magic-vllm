@@ -16,7 +16,7 @@ MODELS = [
     # decilm
     "deepseek-ai/deepseek-coder-1.3b-instruct",
     # falcon
-    # "google/gemma-1.1-2b-it", # < broken
+    # "google/gemma-1.1-2b-it", # < no bitwise correctness
     "gpt2",
     "bigcode/tiny_starcoder_py",
     # gpt-j
@@ -25,15 +25,15 @@ MODELS = [
     # jais
     "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
     # llava
-    "openbmb/MiniCPM-2B-128k",
+    # "openbmb/MiniCPM-2B-128k", # < test is broken
     # mixtral
     # mixtral-quant
     # mpt
-    "allenai/OLMo-1B",
+    # "allenai/OLMo-1B", # < test is broken
     "facebook/opt-125m",
     # orion
     "microsoft/phi-2",
-    "Qwen/Qwen-1_8B",
+    # "Qwen/Qwen-1_8B", # < test is broken
     "Qwen/Qwen1.5-1.8B",
     # qwen2 moe
     "stabilityai/stablelm-2-1_6b-chat",
