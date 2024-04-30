@@ -195,7 +195,7 @@ class QWenModel(nn.Module):
             config.hidden_size,
         )
         self.h = nn.ModuleList([
-            QWenBlock(parent_name=f"model.layers.{idx}",
+            QWenBlock(parent_name=f"transformer.h.{idx}",
                       config=config,
                       linear_method=linear_method)
             for idx in range(config.num_hidden_layers)

@@ -86,6 +86,8 @@ class CompressedTensorsConfig(QuantizationConfig):
 
     def get_scheme(self, layer: torch.nn.Module,
                    layer_name: str) -> "CompressedTensorsScheme":
+        if layer_name is None:
+            raise ValueError("Layer name must be provided for compressed tensors")
         # TODO: How are layers which are combined in vllm listed in the ignore list?
         if layer_name in self.ignore:
             return CompressedTensorsUnquantized()
@@ -114,10 +116,11 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
     def __init__(self, quantization_config: CompressedTensorsConfig):
         self.quantization_config = quantization_config
 
-    def create_weights(self, layer: torch.nn.Module, layer_name: str,
+    def create_weights(self, layer: torch.nn.Module,
                        input_size_per_partition: int,
                        output_partition_sizes: List[int], input_size: int,
                        output_size: int, params_dtype: torch.dtype,
+                       layer_name: Optional[str] = None,
                        **extra_weight_attrs):
         """
         Use the CompressedTensorsScheme associated with each layer to create the 

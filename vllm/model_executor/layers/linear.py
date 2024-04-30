@@ -29,10 +29,11 @@ class LinearMethodBase(ABC):
     """Base class for different (maybe quantized) linear methods."""
 
     @abstractmethod
-    def create_weights(self, layer: torch.nn.Module, layer_name: str,
+    def create_weights(self, layer: torch.nn.Module,
                        input_size_per_partition: int,
                        output_partition_sizes: List[int], input_size: int,
                        output_size: int, params_dtype: torch.dtype,
+                       layer_name: Optional[str] = None,
                        **extra_weight_attrs) -> Dict[str, Any]:
         """Create weights for a linear layer. 
            The weights will be set as attributes of the layer.
@@ -77,10 +78,11 @@ class UnquantizedLinearMethod(LinearMethodBase):
     def __init__(self, separate_bias_add: bool = False):
         self.separate_bias_add = separate_bias_add
 
-    def create_weights(self, layer: torch.nn.Module, layer_name: str,
+    def create_weights(self, layer: torch.nn.Module,
                        input_size_per_partition: int,
                        output_partition_sizes: List[int], input_size: int,
                        output_size: int, params_dtype: torch.dtype,
+                       layer_name: Optional[str] = None,
                        **extra_weight_attrs) -> Dict[str, Any]:
         weight = Parameter(torch.empty(sum(output_partition_sizes),
                                        input_size_per_partition,
@@ -117,13 +119,13 @@ class ReplicatedLinear(torch.nn.Module):
 
     def __init__(
         self,
-        layer_name: str,
         input_size: int,
         output_size: int,
         bias: bool = True,
         skip_bias_add: bool = False,
         params_dtype: Optional[torch.dtype] = None,
         linear_method: Optional[LinearMethodBase] = None,
+        layer_name: Optional[str] = None
     ):
         super().__init__()
 
@@ -138,10 +140,9 @@ class ReplicatedLinear(torch.nn.Module):
         if linear_method is None:
             linear_method = UnquantizedLinearMethod()
         self.linear_method = linear_method
-        self.linear_method.create_weights(self, self.layer_name,
-                                          self.input_size, [self.output_size],
+        self.linear_method.create_weights(self, self.input_size, [self.output_size],
                                           self.input_size, self.output_size,
-                                          self.params_dtype)
+                                          self.params_dtype, layer_name=self.layer_name)
 
         if bias:
             self.bias = Parameter(
@@ -182,7 +183,6 @@ class ColumnParallelLinear(torch.nn.Module):
 
     def __init__(
         self,
-        layer_name: str,
         input_size: int,
         output_size: int,
         bias: bool = True,
@@ -191,6 +191,7 @@ class ColumnParallelLinear(torch.nn.Module):
         params_dtype: Optional[torch.dtype] = None,
         linear_method: Optional[LinearMethodBase] = None,
         output_sizes: Optional[List[int]] = None,
+        layer_name: Optional[str] = None
     ):
         super().__init__()
 
@@ -288,7 +289,6 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
 
     def __init__(
         self,
-        layer_name: str,
         input_size: int,
         output_sizes: List[int],
         bias: bool = True,
@@ -296,6 +296,7 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
         skip_bias_add: bool = False,
         params_dtype: Optional[torch.dtype] = None,
         linear_method: Optional[LinearMethodBase] = None,
+        layer_name: Optional[str] = None
     ):
         self.output_sizes = output_sizes
         tp_size = get_tensor_model_parallel_world_size()
@@ -438,7 +439,6 @@ class QKVParallelLinear(ColumnParallelLinear):
 
     def __init__(
         self,
-        layer_name: str,
         hidden_size: int,
         head_size: int,
         total_num_heads: int,
@@ -447,6 +447,7 @@ class QKVParallelLinear(ColumnParallelLinear):
         skip_bias_add: bool = False,
         params_dtype: Optional[torch.dtype] = None,
         linear_method: Optional[LinearMethodBase] = None,
+        layer_name: Optional[str] = None,
     ):
         self.hidden_size = hidden_size
         self.head_size = head_size
@@ -634,7 +635,6 @@ class RowParallelLinear(torch.nn.Module):
 
     def __init__(
         self,
-        layer_name: str,
         input_size: int,
         output_size: int,
         bias: bool = True,
@@ -643,6 +643,7 @@ class RowParallelLinear(torch.nn.Module):
         params_dtype: Optional[torch.dtype] = None,
         reduce_results: bool = True,
         linear_method: Optional[LinearMethodBase] = None,
+        layer_name: Optional[str] = None
     ):
         super().__init__()
         # Keep input parameters

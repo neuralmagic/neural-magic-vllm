@@ -49,6 +49,7 @@ class XverseMLP(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         hidden_size: int,
         intermediate_size: int,
         hidden_act: str,
@@ -56,11 +57,14 @@ class XverseMLP(nn.Module):
     ) -> None:
         super().__init__()
         self.gate_up_proj = MergedColumnParallelLinear(
-            hidden_size, [intermediate_size] * 2,
+            layer_name=f"{parent_name}.gate_up_proj",
+            input_size=hidden_size,
+            output_sizes=[intermediate_size] * 2,
             bias=False,
             linear_method=linear_method)
-        self.down_proj = RowParallelLinear(intermediate_size,
-                                           hidden_size,
+        self.down_proj = RowParallelLinear(layer_name=f"{parent_name}.down_proj",
+                                           input_size=intermediate_size,
+                                           output_size=hidden_size,
                                            bias=False,
                                            linear_method=linear_method)
         if hidden_act != "silu":
@@ -79,6 +83,7 @@ class XverseAttention(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         hidden_size: int,
         num_heads: int,
         num_kv_heads: int,
@@ -107,16 +112,18 @@ class XverseAttention(nn.Module):
         self.max_position_embeddings = max_position_embeddings
 
         self.qkv_proj = QKVParallelLinear(
-            hidden_size,
-            self.head_dim,
-            self.total_num_heads,
-            self.total_num_kv_heads,
+            layer_name=f"{parent_name}.qkv_proj",
+            hidden_size=hidden_size,
+            head_size=self.head_dim,
+            total_num_heads=self.total_num_heads,
+            total_num_kv_heads=self.total_num_kv_heads,
             bias=bias,
             linear_method=linear_method,
         )
         self.o_proj = RowParallelLinear(
-            self.total_num_heads * self.head_dim,
-            hidden_size,
+            layer_name=f"{parent_name}.o_proj",
+            input_size=self.total_num_heads * self.head_dim,
+            output_size=self.hidden_size,
             bias=bias,
             linear_method=linear_method,
         )
@@ -153,6 +160,7 @@ class XverseDecoderLayer(nn.Module):
 
     def __init__(
         self,
+        parent_name: str,
         config: PretrainedConfig,
         linear_method: Optional[LinearMethodBase] = None,
     ) -> None:
@@ -164,6 +172,7 @@ class XverseDecoderLayer(nn.Module):
                                           8192)
         sliding_window = getattr(config, "sliding_window", None)
         self.self_attn = XverseAttention(
+            parent_name=f"{parent_name}.self_attn",
             hidden_size=self.hidden_size,
             num_heads=config.num_attention_heads,
             num_kv_heads=getattr(config, "num_key_value_heads",
@@ -176,6 +185,7 @@ class XverseDecoderLayer(nn.Module):
             sliding_window=sliding_window,
         )
         self.mlp = XverseMLP(
+            parent_name=f"{parent_name}.mlp",
             hidden_size=self.hidden_size,
             intermediate_size=config.intermediate_size,
             hidden_act=config.hidden_act,
@@ -236,8 +246,8 @@ class XverseModel(nn.Module):
             org_num_embeddings=config.vocab_size,
         )
         self.layers = nn.ModuleList([
-            XverseDecoderLayer(config, linear_method)
-            for _ in range(config.num_hidden_layers)
+            XverseDecoderLayer(parent_name=f"model.layers.{idx}", config=config, linear_method=linear_method)
+            for idx in range(config.num_hidden_layers)
         ])
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
