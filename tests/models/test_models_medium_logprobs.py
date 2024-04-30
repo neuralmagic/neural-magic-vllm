@@ -14,7 +14,7 @@ from tests.models.utils import check_logprobs_close
 MAX_MODEL_LEN = 1024
 
 MODELS = [
-    # "baichuan-inc/Baichuan2-7B-Chat",
+    "baichuan-inc/Baichuan2-7B-Chat",
     "bigscience/bloom-560m",
     "THUDM/chatglm3-6b",
     # command-r
