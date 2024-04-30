@@ -14,9 +14,11 @@ jobs:
     BUILD-TEST:
         uses: ./.github/workflows/build-test.yml
         with:
+            python: 3.10.12
             gitref: ${{ github.ref }}
 
             test_label_solo: aws-avx2-32G-a10g-24G
+            test_label_multi: n/a
             test_timeout: 480
             test_skip_list: neuralmagic/tests/skip-almost-all.txt
 
