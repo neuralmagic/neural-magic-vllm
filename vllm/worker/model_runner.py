@@ -1071,7 +1071,7 @@ class ModelRunner:
         return self.model_config.get_vocab_size()
 
 
-class CUDAGraphRunner():
+class CUDAGraphRunner:
 
     def __init__(self, model: nn.Module):
         self.model = model
@@ -1206,4 +1206,3 @@ def _prepare_fake_inputs(
         prompt_tokens = [0] * seq_len
         fake_image_input = None
     return SequenceData(prompt_tokens), fake_image_input
-    

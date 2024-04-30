@@ -48,6 +48,7 @@ class LinearMethodBase(ABC):
             input_size: Size of the input dim of the weight across all ranks.
             output_size: Size of the output dim of the weight across all ranks.
             params_dtype: Datatype of the parameters.
+            layer_name: name of the layer in the state dict.
         """
         raise NotImplementedError
 
@@ -554,10 +555,6 @@ class QKVParallelLinear(ColumnParallelLinear):
                 shard_size = self.num_kv_heads * self.head_size
             # If quantized, we need to adjust the offset and size to account
             # for the packing.
-            # quantization specific: 4bit weight packed into 32bit dtype
-            # shard size based index will move you 32 bits at a time, not 4bits
-            # indices in the tensor move 32bits over (if data is 32bits)
-            # but you want to move 4bits over
             packed_dim = getattr(param, "packed_dim", None)
             if packed_dim == output_dim:
                 shard_size = shard_size // param.pack_factor
