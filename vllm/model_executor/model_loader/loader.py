@@ -18,8 +18,9 @@ from vllm.model_executor.model_loader.tensorizer import (
     tensorizer_weights_iterator)
 from vllm.model_executor.model_loader.utils import (get_model_architecture,
                                                     set_default_torch_dtype)
-from vllm.model_executor.model_loader.weight_utils import (  # UPSTREAM SYNC: needed for sparsity
+from vllm.model_executor.model_loader.weight_utils import (
     download_weights_from_hf, filter_files_not_needed_for_inference,
+    # UPSTREAM SYNC: needed for sparsity
     get_quant_config, get_sparse_config, initialize_dummy_weights,
     np_cache_weights_iterator, pt_weights_iterator,
     safetensors_weights_iterator)
