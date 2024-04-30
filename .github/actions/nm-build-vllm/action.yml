@@ -44,7 +44,6 @@ runs:
       # whl
       SUCCESS=0
       pip3 wheel --no-deps -w dist . || SUCCESS=$?
-      pyenv uninstall --force ${{ inputs.python}}/envs/${VENV}
       echo "whl_status=${SUCCESS}" >> "$GITHUB_OUTPUT"
       BASE=$(./.github/scripts/convert-version ${{ inputs.python }})
       ls -alh dist
@@ -58,6 +57,7 @@ runs:
       fi
       # sdist
       python3 setup.py sdist || SUCCESS=$?
+      pyenv uninstall --force ${{ inputs.python}}/envs/${VENV}
       ls -alh dist
       TAR_FILEPATH=$(find dist -type f -iname "*.tar.gz")
       echo "${TAR_FILEPATH}"
