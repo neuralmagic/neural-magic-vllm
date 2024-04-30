@@ -47,8 +47,7 @@ def test_models(
     num_logprobs: int,
 ) -> None:
     if model in SKIPPED_MODELS:
-        pytest.skip(
-            reason="Low priority models not currently passing. "
+        pytest.skip(reason="Low priority models not currently passing. "
                     "We need to re-enable these.")
 
     hf_model = hf_runner_nm(model, dtype=dtype)
