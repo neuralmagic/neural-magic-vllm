@@ -112,6 +112,12 @@ on:
         required: true
 
 jobs:
+    DEBUG:
+        runs-on: ubuntu-latest
+        steps:
+            - name: take a look
+              run: |
+                  echo "wf_category=${{ inputs.wf_category }}"
 
     BUILD:
         uses: ./.github/workflows/build.yml
