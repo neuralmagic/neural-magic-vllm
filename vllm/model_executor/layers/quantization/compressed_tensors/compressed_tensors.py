@@ -79,9 +79,10 @@ class CompressedTensorsConfig(QuantizationConfig):
         is_tensor = weight_strategy == input_strategy == "tensor"
         is_symmetric = weight_symmetric and input_symmetric
 
-        if is_8_bits and is_tensor and is_symmetric and torch.cuda.is_available():
+        if is_8_bits and is_tensor and is_symmetric and \
+           torch.cuda.is_available():
             # CompressedTensorsW8A8StaticTensor only supports CUDA path for now.
-            from vllm.model_executor.layers.quantization.compressed_tensors.schemes import (
+            from vllm.model_executor.layers.quantization.compressed_tensors.schemes import (  # noqa: E501
                 CompressedTensorsW8A8StaticTensor)
             return CompressedTensorsW8A8StaticTensor(
                 fake_quant=self.fake_quant)
