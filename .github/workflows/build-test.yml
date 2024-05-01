@@ -168,7 +168,7 @@ jobs:
         uses: ./.github/workflows/nm-benchmark.yml
         with:
             label: ${{ inputs.test_label_solo }}
-            benchmark_config_list_file:  ./.github/data/nm_benchmark_nightly_configs_list.txt
+            benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
             timeout: ${{ inputs.benchmark_timeout }}
             gitref: ${{ github.ref }}
             python: ${{ inputs.python }}
