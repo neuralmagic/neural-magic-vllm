@@ -1,7 +1,8 @@
 import torch
 
-from .utils import extract_node_type, extract_node_tensor_meta, ModuleInputGenerator, FlowGraph
+from .code_cache import CodeCache
 from .fused_op_generator import FusedOpGenerator, FusionFail
+from .utils import extract_node_type, extract_node_tensor_meta, ModuleInputGenerator, FlowGraph
 
 from torch.fx.passes.split_module import split_module
 from torch.fx.passes.tools_common import get_node_target
@@ -18,6 +19,7 @@ from typing import List, Tuple, Any, Dict, Optional, Callable, Mapping, Set
 # Fuse all the nodes in a subgraph into a single node
 #
 def fuse_graph_nodes(
+    cc: CodeCache,
     fgen: FusedOpGenerator,
     mod: torch.fx.GraphModule
 ) -> torch.fx.GraphModule:
@@ -54,12 +56,21 @@ def fuse_graph_nodes(
     # TODO: wrap CodeCache around this bit (fn_key is the mangled name)
     try:
         fn_key = fgen.make_fused_op(inputs, outputs, nodes_to_erase, kwargs)
-        fn_dict = fgen.build_ops()
-        assert fn_key in fn_dict
-        fn, _, _ = fn_dict[fn_key]
+
+        def generate() -> Optional[Callable]:
+            fn_dict = fgen.build_ops()
+            assert fn_key in fn_dict
+            fn, _, _ = fn_dict[fn_key]
+            return fn
+
+        fn = cc.lookup_or_create(fn_key, generate)
 
     except FusionFail as ff:
         print(f"fusion failed '{ff}' for module: {mod}")
+        return mod
+
+    if fn is None:
+        print(f"fusion failed previously '{ff}' for module: {mod}")
         return mod
 
     #print(f"fused fn = {fn}, {type(fn)}, {isinstance(fn, torch.nn.Module)}, {str(fn)}")
@@ -166,6 +177,7 @@ def is_fused_subgraph(mod: torch.fx.GraphModule) -> bool:
 # 2. use fuse_partitions to recreate the graph
 # torch._inductor.fx_passes.group_batch_fusion
 def pointwise_fusion(
+    cc: CodeCache,
     fgen: FusedOpGenerator,
     mod: torch.fx.GraphModule,
     example_inputs: List[torch.Tensor],
@@ -289,7 +301,7 @@ def pointwise_fusion(
             cm.graph.print_tabular()
             print(cm.graph.python_code(cm).src)
             #graph_print_tabular(cm.graph)
-            cm = fuse_graph_nodes(fgen, cm)
+            cm = fuse_graph_nodes(cc, fgen, cm)
             print(f"CM {cname}: {cm}")
             cm.recompile()
 

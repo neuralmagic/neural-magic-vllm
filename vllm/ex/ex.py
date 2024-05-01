@@ -1,8 +1,9 @@
 import copy
 import torch
 
+from .code_cache import CodeCache
 from .fusion import FusedOpGenerator, pointwise_fusion
-from .utils import extract_type, extract_node_tensor_meta, extract_node_type, ModuleInputGenerator
+from .utils import extract_node_tensor_meta, extract_node_type, ModuleInputGenerator
 
 from torch._dynamo import register_backend, lookup_backend
 from torch.fx.passes.operator_support import create_op_support
@@ -112,12 +113,13 @@ def inline_submodules(mod: torch.fx.GraphModule) -> torch.fx.GraphModule:
 
 # torch._inductor.fx_passes.joint_graph.joint_graph_passes
 def optimize(
+    cc: CodeCache,
     fgen: FusedOpGenerator,
     mod: torch.fx.GraphModule,
     example_inputs: List[torch.Tensor],
 ) -> torch.fx.GraphModule:
     mod = add_quantization(mod)
-    mod = pointwise_fusion(fgen, mod, example_inputs)
+    mod = pointwise_fusion(cc, fgen, mod, example_inputs)
     # TODO: should we re-trace here to inline?  or will inductor handle it?
     # mod = inline_submodules(mod)
     return mod
@@ -232,6 +234,7 @@ class backend_class:
 
         # TODO: store this in the root module state dictionary so that code for
         # all sub-modules is shared?
+        cc = CodeCache()
         fgen = FusedOpGenerator()
 
         mods_to_compile = []
@@ -247,7 +250,7 @@ class backend_class:
                     continue
 
                 print(f"OPTIMIZE! {name}: {m.print_readable(False)}")
-                m = optimize(fgen, m, module_inputs)
+                m = optimize(cc, fgen, m, module_inputs)
                 setattr(part_gm, name, m)
 
                 print(f"POST OPTIMIZE! {name}: {m.print_readable(False)}")

@@ -3,6 +3,7 @@ import torch
 import torch.utils.cpp_extension
 
 from torch.fx.passes.fake_tensor_prop import FakeTensorProp
+from torch.fx.passes.tools_common import get_node_target
 from torch._subclasses.fake_tensor import FakeTensorMode, FakeTensor
 
 from typing import List, Tuple, Any, Dict, Optional, Callable, Mapping, Set
@@ -13,12 +14,22 @@ from typing import List, Tuple, Any, Dict, Optional, Callable, Mapping, Set
 #
 ###############################################################################
 
-
-def extract_type(arg: torch.fx.node.Argument):
-    if isinstance(arg, torch.Tensor):
+def argument_type(arg: torch.fx.node.Argument):
+    if isinstance(arg, torch.fx.Node):
+        return extract_node_type(arg)
+    elif isinstance(arg, torch.Tensor):
         return arg.dtype
-    else:
+    elif isinstance(arg, torch.dtype):
+        return arg
+    elif (isinstance(arg, str) or
+          isinstance(arg, int) or
+          isinstance(arg, float) or
+          isinstance(arg, bool)):
+        return type(arg)
+    elif arg is None:  # an optional arg?
         return None
+    else:
+        raise Exception(f"unsupported argument type {arg}")
 
 
 def extract_node_tensor_meta(n: torch.fx.Node):
@@ -29,20 +40,32 @@ def extract_node_tensor_meta(n: torch.fx.Node):
 
 def extract_node_type(n: torch.fx.Node):
     if 'tensor_meta' in n.meta:
-        #print(f"META {n}: {n.meta['tensor_meta']}")
-        # this can be a tuple but why?
         return n.meta['tensor_meta'].dtype
-    return None
+    else:
+        return None
 
 
 # compose two functions
 def compose2(f: Callable, g: Callable) -> Callable:
-    return lambda *a, **kw: f(g(*a, **kw))
+    return lambda *a, **kw: g(f(*a, **kw))
 
 
 # compose a list of functions
 def compose(*fs: List[Callable]) -> Callable:
     return functools.reduce(compose2, fs)
+
+
+def mangle_name(nodes: List[torch.fx.Node], rep: str = "_P_") -> str:
+    submodules = dict(nodes[0].graph.owning_module.named_modules())
+    name = ""
+    sep = ""
+    for n in nodes:
+        fn = get_node_target(submodules, n)
+        types = [str(argument_type(arg)).replace("torch.","") for arg in n.args]
+        name = name + sep + f"{fn}_{'_'.join(types)}"
+        sep = "_"
+
+    return name.replace(".", rep)
 
 
 ###############################################################################
@@ -76,13 +99,7 @@ class ModuleInputGenerator(torch.fx.passes.fake_tensor_prop.FakeTensorProp):
         else:
             self.module_args[target] = (args, kwargs)
 
-        # arg_types = [extract_type(arg) for arg in args]
-
-        ret = super().call_module(target, args, kwargs)
-
-	# print(f"arg_types = {arg_types}, ret = {extract_type(ret)}")
-
-        return ret
+        return super().call_module(target, args, kwargs)
 
 
 ###############################################################################
