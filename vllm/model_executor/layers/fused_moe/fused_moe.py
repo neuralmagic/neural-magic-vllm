@@ -220,8 +220,9 @@ def moe_align_block_size(
 
 
 def invoke_fused_moe_kernel(A: torch.Tensor, B: torch.Tensor, C: torch.Tensor,
-                            B_scale: torch.Tensor, topk_weights: torch.Tensor,
-                            topk_ids: torch.Tensor,
+                            A_scale: Optional[torch.Tensor],
+                            B_scale: Optional[torch.Tensor],
+                            topk_weights: torch.Tensor, topk_ids: torch.Tensor,
                             sorted_token_ids: torch.Tensor,
                             expert_ids: torch.Tensor,
                             num_tokens_post_padded: torch.Tensor,
@@ -232,10 +233,10 @@ def invoke_fused_moe_kernel(A: torch.Tensor, B: torch.Tensor, C: torch.Tensor,
     assert sorted_token_ids.stride(0) == 1
 
     if not use_fp8:
-        A_scale = None
+        assert A_scale is None
         assert B_scale is None
     else:
-        A, A_scale = ops.scaled_fp8_quant(A)
+        A, A_scale = ops.scaled_fp8_quant(A, A_scale)
         assert B_scale is not None
 
     grid = lambda META: (triton.cdiv(sorted_token_ids.shape[0], META[
@@ -296,8 +297,8 @@ def get_moe_configs(E: int, N: int,
         os.path.dirname(os.path.realpath(__file__)), "configs", json_file_name)
     if os.path.exists(config_file_path):
         with open(config_file_path) as f:
-            logger.info(
-                f"Using configuration from {config_file_path} for MoE layer.")
+            logger.info("Using configuration from %s for MoE layer.",
+                        config_file_path)
             # If a configuration has been found, return it
             return {int(key): val for key, val in json.load(f).items()}
 
@@ -318,6 +319,8 @@ def fused_moe(
     use_fp8: bool = False,
     w1_scale: Optional[torch.Tensor] = None,
     w2_scale: Optional[torch.Tensor] = None,
+    a1_scale: Optional[torch.Tensor] = None,
+    a2_scale: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     """
     This function computes a Mixture of Experts (MoE) layer using two sets of
@@ -430,10 +433,13 @@ def fused_moe(
 
     sorted_token_ids, expert_ids, num_tokens_post_padded = moe_align_block_size(
         topk_ids, config['BLOCK_SIZE_M'], E)
+    compute_type = (tl.bfloat16
+                    if hidden_states.dtype == torch.bfloat16 else tl.float16)
 
     invoke_fused_moe_kernel(hidden_states,
                             w1,
                             intermediate_cache1,
+                            a1_scale,
                             w1_scale,
                             topk_weights,
                             topk_ids,
@@ -443,7 +449,7 @@ def fused_moe(
                             False,
                             topk_ids.shape[1],
                             config,
-                            compute_type=tl.float16,
+                            compute_type=compute_type,
                             use_fp8=use_fp8)
 
     ops.silu_and_mul(intermediate_cache2, intermediate_cache1.view(-1, N))
@@ -451,6 +457,7 @@ def fused_moe(
     invoke_fused_moe_kernel(intermediate_cache2,
                             w2,
                             intermediate_cache3,
+                            a2_scale,
                             w2_scale,
                             topk_weights,
                             topk_ids,
@@ -460,7 +467,7 @@ def fused_moe(
                             True,
                             1,
                             config,
-                            compute_type=tl.float16,
+                            compute_type=compute_type,
                             use_fp8=use_fp8)
 
     if inplace:

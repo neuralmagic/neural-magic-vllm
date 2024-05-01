@@ -9,10 +9,13 @@ from packaging.version import Version
 from transformers import PretrainedConfig
 
 from vllm.logger import init_logger
-from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
+from vllm.model_executor.layers.quantization import (QUANTIZATION_METHODS,
+                                                     get_quantization_config)
 from vllm.transformers_utils.config import get_config, get_hf_text_config
 from vllm.utils import (get_cpu_memory, get_nvcc_cuda_version, is_cpu, is_hip,
                         is_neuron)
+
+GPTQMarlinConfig = get_quantization_config("gptq_marlin")
 
 if TYPE_CHECKING:
     from ray.util.placement_group import PlacementGroup
@@ -138,14 +141,34 @@ class ModelConfig:
             is_format_marlin = (quant_cfg.get("checkpoint_format") == "marlin"
                                 or quant_cfg.get("is_marlin_format", False))
 
-            # Use marlin if the GPTQ model is serialized in marlin format.
-            if quant_method == "gptq" and is_format_marlin:
-                logger.info("The model is serialized in Marlin format. "
-                            "Using Marlin kernel.")
-                quant_method = "marlin"
-                if self.quantization == "gptq":
-                    self.quantization = quant_method
+            # Check which LinearMethod the GPTQ model should use.
+            if quant_method == "gptq":
+                # If serialized in Marlin format, use MarlinLinearMethod.
+                # TODO (@robertgshaw): migrate under GPTQMarlinLinearMethod.
+                if is_format_marlin:
+                    logger.info("The model is serialized in Marlin format. "
+                                "Using Marlin kernel.")
+                    quant_method = "marlin"
+                    if self.quantization == "gptq":
+                        self.quantization = quant_method
 
+                # If convertible to Marlin format, use GPTQMarlinLinearMethod
+                # unless the user explicitly specified GPTQLinearMethod.
+                elif GPTQMarlinConfig.is_marlin_compatible(quant_cfg):
+                    if self.quantization == "gptq":
+                        logger.warning(
+                            "The model is convertible to Marlin format, but "
+                            "you specified quantization=gptq. Use "
+                            "quantization=marlin for faster inference.")
+                    else:
+                        logger.info(
+                            "The model is convertible to Marlin format. "
+                            "Using Marlin kernel.")
+                        quant_method = "gptq_marlin"
+                        if self.quantization == "marlin":
+                            self.quantization = quant_method
+
+            # Verify quantization configurations.
             if self.quantization is None:
                 self.quantization = quant_method
             elif self.quantization != quant_method:
@@ -165,11 +188,11 @@ class ModelConfig:
                 raise ValueError(
                     f"{self.quantization} quantization is currently not "
                     f"supported in ROCm.")
-            if self.quantization != "marlin":
+            if (self.quantization not in ["marlin", "gptq_marlin"]):
                 logger.warning(
-                    f"{self.quantization} quantization is not fully "
+                    "%s quantization is not fully "
                     "optimized yet. The speed can be slower than "
-                    "non-quantized models.")
+                    "non-quantized models.", self.quantization)
 
     def _verify_cuda_graph(self) -> None:
         if self.max_context_len_to_capture is None:
@@ -360,7 +383,7 @@ class CacheConfig:
         if cpu_memory_usage > 0.7 * total_cpu_memory:
             raise ValueError("Too large swap space. " + msg)
         elif cpu_memory_usage > 0.4 * total_cpu_memory:
-            logger.warning("Possibly too large swap space. " + msg)
+            logger.warning("Possibly too large swap space. %s", msg)
 
 
 @dataclass
@@ -862,6 +885,7 @@ class SpeculativeConfig:
 class LoRAConfig:
     max_lora_rank: int
     max_loras: int
+    fully_sharded_loras: bool = False
     max_cpu_loras: Optional[int] = None
     lora_dtype: Optional[torch.dtype] = None
     lora_extra_vocab_size: int = 256
@@ -898,8 +922,8 @@ class LoRAConfig:
                 "awq", "gptq"
         ]:
             # TODO support marlin and squeezellm
-            logger.warning(f"{model_config.quantization} quantization is not "
-                           "tested with LoRA yet.")
+            logger.warning("%s quantization is not tested with LoRA yet.",
+                           model_config.quantization)
 
     def verify_with_scheduler_config(self, scheduler_config: SchedulerConfig):
         if scheduler_config.max_num_batched_tokens > 65528:
@@ -1008,7 +1032,7 @@ def _get_and_verify_dtype(
             pass
         else:
             # Casting between float16 and bfloat16 is allowed with a warning.
-            logger.warning(f"Casting {config_dtype} to {torch_dtype}.")
+            logger.warning("Casting %s to %s.", config_dtype, torch_dtype)
 
     return torch_dtype
 
@@ -1051,8 +1075,8 @@ def _get_and_verify_max_len(
         logger.warning(
             "The model's config.json does not contain any of the following "
             "keys to determine the original maximum length of the model: "
-            f"{possible_keys}. Assuming the model's maximum length is "
-            f"{default_max_len}.")
+            "%d. Assuming the model's maximum length is %d.", possible_keys,
+            default_max_len)
         derived_max_model_len = default_max_len
 
     rope_scaling = getattr(hf_config, "rope_scaling", None)
