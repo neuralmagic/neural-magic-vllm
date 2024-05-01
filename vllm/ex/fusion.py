@@ -2,6 +2,7 @@ import torch
 
 from .code_cache import CodeCache
 from .fused_op_generator import FusedOpGenerator, FusionFail
+from .register import FUSABLE
 from .utils import extract_node_type, extract_node_tensor_meta, ModuleInputGenerator, FlowGraph
 
 from torch.fx.passes.split_module import split_module
@@ -113,24 +114,35 @@ def fuse_graph_nodes(
     return mod
 
 
-# TODO: add more stuff
-# Smarter filter for getitem
-def is_fusable(a: torch.fx.Node) -> bool:
-    pointwise = ['_operator.add', '_operator.mul', '_operator.getitem', 'torch.relu', 'torch.nn.functional.silu']
-    if a.op == 'call_function':
-        submodules = dict(a.graph.owning_module.named_modules())
-        target = get_node_target(submodules, a)
-        return target in pointwise
-    return False
-
-
-# TODO: add more stuff
-def is_compute(a: torch.fx.Node) -> bool:
-    if a.op != 'call_function':
+# TODO: Smarter filter for getitem
+def is_fusable(
+    node: torch.fx.Node,
+    submodules: Optional[Mapping[str, torch.nn.Module]] = None
+) -> bool:
+    if node.op != 'call_function':
         return False
-    submodules = dict(a.graph.owning_module.named_modules())
-    return (get_node_target(submodules, a) == 'torch.matmul' or
-            get_node_target(submodules, a) == 'torch._C._nn.linear')
+
+    if not submodules:
+        submodules = dict(node.graph.owning_module.named_modules())
+
+    op_name = get_node_target(submodules, node)
+
+    return op_name in FUSABLE and not FUSABLE[op_name]
+
+
+def is_compute(
+    node: torch.fx.Node,
+    submodules: Optional[Mapping[str, torch.nn.Module]] = None
+) -> bool:
+    if node.op != 'call_function':
+        return False
+
+    if not submodules:
+        submodules = dict(node.graph.owning_module.named_modules())
+
+    op_name = get_node_target(submodules, node)
+
+    return op_name in FUSABLE and FUSABLE[op_name]
 
 
 def is_getitem(a: torch.fx.Node) -> bool:

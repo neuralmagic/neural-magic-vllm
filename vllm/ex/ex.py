@@ -3,6 +3,7 @@ import torch
 
 from .code_cache import CodeCache
 from .fusion import FusedOpGenerator, pointwise_fusion
+from .register import SUPPORTED
 from .utils import extract_node_tensor_meta, extract_node_type, ModuleInputGenerator
 
 from torch._dynamo import register_backend, lookup_backend
@@ -22,16 +23,14 @@ import traceback
 #
 ###############################################################################
 
-# TODO: make this smarter/add registration mechanism
-def is_node_supported(submodules: Mapping[str, torch.nn.Module], node: torch.fx.Node) -> bool:
-    return node.op == 'call_function' and (get_node_target(submodules, node) == '_operator.add' or
-                                           get_node_target(submodules, node) == '_operator.mul' or
-                                           get_node_target(submodules, node) == '_operator.getitem' or
-                                           get_node_target(submodules, node) == 'torch.matmul' or
-                                           get_node_target(submodules, node) == 'torch.relu' or
-                                           get_node_target(submodules, node) == 'torch.nn.functional.silu' or
-                                           get_node_target(submodules, node) == 'torch._C._nn.linear' or
-                                           get_node_target(submodules, node) == 'torch.ops.vllm.silu_and_mul')
+def is_node_supported(
+    submodules: Mapping[str, torch.nn.Module],
+    node: torch.fx.Node,
+) -> bool:
+    if node.op == 'call_function':
+        return get_node_target(submodules, node) in SUPPORTED
+    else:
+        return False
 
 
 # See: torch.fx.passes.infra.partitioner
