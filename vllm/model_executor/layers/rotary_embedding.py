@@ -162,6 +162,7 @@ class RotaryEmbedding(nn.Module):
         s += f", base={self.base}, is_neox_style={self.is_neox_style}"
         return s
 
+
 # needed for compile
 vllm_lib.define(
     "rotary_embedding(Tensor positions, Tensor query, Tensor key, int head_size, Tensor cos_sin_cache, bool is_neox) -> (Tensor, Tensor)"

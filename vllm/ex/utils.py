@@ -29,7 +29,7 @@ def argument_type(arg: torch.fx.node.Argument):
     elif arg is None:  # an optional arg?
         return None
     else:
-        raise Exception(f"unsupported argument type {arg}")
+        return None # raise Exception(f"unsupported argument type {arg}")
 
 
 def extract_node_tensor_meta(n: torch.fx.Node):
