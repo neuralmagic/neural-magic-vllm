@@ -15,17 +15,6 @@ fi
 benchmark_config_list_file=$1
 output_directory=$2
 
-if [ -d vllm ]; then
-  # rename vllm directory otherwise python will import from it instead of
-  # installed wheel
-  echo "renaming 'vllm' folder"
-  mv vllm vllm-ignore
-else
-  echo "no folder to be renamed"
-  pwd
-  ls -A
-fi
-
 for bench_config in `cat $benchmark_config_list_file`
 do
   echo "Running benchmarks for config " $bench_config

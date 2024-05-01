@@ -19,6 +19,7 @@ runs:
   - id: benchmark
     run: |
       mkdir -p ${{ inputs.output_directory }}
+      if [ -d vllm ]; then echo "renaming 'vllm' folder"; mv vllm vllm-ignore; fi
       COMMIT=${{ github.sha }}
       VENV="${{ inputs.venv }}-${COMMIT:0:7}"
       source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
