@@ -13,7 +13,7 @@ __all__ = ["CompressedTensorsW8A8StaticTensor"]
 
 class CompressedTensorsW8A8StaticTensor(CompressedTensorsScheme):
 
-    def __init__(self, fake_quant):
+    def __init__(self, fake_quant: bool):
         self.fake_quant = fake_quant
 
     def _quantize(self,
