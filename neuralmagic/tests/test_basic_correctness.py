@@ -182,7 +182,7 @@ def test_models_on_server(
 
     asyncio_event_loop = asyncio.get_event_loop()
     temperature = 0.0
-    with ServerContext(api_server_args, logger=logger) as _:
+    with ServerContext(api_server_args, logger=logger):
         # submit an asynchronous request to the server for each prompt
         chats = [
             my_chat(client, model, messages, max_tokens, temperature,
