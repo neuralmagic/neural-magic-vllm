@@ -1,4 +1,7 @@
 import torch
+from vllm.logger import init_logger
+
+logger = init_logger(__name__)
 
 SUPPORTED = set()
 FUSABLE = dict()
@@ -16,7 +19,7 @@ def register_fusable(op_name: str, is_compute: bool = False):
 
 
 def register_defaults():
-    print("REGISTER DEFAULTS")
+    logger.info("REGISTER DEFAULTS")
     register_supported('_operator.add')
     register_supported('_operator.mul')
     register_supported('_operator.getitem')

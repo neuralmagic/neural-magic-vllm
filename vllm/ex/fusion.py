@@ -9,6 +9,9 @@ from torch.fx.passes.split_module import split_module
 from torch.fx.passes.tools_common import get_node_target
 from torch.fx.passes.shape_prop import ShapeProp
 from typing import List, Tuple, Any, Dict, Optional, Callable, Mapping, Set
+from vllm.logger import init_logger
+
+logger = init_logger(__name__)
 
 ###############################################################################
 #
@@ -30,7 +33,7 @@ def fuse_graph_nodes(
     inputs = [n for n in mod.graph.nodes if n.op == 'placeholder']
 
     newline = "\n"
-    print(f"input_meta:\n{newline.join([f'{n}: {extract_node_tensor_meta(n)}' for n in inputs])}")
+    logger.info(f"input_meta:\n{newline.join([f'{n}: {extract_node_tensor_meta(n)}' for n in inputs])}")
 
     # for now
     assert len(outputs) == 1
@@ -67,14 +70,14 @@ def fuse_graph_nodes(
         fn = cc.lookup_or_create(fn_key, generate)
 
     except FusionFail as ff:
-        print(f"fusion failed '{ff}' for module: {mod}")
+        logger.info(f"fusion failed '{ff}' for module: {mod}")
         return mod
 
     if fn is None:
-        print(f"fusion failed previously '{ff}' for module: {mod}")
+        logger.info(f"fusion failed previously '{ff}' for module: {mod}")
         return mod
 
-    #print(f"fused fn = {fn}, {type(fn)}, {isinstance(fn, torch.nn.Module)}, {str(fn)}")
+    #logger.info(f"fused fn = {fn}, {type(fn)}, {isinstance(fn, torch.nn.Module)}, {str(fn)}")
 
     mod.graph.inserting_after(first)
 
@@ -95,15 +98,15 @@ def fuse_graph_nodes(
         mod.graph.output(cf, type_expr=torch.Tensor)
 
         for o in outputs:
-            print(f"ERASE {o}")
+            logger.info(f"ERASE {o}")
             mod.graph.erase_node(o)
 
-    print(f"fuse mod {mod.print_readable(False)}")
-    print(f"cf {cf.name} {cf.format_node()}")
+    logger.info(f"fuse mod {mod.print_readable(False)}")
+    logger.info(f"cf {cf.name} {cf.format_node()}")
 
     nodes_to_erase.reverse()
     for n in nodes_to_erase:
-        print(f"ERASE {n}")
+        logger.info(f"ERASE {n}")
         mod.graph.erase_node(n)
 
     # TODO: see node.replace_all_uses_with(new_node)
@@ -210,16 +213,16 @@ def pointwise_fusion(
     # assumption, graph.nodes are in topo order
     mod.graph.lint()
 
-    print("start fusion")
+    logger.info("start fusion")
 
     # create partition groups
     # run in reverse order so predecesors of non-unary ops will appear
     # in the same partition.
     for n in reversed(mod.graph.nodes):
-        #print(f"CONSIDER {n}")
+        #logger.info(f"CONSIDER {n}")
 
         if n.op != 'call_function':
-            #print(f"  REJECT {n} not call")
+            #logger.info(f"  REJECT {n} not call")
             node_map[n] = 0
             continue
 
@@ -228,13 +231,13 @@ def pointwise_fusion(
 
         if not all([is_fusable_pair(n, s) for s in fg.predecessors(n)]):
             if not n in node_map:
-                #print(f"  REJECT {n} no fusable preds and not in map")
+                #logger.info(f"  REJECT {n} no fusable preds and not in map")
                 node_map[n] = 0
             continue
 
         # don't support anything with kwargs for now
         if n.kwargs and len(n.kwargs) > 0:
-            #print(f"  REJECT {n} kwargs")
+            #logger.info(f"  REJECT {n} kwargs")
             node_map[n] = 0
             continue
 
@@ -245,12 +248,12 @@ def pointwise_fusion(
         for s in fg.predecessors(n):
             node_map[s] = node_map[n]
 
-    print(f"node_map = {node_map}")
+    logger.info(f"node_map = {node_map}")
 
     def same_partition(nodes: Set[torch.fx.Node]) -> bool:
         if len(nodes) > 0:
             part = node_map[next(iter(nodes))]
-            #print(f"{part}: {[node_map[n] for n in nodes]}")
+            #logger.info(f"{part}: {[node_map[n] for n in nodes]}")
             return all([node_map[n] == part for n in nodes])
         return False
 
@@ -274,7 +277,7 @@ def pointwise_fusion(
                 continue
 
             if not same_partition(nodes):
-                #print(f"REJECT {n} not all neighbors in same partition {nodes}")
+                #logger.info(f"REJECT {n} not all neighbors in same partition {nodes}")
                 continue
 
             fuse_part = next(iter(nodes))
@@ -282,13 +285,13 @@ def pointwise_fusion(
             if only_pointwise(fuse_part):
                 node_map[n] = node_map[fuse_part]
 
-    print(f"final node_map = {node_map}")
+    logger.info(f"final node_map = {node_map}")
 
     assert(all([n in node_map for n in mod.graph.nodes]))
 
     qualname_map=dict()
 
-    print(f"mod {mod.print_readable(False)}")
+    logger.info(f"mod {mod.print_readable(False)}")
     mod.graph.print_tabular()
 
     # create submodules for each fusable set of nodes
@@ -309,16 +312,16 @@ def pointwise_fusion(
             module_inputs = mig.module_args[cname][0]
             ShapeProp(cm).propagate(*module_inputs)
 
-            print(f"FUSING GRAPH NODES {cname}")
+            logger.info(f"FUSING GRAPH NODES {cname}")
             cm.graph.print_tabular()
-            print(cm.graph.python_code(cm).src)
+            logger.info(cm.graph.python_code(cm).src)
             #graph_print_tabular(cm.graph)
             cm = fuse_graph_nodes(cc, fgen, cm)
-            print(f"CM {cname}: {cm}")
+            logger.info(f"CM {cname}: {cm}")
             cm.recompile()
 
-    print(f"new_mod {new_mod.print_readable(False)}")
-    print(f"new mod {new_mod.graph.print_tabular()}")
+    logger.info(f"new_mod {new_mod.print_readable(False)}")
+    logger.info(f"new mod {new_mod.graph.print_tabular()}")
 
     # Do this here or in caller?
     #new_mod.recompile()

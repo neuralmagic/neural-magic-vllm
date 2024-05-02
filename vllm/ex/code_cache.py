@@ -1,5 +1,9 @@
 from typing import Callable, Optional
+from vllm.logger import init_logger
 
+logger = init_logger(__name__)
+
+# Note: this can be pre-populated with pre-compiled kernels if needed
 class CodeCache:
     def __init__(self):
         self.cache = dict()

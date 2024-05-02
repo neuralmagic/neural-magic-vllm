@@ -5,6 +5,10 @@ from .utils import extract_node_type, extract_node_tensor_meta, compose, build_e
 
 from torch.fx.passes.tools_common import get_node_target
 from typing import List, Tuple, Any, Dict, Optional, Callable, Mapping, Set
+from vllm.logger import init_logger
+
+logger = init_logger(__name__)
+
 
 class FusionFail(Exception):
     pass
@@ -61,7 +65,7 @@ class FusedOpGenerator:
         kwargs: Dict[str, torch.fx.node.Argument]
     ) -> torch.fx.node.Target:
         fns = [n.target for n in nodes]
-        print(f"MAKE_FUSED_OP {fns}")
+        logger.info(f"MAKE_FUSED_OP {fns}")
 
         # assume unary output for now
         assert len(outputs) == 1
@@ -168,7 +172,7 @@ class FusedOpGenerator:
         # TODO: registration
         #lib = torch.library.Library(f"fused_ops{self.N}", "DEF") ?
         op = self.mangle(op, '::').replace("torch::ops::", "")
-        print(f"ARG_SIG = {op}, {sig}")
+        logger.info(f"ARG_SIG = {op}, {sig}")
         torch.library.define(f"{op}", sig)
 
 
@@ -177,7 +181,7 @@ class FusedOpGenerator:
         # torch.library.impl_abstract(qualname, func=None, *, lib=None, _stacklevel=1)
         #torch.library.impl(lib, f"torch.ops.fused_ops{self.N}.{op}", "Meta")
         op = self.mangle(op, '::').replace("torch::ops::", "")
-        print(f"META_FN = {op}, {str(meta_fn)}")
+        logger.info(f"META_FN = {op}, {str(meta_fn)}")
         torch.library.impl(f"{op}", "Meta", func=meta_fn)
 
 
@@ -198,7 +202,7 @@ class FusedOpGenerator:
                     mode='w',
                     delete=False, # TODO: True
             ) as out:
-                print(f"generating code to: {out.name}")
+                logger.info(f"generating code to: {out.name}")
                 for l in self.fused_op:
                     out.write(l)
                     out.write('\n')
@@ -210,11 +214,11 @@ class FusedOpGenerator:
             for k, v in self.callables.items():
                 # there has to be a better way than eval?
                 fn = eval(v[0])
-                print(f'{self.callables[k]} = {fn}')
+                logger.info(f'{self.callables[k]} = {fn}')
                 self.callables[k] = (fn, v[1], v[2])
                 self.register_meta_function(op_lib, v[0], v[2])
 
-            print(f"CALLABLES {self.callables}")
+            logger.info(f"CALLABLES {self.callables}")
 
             callables = self.callables
 
