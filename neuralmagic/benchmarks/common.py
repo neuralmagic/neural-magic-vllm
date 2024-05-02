@@ -6,7 +6,8 @@ from typing import Iterable, NamedTuple
 
 # TODO (varun) : find a workaround so we avoid using private methods
 from vllm.config import _get_and_verify_max_len
-from vllm.model_executor.model_loader.weight_utils import download_weights_from_hf
+from vllm.model_executor.model_loader.weight_utils import (
+    download_weights_from_hf)
 from vllm.transformers_utils.config import get_config
 from vllm.transformers_utils.tokenizer import get_tokenizer
 
