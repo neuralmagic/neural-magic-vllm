@@ -10,7 +10,7 @@ from openai import AsyncOpenAI
 from transformers import AutoTokenizer
 
 from tests.conftest import HfRunnerNM
-from tests.models.compare_utils import check_logprobs_str_close
+from tests.models.compare_utils import check_logprobs_close
 from tests.utils.logging import make_logger
 from tests.utils.server import ServerContext
 
@@ -204,7 +204,7 @@ def test_models_on_server(
             vllm_outputs.append((output_tokens, output_str, output_logprobs))
 
     logger.info("comparing HuggingFace and vllm Server chat responses")
-    check_logprobs_str_close(
+    check_logprobs_close(
         outputs_0_lst=hf_outputs,
         outputs_1_lst=vllm_outputs,
         name_0="hf_model",

@@ -424,11 +424,15 @@ class HfRunnerNM(HfRunner):
                     indexed_seq,
                     clean_up_tokenization_spaces=False)
                 output_tokens.append(token_str)
-                for token_idx, logprob in zip(topk.indices[0], topk.values[0]):
-                    # the topk.indices() is actually returning the token id,
-                    # not an index into seq_ids, so decode that directly.
-                    logprob_str = self.tokenizer.decode(
-                        token_idx, clean_up_tokenization_spaces=False)
+                for alt_token_id, logprob in zip(topk.indices[0],
+                                                 topk.values[0]):
+                    # replace the token_str at the tok_idx with alt_token_id.
+                    indexed_seq[-1] = alt_token_id
+                    # then run decode again
+                    logprob_str = self._decode_token_by_position_index(
+                        input_len + tok_idx + 1,
+                        indexed_seq,
+                        clean_up_tokenization_spaces=False)
                     tok_logprobs_dct[logprob_str] = logprob.item()
 
                 seq_logprobs_lst.append(tok_logprobs_dct)
