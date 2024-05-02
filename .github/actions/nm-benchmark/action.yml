@@ -27,7 +27,7 @@ runs:
       source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
       pip3 install -r neuralmagic/benchmarks/requirements-benchmark.txt
       # TODO: remove debug output
-      ls -A $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/lib/${{ inputs.python }}/site-packages/vllm
+      ls -A $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/lib/python3.10/site-packages/vllm
       SUCCESS=0
       .github/scripts/nm-run-benchmarks.sh ${{ inputs.benchmark_config_list_file }} ${{ inputs.output_directory }} || SUCCESS=$?
       echo "test=${SUCCESS}" >> "$GITHUB_OUTPUT"
