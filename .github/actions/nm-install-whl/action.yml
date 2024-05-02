@@ -20,9 +20,9 @@ runs:
         VENV="${{ env.VENV_BASE }}-${COMMIT:0:7}"
         source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
         pip3 install -r requirements-cuda.txt -r requirements-dev.txt
-        pip3 install nm-magic-wand-nightly
         BASE=$(./.github/scripts/convert-version ${{ inputs.python }})
         WHL=$(find . -type f -iname "*${BASE}*.whl")
         WHL_BASENAME=$(basename ${WHL})
         pip3 install ${WHL}
+        pip3 install nm-magic-wand-nightly
       shell: bash
