@@ -172,6 +172,7 @@ jobs:
             timeout: ${{ inputs.benchmark_timeout }}
             gitref: ${{ github.ref }}
             python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
             # Always push if it is a scheduled job
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
         secrets: inherit

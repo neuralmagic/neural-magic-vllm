@@ -19,7 +19,7 @@ runs:
         COMMIT=${{ github.sha }}
         VENV="${{ env.VENV_BASE }}-${COMMIT:0:7}"
         source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
-        pip3 install -r requirements-cuda.txt -r requirements-dev.txt
+        pip3 install -r requirements-dev.txt
         BASE=$(./.github/scripts/convert-version ${{ inputs.python }})
         WHL=$(find . -type f -iname "*${BASE}*.whl")
         WHL_BASENAME=$(basename ${WHL})
