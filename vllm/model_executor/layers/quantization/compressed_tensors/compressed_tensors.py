@@ -26,6 +26,7 @@ class CompressedTensorsConfig(QuantizationConfig):
         self.num_bits = QuantizationFields.num_bits.value
         self.strategy = QuantizationFields.strategy.value
         self.symmetric = QuantizationFields.symmetric.value
+        self.dynamic = QuantizationFields.dynamic.value
 
         llama_mapping = {
             "q_proj": "qkv_proj",
@@ -95,8 +96,10 @@ class CompressedTensorsConfig(QuantizationConfig):
             self.strategy) == QuantizationStrategy.TENSOR
         is_symmetric = weight_quant.get(self.symmetric) and input_quant.get(
             self.symmetric)
+        is_static = not weight_quant.get(self.dynamic) and not input_quant.get(
+            self.dynamic)
 
-        if is_8_bits and is_tensor and is_symmetric:
+        if is_8_bits and is_tensor and is_symmetric and is_static:
             return True
         return False
 
@@ -108,8 +111,10 @@ class CompressedTensorsConfig(QuantizationConfig):
         ) == "token"  # TODO: QuantizationStrategy should have token
         is_symmetric = weight_quant.get(self.symmetric) and input_quant.get(
             self.symmetric)
+        is_dynamic = weight_quant.get(self.dynamic) and input_quant.get(
+            self.dynamic)
 
-        if is_8_bits and is_token and is_symmetric:
+        if is_8_bits and is_token and is_symmetric and is_dynamic:
             return True
         return False
 
