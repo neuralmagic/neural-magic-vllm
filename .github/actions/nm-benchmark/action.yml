@@ -29,6 +29,9 @@ runs:
       # TODO: remove debug output
       ls -A $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/lib/python3.10/site-packages/vllm
       SUCCESS=0
+      # TODO: remove below debug line
+      echo "python=$(which python)"
+      echo "python3=$(which python3)"
       .github/scripts/nm-run-benchmarks.sh ${{ inputs.benchmark_config_list_file }} ${{ inputs.output_directory }} || SUCCESS=$?
       echo "test=${SUCCESS}" >> "$GITHUB_OUTPUT"
       exit ${SUCCESS}

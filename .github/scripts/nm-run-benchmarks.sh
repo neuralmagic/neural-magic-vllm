@@ -4,6 +4,10 @@
 set -e
 set -u
 
+# TODO: remove below debug line
+echo "python=$(which python)"
+echo "python3=$(which python3)"
+
 if [ $# -ne 2 ];
 then
   echo "run_benchmarks needs exactly 2 arguments: "
