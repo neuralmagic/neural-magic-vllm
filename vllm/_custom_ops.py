@@ -183,6 +183,22 @@ def gptq_marlin_gemm(a: torch.Tensor, b_q_weight: torch.Tensor,
                                      is_k_full)
 
 
+# fp6
+def fp6_linear_forward_cuda(
+    input: torch.Tensor,
+    weights: torch.Tensor,
+    scales: torch.Tensor,
+    splitK: int = 1,
+) -> torch.Tensor:
+    return vllm_ops.fp6_linear_forward_cuda(input, weights, scales, splitK)
+
+
+# def fp6_weight_matrix_quant_and_prepacking_cpu(
+#     fp16_tensor: torch.Tensor,
+# ) -> torch.Tensor:
+#     return vllm_ops.fp6_weight_matrix_quant_and_prepacking_cpu(fp16_tensor)
+
+
 # fp8
 def scaled_fp8_quant(
     input: torch.Tensor,

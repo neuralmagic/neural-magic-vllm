@@ -179,6 +179,7 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
     "csrc/quantization/marlin/marlin_cuda_kernel.cu"
     "csrc/quantization/gptq_marlin/gptq_marlin.cu"
     "csrc/quantization/gptq_marlin/gptq_marlin_repack.cu"
+    "csrc/quantization/fp6/fp6_linear.cu"
     "csrc/custom_all_reduce.cu")
 endif()
 

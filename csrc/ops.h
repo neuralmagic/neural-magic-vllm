@@ -142,6 +142,15 @@ torch::Tensor gptq_marlin_repack(
   torch::Tensor &perm,
   int64_t size_k,
   int64_t size_n);
+
+torch::Tensor fp6_linear_forward_cuda(
+  torch::Tensor& _in_feats,
+  torch::Tensor& _weights,
+  torch::Tensor& _scales,
+  int           splitK);
+
+// torch::Tensor fp6_weight_matrix_quant_and_prepacking_cpu(
+//   torch::Tensor& fp16_tensor);
 #endif
 
 void squeezellm_gemm(
