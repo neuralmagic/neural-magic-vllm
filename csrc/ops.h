@@ -179,6 +179,11 @@ void static_scaled_int8_quant(
   torch::Tensor& input,
   float scale);
 
+void quant_per_token(
+  torch::Tensor& out,
+  torch::Tensor& input,
+  torch::Tensor& scales);
+
 void moe_align_block_size(
   torch::Tensor topk_ids,
   int num_experts,
