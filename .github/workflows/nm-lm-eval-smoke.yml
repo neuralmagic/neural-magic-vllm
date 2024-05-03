@@ -94,7 +94,7 @@ jobs:
         uses: ./.github/actions/nm-set-python/
         with:
           python: ${{ inputs.python }}
-          venv: TEST
+          venv: ${{ env.VENV_BASE }}
 
       - name: hf cache
         id: hf_cache
