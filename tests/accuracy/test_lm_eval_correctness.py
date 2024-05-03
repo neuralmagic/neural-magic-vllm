@@ -34,6 +34,7 @@ class Task(TypedDict):
 class EvalTaskDefinitionOpts(TypedDict, total=False):
     enable_tensor_parallel: bool
     extra_args: Dict[str, Any]
+    rtol: float
 
 
 class EvalTaskDefinition(EvalTaskDefinitionOpts):
@@ -46,6 +47,7 @@ TEST_DATA = yaml.safe_load(TEST_DATA_FILE.read_text(encoding="utf-8"))
 TEST_DATA: List[EvalTaskDefinition] = [
     pytest.param(eval_def, id=eval_def["model_name"]) for eval_def in TEST_DATA
 ]
+DEFAULT_RTOL = 0.05
 
 
 @pytest.mark.parametrize("eval_data", TEST_DATA)
@@ -93,6 +95,7 @@ def test_lm_eval_correctness(
     logger.info("clearing torch cache")
     lm_eval.models.utils.clear_torch_cache()
 
+    rtol = eval_data.get("rtol", DEFAULT_RTOL)
     for task in eval_data["tasks"]:
         logger.info("checking metrics for task=%s", task["name"])
         for metric in task["metrics"]:
@@ -106,4 +109,4 @@ def test_lm_eval_correctness(
                 measured_value,
             )
 
-            assert numpy.isclose(ground_truth, measured_value, rtol=0.05)
+            assert numpy.isclose(ground_truth, measured_value, rtol=rtol)
