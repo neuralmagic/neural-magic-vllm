@@ -42,10 +42,19 @@ class EvalTaskDefinition(EvalTaskDefinitionOpts):
     tasks: List[Task]
 
 
+def get_marks(task: EvalTaskDefinition) -> List[pytest.Mark]:
+    marks = []
+    if task.get("deterministic") is False:
+        marks.append(pytest.mark.xfail(reason="model is non-deterministic"))
+    return marks
+
+
 TEST_DATA_FILE = Path(__file__).parent / "lm-eval-tasks.yaml"
 TEST_DATA = yaml.safe_load(TEST_DATA_FILE.read_text(encoding="utf-8"))
 TEST_DATA: List[EvalTaskDefinition] = [
-    pytest.param(eval_def, id=eval_def["model_name"]) for eval_def in TEST_DATA
+    pytest.param(eval_def,
+                 id=eval_def["model_name"],
+                 marks=get_marks(eval_def)) for eval_def in TEST_DATA
 ]
 DEFAULT_RTOL = 0.05
 
