@@ -5,13 +5,12 @@ import unittest.mock
 from .code_cache import CodeCache
 from .fusion import FusedOpGenerator, pointwise_fusion
 from .register import SUPPORTED
-from .utils import extract_node_tensor_meta, extract_node_type, ModuleInputGenerator
+from .utils import ModuleInputGenerator
 
 from torch._dynamo import register_backend, lookup_backend
 from torch.fx.passes.operator_support import create_op_support
 from torch.fx.passes.infra.partitioner import CapabilityBasedPartitioner, Partition
 from torch.fx.passes.tools_common import get_node_target
-from torch.fx.passes.shape_prop import ShapeProp
 from torch._subclasses.fake_tensor import FakeTensorMode, FakeTensor
 
 from typing import List, Tuple, Any, Dict, Optional, Callable, Mapping, Set
@@ -105,11 +104,12 @@ def partition_graph(
 
 ###############################################################################
 #
-# Inline
+# Inliner
 #
 ###############################################################################
 
 def inline_submodules(mod: torch.fx.GraphModule) -> torch.fx.GraphModule:
+    # TODO: double check that this will actually inline
     #mod.graph = torch.fx.symbolic_trace(mod)
     mod.graph = torch.fx.Tracer().trace(mod)
     return mod
@@ -121,7 +121,9 @@ def inline_submodules(mod: torch.fx.GraphModule) -> torch.fx.GraphModule:
 #
 ###############################################################################
 
-# torch._inductor.fx_passes.joint_graph.joint_graph_passes
+"""
+Run optimizer on the given module.
+"""
 def optimize(
     cc: CodeCache,
     fgen: FusedOpGenerator,
@@ -134,8 +136,32 @@ def optimize(
     return mod
 
 
-# names should be unique, so this is ok
+"""
+Compile a module with the given backend.
+"""
+def backend_compile(
+    gm: torch.fx.GraphModule,
+    example_inputs: List[torch.Tensor],
+    backend: str ='inductor'
+) -> Callable:
+    try:
+        backend = lookup_backend(backend)
+        logger.info(f"attempting {backend} on {gm.name}")
+        backend_compiled = backend(gm, example_inputs)
+        if backend_compiled is not None:
+            logger.info(f"{backend} compiled {gm.name}.")
+            return backend_compiled
+    except Exception as ex:
+        logger.info(f"backend_compile failed: {ex}")
+        logger.info(f"Trace: {traceback.format_tb(ex.__traceback__)}")
+        pass
+
+    return gm.forward
+
+
 def node_in_module(n: torch.fx.Node, m: torch.fx.GraphModule) -> bool:
+    #    return n.graph.owning_module == m
+    # names should be unique, so this is ok
     return n.name in [nn.name for nn in m.graph.nodes]
 
 
@@ -146,131 +172,104 @@ def module_in_partitions(parts: List[Partition], m: torch.fx.GraphModule) -> boo
     return False
 
 
-def backend_compile(
-    gm: torch.fx.GraphModule,
-    example_inputs: List[torch.Tensor],
-    backend: str ='inductor'
-) -> Callable:
-    try:
-        backend = lookup_backend(backend)
-        logger.info(f"attempting {backend}")
-        backend_compiled = backend(gm, example_inputs)
-        if backend_compiled is not None:
-            logger.info(f"{backend} COMPILED!")
-            return backend_compiled
-    except Exception as ex:
-        logger.info(f"EX '{ex}'")
-        tb = ex.__traceback__
-        print(f"EX TRACE")
-        traceback.print_tb(tb)
-        pass
-
-    return gm.forward
-
-
-# See https://github.com/pytorch/pytorch/blob/40cbf342d3c000712da92cfafeaca651b3e0bd3e/torch/fx/experimental/optimization.py#L50
-# maybe useful https://github.com/huggingface/optimum/blob/main/optimum/fx/optimization/transformations.py
-# TODO: see if transforms can work here
-#gm = AnnotateTypesWithSchema(gm).transform()
-# TODO: see schema_type_annotation.py/AnnotateTypesWithSchema
-
 class backend_class:
-    def __init__(self, final='inductor'):
-        self.final = final
+    """
+    A custom backend for torch.compile.
+
+    This backend works by partitioning the provided module into supported/unsupported
+    sub-modules.  The supported submodules are passed to an optimizer and then compiled
+    via an optional "final" backend.
+    """
+    def __init__(self, backend: Optional[str] = 'inductor'):
+        self.backend = backend
 
     def __call__(self, gm: torch.fx.GraphModule, example_inputs: List[torch.Tensor]) -> Callable:
         # Must make a copy so that inductor backend doesn't choke.
         gm = copy.copy(gm)
 
-        logger.info(f"ORIGINAL {gm.graph}")
+        logger.info(f"Original module {gm.graph}")
+        logger.info(f"input_types: {[type(inp) for inp in example_inputs]}")
 
-        # hack to get around https://github.com/pytorch/pytorch/issues/108446
+        # Temporary hack to get around https://github.com/pytorch/pytorch/issues/108446
         # probably not a good long term solution.
-        logger.info(f"inputs: {[type(inp) for inp in example_inputs]}")
         for node in gm.graph.nodes:
             if node.op == 'placeholder' and 'example_value' in node.meta:
                 val = node.meta['example_value']
-                if isinstance(val, FakeTensor) and any([isinstance(d, torch.SymInt) for d in val.size()]):
-                    logger.info(f"FAKE_TENSOR {val.size()}{any([isinstance(d, torch.SymInt) for d in val.size()])}")
+                if (isinstance(val, FakeTensor) and
+                    any([isinstance(d, torch.SymInt) for d in val.size()])):
                     return gm
+        #
+        # end hack
+        #
+
+        # TODO: store these in the root module state dictionary so that code for
+        # all sub-modules is shared?  Should CodeCache be a global?
+        cc = CodeCache()
+        fgen = FusedOpGenerator()
 
         part_gm, parts = partition_graph(gm, example_inputs)
 
-        logger.info(f"BEFORE forward: {part_gm.forward}")
-
-        logger.info(f"part_gm: {part_gm.print_readable(False)}")
+        logger.info(f"Partitioned module: {part_gm.print_readable(False)}")
         logger.info(f"parts: {parts}")
-        newline = "\n"
-        logger.info(f"children: {newline.join([f'{cname}: {cm.print_readable(False)}' for cname, cm in part_gm.named_children()])}")
-        logger.info(f"end children")
 
-        # get the current FakeTensorMode (there should be one since we are in a backend)
+        # Get the current FakeTensorMode (there should be one since we are in
+        # a backend).
         fake_mode = torch._guards.detect_fake_mode()
 
-        # There should be an existing fake_mode but double check
+        # There should be an existing fake_mode but double check.
         if not fake_mode:
             fake_mode = FakeTensorMode(allow_non_fake_inputs=True)
 
-        # Is this ok?  probably should save/restore at least
-        #fake_mode.allow_non_fake_inputs = True
+        # Ensure that allow_non_fake_inputs is True so that original
+        # 'example_inputs' can be used.
         with unittest.mock.patch.object(fake_mode, "allow_non_fake_inputs", True):
-            #example_inputs = [fake_mode.from_tensor(input) for input in example_inputs]
-
-            logger.info(f"fake mode = {fake_mode}")
-
-            # use FakeTensorProp-like class to get example inputs for submodules
-            # static_shapes can be applied here
+            # Determine example inputs for submodules.
+            # Note: static_shapes can be applied here
             mig = ModuleInputGenerator(part_gm, fake_mode)
             mig.propagate(*example_inputs)
-
-            logger.info(f"mod args = {mig.module_args}")
-
-            # TODO: store this in the root module state dictionary so that code for
-            # all sub-modules is shared?
-            cc = CodeCache()
-            fgen = FusedOpGenerator()
-
-            mods_to_compile = []
 
             for name, m in part_gm.named_modules():
                 if module_in_partitions(parts, m):
                     assert name in mig.module_args
                     module_inputs = mig.module_args[name][0]
 
-                    # TODO: make this smarter
+                    # If one of the partitioned modules is called in multiple
+                    # places, we skip it.  This should not happen though.
                     if not module_inputs:
-                        logger.info(f"SKIPPING {name} FOR NOW (multiple callers): {m.print_readable(False)}")
+                        logger.info(f"SKIPPING {name}: multiple callers.")
                         continue
 
-                    logger.info(f"OPTIMIZE! {name}: {m.print_readable(False)}")
+                    logger.info(f"Optimizing {name}.")
                     m = optimize(cc, fgen, m, module_inputs)
                     setattr(part_gm, name, m)
 
-                    logger.info(f"POST OPTIMIZE! {name}: {m.print_readable(False)}")
+                    logger.info(f"Optimized {name}: {m.print_readable(False)}")
 
                     # TODO: don't really need to recompile if nothing happened.
                     m.recompile()
 
-                    logger.info(f"mod inputs {module_inputs}")
-                    #logger.info(f"fake mode={torch._guards.detect_fake_mode(module_inputs)}")
-                    if self.final != None:
-                        m.forward = backend_compile(m, module_inputs, backend=self.final)
-
-        #part_gm.recompile()
-        #part_gm = inline_submodules(part_gm)
+                    if self.backend != None:
+                        m.forward = backend_compile(m, module_inputs, backend=self.backend)
 
         part_gm.recompile()
 
-        logger.info(f"FULL FINAL GRAPH: {part_gm.print_readable(False)}")
-        # Add option for backend for this graph?
-        #return backend_compile(part_gm, example_inputs)
+        logger.info(f"Final module: {part_gm.print_readable(False)}")
+
+        # TODO: Add option for backend for the final graph?
         return part_gm.forward
 
 
+"""
+The default custom backend function for use with torch.compile.
+"""
 def backend(gm: torch.fx.GraphModule, example_inputs: List[torch.Tensor]) -> Callable:
     return backend_class()(gm, example_inputs)
 
 
-def make_backend(final: str = 'inductor') -> backend_class:
-    return backend_class(final)
-
+"""
+Construct a custom torch.compile backend with optional 'final' backend for
+optimized subgraphs. The default 'final' backend is the inductor. None can
+be used instead to leave optimized subgraphs as interpreted.
+"""
+def make_backend(backend: Optional[str] = 'inductor') -> backend_class:
+    return backend_class(backend)

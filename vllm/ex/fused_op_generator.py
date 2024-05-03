@@ -1,9 +1,9 @@
 import tempfile
 import torch
+import types
 
-from .utils import extract_node_type, extract_node_tensor_meta, compose, build_extension, mangle_name, argument_type
+from .utils import extract_node_type, compose, build_extension, mangle_name, argument_type, node_function_target
 
-from torch.fx.passes.tools_common import get_node_target
 from typing import List, Tuple, Any, Dict, Optional, Callable, Mapping, Set
 from vllm.logger import init_logger
 
@@ -39,9 +39,25 @@ class FusedOpGenerator:
     def rename(self, s: str) -> str:
         if s == 'torch._C._nn.linear':
             # TOTAL hack to see if things build
-            return 'torch.nn.matmul'
+            #return 'torch.nn.Linear'
+            return 'torch::nn::functional::linear'
         else:
             return s.replace("_operator.", "_operator_")
+
+    def convert_getitem_arg(self, arg: torch.fx.node.Argument) -> str:
+        if isinstance(arg, types.EllipsisType):
+            return "Py_Ellipsis"
+        elif isinstance(arg, types.NoneType):
+            return "NULL" #"Py_None"
+        elif isinstance(arg, int):
+            return f"PyLong_FromLong({arg})"
+        elif isinstance(arg, slice):
+            start = self.convert_getitem_arg(arg.start)
+            stop = self.convert_getitem_arg(arg.stop)
+            step = self.convert_getitem_arg(arg.step)
+            return f"PySlice_New({start}, {stop}, {step})"
+        else:
+            raise Exception("unsupported getitem indexing arg: {arg}.")
 
     #
     # Generate some (dumb) C++/CUDA code for a stack of fused ops.
@@ -70,8 +86,7 @@ class FusedOpGenerator:
         # assume unary output for now
         assert len(outputs) == 1
 
-        submodules = dict(nodes[0].graph.owning_module.named_modules())
-        fn_names = [self.rename(get_node_target(submodules, n)) for n in nodes]
+        fn_names = [self.rename(node_function_target(n)) for n in nodes]
 
         op = f"{mangle_name(nodes)}_fused"
 
@@ -88,16 +103,37 @@ class FusedOpGenerator:
 
         self.fused_op.append(f'torch::Tensor {op}({cxx_arg_sig})')
         self.fused_op.append('{')
+        self.fused_op.append("  pybind11::gil_scoped_acquire gil_lock;")
         self.fused_op.append('std::cout << "GOT HERE" << std::endl;')
 
         for n, fn in zip(nodes, fn_names):
             com_str = f"  // ({', '.join([str(argument_type(inp)) for inp in n.args])}) -> {str(extract_node_type(n))}"
-            call_str = f"  auto const& {self.mangle(n.name, '_')} = {self.mangle(fn, '::')}("
-            sep =''
-            for inp in n.args:
-                call_str = call_str + sep + self.mangle(str(inp), '_')
-                sep = ', '
-            call_str = call_str + ');'
+
+            if fn == '_operator_getitem':
+                call_str = ''
+                tensor = n.args[0]
+                idx = n.args[1]
+
+                assert isinstance(idx, tuple)
+
+                call_str = f"  auto const& {self.mangle(n.name, '_')} = THPVariable_Unpack(PyObject_GetItem("
+                call_str = call_str + f"THPVariable_Wrap({self.mangle(str(tensor), '_')})"
+                call_str = call_str + f", PyTuple_Pack({len(idx)}"
+
+                for idx_arg in idx:
+                    call_str = call_str + ", " + self.convert_getitem_arg(idx_arg)
+
+                call_str = call_str + ")));"
+            else:
+                call_str = f"  auto const& {self.mangle(n.name, '_')} = {self.mangle(fn, '::')}("
+                sep =''
+                for inp in n.args:
+                    if inp is None:  # total temp hack
+                        inp = "torch::Tensor()"
+                    call_str = call_str + sep + self.mangle(str(inp), '_')
+                    sep = ', '
+                call_str = call_str + ');'
+
             self.fused_op.append(com_str)
             self.fused_op.append(call_str)
         self.fused_op.append(f"  // {str(extract_node_type(outputs[0]))}")
@@ -169,7 +205,6 @@ class FusedOpGenerator:
 
 
     def register_op_sig(self, lib: str, op: str, sig: str):
-        # TODO: registration
         #lib = torch.library.Library(f"fused_ops{self.N}", "DEF") ?
         op = self.mangle(op, '::').replace("torch::ops::", "")
         logger.info(f"ARG_SIG = {op}, {sig}")

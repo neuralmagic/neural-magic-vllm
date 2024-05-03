@@ -3,10 +3,9 @@ import torch
 from .code_cache import CodeCache
 from .fused_op_generator import FusedOpGenerator, FusionFail
 from .register import FUSABLE
-from .utils import extract_node_type, extract_node_tensor_meta, ModuleInputGenerator, FlowGraph
+from .utils import extract_node_type, ModuleInputGenerator, FlowGraph, node_function_target
 
 from torch.fx.passes.split_module import split_module
-from torch.fx.passes.tools_common import get_node_target
 from torch.fx.passes.shape_prop import ShapeProp
 from typing import List, Tuple, Any, Dict, Optional, Callable, Mapping, Set
 from vllm.logger import init_logger
@@ -33,7 +32,6 @@ def fuse_graph_nodes(
     inputs = [n for n in mod.graph.nodes if n.op == 'placeholder']
 
     newline = "\n"
-    logger.info(f"input_meta:\n{newline.join([f'{n}: {extract_node_tensor_meta(n)}' for n in inputs])}")
 
     # for now
     assert len(outputs) == 1
@@ -118,41 +116,26 @@ def fuse_graph_nodes(
 
 
 # TODO: Smarter filter for getitem
-def is_fusable(
-    node: torch.fx.Node,
-    submodules: Optional[Mapping[str, torch.nn.Module]] = None
-) -> bool:
+def is_fusable(node: torch.fx.Node) -> bool:
     if node.op != 'call_function':
         return False
 
-    if not submodules:
-        submodules = dict(node.graph.owning_module.named_modules())
-
-    op_name = get_node_target(submodules, node)
-
+    op_name = node_function_target(node)
     return op_name in FUSABLE and not FUSABLE[op_name]
 
 
-def is_compute(
-    node: torch.fx.Node,
-    submodules: Optional[Mapping[str, torch.nn.Module]] = None
-) -> bool:
+def is_compute(node: torch.fx.Node) -> bool:
     if node.op != 'call_function':
         return False
 
-    if not submodules:
-        submodules = dict(node.graph.owning_module.named_modules())
-
-    op_name = get_node_target(submodules, node)
-
+    op_name = node_function_target(node)
     return op_name in FUSABLE and FUSABLE[op_name]
 
 
 def is_getitem(a: torch.fx.Node) -> bool:
     if a.op != 'call_function':
         return False
-    submodules = dict(a.graph.owning_module.named_modules())
-    return get_node_target(submodules, a) == '_operator.getitem'
+    return node_function_target(a) == '_operator.getitem'
 
 
 def is_fusable_pair(a: torch.fx.Node, b: torch.fx.Node) -> bool:

@@ -1,6 +1,13 @@
+###############################################################################
+#
+# Utils
+#
+###############################################################################
+
 import functools
 import torch
 import torch.utils.cpp_extension
+import types
 
 from torch.fx.passes.fake_tensor_prop import FakeTensorProp
 from torch.fx.passes.tools_common import get_node_target
@@ -8,12 +15,11 @@ from torch._subclasses.fake_tensor import FakeTensorMode, FakeTensor
 
 from typing import List, Tuple, Any, Dict, Optional, Callable, Mapping, Set
 
-###############################################################################
-#
-# Utils
-#
-###############################################################################
 
+def node_function_target(node: torch.fx.Node) -> str:
+    return get_node_target(None, node)
+
+# Make this always return a string?
 def argument_type(arg: torch.fx.node.Argument):
     if isinstance(arg, torch.fx.Node):
         return extract_node_type(arg)
@@ -26,16 +32,14 @@ def argument_type(arg: torch.fx.node.Argument):
           isinstance(arg, float) or
           isinstance(arg, bool)):
         return type(arg)
-    elif arg is None:  # an optional arg?
-        return None
+    elif (isinstance(arg, types.EllipsisType) or
+          isinstance(arg, types.NoneType)):
+        return arg
+    elif isinstance(arg, tuple):
+        # TODO: needs some work
+        return "t_" + "_".join([str(argument_type(a)) for a in arg])
     else:
         return None # raise Exception(f"unsupported argument type {arg}")
-
-
-def extract_node_tensor_meta(n: torch.fx.Node):
-    if 'tensor_meta' in n.meta:
-        return n.meta['tensor_meta']
-    return None
 
 
 def extract_node_type(n: torch.fx.Node):
@@ -45,22 +49,29 @@ def extract_node_type(n: torch.fx.Node):
         return None
 
 
-# compose two functions
+"""
+Compose two functions.
+"""
 def compose2(f: Callable, g: Callable) -> Callable:
     return lambda *a, **kw: g(f(*a, **kw))
 
 
-# compose a list of functions
+"""
+Compose a list of functions.
+"""
 def compose(*fs: List[Callable]) -> Callable:
     return functools.reduce(compose2, fs)
 
 
+"""
+Generate a mangled name from a list of call_function nodes.  The mangled
+name includes the names of all the operators and their types.
+"""
 def mangle_name(nodes: List[torch.fx.Node], rep: str = "_P_") -> str:
-    submodules = dict(nodes[0].graph.owning_module.named_modules())
     name = ""
     sep = ""
     for n in nodes:
-        fn = get_node_target(submodules, n)
+        fn = node_function_target(n)
         types = [str(argument_type(arg)).replace("torch.","") for arg in n.args]
         name = name + sep + f"{fn}_{'_'.join(types)}"
         sep = "_"
@@ -75,8 +86,12 @@ def mangle_name(nodes: List[torch.fx.Node], rep: str = "_P_") -> str:
 ###############################################################################
 
 
-# Combine with ShapeProp somehow?
+# TODO: combine with ShapeProp somehow?
 class ModuleInputGenerator(torch.fx.passes.fake_tensor_prop.FakeTensorProp):
+    """
+    Generate example inputs for all submodules in the given GraphModule.
+    """
+
     def __init__(
             self,
             module: torch.fx.GraphModule,
@@ -169,8 +184,8 @@ def build_extension(lib_name: str, sources: List[str]):
     torch.utils.cpp_extension.load(
         name=lib_name,
         sources=sources,
-        extra_cflags=['-O2',f'-DLIBRARY_NAME={lib_name}'],
-        #extra_cflags=['-g',f'-DLIBRARY_NAME={lib_name}'],
+        #extra_cflags=['-O2',f'-DLIBRARY_NAME={lib_name}'],
+        extra_cflags=['-g',f'-DLIBRARY_NAME={lib_name}'],
         verbose=True,
         is_python_module=False,
     )

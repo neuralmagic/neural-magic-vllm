@@ -1,4 +1,7 @@
 import torch
+import types
+
+from typing import Callable, Optional, Union
 from vllm.logger import init_logger
 
 logger = init_logger(__name__)
@@ -7,28 +10,37 @@ SUPPORTED = set()
 FUSABLE = dict()
 
 
-# TODO: make sure this is usable as a decorator
-def register_supported(op_name: str):
-    SUPPORTED.add(op_name)
+def operator_name(op: Union[str, Callable]) -> Optional[str]:
+    if isinstance(op, str):
+        return op
+    elif (isinstance(op, types.FunctionType) or
+          isinstance(op, types.BuiltinFunctionType) or
+          isinstance(op, types.BuiltinMethodType)):
+        return f"{op.__module__}.{op.__name__}"
+    else:
+        return None
 
 
-# TODO: make sure this is usable as a decorator
-def register_fusable(op_name: str, is_compute: bool = False):
+def register_supported(op: Union[str, Callable]):
+    op_name = operator_name(op)
+    if op_name is None:
+        raise Exception(f"{op} has unsupported type.")
+    logger.info(f"register supported {op_name}")
+    SUPPORTED.add(op)
+
+
+def register_fusable(op: Union[str, Callable], is_compute: bool = False):
+    op_name = operator_name(op)
+    if op_name is None:
+        raise Exception(f"{op} has unsupported type.")
     assert op_name not in FUSABLE or FUSABLE[op_name] == is_compute
+    logger.info(f"register fusable {op_name}, is_compute {is_compute}")
+    register_supported(op_name)
     FUSABLE[op_name] = is_compute
 
 
 def register_defaults():
     logger.info("REGISTER DEFAULTS")
-    register_supported('_operator.add')
-    register_supported('_operator.mul')
-    register_supported('_operator.getitem')
-    register_supported('torch.matmul')
-    register_supported('torch.relu')
-    register_supported('torch.nn.functional.silu')
-    register_supported('torch._C._nn.linear')
-    register_supported('torch.ops.vllm.silu_and_mul')
-
     register_fusable('_operator.add')
     register_fusable('_operator.mul')
     register_fusable('_operator.getitem')
