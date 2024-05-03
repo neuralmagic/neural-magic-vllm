@@ -196,7 +196,7 @@ jobs:
       if: inputs.wf_category == 'RELEASE'
       uses: ./.github/workflows/nm-lm-eval-accuracy.yml
       with:
-        label: ${{ inputs.test_label_solo }}
+        label: ${{ inputs.test_label_multi }}
         timeout: ${{ inputs.benchmark_timeout }}
         gitref: ${{ inputs.gitref }}
         Gi_per_thread: ${{ inputs.Gi_per_thread }}
