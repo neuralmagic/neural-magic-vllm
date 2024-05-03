@@ -15,8 +15,6 @@
       value: 0.09855951478392722
     - name: "exact_match,flexible-extract"
       value: 0.10083396512509477
-  extra_args:
-    --sparsity: "sparse_w16a16"
 - model_name: "neuralmagic/llama-2-7b-chat-marlin"
   tasks:
   - name: "gsm8k"
