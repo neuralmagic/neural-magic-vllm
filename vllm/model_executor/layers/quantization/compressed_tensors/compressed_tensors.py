@@ -1,15 +1,15 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import torch
-from compressed_tensors.quantization.lifecycle.apply import (
-    find_first_name_or_class_match)
+#from compressed_tensors.quantization.lifecycle.apply import (
+#    find_first_name_or_class_match) # TODO: needed
 from compressed_tensors.quantization.quant_args import QuantizationStrategy
 
 from vllm.model_executor.layers.linear import LinearBase, LinearMethodBase
 from vllm.model_executor.layers.quantization.base_config import (  # noqa: E501
     QuantizationConfig)
 from vllm.model_executor.layers.quantization.compressed_tensors.data import (
-    NumBits, QuantizationFields)
+    QuantizationFields)
 from vllm.model_executor.layers.quantization.compressed_tensors.schemes import (
     CompressedTensorsScheme, CompressedTensorsUnquantized,
     CompressedTensorsW8A8DynamicToken, CompressedTensorsW8A8StaticTensor)
@@ -68,6 +68,8 @@ class CompressedTensorsConfig(QuantizationConfig):
 
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> "CompressedTensorsConfig":
+        config = config["compression_config"]["quantization_config"]
+
         layer_quant_details: Dict[str, Any] = dict()
         ignore: List[str] = config.get("ignore", None)
         fake_quant: bool = config.get("format") == "fakequant"
@@ -87,13 +89,13 @@ class CompressedTensorsConfig(QuantizationConfig):
 
     @classmethod
     def get_config_filenames(cls) -> List[str]:
-        return ["config.json"]
+        return ["quant_config.json"]
 
     def _is_static_tensor_w8a8(self, weight_quant: Dict, input_quant: Dict):
         is_8_bits = weight_quant.get(self.num_bits) == input_quant.get(
-            self.num_bits) == NumBits.EIGHT
+            self.num_bits) == 8
         is_tensor = weight_quant.get(self.strategy) == input_quant.get(
-            self.strategy) == QuantizationStrategy.TENSOR
+            self.strategy) == QuantizationStrategy.TENSOR.value
         is_symmetric = weight_quant.get(self.symmetric) and input_quant.get(
             self.symmetric)
         is_static = not weight_quant.get(self.dynamic) and not input_quant.get(
@@ -105,16 +107,17 @@ class CompressedTensorsConfig(QuantizationConfig):
 
     def _is_dynamic_token_w8a8(self, weight_quant: Dict, input_quant: Dict):
         is_8_bits = weight_quant.get(self.num_bits) == input_quant.get(
-            self.num_bits) == NumBits.EIGHT
-        is_token = weight_quant.get(self.strategy) == input_quant.get(
-            self.strategy
-        ) == "token"  # TODO: QuantizationStrategy should have token
+            self.num_bits) == 8
+        is_token_tensor = (weight_quant.get(self.strategy)
+                           == QuantizationStrategy.TENSOR.value) and (
+                               input_quant.get(self.strategy) == "token"
+                           )  # TODO: QuantizationStrategy should have token
         is_symmetric = weight_quant.get(self.symmetric) and input_quant.get(
             self.symmetric)
-        is_dynamic = weight_quant.get(self.dynamic) and input_quant.get(
+        is_dynamic = not weight_quant.get(self.dynamic) and input_quant.get(
             self.dynamic)
 
-        if is_8_bits and is_token and is_symmetric and is_dynamic:
+        if is_8_bits and is_token_tensor and is_symmetric and is_dynamic:
             return True
         return False
 
@@ -128,6 +131,39 @@ class CompressedTensorsConfig(QuantizationConfig):
                 fake_quant=self.fake_quant)
 
         raise NotImplementedError("Scheme not supported.")
+
+    def find_first_name_or_class_match(
+            self,
+            name: str,
+            module: torch.nn.Module,
+            targets: Iterable[str],
+            check_contains: bool = False) -> Optional[str]:
+        # first element of targets that matches the given name
+        # if no name matches returns first target that matches the class name
+        # returns None otherwise
+        return self._find_first_match(name, targets) or self._find_first_match(
+            module.__class__.__name__, targets, check_contains)
+
+    def _find_first_match(self,
+                          value: str,
+                          targets: Iterable[str],
+                          check_contains: bool = False) -> Optional[str]:
+        # returns first element of target that matches value either
+        # exactly or as a regex after 're:'. if check_contains is set to True,
+        # additionally checks if the target string is contained with value.
+        import re
+
+        for target in targets:
+            if target.startswith("re:"):
+                pattern = target[3:]
+                if re.match(pattern, value):
+                    return target
+            elif check_contains:
+                if target.lower() in value.lower():
+                    return target
+            elif target == value:
+                return target
+        return None
 
     def get_scheme(
             self,
@@ -143,7 +179,7 @@ class CompressedTensorsConfig(QuantizationConfig):
 
         # TODO: update/map layer_name for llama models before
         # using find_first_name_or_class_match?
-        layer_type_name = find_first_name_or_class_match(
+        layer_type_name = self.find_first_name_or_class_match(
             name=layer_name,
             module=layer,
             targets=self.layer_quant_details.keys(),
