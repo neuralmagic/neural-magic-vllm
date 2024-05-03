@@ -14,7 +14,8 @@ if TYPE_CHECKING:
 
 # requires a particular lm-evaluation-harness
 # pip install git+https://github.com/EleutherAI/lm-evaluation-harness.git@9516087b81a61d0e220b22cc1b75be76de23bc10
-lm_eval: "lm_eval_t" = pytest.importorskip("lm_eval", reason="lm_eval required")
+lm_eval: "lm_eval_t" = pytest.importorskip("lm_eval",
+                                           reason="lm_eval required")
 
 
 class Metric(TypedDict):
