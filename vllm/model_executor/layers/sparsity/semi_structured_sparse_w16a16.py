@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Optional, Type
 
 import torch
 from magic_wand import (CompressedStorageFormat,
