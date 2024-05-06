@@ -55,11 +55,12 @@ class SparseW16A16Config(SparsityConfig):
         return cls()
 
     def get_quant_method(
-        self, layer: torch.nn.Module) -> Optional["SparseW16A16LinearMethod"]:
+            self,
+            layer: torch.nn.Module) -> Optional["SparseW16A16LinearMethod"]:
         if isinstance(layer, LinearBase):
             return SparseW16A16LinearMethod(
                 self, self.get_storage_format_cls())  # type: ignore
         return None
-    
+
     def get_scaled_act_names(self) -> List[str]:
         return []

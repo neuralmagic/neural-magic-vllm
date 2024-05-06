@@ -1,10 +1,8 @@
 from abc import abstractmethod
-from typing import Any, Dict, List, Type
+from typing import Type
 
-import torch
 from magic_wand import CompressedStorageFormat
 
-from vllm.model_executor.layers.linear import LinearMethodBase
 from vllm.model_executor.layers.quantization import QuantizationConfig
 
 
