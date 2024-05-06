@@ -16,11 +16,11 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsScheme):
     def __init__(self, fake_quant: bool):
         self.fake_quant = fake_quant
 
-    def _quantize(self,
-                  x: torch.Tensor,
-                  scales: torch.Tensor,
-                  logical_widths: List[int],
-                  split_dim: int = 0) -> torch.Tensor:
+    def _quantize_weights(self,
+                          x: torch.Tensor,
+                          scales: torch.Tensor,
+                          logical_widths: List[int],
+                          split_dim: int = 0) -> torch.Tensor:
 
         x_q = torch.empty_like(x, dtype=torch.int8, device="cuda")
         x_q_split = x_q.split(logical_widths, dim=split_dim)
@@ -31,7 +31,7 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsScheme):
 
         return x_q
 
-    def _quantize_single(self, x: torch.Tensor, scale: float):
+    def _quantize_activation(self, x: torch.Tensor, scale: float):
         x_q = torch.empty_like(x, dtype=torch.int8, device="cuda")
         ops.static_scaled_int8_quant(x_q, x, scale)
         return x_q
@@ -113,7 +113,6 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsScheme):
         set_weight_attrs(weight_zero_point, {"weight_loader": weight_loader})
 
     def apply_weights(self, layer: torch.nn.Module, x: torch.Tensor):
-
         # Lazy import so we don't fail on cutlass imports on non-CUDA
         # machines.
         from vllm.model_executor.layers.quantization.compressed_tensors.cutlass_gemm import (  # noqa: E501
@@ -122,21 +121,18 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsScheme):
         weight = layer.weight
         weight_scale = layer.weight_scale
         act_scale = layer.input_scale
-        logical_widths = weight.logical_widths
 
         # Input quantize
-        x_q = self._quantize_single(x, act_scale[0].item())
+        x_q = self._quantize_activation(x, act_scale[0].item())
 
-        # Weight quantize
-        # TODO : try not to remove device-to-host copy.
-        # i.e. keep the non-duplicated version of scales in the CPU
-        if self.fake_quant:  # TODO: update
+        if self.fake_quant:
+            logical_widths = weight.logical_widths
             w_scales = [
                 weight_scale[sum(logical_widths[:i])].item()
                 for i in range(len(logical_widths))
             ]
             w_scales = torch.FloatTensor(w_scales, device=torch.device("cpu"))
-            w_q = self._quantize(weight, w_scales, logical_widths)
+            w_q = self._quantize_weights(weight, w_scales, logical_widths)
             # GEMM and dq
             return cutlass_gemm_dq(x_q, w_q, x.dtype, weight_scale, act_scale)
         return cutlass_gemm_dq(x_q, weight, x.dtype, weight_scale, act_scale)

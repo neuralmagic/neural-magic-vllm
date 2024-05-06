@@ -37,7 +37,6 @@ class CompressedTensorsConfig(QuantizationConfig):
         }
 
         # Update the ignore list: layer with q_proj are replaced to be qkv_proj
-        # drop duplicates?
         for layer in self.ignore:
             for k in llama_mapping:
                 if k in layer:
@@ -68,6 +67,7 @@ class CompressedTensorsConfig(QuantizationConfig):
 
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> "CompressedTensorsConfig":
+
         config = config["compression_config"]["quantization_config"]
 
         layer_quant_details: Dict[str, Any] = dict()
@@ -132,6 +132,7 @@ class CompressedTensorsConfig(QuantizationConfig):
 
         raise NotImplementedError("Scheme not supported.")
 
+    # TODO: remove once in compressed_tensors
     def find_first_name_or_class_match(
             self,
             name: str,
@@ -144,6 +145,7 @@ class CompressedTensorsConfig(QuantizationConfig):
         return self._find_first_match(name, targets) or self._find_first_match(
             module.__class__.__name__, targets, check_contains)
 
+    # TODO: remove once in compressed_tensors
     def _find_first_match(self,
                           value: str,
                           targets: Iterable[str],
