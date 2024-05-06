@@ -177,7 +177,7 @@ jobs:
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
         secrets: inherit
 
-    TEST-LM_EVAL-SMOKE:
+    TEST-ACCURACY-SMOKE:
       needs: [BUILD]
       if: inputs.wf_category == 'NIGHTLY'
       uses: ./.github/workflows/nm-lm-eval-smoke.yml
@@ -191,7 +191,7 @@ jobs:
         whl: ${{ needs.BUILD.outputs.whl }}
       secrets: inherit
 
-    TEST-LM-EVAL-FULL:
+    TEST-ACCURACY-FULL:
       needs: [BUILD]
       if: ${{ inputs.wf_category == 'WEEKLY' || inputs.wf_category == 'RELEASE' }}
       uses: ./.github/workflows/nm-lm-eval-accuracy.yml
