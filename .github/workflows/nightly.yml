@@ -3,7 +3,8 @@ run-name: ${{ github.actor }} triggered nightly on ${{ github.ref }}
 on:
     schedule:
       # * is a special character in YAML so you have to quote this string
-      - cron: '0 1 * * *'
+      - cron: '0 1 * * 0'    # weekly run
+      - cron: '0 1 * * 1-6'  # nightly run
 
     workflow_dispatch:
         inputs:
@@ -20,7 +21,7 @@ jobs:
     BUILD-TEST:
         uses: ./.github/workflows/build-test.yml
         with:
-            wf_category: NIGHTLY
+            wf_category: ${{ github.event.schedule == '0 1 * * 0' && 'WEEKLY' || 'NIGHTLY' }}
             python: 3.10.12
             gitref: ${{ github.ref }}
 

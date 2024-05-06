@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       wf_category:
-        description: "categories: REMOTE, NIGHTLY, RELEASE"
+        description: "categories: REMOTE, NIGHTLY, WEEKLY, RELEASE"
         type: string
         default: "REMOTE"
       python:
@@ -179,7 +179,7 @@ jobs:
 
     TEST-LM_EVAL-SMOKE:
       needs: [BUILD]
-      if: ${{ inputs.wf_category == 'NIGHTLY' || inputs.wf_category == 'RELEASE' }}
+      if: inputs.wf_category == 'NIGHTLY'
       uses: ./.github/workflows/nm-lm-eval-smoke.yml
       with:
         label: ${{ inputs.test_label_solo }}
@@ -193,7 +193,7 @@ jobs:
 
     TEST-LM-EVAL-FULL:
       needs: [BUILD]
-      if: inputs.wf_category == 'RELEASE'
+      if: ${{ inputs.wf_category == 'WEEKLY' || inputs.wf_category == 'RELEASE' }}
       uses: ./.github/workflows/nm-lm-eval-accuracy.yml
       with:
         label: ${{ inputs.test_label_multi }}
