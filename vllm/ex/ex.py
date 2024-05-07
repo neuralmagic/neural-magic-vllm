@@ -5,7 +5,7 @@ import unittest.mock
 from .code_cache import CodeCache
 from .fusion import FusedOpGenerator, pointwise_fusion
 from .register import SUPPORTED
-from .utils import ModuleInputGenerator
+from .utils import ModuleInputGenerator, print_tabular_to_string
 
 from torch._dynamo import register_backend, lookup_backend
 from torch.fx.passes.operator_support import create_op_support
@@ -23,10 +23,14 @@ logger = init_logger(__name__)
 
 ###############################################################################
 #
-# Partitioning
+# Module partitioning
 #
 ###############################################################################
 
+"""
+A callback for the fx CapabilityBasedPartitioner.  Nodes that are "supported"
+are partitioned into new submodules.
+"""
 def is_node_supported(
     submodules: Mapping[str, torch.nn.Module],
     node: torch.fx.Node,
@@ -36,19 +40,19 @@ def is_node_supported(
     else:
         return False
 
-
+"""
+Partition 'gm' into submodules based on the 'is_node_supported' callback.
+Modules containing "supported" nodes will be optimized by the backend.
+"""
 def partition_graph(
     gm: torch.fx.GraphModule,
     example_inputs: List[torch.Tensor]
 ) -> Tuple[torch.fx.GraphModule, List[Partition]]:
-    """
-    Partition 'gm' into submodules based on the 'is_node_supported' callback.
-    Modules containing "supported" nodes will be optimized by the backend.
-    """
     support = create_op_support(is_node_supported)
 
     #
-    # hacking
+    # hacking to detect extra inputs for symbolic/dynamic tensor
+    # dimensions.
     #
     holders = dict()
     for n in gm.graph.nodes:
@@ -72,7 +76,7 @@ def partition_graph(
     parts = p.propose_partitions()
 
     #
-    # hacking
+    # hacking to deal with extra inputs for symbolic/dynamic tensor
     #
     def ff(n):
         return f"{n.format_node()}"# "{n.meta}"
@@ -108,8 +112,11 @@ def partition_graph(
 #
 ###############################################################################
 
+"""
+Inline all submodules in 'mod' by running the tracer on them.
+TODO: double check that this will actually inline
+"""
 def inline_submodules(mod: torch.fx.GraphModule) -> torch.fx.GraphModule:
-    # TODO: double check that this will actually inline
     #mod.graph = torch.fx.symbolic_trace(mod)
     mod.graph = torch.fx.Tracer().trace(mod)
     return mod
@@ -160,8 +167,8 @@ def backend_compile(
 
 
 def node_in_module(n: torch.fx.Node, m: torch.fx.GraphModule) -> bool:
-    #    return n.graph.owning_module == m
-    # names should be unique, so this is ok
+    # Note: this doesn't work: return n.graph.owning_module == m
+    # Names should be unique, so this is ok
     return n.name in [nn.name for nn in m.graph.nodes]
 
 
@@ -187,7 +194,7 @@ class backend_class:
         # Must make a copy so that inductor backend doesn't choke.
         gm = copy.copy(gm)
 
-        logger.info(f"Original module {gm.graph}")
+        logger.info(f"Original module {gm}:\n{print_tabular_to_string(gm.graph)}")
         logger.info(f"input_types: {[type(inp) for inp in example_inputs]}")
 
         # Temporary hack to get around https://github.com/pytorch/pytorch/issues/108446
@@ -203,7 +210,7 @@ class backend_class:
         #
 
         # TODO: store these in the root module state dictionary so that code for
-        # all sub-modules is shared?  Should CodeCache be a global?
+        # all sub-modules is shared?  Or should these be globals?
         cc = CodeCache()
         fgen = FusedOpGenerator()
 
@@ -220,11 +227,12 @@ class backend_class:
         if not fake_mode:
             fake_mode = FakeTensorMode(allow_non_fake_inputs=True)
 
-        # Ensure that allow_non_fake_inputs is True so that original
+        # Ensure that 'allow_non_fake_inputs' is True so that original
         # 'example_inputs' can be used.
+        # Using unittest.mock is borrowed from torch/_guards.py
         with unittest.mock.patch.object(fake_mode, "allow_non_fake_inputs", True):
             # Determine example inputs for submodules.
-            # Note: static_shapes can be applied here
+            # Note: static_shapes can be applied here if necessary.
             mig = ModuleInputGenerator(part_gm, fake_mode)
             mig.propagate(*example_inputs)
 
@@ -245,7 +253,7 @@ class backend_class:
 
                     logger.info(f"Optimized {name}: {m.print_readable(False)}")
 
-                    # TODO: don't really need to recompile if nothing happened.
+                    # TODO: don't really need to recompile if nothing was modified.
                     m.recompile()
 
                     if self.backend != None:

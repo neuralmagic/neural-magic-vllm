@@ -9,6 +9,10 @@ import torch
 import torch.utils.cpp_extension
 import types
 
+from contextlib import redirect_stdout
+from io import StringIO
+from pathlib import Path
+
 from torch.fx.passes.fake_tensor_prop import FakeTensorProp
 from torch.fx.passes.tools_common import get_node_target
 from torch._subclasses.fake_tensor import FakeTensorMode, FakeTensor
@@ -16,32 +20,50 @@ from torch._subclasses.fake_tensor import FakeTensorMode, FakeTensor
 from typing import List, Tuple, Any, Dict, Optional, Callable, Mapping, Set
 
 
+def print_tabular_to_string(g: torch.fx.Graph) -> str:
+    with redirect_stdout(StringIO()) as g_str:
+        g.print_tabular()
+    return g_str.getvalue()
+
+
+"""
+Get the name of the function being called in a 'call_function' op.
+"""
 def node_function_target(node: torch.fx.Node) -> str:
+    assert node.op == 'call_function'
     return get_node_target(None, node)
 
-# Make this always return a string?
-def argument_type(arg: torch.fx.node.Argument):
+
+"""
+Return a string representation of the type of the given argument.  This is
+used for name mangling.
+"""
+def argument_type_str(arg: torch.fx.node.Argument):
     if isinstance(arg, torch.fx.Node):
-        return extract_node_type(arg)
+        return str(extract_node_type(arg))
     elif isinstance(arg, torch.Tensor):
-        return arg.dtype
+        return str(arg.dtype)
     elif isinstance(arg, torch.dtype):
-        return arg
+        return str(arg)
     elif (isinstance(arg, str) or
           isinstance(arg, int) or
           isinstance(arg, float) or
           isinstance(arg, bool)):
-        return type(arg)
+        return type(arg).__name__
     elif (isinstance(arg, types.EllipsisType) or
           isinstance(arg, types.NoneType)):
-        return arg
+        return str(arg)
     elif isinstance(arg, tuple):
-        # TODO: needs some work
-        return "t_" + "_".join([str(argument_type(a)) for a in arg])
+        return "T_" + "_".join([argument_type_str(a) for a in arg])
+    elif isinstance(arg, slice):
+        return f"S_{arg.start}_{arg.stop}_{arg.step}"
     else:
-        return None # raise Exception(f"unsupported argument type {arg}")
+        raise RuntimeError(f"unsupported argument type {arg}")
 
-
+"""
+Get the data type (float, int, fp16, etc.)  of the tensor associated with
+the given node.
+"""
 def extract_node_type(n: torch.fx.Node):
     if 'tensor_meta' in n.meta:
         return n.meta['tensor_meta'].dtype
@@ -64,34 +86,33 @@ def compose(*fs: List[Callable]) -> Callable:
 
 
 """
-Generate a mangled name from a list of call_function nodes.  The mangled
-name includes the names of all the operators and their types.
+Generate a mangled name from a list of call_function nodes.
+The mangled name includes the names of all the operators and their types.
 """
 def mangle_name(nodes: List[torch.fx.Node], rep: str = "_P_") -> str:
     name = ""
     sep = ""
     for n in nodes:
         fn = node_function_target(n)
-        types = [str(argument_type(arg)).replace("torch.","") for arg in n.args]
+        types = [argument_type_str(arg).replace("torch.","") for arg in n.args]
         name = name + sep + f"{fn}_{'_'.join(types)}"
         sep = "_"
 
     return name.replace(".", rep)
 
 
-###############################################################################
-#
-# ModuleInputGenerator
-#
-###############################################################################
+"""
+Generate example inputs for all submodules in the given GraphModule.
+After running propagate the 'module_args' property will hold a map of
+module name to list of example inputs.
 
+For now, if a particular submodule is called from more than one location, 'module_args'
+will contain 'None'.  This could be made smarter but is not necessary for now
+since we currently only care about single use submodules.
 
-# TODO: combine with ShapeProp somehow?
+TODO: can this be combined with ShapeProp somehow?
+"""
 class ModuleInputGenerator(torch.fx.passes.fake_tensor_prop.FakeTensorProp):
-    """
-    Generate example inputs for all submodules in the given GraphModule.
-    """
-
     def __init__(
             self,
             module: torch.fx.GraphModule,
@@ -106,7 +127,7 @@ class ModuleInputGenerator(torch.fx.passes.fake_tensor_prop.FakeTensorProp):
             args: Tuple[torch.fx.node.Argument, ...],
             kwargs: Dict[str, Any]
     ) -> Any:
-        # TODO: problem here with multiple call sites and different args,
+        # Problem here with multiple call sites and different args,
         # for now set to None if there are multiple callers.
         # Could check for "compatible" inputs and allow.
         if target in self.module_args:
@@ -117,12 +138,16 @@ class ModuleInputGenerator(torch.fx.passes.fake_tensor_prop.FakeTensorProp):
         return super().call_module(target, args, kwargs)
 
 
-###############################################################################
-#
-# dataflow graph
-#
-###############################################################################
+"""
+The FlowGraph is a dataflow graph for a fx.GraphModule.
+The nodes are fx.Nodes and the edges represent the producers (inputs) and
+consumers (outputs) of each operation.
 
+The FlowGraph is invalidated if the underlying GraphModule is modified.
+It can be regenerated at any time by calling the `build` method.
+
+TODO: turn getitems into "reader views"?
+"""
 class FlowGraph:
     def __init__(self, gm: torch.fx.GraphModule):
         self.module = gm
@@ -137,7 +162,9 @@ class FlowGraph:
         self.succs[src].add(dst)
         self.preds[dst].add(src)
 
-    # TODO: turn getitems into "reader views"?
+    """
+    Construct the FlowGraph.
+    """
     def build(self):
         self.succs = dict()
         self.preds = dict()
@@ -156,9 +183,15 @@ class FlowGraph:
                 self.add_edge(input, n)
                 q.append(input)
 
+    """
+    The underlying GraphModule inputs.
+    """
     def inputs(self) -> List[torch.fx.Node]:
         return self.inputs
 
+    """
+    The underlying GraphModule outputs.
+    """
     def outputs(self) -> List[torch.fx.Node]:
         return self.outputs
 
@@ -180,13 +213,22 @@ class FlowGraph:
             q = list(self.successors(n)) + q
 
 
-def build_extension(lib_name: str, sources: List[str]):
+"""
+Given a list of cpp and cuda source files, build and load a pytorch extension
+module with the given name.  Loaded ops will appear in the torch.ops.{lib_name}
+namespace.
+"""
+def build_extension(
+    lib_name: str,
+    sources: List[str],
+    opt: str = '-O2',
+    verbose: bool = False
+):
+    vllm_root = Path(__file__).parent.parent.parent
     torch.utils.cpp_extension.load(
         name=lib_name,
         sources=sources,
-        #extra_cflags=['-O2',f'-DLIBRARY_NAME={lib_name}'],
-        extra_cflags=['-g',f'-DLIBRARY_NAME={lib_name}'],
-        verbose=True,
+        extra_cflags=[opt, f'-DLIBRARY_NAME={lib_name}', f'-I{vllm_root}/csrc'],
+        verbose=verbose,
         is_python_module=False,
     )
-

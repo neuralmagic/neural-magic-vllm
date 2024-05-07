@@ -1,9 +1,15 @@
+###############################################################################
+#
+# Operator fusion pass
+#
+###############################################################################
+
 import torch
 
 from .code_cache import CodeCache
 from .fused_op_generator import FusedOpGenerator, FusionFail
 from .register import FUSABLE
-from .utils import extract_node_type, ModuleInputGenerator, FlowGraph, node_function_target
+from .utils import extract_node_type, ModuleInputGenerator, FlowGraph, node_function_target, print_tabular_to_string
 
 from torch.fx.passes.split_module import split_module
 from torch.fx.passes.shape_prop import ShapeProp
@@ -12,58 +18,49 @@ from vllm.logger import init_logger
 
 logger = init_logger(__name__)
 
-###############################################################################
-#
-# Fusion
-#
-###############################################################################
-
-#
-# Fuse all the nodes in a subgraph into a single node
-#
+"""
+Fuse all the nodes in the given module into a single function call.
+"""
 def fuse_graph_nodes(
     cc: CodeCache,
     fgen: FusedOpGenerator,
     mod: torch.fx.GraphModule
 ) -> torch.fx.GraphModule:
-    first = None
-
     outputs = [n for n in mod.graph.nodes if n.op == 'output']
     inputs = [n for n in mod.graph.nodes if n.op == 'placeholder']
 
-    newline = "\n"
+    if len(outputs) != 1:
+        raise FusionFail("only single output supported currently.")
 
-    # for now
-    assert len(outputs) == 1
-
-    nodes_to_erase = []
-
-    kwargs = None
+    # Collect all kwargs for fused ops and all the nodes that
+    # will need to be fused (and erased) later.
+    first = None
+    nodes_to_fuse = []
+    kwargs = dict()
     for n in mod.graph.nodes:
+        # Find insertion point for new function call.
         if n.op == 'placeholder':
             first = n
 
         if n.op != 'call_function':
             continue
 
-        if n.kwargs:
-            if not kwargs:
-                kwargs = n.kwargs
-            else:
-                # TODO: assert no duplicates
-                kwargs = {**kwargs, **n.kwargs}
+        if n.kwargs is not None and len(n.kwargs) > 0:
+            kwargs[n.name] = n.kwargs
 
-        nodes_to_erase.append(n)
+        nodes_to_fuse.append(n)
 
-    # TODO: wrap CodeCache around this bit (fn_key is the mangled name)
+    if kwargs is not None and len(kwargs) > 0:
+        raise FusionFail(f"kwargs for fused ops not supported. {kwargs}")
+
+    # Lookup or create the fused operation.
     try:
-        fn_key = fgen.make_fused_op(inputs, outputs, nodes_to_erase, kwargs)
+        fn_key = fgen.make_fused_op(inputs, outputs, nodes_to_fuse, kwargs)
 
         def generate() -> Optional[Callable]:
             fn_dict = fgen.build_ops()
             assert fn_key in fn_dict
-            fn, _, _ = fn_dict[fn_key]
-            return fn
+            return fn_dict[fn_key]
 
         fn = cc.lookup_or_create(fn_key, generate)
 
@@ -75,47 +72,43 @@ def fuse_graph_nodes(
         logger.info(f"fusion failed previously '{ff}' for module: {mod}")
         return mod
 
-    #logger.info(f"fused fn = {fn}, {type(fn)}, {isinstance(fn, torch.nn.Module)}, {str(fn)}")
+    logger.info(f"fused fn = {fn}")
+
+
+    #
+    # Update the graph
+    # 1. insert the call_function for the fused op
+    # 2. insert new output node(s)
+    # 3. delete old call_function and output nodes.
+    #
 
     mod.graph.inserting_after(first)
 
-    # TODO: no kwargs for now
-    assert kwargs == None or len(kwargs) == 0
-
-    cf = mod.graph.call_function(fn, args=tuple(inputs), kwargs=kwargs)
-
     # Note: we do not update the meta info for cf here.  It should
     # not be required after transformation anyway.
+    cf = mod.graph.call_function(fn, args=tuple(inputs), kwargs=kwargs)
+    logger.info(f"fused op: {cf.format_node()}")
 
-    # which way is best?  the 'else' seems more general
-    # see also eliminate_dead_code()
-    if False:
-        outputs[0].prev.replace_all_uses_with(cf)
-    else:
-        mod.graph.inserting_after(cf)
-        mod.graph.output(cf, type_expr=torch.Tensor)
+    mod.graph.inserting_after(cf)
+    mod.graph.output(cf, type_expr=torch.Tensor)
 
-        for o in outputs:
-            logger.info(f"ERASE {o}")
-            mod.graph.erase_node(o)
+    for o in outputs:
+        logger.info(f"ERASE {o}")
+        mod.graph.erase_node(o)
 
-    logger.info(f"fuse mod {mod.print_readable(False)}")
-    logger.info(f"cf {cf.name} {cf.format_node()}")
-
-    nodes_to_erase.reverse()
-    for n in nodes_to_erase:
+    for n in reversed(nodes_to_fuse):
         logger.info(f"ERASE {n}")
         mod.graph.erase_node(n)
 
-    # TODO: see node.replace_all_uses_with(new_node)
-
-    # Do this here or in caller?
-    #mod.recompile()
+    logger.info(f"fuse mod {mod.print_readable(False)}")
 
     return mod
 
 
-# TODO: Smarter filter for getitem
+"""
+Determine whether or not node is a fusable operations.
+TODO: Smarter filter for 'getitem'.
+"""
 def is_fusable(node: torch.fx.Node) -> bool:
     if node.op != 'call_function':
         return False
@@ -124,6 +117,9 @@ def is_fusable(node: torch.fx.Node) -> bool:
     return op_name in FUSABLE and not FUSABLE[op_name]
 
 
+"""
+Determine whether or not node is a fusable compute operation, e.g. gemm.
+"""
 def is_compute(node: torch.fx.Node) -> bool:
     if node.op != 'call_function':
         return False
@@ -138,15 +134,26 @@ def is_getitem(a: torch.fx.Node) -> bool:
     return node_function_target(a) == '_operator.getitem'
 
 
+"""
+Are nodes a and b fusable together?
+This function assumes 'b' is a direct successor of 'a'.
+"""
 def is_fusable_pair(a: torch.fx.Node, b: torch.fx.Node) -> bool:
     return is_fusable(a) and is_fusable(b)
 
 
+"""
+Are nodes 'a' and 'b' fusable together and is 'a' optionally a compute op?
+This function assumes 'b' is a direct successor of 'a'.
+"""
 def is_compute_fusable_pair(a: torch.fx.Node, b: torch.fx.Node) -> bool:
     return (is_fusable(a) or is_compute(a)) and is_fusable(b)
 
 
-# TODO: reject singleton/nop partitions
+"""
+Determine if the given module is the result of the fusion pass or just
+an pre-existing sub-module.
+"""
 def is_fused_subgraph(mod: torch.fx.GraphModule) -> bool:
     fg = FlowGraph(mod)
     saw_call = False
@@ -170,10 +177,23 @@ def is_fused_subgraph(mod: torch.fx.GraphModule) -> bool:
     return True
 
 
+"""
+Determine if any kwargs associated with 'node' are supported.
+"""
+def supported_kwargs(node: torch.fx.Node, allow_const_kwargs: bool = False) -> bool:
+    if allow_const_kwargs:
+        for arg in node.kwargs.values():
+            if not isinstance(arg, torch.fx.node.BaseArgumentTypes):
+                return False
+        return True
+    else:
+        return node.kwargs is None or len(node.kwargs) == 0
 
-# 1. create Partition objects from sequences of fusable nodes
-# 2. use fuse_partitions to recreate the graph
-# torch._inductor.fx_passes.group_batch_fusion
+
+"""
+1. create Partition objects from sequences of fusable nodes
+2. use fuse_partitions to recreate the graph torch._inductor.fx_passes.group_batch_fusion
+"""
 def pointwise_fusion(
     cc: CodeCache,
     fgen: FusedOpGenerator,
@@ -202,25 +222,28 @@ def pointwise_fusion(
     # run in reverse order so predecesors of non-unary ops will appear
     # in the same partition.
     for n in reversed(mod.graph.nodes):
-        #logger.info(f"CONSIDER {n}")
+        logger.info(f"CONSIDER {n}")
 
         if n.op != 'call_function':
-            #logger.info(f"  REJECT {n} not call")
+            logger.info(f"  REJECT {n} not call")
             node_map[n] = 0
             continue
 
         # TODO: handle get_attr ops
         # should probably be lifted/put in partition 0 but not prevent fusion
 
-        if not all([is_fusable_pair(n, s) for s in fg.predecessors(n)]):
+        pred = is_fusable_pair if not fuse_with_compute else is_compute_fusable_pair
+
+        fusable = [pred(s, n) for s in fg.predecessors(n)]
+        if not all(fusable):
             if not n in node_map:
-                #logger.info(f"  REJECT {n} no fusable preds and not in map")
+                logger.info(f"  REJECT {n} no fusable preds and not in map: {fusable}, {fg.predecessors(n)}")
                 node_map[n] = 0
             continue
 
         # don't support anything with kwargs for now
-        if n.kwargs and len(n.kwargs) > 0:
-            #logger.info(f"  REJECT {n} kwargs")
+        if not supported_kwargs(n):
+            logger.info(f"  REJECT {n} unsupported kwargs")
             node_map[n] = 0
             continue
 
@@ -274,8 +297,7 @@ def pointwise_fusion(
 
     qualname_map=dict()
 
-    logger.info(f"mod {mod.print_readable(False)}")
-    mod.graph.print_tabular()
+    logger.info(f"pre-fusion split mod {print_tabular_to_string(mod.graph)}")
 
     # create submodules for each fusable set of nodes
     new_mod = split_module(
@@ -283,7 +305,7 @@ def pointwise_fusion(
         mod,
         map_node,
         qualname_map,
-        keep_original_order=False, #True
+        keep_original_order=False,
     )
 
     mig = ModuleInputGenerator(new_mod)
@@ -294,20 +316,11 @@ def pointwise_fusion(
         if is_fused_subgraph(cm):
             module_inputs = mig.module_args[cname][0]
             ShapeProp(cm).propagate(*module_inputs)
-
-            logger.info(f"FUSING GRAPH NODES {cname}")
-            cm.graph.print_tabular()
-            logger.info(cm.graph.python_code(cm).src)
-            #graph_print_tabular(cm.graph)
+            logger.info(f"Fusing sub-module {cname}:\n{print_tabular_to_string(cm.graph)}")
             cm = fuse_graph_nodes(cc, fgen, cm)
-            logger.info(f"CM {cname}: {cm}")
+            logger.info(f"Post fusion sub-module {cname}:\n{print_tabular_to_string(cm.graph)}")
             cm.recompile()
 
-    logger.info(f"new_mod {new_mod.print_readable(False)}")
-    logger.info(f"new mod {new_mod.graph.print_tabular()}")
-
-    # Do this here or in caller?
-    #new_mod.recompile()
+    logger.info(f"Post fusion module:\n{print_tabular_to_string(new_mod.graph)}")
 
     return new_mod
-
