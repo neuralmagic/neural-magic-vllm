@@ -20,6 +20,7 @@ jobs:
   BUILD-TEST:
     uses: ./.github/workflows/build-test.yml
     with:
+      wf_category: 'RELEASE'
       python: 3.10.12
       gitref: ${{ github.ref }}
 
