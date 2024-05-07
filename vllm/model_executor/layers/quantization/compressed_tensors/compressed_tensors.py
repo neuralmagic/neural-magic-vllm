@@ -1,8 +1,8 @@
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, List, Optional
 
 import torch
-#from compressed_tensors.quantization.lifecycle.apply import (
-#    find_first_name_or_class_match) # TODO: needed
+from compressed_tensors.quantization.lifecycle.apply import (
+    find_first_name_or_class_match)
 from compressed_tensors.quantization.quant_args import (QuantizationArgs,
                                                         QuantizationStrategy)
 from pydantic import BaseModel
@@ -19,6 +19,12 @@ class CompressedTensorsConfig(QuantizationConfig):
 
     def __init__(self, layer_quant_details: Dict[str, Any], ignore: List[str],
                  fake_quant: bool):
+        """
+        :param layer_quant_detials: dictionary mapping target layers to
+            quantization details
+        :param ignore: list of layers that are skipped/unquantized 
+        :param fake_quant: if we're running fake quant or not
+        """
         self.fake_quant = fake_quant
         self.ignore = ignore
         self.layer_quant_details = layer_quant_details
@@ -31,7 +37,8 @@ class CompressedTensorsConfig(QuantizationConfig):
             "up_proj": "gate_up_proj"
         }
 
-        # Update the ignore list: layer with q_proj are replaced to be qkv_proj
+        # Update the ignore list: e.g layers with q_proj are replaced
+        # to be qkv_proj to be compatible with vllm
         for layer in self.ignore:
             for k in llama_mapping:
                 if k in layer:
@@ -89,7 +96,7 @@ class CompressedTensorsConfig(QuantizationConfig):
         return ["quant_config.json"]
 
     def _is_static_tensor_w8a8(self, weight_quant: BaseModel,
-                               input_quant: BaseModel):
+                               input_quant: BaseModel) -> bool:
         is_8_bits = weight_quant.num_bits == input_quant.num_bits == 8
         is_tensor = (weight_quant.strategy == input_quant.strategy ==
                      QuantizationStrategy.TENSOR.value)
@@ -101,12 +108,12 @@ class CompressedTensorsConfig(QuantizationConfig):
         return False
 
     def _is_dynamic_token_w8a8(self, weight_quant: BaseModel,
-                               input_quant: BaseModel):
+                               input_quant: BaseModel) -> bool:
         is_8_bits = weight_quant.num_bits == input_quant.num_bits == 8
         is_token_tensor = (weight_quant.strategy
                            == QuantizationStrategy.TENSOR.value) and (
-                               input_quant.strategy == "token"
-                           )  # TODO: QuantizationStrategy should have token
+                               input_quant.strategy
+                               == QuantizationStrategy.TOKEN.value)
         is_symmetric = weight_quant.symmetric and input_quant.symmetric
         is_dynamic = not weight_quant.dynamic and input_quant.dynamic
 
@@ -114,7 +121,8 @@ class CompressedTensorsConfig(QuantizationConfig):
             return True
         return False
 
-    def _get_schema(self, weight_quant: BaseModel, input_quant: BaseModel):
+    def _get_schema(self, weight_quant: BaseModel,
+                    input_quant: BaseModel) -> "CompressedTensorsScheme":
         if self._is_static_tensor_w8a8(weight_quant, input_quant):
             return CompressedTensorsW8A8StaticTensor(
                 fake_quant=self.fake_quant)
@@ -125,45 +133,23 @@ class CompressedTensorsConfig(QuantizationConfig):
 
         raise NotImplementedError("Scheme not supported.")
 
-    # TODO: remove once in compressed_tensors
-    def find_first_name_or_class_match(
-            self,
-            name: str,
-            module: torch.nn.Module,
-            targets: Iterable[str],
-            check_contains: bool = False) -> Optional[str]:
-        # first element of targets that matches the given name
-        # if no name matches returns first target that matches the class name
-        # returns None otherwise
-        return self._find_first_match(name, targets) or self._find_first_match(
-            module.__class__.__name__, targets, check_contains)
-
-    # TODO: remove once in compressed_tensors
-    def _find_first_match(self,
-                          value: str,
-                          targets: Iterable[str],
-                          check_contains: bool = False) -> Optional[str]:
-        # returns first element of target that matches value either
-        # exactly or as a regex after 're:'. if check_contains is set to True,
-        # additionally checks if the target string is contained with value.
-        import re
-
-        for target in targets:
-            if target.startswith("re:"):
-                pattern = target[3:]
-                if re.match(pattern, value):
-                    return target
-            elif check_contains:
-                if target.lower() in value.lower():
-                    return target
-            elif target == value:
-                return target
-        return None
-
     def get_scheme(
             self,
             layer: torch.nn.Module,
             layer_name: Optional[str] = None) -> "CompressedTensorsScheme":
+        """
+        Fetch the appropriate scheme based on the values in the config
+        for a given layer. Returns CompressedTensorsUnquantized if the layer 
+        is in the ignore list. For all other layers, use 
+        find_first_name_or_class_match from compressed_tensors to map the 
+        layer/layer name to the list of targets defined in the config. 
+        The target is then used to fetch the corresponding 
+        CompressedTensorsScheme
+
+        :param layer: torch layer
+        :param layer_name: name of the layer
+        :return: the CompressedTensorsScheme for the layer 
+        """
 
         if layer_name is None:
             raise ValueError(
@@ -174,7 +160,7 @@ class CompressedTensorsConfig(QuantizationConfig):
 
         # TODO: update/map layer_name for llama models before
         # using find_first_name_or_class_match?
-        layer_type_name = self.find_first_name_or_class_match(
+        layer_type_name = find_first_name_or_class_match(
             name=layer_name,
             module=layer,
             targets=self.layer_quant_details.keys(),
@@ -211,7 +197,8 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
                        **extra_weight_attrs):
         """
         Use the CompressedTensorsScheme associated with each layer to create 
-        the necessary parameters for the layer.
+        the necessary parameters for the layer. See LinearMethodBase for param
+        details
         """
         weight_loader = extra_weight_attrs.get("weight_loader")
 
@@ -234,7 +221,7 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
         """
         Use the output of create_weights and the CompressedTensorsScheme 
         associated with the layer to apply the forward pass with the 
-        layer input.
+        layer input.  See LinearMethodBase for param details
         """
 
         if bias is not None:
