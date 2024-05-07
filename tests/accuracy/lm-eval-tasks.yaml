@@ -23,7 +23,6 @@
       value: 0.14101592115238817
     - name: "exact_match,flexible-extract"
       value: 0.1652767247915087
-  deterministic: false
 # Mistral 7B: FP16, FP16 sparse, marlin
 - model_name: "teknium/OpenHermes-2.5-Mistral-7B"
   tasks:
