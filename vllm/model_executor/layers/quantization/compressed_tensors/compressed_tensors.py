@@ -93,6 +93,8 @@ class CompressedTensorsConfig(QuantizationConfig):
 
     @classmethod
     def get_config_filenames(cls) -> List[str]:
+        # TODO: this is a workaround for an incompatibility between
+        # sparseml and vllm
         return ["quant_config.json"]
 
     def _is_static_tensor_w8a8(self, weight_quant: BaseModel,
