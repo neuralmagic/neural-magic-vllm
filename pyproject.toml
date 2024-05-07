@@ -17,6 +17,7 @@ exclude = [
     # External file, leaving license intact
     "examples/fp8/quantizer/quantize.py"
 ]
+
 [tool.ruff.lint]
 select = [
     # pycodestyle

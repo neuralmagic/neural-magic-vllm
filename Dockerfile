@@ -102,6 +102,8 @@ WORKDIR /usr/src/flash-attention-v2
 RUN pip --verbose wheel flash-attn==${FLASH_ATTN_VERSION} \
     --no-build-isolation --no-deps --no-cache-dir
 
+#################### FLASH_ATTENTION Build IMAGE ####################
+
 #################### vLLM installation IMAGE ####################
 # image with vLLM installed
 FROM nvidia/cuda:12.4.1-base-ubuntu22.04 AS vllm-base
@@ -124,6 +126,7 @@ RUN --mount=type=bind,from=build,src=/workspace/dist,target=/vllm-workspace/dist
 RUN --mount=type=bind,from=flash-attn-builder,src=/usr/src/flash-attention-v2,target=/usr/src/flash-attention-v2 \
     --mount=type=cache,target=/root/.cache/pip \
     pip install /usr/src/flash-attention-v2/*.whl --no-cache-dir
+#################### vLLM installation IMAGE ####################
 
 #################### TEST IMAGE ####################
 # image to run unit testing suite
@@ -156,8 +159,6 @@ FROM vllm-base AS vllm-openai
 # install additional dependencies for openai api server
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install accelerate hf_transfer modelscope
-
-ENV VLLM_USAGE_SOURCE production-docker-image
 
 ENV VLLM_USAGE_SOURCE production-docker-image
 
