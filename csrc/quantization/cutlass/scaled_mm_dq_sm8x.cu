@@ -9,8 +9,6 @@
 #include "cute/atom/mma_atom.hpp"
 #include "cutlass/numeric_types.h"
 
-#include "cutlass/util/tensor_view_io.h"
-#include "cutlass/util/packed_stride.hpp"
 #include "cutlass/util/device_memory.h"
 
 #include "cutlass/cutlass.h"
@@ -129,7 +127,7 @@ void cutlass_scaled_mm_dq_dispatcher(torch::Tensor &out, torch::Tensor const &a,
   int64_t ldc = out.stride(0);
 
   using StrideC = cute::Stride<int64_t, cute::Int<1>, cute::Int<0>>;
-  StrideC c_stride = cutlass::make_cute_packed_stride(StrideC{}, {m, n, 1});
+  StrideC c_stride{ldc, cute::Int<1>{}, cute::Int<0>{}};
 
   auto a_ptr = static_cast<ElementIn const *>(a.data_ptr());
   auto b_ptr = static_cast<ElementIn const *>(b.data_ptr());
@@ -187,7 +185,6 @@ void cutlass_scaled_mm_dq_dispatcher(torch::Tensor &out, torch::Tensor const &a,
   CUTLASS_CHECK(status);
 }
 
-#if defined(CUTLASS_ARCH_MMA_SM80_SUPPORTED)
 void cutlass_scaled_mm_dq_sm80(torch::Tensor &out, torch::Tensor const &a,
                           torch::Tensor const &b, torch::Tensor const &a_scales,
                           torch::Tensor const &b_scales) {
@@ -199,9 +196,7 @@ void cutlass_scaled_mm_dq_sm80(torch::Tensor &out, torch::Tensor const &a,
 
   return cutlass_scaled_mm_dq_dispatcher<sm8x_gemm<cutlass::arch::Sm80, int8_t, cutlass::bfloat16_t, int32_t>, int8_t, cutlass::bfloat16_t>(out, a, b, a_scales, b_scales);
 }
-#endif
 
-#if defined(CUTLASS_ARCH_MMA_SM89_SUPPORTED)
 void cutlass_scaled_mm_dq_sm89(torch::Tensor &out, torch::Tensor const &a,
                           torch::Tensor const &b, torch::Tensor const &a_scales,
                           torch::Tensor const &b_scales) {
@@ -227,4 +222,3 @@ void cutlass_scaled_mm_dq_sm89(torch::Tensor &out, torch::Tensor const &a,
                                                     b_scales);
   }
 }
-#endif

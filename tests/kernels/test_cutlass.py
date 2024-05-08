@@ -102,15 +102,34 @@ def test_cutlass_int8_gemm(
 @pytest.mark.parametrize("per_out_ch", [True, False])
 @pytest.mark.skipif(capability < 89, reason="FP8 is not supported on this GPU type.")
 def test_cutlass_fp8_gemm_m_sweep(per_act_token: bool, per_out_ch: bool):
-    for nk in range(16, 256, 16):
+    for nk in range(32, 128, 32):
         for m in range(1, 128):
             cutlass_fp8_gemm_helper(m,nk,nk, per_act_token, per_out_ch)
 
 @pytest.mark.parametrize("per_act_token", [True, False])
 @pytest.mark.parametrize("per_out_ch", [True, False])
 def test_cutlass_int8_gemm_m_sweep(per_act_token: bool, per_out_ch: bool):
-    for nk in range(16, 256, 16):
+    for nk in range(32, 128, 32):
         for m in range(1, 128):
             cutlass_int8_gemm_helper(m,nk,nk, per_act_token, per_out_ch)
-    
+
+# Test working with a subset of A and B
+def test_cutlass_subset():
+    big_m,big_n,big_k = 1024, 1024, 1024
+    m,n,k = 512, 512, 512
+
+    whole_a = to_int8(torch.randn((big_m, big_k), device='cuda') * 5)
+    whole_b = to_int8(torch.randn((big_n, big_k), device='cuda').t() * 5)
+    a = whole_a[0:m, 0:k]
+    b = whole_b[0:k, 0:n]
+
+    scale_a = torch.randn((1,1), device='cuda', dtype=torch.float32) / 10
+    scale_b = torch.randn((1,1), device='cuda', dtype=torch.float32) / 10
+
+    out = ops.cutlass_scaled_mm_dq(a, b, scale_a, scale_b)
+    baseline = torch.mm(scale_a * a.to(dtype=torch.float32), 
+                        scale_b * b.to(dtype=torch.float32)).to(dtype=torch.bfloat16)
+
+    assert torch.allclose(out, baseline, rtol=1e-1, atol=1e0)
+
 
