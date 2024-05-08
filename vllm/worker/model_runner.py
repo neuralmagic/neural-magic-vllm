@@ -11,7 +11,6 @@ import torch.nn as nn
 
 from vllm.attention import (AttentionMetadata, AttentionMetadataPerStage,
                             get_attn_backend)
-from vllm.attention.backends.flashinfer import FlashInferBackend
 from vllm.config import (DeviceConfig, LoadConfig, LoRAConfig, ModelConfig,
                          ParallelConfig, SchedulerConfig, VisionLanguageConfig)
 from vllm.distributed import broadcast_tensor_dict, with_pynccl_for_all_reduce
@@ -397,7 +396,7 @@ class ModelRunner:
                      dtype=seq_start_loc.dtype,
                      out=seq_start_loc[1:])
 
-        if self.attn_backend is FlashInferBackend:
+        if self.attn_backend.get_name() == "flashinfer":
             attn_metadata = self.attn_backend.make_metadata(
                 is_prompt=True,
                 use_cuda_graph=False,
@@ -558,7 +557,7 @@ class ModelRunner:
                 device=self.device,
             )
 
-        if self.attn_backend is FlashInferBackend:
+        if self.attn_backend.get_name() == "flashinfer":
             if not hasattr(self, "flashinfer_workspace_buffer"):
                 # Allocate 16MB workspace buffer
                 # Follow the example of flashinfer: https://docs.flashinfer.ai/api/python/decode.html
