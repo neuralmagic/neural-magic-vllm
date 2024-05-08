@@ -71,6 +71,7 @@ class FusedOpGenerator:
         self.callables = dict()
         self.fused_op = []
         self.fused_op.append(f'#include <torch/extension.h>')
+        self.fused_op.append(f'#include <iostream>')
         #self.fused_op.append(f'#include <ops.h>')
         self.fused_op.append('#define _operator_add(a, b) ((a) + (b))')
         self.fused_op.append('#define _operator_mul(a, b) ((a) * (b))')
@@ -151,6 +152,8 @@ class FusedOpGenerator:
         self.fused_op.append(f'torch::Tensor {op}({cxx_arg_sig})')
         self.fused_op.append('{')
         self.fused_op.append('  pybind11::gil_scoped_acquire gil_lock;')
+
+        self.fused_op.append(f'  std::cout << "GOT HERE: {op}" << std::endl;')
 
         for n, fn in zip(nodes, fn_names):
             comment_str = f"  // ({', '.join([argument_type_str(inp) for inp in n.args])}) -> {str(extract_node_type(n))}"
