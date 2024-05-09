@@ -18,13 +18,10 @@ from tqdm.auto import tqdm
 
 from vllm.config import LoadConfig, ModelConfig
 from vllm.logger import init_logger
-# UPSTREAM SYNC: needed for sparsity
 from vllm.model_executor.layers.parameters import LazyCompressedParameter
 from vllm.model_executor.layers.quantization import (QuantizationConfig,
                                                      get_quantization_config)
 from vllm.model_executor.layers.quantization.schema import QuantParamSchema
-from vllm.model_executor.layers.sparsity import (SparsityConfig,
-                                                 get_sparsity_config)
 
 logger = init_logger(__name__)
 
@@ -119,7 +116,9 @@ def convert_bin_to_safetensor_file(
 
 # UPSTREAM SYNC: needed for sparsity
 # TODO: (MLE) load compressed models from here
-def get_sparse_config(model_config: ModelConfig) -> SparsityConfig:
+def get_sparse_config(model_config: ModelConfig) -> QuantizationConfig:
+    # Lazy import for optional nm-magic-wand-nightly.
+    from vllm.model_executor.layers.sparsity import get_sparsity_config
     sparsity_cls = get_sparsity_config(model_config.sparsity)
     hf_sparsity_config = getattr(model_config.hf_config, "sparsity_config",
                                  None)

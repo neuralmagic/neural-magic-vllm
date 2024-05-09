@@ -1033,7 +1033,7 @@ class ModelRunner:
         return self.model_config.get_vocab_size()
 
 
-class CUDAGraphRunner():
+class CUDAGraphRunner:
 
     def __init__(self, model: nn.Module):
         self.model = model
