@@ -90,15 +90,15 @@ def partition_graph(
                 val = n.meta['example_value']
                 logger.info(f"example_value {val} {type(val)}")
                 if isinstance(val, FakeTensor):
-                    logger.info(f"FAKE_TENSOR {val.size()}{any([isinstance(d, torch.SymInt) for d in val.size()])}")
+                    logger.info(f"FAKE_TENSOR {val.size()}: {any([isinstance(d, torch.SymInt) for d in val.size()])}")
                     for d in val.size():
                         if isinstance(d, torch.SymInt) and not d in syms:
                             syms.append(d)
 
         logger.info(f"SYMS: {syms}")
-        for s in syms:
-            continue
-            #pp.nodes.add(holders[str(s)])
+        #foo = [holders[str(s)] for s in syms]
+        #pp.nodes = set(list(pp.nodes) + foo)
+        #pp.nodes.add(holders[str(s)])
     #
     # end hacking
     #
@@ -187,6 +187,11 @@ class backend_class:
     sub-modules.  The supported submodules are passed to an optimizer and then compiled
     via an optional "final" backend.
     """
+
+    # TODO: this probably needs additional context to avoid collisions, e.g.
+    # module/model name.
+    cc = CodeCache()
+
     def __init__(self, backend: Optional[str] = 'inductor'):
         self.backend = backend
 
@@ -211,7 +216,6 @@ class backend_class:
 
         # TODO: store these in the root module state dictionary so that code for
         # all sub-modules is shared?  Or should these be globals?
-        cc = CodeCache()
         fgen = FusedOpGenerator()
 
         part_gm, parts = partition_graph(gm, example_inputs)
@@ -248,7 +252,7 @@ class backend_class:
                         continue
 
                     logger.info(f"Optimizing {name}.")
-                    m = optimize(cc, fgen, m, module_inputs)
+                    m = optimize(backend_class.cc, fgen, m, module_inputs)
                     setattr(part_gm, name, m)
 
                     logger.info(f"Optimized {name}: {m.print_readable(False)}")
