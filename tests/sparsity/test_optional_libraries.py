@@ -20,8 +20,7 @@ def test_magic_wand_not_imported():
     _ = LLM("facebook/opt-125m")
 
     for lib in optional_libraries:
-        assert (lib not in sys.modules,
-                f"{lib} was imported but shouldn't have been")
+        assert lib not in sys.modules
 
 
 def test_magic_wand_imported():
@@ -31,5 +30,4 @@ def test_magic_wand_imported():
     _ = LLM("facebook/opt-125m", sparsity="sparse_w16a16")
 
     for lib in optional_libraries:
-        assert (lib
-                in sys.modules, f"{lib} was not imported but should have been")
+        assert lib in sys.modules
