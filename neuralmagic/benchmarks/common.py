@@ -1,21 +1,27 @@
 import itertools
 import json
+import os
 from argparse import Namespace
 from pathlib import Path
 from typing import Iterable, NamedTuple
 
 # TODO (varun) : find a workaround so we avoid using private methods
 from vllm.config import _get_and_verify_max_len
-from vllm.model_executor.weight_utils import prepare_hf_model_weights
+from vllm.model_executor.model_loader.weight_utils import (
+    download_weights_from_hf)
 from vllm.transformers_utils.config import get_config
 from vllm.transformers_utils.tokenizer import get_tokenizer
 
 
 def download_model(model: str) -> None:
     """
-     Downloads a hugging face model to cache
-     """
-    prepare_hf_model_weights(model)
+    Downloads a hugging face model to cache
+    """
+    cache_dir = os.getenv("HF_HOME")
+    allow_patterns = ["*.safetensors", "*.bin"]
+    download_weights_from_hf(model,
+                             cache_dir=cache_dir,
+                             allow_patterns=allow_patterns)
     get_tokenizer(model)
 
 
@@ -56,7 +62,7 @@ def script_args_to_cla(config: NamedTuple) -> Iterable[dict]:
 
 def benchmark_configs(config_file_path: Path) -> Iterable[NamedTuple]:
     """
-    Give a path to a config file in `neuralmagic/benchmarks/configs/*` 
+    Give a path to a config file in `neuralmagic/benchmarks/configs/*`
     return an Iterable of (sub)configs in the file
     """
     assert config_file_path.exists()
