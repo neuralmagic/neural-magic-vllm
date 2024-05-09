@@ -100,7 +100,7 @@ using CollectiveMainloop =
   >::CollectiveOp;
 
 // Gemm operator cutlass3x_sm90_tensorop_i64x128x32gemm_s8_s8_s32_bf16_bf16_128x128x128_2x1x1_0_tnt_align16_warpspecialized_pingpong_epi_tma
-using cutlass3x_sm90_tensorop_i64x128x32gemm_s8_s8_s32_bf16_bf16_128x128x128_2x1x1_0_tnt_align16_warpspecialized_pingpong_epi_tma_base = cutlass::gemm::kernel::GemmUniversal<
+using Kernel = cutlass::gemm::kernel::GemmUniversal<
     cute::Shape<int,int,int,int>,
     CollectiveMainloop,
     CollectiveEpilogue,
@@ -109,7 +109,7 @@ using cutlass3x_sm90_tensorop_i64x128x32gemm_s8_s8_s32_bf16_bf16_128x128x128_2x1
 
 // Define named type
 struct GemmKernel :
-  public cutlass3x_sm90_tensorop_i64x128x32gemm_s8_s8_s32_bf16_bf16_128x128x128_2x1x1_0_tnt_align16_warpspecialized_pingpong_epi_tma_base { };
+  public Kernel { };
 
 };
 
@@ -124,7 +124,6 @@ void cutlass_scaled_mm_dq_dispatcher(torch::Tensor &out, torch::Tensor const &a,
                                      torch::Tensor const &b,
                                      torch::Tensor const &a_scales,
                                      torch::Tensor const &b_scales) {
-
   int32_t m = a.size(0);
   int32_t n = b.size(1);
   int32_t k = a.size(1);
@@ -169,6 +168,10 @@ void cutlass_scaled_mm_dq_dispatcher(torch::Tensor &out, torch::Tensor const &a,
   using GemmOp = cutlass::gemm::device::GemmUniversalAdapter<GemmKernel>;
   GemmOp gemm_op;
   CUTLASS_CHECK(gemm_op.can_implement(args));
+
+  size_t workspace_size = gemm_op.get_workspace_size(args);
+  assert(workspace_size == 0);
+
   cutlass::Status status = gemm_op.run(args);
   CUTLASS_CHECK(status);
 }
