@@ -13,8 +13,7 @@ from vllm.model_executor.layers.sampler import Sampler
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.model_executor.utils import set_random_seed
 from vllm.sequence import SamplingParams, SequenceData, SequenceGroupMetadata
-from vllm.utils import Counter
-from vllm.worker.model_runner import ModelRunner
+from vllm.utils import Counter, is_pin_memory_available
 
 
 class MockLogitsSampler(Sampler):
@@ -28,21 +27,14 @@ class MockLogitsSampler(Sampler):
 
 
 def _prepare_test(
-    batch_size: int, device: str
-) -> Tuple[torch.Tensor, torch.Tensor, MockLogitsSampler, ModelRunner]:
+        batch_size: int
+) -> Tuple[torch.Tensor, torch.Tensor, MockLogitsSampler]:
     input_tensor = torch.rand((batch_size, 1024), dtype=torch.float16)
     fake_logits = torch.full((batch_size, VOCAB_SIZE),
                              1e-2,
                              dtype=input_tensor.dtype)
     sampler = MockLogitsSampler(fake_logits)
-    # UPSTREAM SYNC: passing device required for multi-gpu tests
-    model_runner = ModelRunner(model_config=None,
-                               parallel_config=None,
-                               scheduler_config=None,
-                               device_config=DeviceConfig(device=device),
-                               load_config=None,
-                               lora_config=None)
-    return input_tensor, fake_logits, sampler, model_runner
+    return input_tensor, fake_logits, sampler
 
 
 VOCAB_SIZE = 32000
@@ -56,7 +48,6 @@ def _do_sample(
     batch_size: int,
     input_tensor: torch.Tensor,
     sampler: MockLogitsSampler,
-    model_runner: ModelRunner,
     sampling_params: SamplingParams,
     device: str,
 ):
@@ -78,7 +69,7 @@ def _do_sample(
         seq_lens,
         query_lens=seq_lens,
         device=device,
-        pin_memory=model_runner.pin_memory)
+        pin_memory=is_pin_memory_available())
     return sampler(logits=input_tensor, sampling_metadata=sampling_metadata)
 
 
@@ -88,19 +79,15 @@ def test_sampler_all_greedy(seed: int, device: str):
     set_random_seed(seed)
     torch.set_default_device(device)
     batch_size = random.randint(1, 256)
-    # UPSTREAM SYNC: passing device required for multi-gpu tests
-    input_tensor, fake_logits, sampler, model_runner = _prepare_test(
-        batch_size, device)
+    input_tensor, fake_logits, sampler = _prepare_test(batch_size)
 
     sampling_params = SamplingParams(temperature=0)
-    sampler_output = _do_sample(batch_size, fake_logits, sampler, model_runner,
+    sampler_output = _do_sample(batch_size, fake_logits, sampler,
                                 sampling_params, device)
     expected = torch.argmax(fake_logits, dim=-1)
     for i, sequence_output in enumerate(sampler_output):
         for nth_output in sequence_output.samples:
             assert nth_output.output_token == expected[i].item()
-
-    del model_runner
 
 
 @pytest.mark.parametrize("seed", RANDOM_SEEDS)
@@ -109,9 +96,7 @@ def test_sampler_all_random(seed: int, device: str):
     set_random_seed(seed)
     torch.set_default_device(device)
     batch_size = random.randint(1, 256)
-    # UPSTREAM SYNC: passing device required for multi-gpu tests
-    input_tensor, fake_logits, sampler, model_runner = _prepare_test(
-        batch_size, device)
+    _, fake_logits, sampler = _prepare_test(batch_size)
 
     for i in range(batch_size):
         fake_logits[i, i] = 1e2
@@ -120,14 +105,12 @@ def test_sampler_all_random(seed: int, device: str):
         temperature=1.0,
         n=random.randint(1, 10),
     )
-    sampler_output = _do_sample(batch_size, fake_logits, sampler, model_runner,
+    sampler_output = _do_sample(batch_size, fake_logits, sampler,
                                 sampling_params, device)
 
     for i, sequence_output in enumerate(sampler_output):
         for nth_output in sequence_output.samples:
             assert nth_output.output_token == i
-
-    del model_runner
 
 
 @pytest.mark.parametrize("seed", RANDOM_SEEDS)
@@ -136,8 +119,7 @@ def test_sampler_all_random_seed(seed: int, device: str):
     set_random_seed(seed)
     torch.set_default_device(device)
     batch_size = random.randint(1, 256)
-    # UPSTREAM SYNC: passing device required for multi-gpu tests
-    _, fake_logits, sampler, model_runner = _prepare_test(batch_size, device)
+    _, fake_logits, sampler = _prepare_test(batch_size)
 
     for i in range(batch_size):
         fake_logits[i, i] = 1e2
@@ -147,14 +129,12 @@ def test_sampler_all_random_seed(seed: int, device: str):
         n=random.randint(1, 10),
         seed=random.randint(0, 10000),
     )
-    sampler_output = _do_sample(batch_size, fake_logits, sampler, model_runner,
+    sampler_output = _do_sample(batch_size, fake_logits, sampler,
                                 sampling_params, device)
 
     for i, sequence_output in enumerate(sampler_output):
         for nth_output in sequence_output.samples:
             assert nth_output.output_token == i
-
-    del model_runner
 
 
 @pytest.mark.parametrize("seed", RANDOM_SEEDS)
@@ -163,8 +143,7 @@ def test_sampler_all_random_seed_deterministic(seed: int, device: str):
     set_random_seed(seed)
     torch.set_default_device(device)
     batch_size = random.randint(1, 256)
-    # UPSTREAM SYNC: passing device required for multi-gpu tests
-    _, fake_logits, sampler, model_runner = _prepare_test(batch_size, device)
+    _, fake_logits, sampler = _prepare_test(batch_size)
 
     sampling_params = SamplingParams(
         temperature=1.0,
@@ -172,14 +151,12 @@ def test_sampler_all_random_seed_deterministic(seed: int, device: str):
         seed=random.randint(0, 10000),
     )
     first_sampler_output = _do_sample(batch_size, fake_logits, sampler,
-                                      model_runner, sampling_params, device)
+                                      sampling_params, device)
 
     second_sampler_output = _do_sample(batch_size, fake_logits, sampler,
-                                       model_runner, sampling_params, device)
+                                       sampling_params, device)
 
     assert first_sampler_output == second_sampler_output
-
-    del model_runner
 
 
 @pytest.mark.parametrize("seed", RANDOM_SEEDS)
@@ -188,21 +165,18 @@ def test_sampler_all_beam(seed: int, device: str):
     set_random_seed(seed)
     torch.set_default_device(device)
     batch_size = random.randint(1, 256)
-    # UPSTREAM SYNC: device required for multi-gpu tests
-    _, fake_logits, sampler, model_runner = _prepare_test(batch_size, device)
+    _, fake_logits, sampler = _prepare_test(batch_size)
 
     sampling_params = SamplingParams(
         temperature=0,
         best_of=2,
         use_beam_search=True,
     )
-    _do_sample(batch_size, fake_logits, sampler, model_runner, sampling_params,
-               device)
+    _do_sample(batch_size, fake_logits, sampler, sampling_params, device)
     # no assertion here as I am not sure how to determine whether
     # the outputs are expected - in other words, this just tests
     # whether there are no exceptions in the sampler
     # when handling an all-beam search case.
-    del model_runner
 
 
 @pytest.mark.parametrize("seed", RANDOM_SEEDS)
@@ -456,15 +430,13 @@ def test_sampler_min_tokens_penalty(seed: int, device: str):
             ("Invalid test case, expected_penalization does not match computed"
              "batch size")
 
-        # UPSTREAM SYNC: passing device required for multi-gpu tests
-        _, fake_logits, sampler, model_runner = _prepare_test(
-            batch_size, device)
+        _, fake_logits, sampler = _prepare_test(batch_size)
         sampling_metadata = SamplingMetadata.prepare(
             seq_group_metadata_list,
             seq_lens=seq_lens if seq_lens else None,
             query_lens=seq_lens if seq_lens else None,
             device=device,
-            pin_memory=model_runner.pin_memory)
+            pin_memory=is_pin_memory_available())
         # the logits tensor is modified in-place by the sampler
         _ = sampler(logits=fake_logits, sampling_metadata=sampling_metadata)
 
@@ -490,8 +462,6 @@ def test_sampler_min_tokens_penalty(seed: int, device: str):
                     fake_logits[logits_idx, :] ==
                     -float('inf')) == 0, "No tokens should have been penalized"
 
-        del model_runner
-
     for test_case in test_cases:
         run_test_case(**test_case)
 
@@ -502,9 +472,7 @@ def test_sampler_mixed(seed: int, device: str):
     set_random_seed(seed)
     torch.set_default_device(device)
     batch_size = random.randint(1, 256)
-    # UPSTREAM SYNC: passing device required for multi-gpu tests
-    input_tensor, fake_logits, sampler, model_runner = _prepare_test(
-        batch_size, device)
+    input_tensor, fake_logits, sampler = _prepare_test(batch_size)
 
     seq_group_metadata_list = []
     expected_tokens: List[Optional[List[int]]] = []
@@ -545,13 +513,13 @@ def test_sampler_mixed(seed: int, device: str):
             ))
         seq_lens.append(seq_group_metadata_list[-1].seq_data[0].get_len())
 
-    def test_sampling(model_runner: ModelRunner):
+    def test_sampling():
         sampling_metadata = SamplingMetadata.prepare(
             seq_group_metadata_list,
             seq_lens,
             query_lens=seq_lens,
             device=device,
-            pin_memory=model_runner.pin_memory)
+            pin_memory=is_pin_memory_available())
         sampler_output = sampler(logits=fake_logits,
                                  sampling_metadata=sampling_metadata)
 
@@ -581,7 +549,7 @@ def test_sampler_mixed(seed: int, device: str):
                     assert nth_output.output_token in expected_tokens[i]
 
     # Test batch
-    test_sampling(model_runner)
+    test_sampling()
 
     # Shuffle the batch and resample
     target_index = list(range(batch_size))
@@ -594,9 +562,7 @@ def test_sampler_mixed(seed: int, device: str):
 
     # This time, results of seeded random samples will be compared with
     # the corresponding sample in the pre-shuffled batch
-    test_sampling(model_runner)
-
-    del model_runner
+    test_sampling()
 
 
 @pytest.mark.parametrize("seed", RANDOM_SEEDS)
@@ -616,12 +582,6 @@ def test_sampler_top_k_top_p(seed: int, device: str):
                                device=input_tensor.device,
                                dtype=input_tensor.dtype)
     sampler = MockLogitsSampler(fake_logits)
-    model_runner = ModelRunner(model_config=None,
-                               parallel_config=None,
-                               scheduler_config=None,
-                               device_config=None,
-                               load_config=None,
-                               lora_config=None)
 
     generation_model = GenerationMixin()
     generation_config = GenerationConfig(top_k=top_k,
@@ -652,7 +612,7 @@ def test_sampler_top_k_top_p(seed: int, device: str):
         seq_lens,
         query_lens=seq_lens,
         device=device,
-        pin_memory=model_runner.pin_memory)
+        pin_memory=is_pin_memory_available())
 
     sample_probs = None
 
@@ -668,5 +628,3 @@ def test_sampler_top_k_top_p(seed: int, device: str):
     hf_probs = torch.softmax(hf_probs, dim=-1, dtype=torch.float)
     assert torch.allclose(hf_probs, sample_probs, atol=1e-5)
     assert torch.equal(hf_probs.eq(0), sample_probs.eq(0))
-
-    del model_runner
