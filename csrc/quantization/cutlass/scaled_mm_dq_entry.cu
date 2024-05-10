@@ -16,11 +16,9 @@ void cutlass_scaled_mm_dq_sm90(torch::Tensor &out, torch::Tensor const &a,
 void cutlass_scaled_mm_dq(torch::Tensor &out, torch::Tensor const &a,
                           torch::Tensor const &b, torch::Tensor const &a_scales,
                           torch::Tensor const &b_scales) {
-
   // TODO(tms): Hack. cudaGetDeviceProperties is very slow.
   static std::optional<int32_t> maybe_version_num = std::nullopt;
-  if(!maybe_version_num.has_value())
-  {
+  if (!maybe_version_num.has_value()) {
     int device;
     cudaGetDevice(&device);
     cudaDeviceProp properties;

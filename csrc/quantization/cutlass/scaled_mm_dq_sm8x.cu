@@ -148,9 +148,9 @@ void cutlass_scaled_mm_dq_dispatcher(torch::Tensor &out, torch::Tensor const &a,
   };
 
   typename Gemm::Op::Arguments args{
-      cutlass::gemm::GemmUniversalMode::kGemm, // universal mode
-      problem_size,                            // problem size
-      1,                                       // batch count
+      cutlass::gemm::GemmUniversalMode::kGemm,  // universal mode
+      problem_size,                             // problem size
+      1,                                        // batch count
       epilogue_args,
       a_ptr,
       b_ptr,
