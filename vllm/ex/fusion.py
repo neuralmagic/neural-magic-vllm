@@ -9,7 +9,7 @@ import torch
 from .code_cache import CodeCache
 from .fused_op_generator import FusedOpGenerator, FusionFail
 from .register import FUSABLE
-from .utils import extract_node_type, ModuleInputGenerator, FlowGraph, node_function_target, print_tabular_to_string
+from .utils import extract_node_type, ModuleInputGenerator, FlowGraph, node_function_target, graph_print_tabular
 
 from torch.fx.passes.split_module import split_module
 from torch.fx.passes.shape_prop import ShapeProp
@@ -297,7 +297,7 @@ def pointwise_fusion(
 
     qualname_map=dict()
 
-    logger.info(f"pre-fusion split mod {print_tabular_to_string(mod.graph)}")
+    logger.info(f"pre-fusion split mod:\n{graph_print_tabular(mod.graph, 'part', map_node)}")
 
     # create submodules for each fusable set of nodes
     new_mod = split_module(
@@ -316,11 +316,11 @@ def pointwise_fusion(
         if is_fused_subgraph(cm):
             module_inputs = mig.module_args[cname][0]
             ShapeProp(cm).propagate(*module_inputs)
-            logger.info(f"Fusing sub-module {cname}:\n{print_tabular_to_string(cm.graph)}")
+            logger.info(f"Fusing sub-module {cname}:\n{graph_print_tabular(cm.graph)}")
             cm = fuse_graph_nodes(cc, fgen, cm)
-            logger.info(f"Post fusion sub-module {cname}:\n{print_tabular_to_string(cm.graph)}")
+            logger.info(f"Post fusion sub-module {cname}:\n{graph_print_tabular(cm.graph)}")
             cm.recompile()
 
-    logger.info(f"Post fusion module:\n{print_tabular_to_string(new_mod.graph)}")
+    logger.info(f"Post fusion module:\n{graph_print_tabular(new_mod.graph)}")
 
     return new_mod

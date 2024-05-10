@@ -20,10 +20,32 @@ from torch._subclasses.fake_tensor import FakeTensorMode, FakeTensor
 from typing import List, Tuple, Any, Dict, Optional, Callable, Mapping, Set
 
 
-def print_tabular_to_string(g: torch.fx.Graph) -> str:
-    with redirect_stdout(StringIO()) as g_str:
-        g.print_tabular()
-    return g_str.getvalue()
+def graph_print_tabular(
+    g: torch.fx.Graph,
+    col: Optional[str] = None,
+    col_get: Optional[Callable] = None
+) -> str:
+    try:
+        from tabulate import tabulate
+    except ImportError:
+        print("`print_tabular` relies on the library `tabulate`, "
+              "which could not be found on this machine. Run `pip "
+              "install tabulate` to install the library.")
+        raise
+
+    assert (col and col_get) or (not col and not col_get)
+
+    headers = ['opcode', 'name', 'target', 'args', 'kwargs']
+
+    if col_get:
+        headers.append(col)
+        node_specs = [[n.op, n.name, n.target, n.args, n.kwargs, col_get(n)]
+                      for n in g.nodes]
+    else:
+        node_specs = [[n.op, n.name, n.target, n.args, n.kwargs]
+                      for n in g.nodes]
+
+    return tabulate(node_specs, headers=headers)
 
 
 """

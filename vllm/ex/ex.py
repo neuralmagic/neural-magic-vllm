@@ -5,7 +5,7 @@ import unittest.mock
 from .code_cache import CodeCache
 from .fusion import FusedOpGenerator, pointwise_fusion
 from .register import SUPPORTED
-from .utils import ModuleInputGenerator, print_tabular_to_string
+from .utils import ModuleInputGenerator, graph_print_tabular
 
 from torch._dynamo import register_backend, lookup_backend
 from torch.fx.passes.operator_support import create_op_support
@@ -39,6 +39,12 @@ def is_node_supported(
         return get_node_target(submodules, node) in SUPPORTED
     else:
         return False
+
+
+# TODO: delete me
+def is_sym_placeholder(node: torch.fx.Node) -> bool:
+    return node.op == 'placeholder' and node.target == 's0'
+
 
 """
 Partition 'gm' into submodules based on the 'is_node_supported' callback.
@@ -96,6 +102,20 @@ def partition_graph(
                             syms.append(d)
 
         logger.info(f"SYMS: {syms}")
+        # don't add a placeholder, add a dummy use (that can be removed later)
+        if False:
+            n = next(iter(pp.nodes))
+            for s in syms:
+                #n.graph.owning_module.setattr(str(s), s)
+                n.graph.owning_module.s0 = s
+                dummy = n.graph.get_attr(str(s))
+                dummy.name = str(s)
+                #def nop(s: torch.SymInt):
+                #    pass
+                #dummy = n.graph.call_function(nop, (s,))
+                #dummy = n.graph.placeholder(str(s))
+                pp.nodes.add(dummy)
+
         #foo = [holders[str(s)] for s in syms]
         #pp.nodes = set(list(pp.nodes) + foo)
         #pp.nodes.add(holders[str(s)])
@@ -103,7 +123,28 @@ def partition_graph(
     # end hacking
     #
 
-    return p.fuse_partitions(parts), parts
+    part_gm = p.fuse_partitions(parts)
+
+    # TODO: begin delete me
+    ph = None
+    for n in part_gm.graph.nodes:
+        if is_sym_placeholder(n):
+            print(f"found ph {n}")
+            ph = n
+        elif ph and n.op == 'call_module':
+            target_mod = part_gm.get_submodule(n.target)
+            n.insert_arg(0, ph)
+            target_mod.graph.inserting_before()
+            new_ph = target_mod.graph.placeholder(ph.target, type_expr=torch.SymInt)
+            new_ph.meta['example_value'] = ph.meta.get('example_value')
+            shape_env = torch._guards.detect_fake_mode().shape_env
+            # val.node.expr = ?
+            target_mod.recompile()
+
+    part_gm.recompile()
+    # TODO: end delete me
+
+    return part_gm, parts
 
 
 ###############################################################################
@@ -114,11 +155,9 @@ def partition_graph(
 
 """
 Inline all submodules in 'mod' by running the tracer on them.
-TODO: double check that this will actually inline
+TBD
 """
 def inline_submodules(mod: torch.fx.GraphModule) -> torch.fx.GraphModule:
-    #mod.graph = torch.fx.symbolic_trace(mod)
-    mod.graph = torch.fx.Tracer().trace(mod)
     return mod
 
 
@@ -199,7 +238,9 @@ class backend_class:
         # Must make a copy so that inductor backend doesn't choke.
         gm = copy.copy(gm)
 
-        logger.info(f"Original module {gm}:\n{print_tabular_to_string(gm.graph)}")
+        gm.graph.eliminate_dead_code()
+
+        logger.info(f"Original module {gm}:\n{graph_print_tabular(gm.graph)}")
         logger.info(f"input_types: {[type(inp) for inp in example_inputs]}")
 
         # Temporary hack to get around https://github.com/pytorch/pytorch/issues/108446
@@ -228,8 +269,7 @@ class backend_class:
         fake_mode = torch._guards.detect_fake_mode()
 
         # There should be an existing fake_mode but double check.
-        if not fake_mode:
-            fake_mode = FakeTensorMode(allow_non_fake_inputs=True)
+        assert fake_mode is not None
 
         # Ensure that 'allow_non_fake_inputs' is True so that original
         # 'example_inputs' can be used.
