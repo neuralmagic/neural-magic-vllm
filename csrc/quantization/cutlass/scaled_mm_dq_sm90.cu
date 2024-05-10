@@ -18,112 +18,98 @@
 #include "cutlass/gemm/collective/collective_builder.hpp"
 
 #include "common.hpp"
-// clang-format on 
+// clang-format on
+
+using namespace cute;
 
 /////////////////////////////////////////
-// Begin automatically generated section
 
-template<typename ElementAB, typename ElementD, typename ElementAcc>
-struct sm90_int8_gemm
-{
-using EpilogueDescriptor = cutlass::epilogue::collective::detail::EpilogueDescriptor<
-  cute::Shape<cute::_128, cute::_128, cute::_128>, cutlass::epilogue::collective::EpilogueTileAuto,
-  ElementD, ElementD,
-  cutlass::epilogue::TmaWarpSpecialized
->;
+template <typename ElementAB_, typename ElementD_, typename TileShape,
+          typename ClusterShape, typename KernelSchedule,
+          typename EpilogueSchedule>
+struct sm90_gemm {
+  using ElementAB = ElementAB_;
+  using ElementD = ElementD_;
+  using ElementAcc =
+      typename std::conditional<std::is_same_v<ElementAB, int8_t>, int32_t,
+                                float>::type;
 
-using Accum = cutlass::epilogue::fusion::Sm90AccFetch;
+  using EpilogueDescriptor =
+      cutlass::epilogue::collective::detail::EpilogueDescriptor<
+          TileShape, cutlass::epilogue::collective::EpilogueTileAuto, ElementD,
+          ElementD, EpilogueSchedule>;
 
-using ScaleA = cutlass::epilogue::fusion::Sm90ColBroadcast<
-    0 /*Stages*/, typename EpilogueDescriptor::TileShape, float,
-    cute::Stride<cute::Int<1>, cute::Int<0>, cute::Int<0>>
->;
+  using Accum = cutlass::epilogue::fusion::Sm90AccFetch;
 
-using ScaleBDescriptor = cutlass::epilogue::collective::detail::RowBroadcastDescriptor<EpilogueDescriptor, float>;
+  using ScaleA = cutlass::epilogue::fusion::Sm90ColBroadcast<
+      0 /*Stages*/, typename EpilogueDescriptor::TileShape, float,
+      Stride<Int<1>, Int<0>, Int<0>>>;
 
-using ScaleB = cutlass::epilogue::fusion::Sm90RowBroadcast<
-    ScaleBDescriptor::Stages, typename EpilogueDescriptor::TileShape,
-    typename ScaleBDescriptor::Element, cute::Stride<cute::Int<0>, cute::Int<1>, cute::Int<0>>
->;
+  using ScaleBDescriptor =
+      cutlass::epilogue::collective::detail::RowBroadcastDescriptor<
+          EpilogueDescriptor, float>;
 
-using Compute0 = cutlass::epilogue::fusion::Sm90Compute<
-    cutlass::multiplies, float, float,
-    cutlass::FloatRoundStyle::round_to_nearest
->;
+  using ScaleB = cutlass::epilogue::fusion::Sm90RowBroadcast<
+      ScaleBDescriptor::Stages, typename EpilogueDescriptor::TileShape,
+      typename ScaleBDescriptor::Element, Stride<Int<0>, Int<1>, Int<0>>>;
 
-using EVTCompute0 = cutlass::epilogue::fusion::Sm90EVT<
-    Compute0,
-    ScaleB,
-    Accum>;
+  using Compute0 = cutlass::epilogue::fusion::Sm90Compute<
+      cutlass::multiplies, float, float,
+      cutlass::FloatRoundStyle::round_to_nearest>;
 
-using Compute1 = cutlass::epilogue::fusion::Sm90Compute<
-    cutlass::multiplies, ElementD, float,
-    cutlass::FloatRoundStyle::round_to_nearest
->;
+  using EVTCompute0 =
+      cutlass::epilogue::fusion::Sm90EVT<Compute0, ScaleB, Accum>;
 
-using EVTCompute1 = cutlass::epilogue::fusion::Sm90EVT<
-    Compute1,
-    ScaleA,
-    EVTCompute0>;
+  using Compute1 = cutlass::epilogue::fusion::Sm90Compute<
+      cutlass::multiplies, ElementD, float,
+      cutlass::FloatRoundStyle::round_to_nearest>;
 
-using StrideD = cute::Stride<int64_t, cute::Int<1>, cute::Int<0>>;
-using ElementC = void;
-using StrideC = StrideD;
+  using EVTCompute1 =
+      cutlass::epilogue::fusion::Sm90EVT<Compute1, ScaleA, EVTCompute0>;
 
+  using StrideD = Stride<int64_t, Int<1>, Int<0>>;
+  using ElementC = void;
+  using StrideC = StrideD;
 
+  using CollectiveEpilogue =
+      typename cutlass::epilogue::collective::CollectiveBuilder<
+          cutlass::arch::Sm90, cutlass::arch::OpClassTensorOp, TileShape,
+          ClusterShape, cutlass::epilogue::collective::EpilogueTileAuto,
+          ElementAcc, float, ElementC, StrideC, 4, ElementD, StrideD, 4,
+          EpilogueSchedule, EVTCompute1>::CollectiveOp;
 
-using CollectiveEpilogue =
-  typename cutlass::epilogue::collective::CollectiveBuilder<
-    cutlass::arch::Sm90, cutlass::arch::OpClassTensorOp,
-    cute::Shape<cute::_128, cute::_128, cute::_128>,
-    cute::Shape<cute::_2,cute::_1,cute::_1>,
-    cutlass::epilogue::collective::EpilogueTileAuto,
-    ElementAcc, float,
-    ElementC, StrideC, 4,
-    ElementD, StrideD, 4,
-    cutlass::epilogue::TmaWarpSpecialized,
-    EVTCompute1
-  >::CollectiveOp;
+  static constexpr size_t CEStorageSize =
+      sizeof(typename CollectiveEpilogue::SharedStorage);
 
-static constexpr size_t CEStorageSize = sizeof(typename CollectiveEpilogue::SharedStorage);
+  using CollectiveMainloop =
+      typename cutlass::gemm::collective::CollectiveBuilder<
+          cutlass::arch::Sm90, cutlass::arch::OpClassTensorOp, ElementAB,
+          cutlass::layout::RowMajor, 16, ElementAB,
+          cutlass::layout::ColumnMajor, 16, ElementAcc, TileShape, ClusterShape,
+          cutlass::gemm::collective::StageCountAutoCarveout<static_cast<int>(
+              CEStorageSize)>,
+          KernelSchedule>::CollectiveOp;
 
-using CollectiveMainloop =
-  typename cutlass::gemm::collective::CollectiveBuilder<
-    cutlass::arch::Sm90, cutlass::arch::OpClassTensorOp,
-    ElementAB, cutlass::layout::RowMajor, 16,
-    ElementAB, cutlass::layout::ColumnMajor, 16,
-    ElementAcc,
-    cute::Shape<cute::_128, cute::_128, cute::_128>,
-    cute::Shape<cute::_2,cute::_1,cute::_1>,
-    cutlass::gemm::collective::StageCountAutoCarveout<static_cast<int>(CEStorageSize)>,
-    cutlass::gemm::KernelTmaWarpSpecializedPingpong
-  >::CollectiveOp;
+  using KernelType = cutlass::gemm::kernel::GemmUniversal<
+      cute::Shape<int, int, int, int>, CollectiveMainloop, CollectiveEpilogue,
+      cutlass::gemm::PersistentScheduler>;
 
-// Gemm operator cutlass3x_sm90_tensorop_i64x128x32gemm_s8_s8_s32_bf16_bf16_128x128x128_2x1x1_0_tnt_align16_warpspecialized_pingpong_epi_tma
-using Kernel = cutlass::gemm::kernel::GemmUniversal<
-    cute::Shape<int,int,int,int>,
-    CollectiveMainloop,
-    CollectiveEpilogue,
-    cutlass::gemm::PersistentScheduler
->;
-
-// Define named type
-struct GemmKernel :
-  public Kernel { };
-
+  struct GemmKernel : public KernelType {};
 };
 
-// End automatically generated section
 /////////////////////////////////////////
 
-using StrideA = cute::Stride<int64_t, cute::Int<1>, cute::Int<0>>;
-using StrideB = cute::Stride<int64_t, cute::Int<1>, cute::Int<0>>;
+using StrideA = Stride<int64_t, Int<1>, Int<0>>;
+using StrideB = Stride<int64_t, Int<1>, Int<0>>;
 
-template <typename Gemm, typename ElementIn, typename ElementOut>
+template <typename Gemm>
 void cutlass_scaled_mm_dq_dispatcher(torch::Tensor &out, torch::Tensor const &a,
                                      torch::Tensor const &b,
                                      torch::Tensor const &a_scales,
                                      torch::Tensor const &b_scales) {
+  using ElementAB = typename Gemm::ElementAB;
+  using ElementD = typename Gemm::ElementD;
+
   int32_t m = a.size(0);
   int32_t n = b.size(1);
   int32_t k = a.size(1);
@@ -133,24 +119,24 @@ void cutlass_scaled_mm_dq_dispatcher(torch::Tensor &out, torch::Tensor const &a,
   int64_t ldc = out.stride(0);
 
   using StrideC = typename Gemm::StrideC;
-  StrideA a_stride{lda, cute::Int<1>{}, cute::Int<0>{}};
-  StrideB b_stride{ldb, cute::Int<1>{}, cute::Int<0>{}};
-  StrideC c_stride{ldc, cute::Int<1>{}, cute::Int<0>{}};
+  StrideA a_stride{lda, Int<1>{}, Int<0>{}};
+  StrideB b_stride{ldb, Int<1>{}, Int<0>{}};
+  StrideC c_stride{ldc, Int<1>{}, Int<0>{}};
 
   using GemmKernel = typename Gemm::GemmKernel;
   typename GemmKernel::ProblemShape prob_shape{m, n, k, 1};
 
-  auto a_ptr = static_cast<ElementIn *>(a.data_ptr());
-  auto b_ptr = static_cast<ElementIn *>(b.data_ptr());
+  auto a_ptr = static_cast<ElementAB *>(a.data_ptr());
+  auto b_ptr = static_cast<ElementAB *>(b.data_ptr());
   typename GemmKernel::MainloopArguments mainloop_args{a_ptr, a_stride, b_ptr,
-                                                 b_stride};
+                                                       b_stride};
 
-  auto c_ptr = static_cast<ElementOut *>(out.data_ptr());
+  auto c_ptr = static_cast<ElementD *>(out.data_ptr());
   typename GemmKernel::EpilogueArguments epilogue_args{
       {}, c_ptr, c_stride, c_ptr, c_stride};
 
   typename GemmKernel::Arguments args{cutlass::gemm::GemmUniversalMode::kGemm,
-                                prob_shape, mainloop_args, epilogue_args};
+                                      prob_shape, mainloop_args, epilogue_args};
 
   using ScaleA_Args = typename Gemm::ScaleA::Arguments;
   using ScaleB_Args = typename Gemm::ScaleB::Arguments;
@@ -181,16 +167,28 @@ void cutlass_scaled_mm_dq_sm90(torch::Tensor &out, torch::Tensor const &a,
                                torch::Tensor const &a_scales,
                                torch::Tensor const &b_scales) {
   if (a.dtype() == torch::kInt8) {
+    using TileShape = Shape<_128, _128, _128>;
+    using ClusterShape = Shape<_1, _2, _1>;
+    using KernelSchedule =
+        typename cutlass::gemm::KernelTmaWarpSpecializedPingpong;
+    using EpilogueSchedule = typename cutlass::epilogue::TmaWarpSpecialized;
 
     return cutlass_scaled_mm_dq_dispatcher<
-        sm90_int8_gemm<int8_t, cutlass::bfloat16_t, int32_t>, int8_t,
-        cutlass::bfloat16_t>(out, a, b, a_scales, b_scales);
+        sm90_gemm<int8_t, cutlass::bfloat16_t, TileShape, ClusterShape,
+                  KernelSchedule, EpilogueSchedule>>(out, a, b, a_scales,
+                                                     b_scales);
   } else {
+    using TileShape = Shape<_128, _128, _128>;
+    using ClusterShape = Shape<_1, _2, _1>;
+    using KernelSchedule =
+        typename cutlass::gemm::KernelCpAsyncWarpSpecializedCooperative;
+    using EpilogueSchedule =
+        typename cutlass::epilogue::TmaWarpSpecializedCooperative;
 
     return cutlass_scaled_mm_dq_dispatcher<
-        sm90_int8_gemm<cutlass::float_e4m3_t, cutlass::bfloat16_t, float>,
-        cutlass::float_e4m3_t, cutlass::bfloat16_t>(out, a, b, a_scales,
-                                                    b_scales);
+        sm90_gemm<cutlass::float_e4m3_t, cutlass::bfloat16_t, TileShape,
+                  ClusterShape, KernelSchedule, EpilogueSchedule>>(
+        out, a, b, a_scales, b_scales);
   }
 }
 
