@@ -2,16 +2,14 @@ from typing import Dict, Optional, Tuple
 
 import torch
 
-capability = torch.cuda.get_device_capability()
-capability = capability[0] * 10 + capability[1]
-
-from vllm._C import ops as vllm_ops
-
 try:
     from vllm._C import cache_ops as vllm_cache_ops
     from vllm._C import ops as vllm_ops
 except ImportError:
     pass
+
+capability = torch.cuda.get_device_capability()
+capability = capability[0] * 10 + capability[1]
 
 
 # activation ops
@@ -157,21 +155,24 @@ def marlin_gemm(a: torch.Tensor, b_q_weight: torch.Tensor,
     return vllm_ops.marlin_gemm(a, b_q_weight, b_scales, workspace, size_m,
                                 size_n, size_k)
 
-# cutlass 
-def cutlass_scaled_mm_dq(a: torch.Tensor, b: torch.Tensor, a_scales: torch.Tensor,
-                     b_scales: torch.Tensor) -> torch.Tensor:
+
+# cutlass
+def cutlass_scaled_mm_dq(a: torch.Tensor, b: torch.Tensor,
+                         a_scales: torch.Tensor,
+                         b_scales: torch.Tensor) -> torch.Tensor:
     shape_fallback = (b.shape[0] % 16 != 0 or b.shape[1] % 16 != 0)
 
     if capability < 80 or shape_fallback:
         a_bf16 = a.to(dtype=torch.bfloat16)
         b_bf16 = b.to(dtype=torch.bfloat16)
 
-        return (b_scales * (a_scales * torch.mm(a_bf16, b_bf16))).to(dtype=torch.bfloat16)
+        return (b_scales *
+                (a_scales * torch.mm(a_bf16, b_bf16))).to(dtype=torch.bfloat16)
 
     else:
         m = a.shape[0]
         n = b.shape[1]
-        out = torch.empty((m,n), dtype=torch.bfloat16, device="cuda")
+        out = torch.empty((m, n), dtype=torch.bfloat16, device="cuda")
 
         vllm_ops.cutlass_scaled_mm_dq(out, a, b, a_scales, b_scales)
 
