@@ -4,6 +4,7 @@
 #
 ###############################################################################
 
+import collections
 import functools
 import torch
 import torch.utils.cpp_extension
@@ -233,6 +234,103 @@ class FlowGraph:
             visited.add(n)
             fn(n)
             q = list(self.successors(n)) + q
+
+
+class SubGraph:
+    def __init__(self, gm: torch.fx.GraphModule, nodes: Optional[List[torch.fx.Node]] = None):
+        self.module = gm
+        self.build(nodes)
+
+    def in_subgraph(self, n: torch.fx.Node) -> bool:
+        return n in self.nodes
+
+    def collect_inputs_outputs(self) -> Tuple[List[torch.fx.Node], List[torch.fx.Node]]:
+        inputs = []
+        outputs = []
+
+        for n in self.nodes:
+            new_inputs = [inp for inp in n.all_input_nodes if not self.in_subgraph(inp)]
+            for inp in new_inputs:
+                if inp not in inputs:
+                    inputs.append(inp)
+
+            if any([user for user in n.users if not self.in_subgraph(user)]) and n not in outputs:
+                outputs.append(n)
+
+        #print(f"sub-inputs: {inputs}")
+        #print(f"sub-outputs: {outputs}")
+
+        return inputs, outputs
+
+    def topo_sort(self):
+        order = []
+        in_degree = dict()
+        worklist: collections.deque = collections.deque()
+
+        for n in self.nodes:
+            count = len([inp for inp in n.all_input_nodes if self.in_subgraph(inp)])
+            in_degree[n] = count
+            if count == 0:
+                worklist.append(n)
+
+        while len(worklist) > 0:
+            n = worklist.popleft()
+            order.append(n)
+
+            for u in n.users:
+                if not self.in_subgraph(u):
+                    continue
+                in_degree[u] = in_degree[u] - 1
+                if in_degree[u] == 0:
+                    worklist.append(u)
+
+        print(f"nodes = {self.nodes}")
+        print(f"order = {order}")
+        assert len(order) == len(self.nodes)
+
+        self.nodes = order
+
+    def build(self, nodes: Optional[List[torch.fx.Node]]):
+        self.nodes = nodes
+        self.topo_sort()
+        self.inputs, self.outputs = self.collect_inputs_outputs()
+
+    #def inputs(self) -> List[torch.fx.Node]: return self.inputs
+    #def outputs(self) -> List[torch.fx.Node]: return self.outputs
+
+    def first_in_graph(self):
+        first = None
+        for n in self.module.graph.nodes:
+            if not first and n.next in self.nodes:
+                first = n
+                break
+        return first
+
+    def erase(self):
+        for n in reversed(self.nodes):
+            self.module.graph.erase_node(n)
+
+    def tabular(self) -> str:
+        try:
+            from tabulate import tabulate
+        except ImportError:
+            print("`print_tabular` relies on the library `tabulate`, "
+                  "which could not be found on this machine. Run `pip "
+                  "install tabulate` to install the library.")
+            raise
+
+        headers = ['opcode', 'name', 'target', 'args', 'kwargs']
+
+        node_specs = [['placeholder*', n.name, n.target, tuple(), dict()]
+                      for n in self.inputs]
+
+        node_specs = node_specs + [[n.op, n.name, n.target, n.args, n.kwargs]
+                      for n in self.nodes]
+
+        node_specs = node_specs + [['output*', 'output*', 'output*', (n,), dict()]
+                      for n in self.outputs]
+
+        return tabulate(node_specs, headers=headers)
 
 
 """

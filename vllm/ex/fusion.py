@@ -9,7 +9,7 @@ import torch
 from .code_cache import CodeCache
 from .fused_op_generator import FusedOpGenerator, FusionFail
 from .register import FUSABLE
-from .utils import extract_node_type, ModuleInputGenerator, FlowGraph, node_function_target, graph_print_tabular
+from .utils import extract_node_type, ModuleInputGenerator, FlowGraph, node_function_target, graph_print_tabular, SubGraph
 
 from torch.fx.passes.split_module import split_module
 from torch.fx.passes.shape_prop import ShapeProp
@@ -24,24 +24,20 @@ Fuse all the nodes in the given module into a single function call.
 def fuse_graph_nodes(
     cc: CodeCache,
     fgen: FusedOpGenerator,
-    mod: torch.fx.GraphModule
-) -> torch.fx.GraphModule:
-    outputs = [n for n in mod.graph.nodes if n.op == 'output']
-    inputs = [n for n in mod.graph.nodes if n.op == 'placeholder']
+    sub: SubGraph,
+):
+    outputs = sub.outputs
+    inputs = sub.inputs
 
     if len(outputs) != 1:
         raise FusionFail("only single output supported currently.")
 
     # Collect all kwargs for fused ops and all the nodes that
     # will need to be fused (and erased) later.
-    first = None
+    first = sub.first_in_graph()
     nodes_to_fuse = []
     kwargs = dict()
-    for n in mod.graph.nodes:
-        # Find insertion point for new function call.
-        if n.op == 'placeholder':
-            first = n
-
+    for n in sub.nodes:
         if n.op != 'call_function':
             continue
 
@@ -65,15 +61,14 @@ def fuse_graph_nodes(
         fn = cc.lookup_or_create(fn_key, generate)
 
     except FusionFail as ff:
-        logger.info(f"fusion failed '{ff}' for module: {mod}")
-        return mod
+        logger.info(f"fusion failed '{ff}' for subgraph.")
+        return
 
     if fn is None:
-        logger.info(f"fusion failed previously '{ff}' for module: {mod}")
-        return mod
+        logger.info(f"fusion failed previously '{ff}' for subgraph.")
+        return
 
     logger.info(f"fused fn = {fn}")
-
 
     #
     # Update the graph
@@ -82,27 +77,20 @@ def fuse_graph_nodes(
     # 3. delete old call_function and output nodes.
     #
 
-    mod.graph.inserting_after(first)
+    sub.module.graph.inserting_after(first)
 
     # Note: we do not update the meta info for cf here.  It should
     # not be required after transformation anyway.
-    cf = mod.graph.call_function(fn, args=tuple(inputs), kwargs=kwargs)
+    cf = sub.module.graph.call_function(fn, args=tuple(inputs), kwargs=kwargs)
     logger.info(f"fused op: {cf.format_node()}")
 
-    mod.graph.inserting_after(cf)
-    mod.graph.output(cf, type_expr=torch.Tensor)
+    # Note: assumes single output
+    outputs[0].replace_all_uses_with(cf) #, propagate_meta=True)
 
-    for o in outputs:
-        logger.info(f"ERASE {o}")
-        mod.graph.erase_node(o)
+    sub.erase()
+    sub.build([cf])  # not necessary but nice for debugging
 
-    for n in reversed(nodes_to_fuse):
-        logger.info(f"ERASE {n}")
-        mod.graph.erase_node(n)
-
-    logger.info(f"fuse mod {mod.print_readable(False)}")
-
-    return mod
+    #logger.info(f"fuse mod {mod.print_readable(False)}")
 
 
 """
@@ -207,7 +195,7 @@ def pointwise_fusion(
 
     fg = FlowGraph(mod)
 
-    node_map = {}
+    node_map = dict()
     partition = 0
 
     def map_node(n: torch.fx.Node) -> int:
@@ -295,32 +283,21 @@ def pointwise_fusion(
 
     assert(all([n in node_map for n in mod.graph.nodes]))
 
-    qualname_map=dict()
-
     logger.info(f"pre-fusion split mod:\n{graph_print_tabular(mod.graph, 'part', map_node)}")
 
-    # create submodules for each fusable set of nodes
-    new_mod = split_module(
-        mod,
-        mod,
-        map_node,
-        qualname_map,
-        keep_original_order=False,
-    )
+    subgraphs = dict()
+    for n, p in node_map.items():
+        if p > 0:
+            if not p in subgraphs:
+                subgraphs[p] = []
+            subgraphs[p].append(n)
 
-    mig = ModuleInputGenerator(new_mod)
-    mig.propagate(*example_inputs)
+    for p, nodes in subgraphs.items():
+        sub = SubGraph(mod, subgraphs[p])
+        logger.info(f"Fusing sub-module:\n{sub.tabular()}")
+        fuse_graph_nodes(cc, fgen, sub)
+        logger.info(f"Post fusion sub-module:\n{sub.tabular()}")
 
-    # replace the fused submodules with new modules
-    for cname, cm in new_mod.named_children():
-        if is_fused_subgraph(cm):
-            module_inputs = mig.module_args[cname][0]
-            ShapeProp(cm).propagate(*module_inputs)
-            logger.info(f"Fusing sub-module {cname}:\n{graph_print_tabular(cm.graph)}")
-            cm = fuse_graph_nodes(cc, fgen, cm)
-            logger.info(f"Post fusion sub-module {cname}:\n{graph_print_tabular(cm.graph)}")
-            cm.recompile()
+    logger.info(f"Post fusion module:\n{graph_print_tabular(mod.graph)}")
 
-    logger.info(f"Post fusion module:\n{graph_print_tabular(new_mod.graph)}")
-
-    return new_mod
+    return mod

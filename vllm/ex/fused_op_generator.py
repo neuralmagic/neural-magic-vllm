@@ -197,7 +197,7 @@ class FusedOpGenerator:
             self.fused_op.append(comment_str)
             self.fused_op.append(call_str)
         self.fused_op.append(f"  // {str(extract_node_type(outputs[0]))}")
-        self.fused_op.append(f"  return {self.mangle(outputs[0].args[0].name, '_')};")
+        self.fused_op.append(f"  return {self.mangle(outputs[0].name, '_')};")
 
         self.fused_op.append('}')
         self.fused_op.append(f'TORCH_LIBRARY_EXPAND(fused_ops{self.N}, m) {oc} m.def("{op}{arg_sig}"); {cc}')
