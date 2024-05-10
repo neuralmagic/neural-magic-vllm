@@ -5,11 +5,12 @@ import torch
 try:
     from vllm._C import cache_ops as vllm_cache_ops
     from vllm._C import ops as vllm_ops
+
+    capability = torch.cuda.get_device_capability()
+    capability = capability[0] * 10 + capability[1]
 except ImportError:
     pass
 
-capability = torch.cuda.get_device_capability()
-capability = capability[0] * 10 + capability[1]
 
 
 # activation ops
