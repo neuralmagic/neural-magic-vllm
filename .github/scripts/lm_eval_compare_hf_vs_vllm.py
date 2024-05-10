@@ -38,7 +38,7 @@ def print_results(data_to_print: List = None,
 def check_passing_score(results_dict: Dict = None,
                         alpha: float = None) -> bool:
     for task in results_dict:
-        p_value = task["p_value"]
+        p_value = results_dict[task]["p_value"]
         if p_value <= alpha:
             return False
     return True
