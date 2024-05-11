@@ -8,12 +8,23 @@ import pytest
 
 MODELS = [
     "meta-llama/Llama-2-7b-hf",
-    # "mistralai/Mistral-7B-v0.1",  # Broken
-    # "Deci/DeciLM-7b",  # Broken
-    # "tiiuae/falcon-7b",  # Broken
+    "mistralai/Mistral-7B-v0.1",
+    "Deci/DeciLM-7b",
+    "tiiuae/falcon-7b",
     "EleutherAI/gpt-j-6b",
     "mosaicml/mpt-7b",
-    # "Qwen/Qwen1.5-0.5B"  # Broken,
+    "Qwen/Qwen1.5-0.5B",
+]
+
+SKIPPED_MODELS_ACC = [
+    "mistralai/Mistral-7B-v0.1",
+    "Deci/DeciLM-7b",
+    "tiiuae/falcon-7b",
+    "Qwen/Qwen1.5-0.5B",
+]
+
+SKIPPED_MODELS_OOM = [
+    "EleutherAI/gpt-j-6b",
 ]
 
 
@@ -28,6 +39,13 @@ def test_models(
     dtype: str,
     max_tokens: int,
 ) -> None:
+    if model in SKIPPED_MODELS_ACC:
+        pytest.skip(reason="Low priority models not currently passing "
+                    "due to precision. We need to re-enable these.")
+    if model in SKIPPED_MODELS_OOM:
+        pytest.skip(reason="These models cause OOM issue on the CPU" 
+                    "because it is a fp32 checkpoint.")
+
     hf_model = hf_runner(model, dtype=dtype)
     hf_outputs = hf_model.generate_greedy(example_prompts, max_tokens)
     del hf_model
