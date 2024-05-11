@@ -3,10 +3,14 @@ import random
 import pytest
 import torch
 
+from tests.utils import should_skip_test_group
 from vllm.model_executor.layers.ops.rand import seeded_uniform
 from vllm.model_executor.utils import set_random_seed
 
 
+@pytest.mark.skipif(
+    should_skip_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("dtype",
                          [torch.float32, torch.float16, torch.bfloat16])
 @pytest.mark.parametrize("use_3d", [True, False])

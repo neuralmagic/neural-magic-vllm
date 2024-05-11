@@ -5,6 +5,7 @@ import torch
 import triton
 import triton.language as tl
 
+from tests.utils import should_skip_test_group
 from vllm.model_executor.layers.ops.sample import (
     MAX_TRITON_N_COLS, _uniform_to_exponential, get_num_triton_sampler_splits,
     sample)
@@ -42,6 +43,9 @@ def test_uniform_to_exponential():
     assert torch.all(torch.isfinite(torch.full_like(output, 1.0) / output))
 
 
+@pytest.mark.skipif(
+    should_skip_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("random_sampling", [True, False, "mixed"])
 @pytest.mark.parametrize("max_best_of", [1, 2, 3, 4, 5])
 @pytest.mark.parametrize("modify_greedy_probs", [True, False])
@@ -121,6 +125,9 @@ def test_sample_decoding_only(random_sampling, max_best_of,
         assert sampled_logprobs is None
 
 
+@pytest.mark.skipif(
+    should_skip_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("random_sampling", [True, False, "mixed"])
 @pytest.mark.parametrize("max_best_of", [1, 2, 3, 4, 5])
 @pytest.mark.parametrize("modify_greedy_probs", [True, False])
@@ -173,6 +180,9 @@ def test_sample_prompt_logprobs(random_sampling, max_best_of,
                              [sampled_tokens[i, best_of]])
 
 
+@pytest.mark.skipif(
+    should_skip_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("seed", list(range(16)))
 def test_get_sequence_seeds(seed):
     """Ensure that we get a different child seed from base 

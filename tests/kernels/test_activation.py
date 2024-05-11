@@ -4,6 +4,7 @@ import pytest
 import torch
 from allclose_default import get_default_atol, get_default_rtol
 
+from tests.utils import should_skip_test_group
 from vllm.model_executor.layers.activation import (FastGELU, GeluAndMul,
                                                    NewGELU, SiluAndMul)
 
@@ -15,7 +16,9 @@ CUDA_DEVICES = [
     f"cuda:{i}" for i in range(1 if torch.cuda.device_count() == 1 else 2)
 ]
 
-
+@pytest.mark.skipif(
+    should_skip_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("activation", ["silu", "gelu", "gelu_tanh"])
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
 @pytest.mark.parametrize("d", D)
@@ -49,6 +52,9 @@ def test_act_and_mul(
     assert torch.allclose(out, ref_out, atol=0.0, rtol=0.0)
 
 
+@pytest.mark.skipif(
+    should_skip_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("activation", [FastGELU, NewGELU])
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
 @pytest.mark.parametrize("d", D)

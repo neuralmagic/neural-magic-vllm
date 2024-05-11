@@ -7,6 +7,7 @@ from allclose_default import get_default_atol, get_default_rtol
 from xformers import ops as xops
 from xformers.ops.fmha.attn_bias import BlockDiagonalCausalMask
 
+from tests.utils import should_skip_test_group
 from vllm import _custom_ops as ops
 from vllm.utils import get_max_shared_memory_bytes, is_hip
 
@@ -110,6 +111,9 @@ def ref_single_query_cached_kv_attention(
         output[i].copy_(out, non_blocking=True)
 
 
+@pytest.mark.skipif(
+    should_skip_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("version", ["v1", "v2"])
 @pytest.mark.parametrize("num_seqs", NUM_GEN_SEQS)
 @pytest.mark.parametrize("num_heads", NUM_HEADS)
@@ -311,6 +315,9 @@ def ref_multi_query_kv_attention(
 
 
 # TODO(woosuk): Add tests for USE_ALIBI=True.
+@pytest.mark.skipif(
+    should_skip_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("num_seqs", NUM_PREFILL_SEQS)
 @pytest.mark.parametrize("num_heads", NUM_HEADS)
 @pytest.mark.parametrize("head_size", HEAD_SIZES)

@@ -4,6 +4,7 @@ from typing import Tuple
 import pytest
 import torch
 
+from tests.utils import should_skip_test_group
 from vllm import _custom_ops as ops
 from vllm._C import cache_ops
 from vllm.utils import is_hip
@@ -28,6 +29,9 @@ CUDA_DEVICES = [
 KV_CACHE_DTYPE = ["auto", "fp8"]
 
 
+@pytest.mark.skipif(
+    should_skip_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("num_mappings", NUM_MAPPINGS)
 @pytest.mark.parametrize("num_layers", NUM_LAYERS)
 @pytest.mark.parametrize("num_heads", NUM_HEADS)
@@ -103,6 +107,9 @@ def test_copy_blocks(
         assert torch.allclose(value_cache, cloned_value_cache)
 
 
+@pytest.mark.skipif(
+    should_skip_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
 @pytest.mark.parametrize("num_heads", NUM_HEADS)
 @pytest.mark.parametrize("head_size", HEAD_SIZES)
@@ -196,6 +203,9 @@ def test_reshape_and_cache(
         assert torch.allclose(value_cache, cloned_value_cache)
 
 
+@pytest.mark.skipif(
+    should_skip_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
 @pytest.mark.parametrize("num_heads", NUM_HEADS)
 @pytest.mark.parametrize("head_size", HEAD_SIZES)
@@ -272,6 +282,9 @@ def test_reshape_and_cache_flash(
     assert torch.allclose(value_cache, cloned_value_cache)
 
 
+@pytest.mark.skipif(
+    should_skip_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("direction", COPYING_DIRECTION)
 @pytest.mark.parametrize("num_mappings", NUM_MAPPINGS)
 @pytest.mark.parametrize("num_heads", NUM_HEADS)
@@ -342,6 +355,9 @@ def test_swap_blocks(
                               dist_value_caches[0][dst].cpu())
 
 
+@pytest.mark.skipif(
+    should_skip_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.skipif(not is_hip(), reason="FP8 conversion test requires e4m3")
 @pytest.mark.parametrize("num_heads", NUM_HEADS)
 @pytest.mark.parametrize("head_size", HEAD_SIZES)
