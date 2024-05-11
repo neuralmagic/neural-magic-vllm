@@ -128,7 +128,7 @@ def partition_graph(
     # TODO: begin delete me
     ph = None
     for n in part_gm.graph.nodes:
-        if is_sym_placeholder(n):
+        if False and is_sym_placeholder(n):
             print(f"found ph {n}")
             ph = n
         elif ph and n.op == 'call_module':
@@ -141,7 +141,7 @@ def partition_graph(
             # val.node.expr = ?
             target_mod.recompile()
 
-    part_gm.recompile()
+    #part_gm.recompile()
     # TODO: end delete me
 
     return part_gm, parts
@@ -246,7 +246,7 @@ class backend_class:
         # Temporary hack to get around https://github.com/pytorch/pytorch/issues/108446
         # probably not a good long term solution.
         for node in gm.graph.nodes:
-            if node.op == 'placeholder' and 'example_value' in node.meta:
+            if False and node.op == 'placeholder' and 'example_value' in node.meta:
                 val = node.meta['example_value']
                 if (isinstance(val, FakeTensor) and
                     any([isinstance(d, torch.SymInt) for d in val.size()])):

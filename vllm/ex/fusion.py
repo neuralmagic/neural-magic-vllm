@@ -85,7 +85,7 @@ def fuse_graph_nodes(
     logger.info(f"fused op: {cf.format_node()}")
 
     # Note: assumes single output
-    outputs[0].replace_all_uses_with(cf) #, propagate_meta=True)
+    outputs[0].replace_all_uses_with(cf, propagate_meta=True)
 
     sub.erase()
     sub.build([cf])  # not necessary but nice for debugging
@@ -194,6 +194,8 @@ def pointwise_fusion(
     # unique partition id, i.e. map_node
 
     fg = FlowGraph(mod)
+
+    ShapeProp(mod).propagate(*example_inputs)
 
     node_map = dict()
     partition = 0
