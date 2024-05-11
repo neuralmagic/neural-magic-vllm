@@ -14,8 +14,8 @@ MODELS = [
 ]
 
 
-@pytest.mark.skip(reason=
-    "Numerical imprecision on A10 GPU causing inexact match. "
+@pytest.mark.skip(
+    reason="Numerical imprecision on A10 GPU causing inexact match. "
     "TODO: move to logprobs testing strategy.")
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("dtype", ["half"])
