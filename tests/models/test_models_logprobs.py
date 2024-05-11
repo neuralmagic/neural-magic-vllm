@@ -54,7 +54,7 @@ def test_models(
         pytest.skip(reason="Low priority models not currently passing. "
                     "We need to re-enable these.")
     if model in SKIPPED_MODELS_OOM:
-        pytest.skip(reason="These models cause OOM issue on the CPU" 
+        pytest.skip(reason="These models cause OOM issue on the CPU"
                     "because it is a fp32 checkpoint.")
 
     hf_model = hf_runner_nm(model, dtype=dtype)
