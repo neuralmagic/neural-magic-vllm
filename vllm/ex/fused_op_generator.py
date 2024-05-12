@@ -78,6 +78,8 @@ class FusedOpGenerator:
         #self.fused_op.append('#define silu_and_mul(a, b) (::silu_and_mul((a), (b)), (a))')
         self.fused_op.append('#define TORCH_LIBRARY_EXPAND(name, mod) TORCH_LIBRARY(name, mod)')
         self.fused_op.append('#define TORCH_LIBRARY_IMPL_EXPAND(name, k, mod) TORCH_LIBRARY_IMPL(name, k, mod)')
+        self.fused_op.append('inline torch::Tensor to_tensor(py::object obj) { return THPVariable_Unpack(obj.release().ptr()); }')
+        self.fused_op.append('namespace py = pybind11;')
 
     # 'mangle' a python name so it can be used with C++.
     def mangle(self, s: str, rep: str = '_P_') -> str:
@@ -97,18 +99,51 @@ class FusedOpGenerator:
     # Translate getitem arguments to C++/Python ABI
     def convert_getitem_arg(self, arg: torch.fx.node.Argument) -> str:
         if isinstance(arg, types.EllipsisType):
-            return "Py_Ellipsis"
+            return "py::ellipsis()"
         elif isinstance(arg, types.NoneType):
-            return "NULL" #"Py_None"
+            return "std::nullopt" #"Py_None"
         elif isinstance(arg, int):
-            return f"PyLong_FromLong({arg})"
+            return f"{arg}"
         elif isinstance(arg, slice):
             start = self.convert_getitem_arg(arg.start)
             stop = self.convert_getitem_arg(arg.stop)
             step = self.convert_getitem_arg(arg.step)
-            return f"PySlice_New({start}, {stop}, {step})"
+            return f"py::slice({start}, {stop}, {step})"
         else:
             raise FusionFail(f"unsupported getitem indexing arg: {arg}.")
+
+
+    def last_uses(self, nodes: List[torch.fx.Node]) -> Dict[torch.fx.Node, List[torch.fx.Node]]:
+        node_to_last_use : Dict[torch.fx.Node, torch.fx.Node] = {}
+        user_to_last_uses : Dict[torch.fx.Node, List[torch.fx.Node]] = {}
+
+        def register_last_uses(n : torch.fx.Node, user : torch.fx.Node):
+            if n not in node_to_last_use:
+                node_to_last_use[n] = user
+                user_to_last_uses.setdefault(user, []).append(n)
+
+        for node in reversed(nodes):
+            torch.fx.node.map_arg(node.args, lambda n: register_last_uses(n, node))
+            torch.fx.node.map_arg(node.kwargs, lambda n: register_last_uses(n, node))
+
+        return user_to_last_uses
+
+    def delete_unused_values(self, user_to_last_uses, user : torch.fx.Node) -> str:
+        """
+        Delete values after their last use. This ensures that values that are
+        not used in the remainder of the code are freed and the memory usage
+        of the code is optimal.
+        """
+        if user.op == 'placeholder':
+            return
+        if user.op == 'output':
+            return
+        nodes_to_delete = user_to_last_uses.get(user, [])
+        to_delete_str = ''
+        sep = '  '
+        for n in nodes_to_delete:
+            to_delete_str = to_delete_str + sep + self.mangle(n.name, '_') + " = torch::Tensor();"
+        return to_delete_str
 
     #
     # Generate naive C++/CUDA code for a stack of fused ops.
@@ -136,12 +171,15 @@ class FusedOpGenerator:
 
         fn_names = [self.rename(node_function_target(n)) for n in nodes]
 
+        user_to_last_uses = self.last_uses(inputs + nodes)
+
         op = f"{mangle_name(nodes)}_fused"
 
         cxx_arg_sig = ''
         sep = ''
         for i, n in enumerate(inputs):
-            cxx_arg_sig = cxx_arg_sig + sep + f"torch::Tensor const& {n}"
+            #cxx_arg_sig = cxx_arg_sig + sep + f"torch::Tensor const& {n}"
+            cxx_arg_sig = cxx_arg_sig + sep + f"torch::Tensor& {n}"
             sep = ", "
 
         arg_sig = self.generate_op_schema(inputs, outputs, nodes, kwargs)
@@ -166,18 +204,19 @@ class FusedOpGenerator:
 
                 assert isinstance(idx, tuple)
 
-                call_str = f"  auto const& {self.mangle(n.name, '_')} = THPVariable_Unpack(PyObject_GetItem("
-                call_str = call_str + f"THPVariable_Wrap({self.mangle(str(tensor), '_')})"
-                call_str = call_str + f", PyTuple_Pack({len(idx)}"
+                call_str = f"  auto {self.mangle(n.name, '_')} = to_tensor("
+                call_str = call_str + f"py::reinterpret_steal<py::object>(THPVariable_Wrap({self.mangle(str(tensor), '_')}))["
+                call_str = call_str + f"py::make_tuple("
 
+                sep = ""
                 for idx_arg in idx:
-                    call_str = call_str + ", " + self.convert_getitem_arg(idx_arg)
+                    call_str = call_str + sep + self.convert_getitem_arg(idx_arg)
+                    sep = ", "
 
-                call_str = call_str + ")));"
+                call_str = call_str + ")]);"
                 assert kwargs.get(n.name) is None or len(kwargs.get(n.name)) == 0
             else:
-                call_str = f"  auto const& {self.mangle(n.name, '_')} = {self.mangle(fn, '::')}("
-                #call_str = f"  auto& {self.mangle(n.name, '_')} = {self.mangle(fn, '::')}("
+                call_str = f"  auto {self.mangle(n.name, '_')} = {self.mangle(fn, '::')}("
                 sep =''
                 for inp in n.args:
                     # bit of a hack for optional/empty tensor arguments
@@ -196,6 +235,8 @@ class FusedOpGenerator:
 
             self.fused_op.append(comment_str)
             self.fused_op.append(call_str)
+            self.fused_op.append(self.delete_unused_values(user_to_last_uses, n))
+
         self.fused_op.append(f"  // {str(extract_node_type(outputs[0]))}")
         self.fused_op.append(f"  return {self.mangle(outputs[0].name, '_')};")
 

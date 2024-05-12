@@ -65,7 +65,7 @@ def fuse_graph_nodes(
         return
 
     if fn is None:
-        logger.info(f"fusion failed previously '{ff}' for subgraph.")
+        logger.info(f"fusion failed previously for subgraph.")
         return
 
     logger.info(f"fused fn = {fn}")
