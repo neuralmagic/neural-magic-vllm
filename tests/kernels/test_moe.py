@@ -7,7 +7,7 @@ import torch
 from transformers import MixtralConfig
 from transformers.models.mixtral.modeling_mixtral import MixtralSparseMoeBlock
 
-from tests.utils import should_skip_test_group
+from tests.utils_skip import should_skip_kernel_test_group
 from vllm.model_executor.layers.activation import SiluAndMul
 from vllm.model_executor.layers.fused_moe import fused_moe
 from vllm.model_executor.models.mixtral import MixtralMoE
@@ -31,7 +31,7 @@ def torch_moe(a, w1, w2, score, topk):
 
 
 @pytest.mark.skipif(
-    should_skip_test_group(), 
+    should_skip_kernel_test_group(), 
     reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("m", [512, 222, 33, 1])
 @pytest.mark.parametrize("n", [2048, 256, 1024])
@@ -58,7 +58,7 @@ def test_fused_moe(
 
 
 @pytest.mark.skipif(
-    should_skip_test_group(), 
+    should_skip_kernel_test_group(), 
     reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("dtype",
                          [torch.float32, torch.float16, torch.bfloat16])

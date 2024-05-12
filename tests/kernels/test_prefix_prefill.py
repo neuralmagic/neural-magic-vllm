@@ -6,6 +6,7 @@ import torch
 from xformers import ops as xops
 from xformers.ops.fmha.attn_bias import BlockDiagonalCausalFromBottomRightMask
 
+from tests.utils_skip import should_skip_kernel_test_group
 from vllm.attention.ops.prefix_prefill import context_attention_fwd
 
 NUM_HEADS = [64]
@@ -18,6 +19,9 @@ CUDA_DEVICES = [
 SLIDING_WINDOW = [0, 16, 64, 128, 256, 512, 2048]
 
 
+@pytest.mark.skipif(
+    should_skip_kernel_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("num_heads", NUM_HEADS)
 @pytest.mark.parametrize("num_queries_per_kv", NUM_QUERIES_PER_KV)
 @pytest.mark.parametrize("head_size", HEAD_SIZES)

@@ -5,7 +5,7 @@ import torch
 import triton
 import triton.language as tl
 
-from tests.utils import should_skip_test_group
+from tests.utils_skip import should_skip_kernel_test_group
 from vllm.model_executor.layers.ops.sample import (
     MAX_TRITON_N_COLS, _uniform_to_exponential, get_num_triton_sampler_splits,
     sample)
@@ -31,6 +31,9 @@ def _uniform_to_exponential_kernel(input, output, n: tl.constexpr):
     tl.store(output + idx, y)
 
 
+@pytest.mark.skipif(
+    should_skip_kernel_test_group(), 
+    reason="Current job configured to skip this test group")
 def test_uniform_to_exponential():
     """Test that we can convert uniform to exponential without div by 0."""
     input = torch.tensor([0.0, 1.0 - torch.finfo(torch.float32).eps],
@@ -44,7 +47,7 @@ def test_uniform_to_exponential():
 
 
 @pytest.mark.skipif(
-    should_skip_test_group(), 
+    should_skip_kernel_test_group(), 
     reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("random_sampling", [True, False, "mixed"])
 @pytest.mark.parametrize("max_best_of", [1, 2, 3, 4, 5])
@@ -126,7 +129,7 @@ def test_sample_decoding_only(random_sampling, max_best_of,
 
 
 @pytest.mark.skipif(
-    should_skip_test_group(), 
+    should_skip_kernel_test_group(), 
     reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("random_sampling", [True, False, "mixed"])
 @pytest.mark.parametrize("max_best_of", [1, 2, 3, 4, 5])
@@ -181,7 +184,7 @@ def test_sample_prompt_logprobs(random_sampling, max_best_of,
 
 
 @pytest.mark.skipif(
-    should_skip_test_group(), 
+    should_skip_kernel_test_group(), 
     reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("seed", list(range(16)))
 def test_get_sequence_seeds(seed):

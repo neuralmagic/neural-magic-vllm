@@ -5,7 +5,7 @@ import pytest
 import torch
 from allclose_default import get_default_atol, get_default_rtol
 
-from tests.utils import should_skip_test_group
+from tests.utils_skip import should_skip_kernel_test_group
 from vllm.model_executor.layers.rotary_embedding import get_rope
 
 IS_NEOX_STYLE = [True, False]
@@ -22,7 +22,7 @@ CUDA_DEVICES = [
 
 
 @pytest.mark.skipif(
-    should_skip_test_group(), 
+    should_skip_kernel_test_group(), 
     reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("is_neox_style", IS_NEOX_STYLE)
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
@@ -81,7 +81,7 @@ def test_rotary_embedding(
 
 
 @pytest.mark.skipif(
-    should_skip_test_group(), 
+    should_skip_kernel_test_group(), 
     reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("is_neox_style", IS_NEOX_STYLE)
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
@@ -146,7 +146,7 @@ def test_batched_rotary_embedding(
 
 
 @pytest.mark.skipif(
-    should_skip_test_group(), 
+    should_skip_kernel_test_group(), 
     reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("is_neox_style", IS_NEOX_STYLE)
 @pytest.mark.parametrize("batch_size", BATCH_SIZES)
