@@ -1,6 +1,6 @@
-import pytest
 from collections import OrderedDict
 
+import pytest
 from torch import nn
 
 from tests.utils_skip import should_skip_lora_test_group
@@ -8,9 +8,8 @@ from vllm.lora.utils import parse_fine_tuned_lora_name, replace_submodule
 from vllm.utils import LRUCache
 
 
-@pytest.mark.skipif(
-    should_skip_lora_test_group(), 
-    reason="Current job configured to skip this test group")
+@pytest.mark.skipif(should_skip_lora_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_parse_fine_tuned_lora_name():
     fixture = {
         ("base_model.model.lm_head.lora_A.weight", "lm_head", True),
@@ -40,9 +39,8 @@ def test_parse_fine_tuned_lora_name():
         assert (module_name, is_lora_a) == parse_fine_tuned_lora_name(name)
 
 
-@pytest.mark.skipif(
-    should_skip_lora_test_group(), 
-    reason="Current job configured to skip this test group")
+@pytest.mark.skipif(should_skip_lora_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_replace_submodule():
     model = nn.Sequential(
         OrderedDict([
@@ -80,9 +78,8 @@ class TestLRUCache(LRUCache):
         self._remove_counter += 1
 
 
-@pytest.mark.skipif(
-    should_skip_lora_test_group(), 
-    reason="Current job configured to skip this test group")
+@pytest.mark.skipif(should_skip_lora_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_lru_cache():
     cache = TestLRUCache(3)
 

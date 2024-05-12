@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 import torch
 
+from tests.utils_skip import should_skip_spec_decode_test_group
 from vllm.model_executor.utils import set_random_seed
 from vllm.sequence import ExecuteModelRequest, SamplerOutput
 from vllm.spec_decode.multi_step_worker import MultiStepWorker
@@ -15,6 +16,8 @@ from .utils import (assert_logprobs_dict_allclose, create_batch,
                     patch_execute_model_with_seeds, zero_kv_cache)
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize('num_steps', list(range(1, 17)))
 def test_assert_enough_kv_space(num_steps: int):
     """Test that the multi step worker checks for sufficient space in the KV
@@ -69,6 +72,8 @@ def test_assert_enough_kv_space(num_steps: int):
 
 
 @torch.inference_mode()
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_same_output_for_single_step():
     """Verify the multi step worker produces the same output as the normal
     worker for num_steps=1.
@@ -151,6 +156,8 @@ def test_same_output_for_single_step():
 
 
 @torch.inference_mode()
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_same_output_for_multi_step():
     """Verify the multi-step worker produces the same output as the normal
     worker when num_steps > 1. This test runs the multi-step worker once, and
@@ -270,6 +277,8 @@ def test_same_output_for_multi_step():
 
 
 @torch.inference_mode()
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_draft_proposals_full_speculation_len():
     """Verify Top1Proposer correctly handles case where all sequences
     can speculate.
@@ -322,6 +331,8 @@ def test_draft_proposals_full_speculation_len():
 
 
 @torch.inference_mode()
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_draft_proposals_no_speculations():
     """Verify Top1Proposer correctly handles case where no sequences
     can speculate.
@@ -359,6 +370,8 @@ def test_draft_proposals_no_speculations():
 
 
 @torch.inference_mode()
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_draft_proposals_mixed_k():
     """Verify Top1Proposer correctly handles case some sequences can
     speculate and some can't.

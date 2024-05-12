@@ -4,12 +4,16 @@ Run `pytest tests/models/test_mistral.py`.
 """
 import pytest
 
+from tests.utils_skip import should_skip_models_test_group
+
 MODELS = [
     "mistralai/Mistral-7B-Instruct-v0.1",
 ]
 
 
 # UPSTREAM SYNC: we run OOM on the A10g instances.
+@pytest.mark.skipif(should_skip_models_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.skip("Not enough memory in automation testing.")
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("dtype", ["bfloat16"])

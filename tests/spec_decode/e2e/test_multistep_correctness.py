@@ -33,12 +33,16 @@ from itertools import cycle
 import pytest
 from transformers import AutoTokenizer
 
+from tests.utils_skip import should_skip_spec_decode_test_group
 from vllm import SamplingParams
 
 from .conftest import (get_output_from_llm_generator,
                        run_greedy_equality_correctness_test)
 
 
+@pytest.mark.skipif(
+    should_skip_spec_decode_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -110,6 +114,9 @@ def test_spec_decode_e2e_with_detokenization(test_llm_generator,
         assert actual_tokens.strip() == expected_tokens.strip()
 
 
+@pytest.mark.skipif(
+    should_skip_spec_decode_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -148,6 +155,9 @@ def test_spec_decode_e2e_with_async_engine(test_llm_generator,
                                          force_output_len=True)
 
 
+@pytest.mark.skipif(
+    should_skip_spec_decode_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -202,6 +212,9 @@ def test_spec_decode_e2e_greedy_correctness_tiny_model_bs1(
                                          force_output_len=True)
 
 
+@pytest.mark.skipif(
+    should_skip_spec_decode_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -253,6 +266,9 @@ def test_spec_decode_e2e_greedy_correctness_tiny_model_large_bs(
                                          force_output_len=True)
 
 
+@pytest.mark.skipif(
+    should_skip_spec_decode_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -299,6 +315,9 @@ def test_spec_decode_e2e_greedy_correctness_tiny_model_large_bs_diff_output_len(
                                          force_output_len=False)
 
 
+@pytest.mark.skipif(
+    should_skip_spec_decode_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -343,6 +362,9 @@ def test_spec_decode_e2e_greedy_correctness_real_model_bs1(
                                          force_output_len=True)
 
 
+@pytest.mark.skipif(
+    should_skip_spec_decode_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -387,6 +409,9 @@ def test_spec_decode_e2e_greedy_correctness_real_model_large_bs(
                                          force_output_len=True)
 
 
+@pytest.mark.skipif(
+    should_skip_spec_decode_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -434,6 +459,9 @@ def test_spec_decode_e2e_greedy_correctness_with_preemption(
                                          force_output_len=True)
 
 
+@pytest.mark.skipif(
+    should_skip_spec_decode_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -487,6 +515,9 @@ def test_spec_decode_different_block_size(baseline_llm_generator,
                                          force_output_len=True)
 
 
+@pytest.mark.skipif(
+    should_skip_spec_decode_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -536,6 +567,9 @@ def test_skip_speculation(baseline_llm_generator, test_llm_generator,
                                          force_output_len=True)
 
 
+@pytest.mark.skipif(
+    should_skip_spec_decode_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{

@@ -31,9 +31,8 @@ def _uniform_to_exponential_kernel(input, output, n: tl.constexpr):
     tl.store(output + idx, y)
 
 
-@pytest.mark.skipif(
-    should_skip_kernel_test_group(), 
-    reason="Current job configured to skip this test group")
+@pytest.mark.skipif(should_skip_kernel_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_uniform_to_exponential():
     """Test that we can convert uniform to exponential without div by 0."""
     input = torch.tensor([0.0, 1.0 - torch.finfo(torch.float32).eps],
@@ -46,9 +45,8 @@ def test_uniform_to_exponential():
     assert torch.all(torch.isfinite(torch.full_like(output, 1.0) / output))
 
 
-@pytest.mark.skipif(
-    should_skip_kernel_test_group(), 
-    reason="Current job configured to skip this test group")
+@pytest.mark.skipif(should_skip_kernel_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("random_sampling", [True, False, "mixed"])
 @pytest.mark.parametrize("max_best_of", [1, 2, 3, 4, 5])
 @pytest.mark.parametrize("modify_greedy_probs", [True, False])
@@ -128,9 +126,8 @@ def test_sample_decoding_only(random_sampling, max_best_of,
         assert sampled_logprobs is None
 
 
-@pytest.mark.skipif(
-    should_skip_kernel_test_group(), 
-    reason="Current job configured to skip this test group")
+@pytest.mark.skipif(should_skip_kernel_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("random_sampling", [True, False, "mixed"])
 @pytest.mark.parametrize("max_best_of", [1, 2, 3, 4, 5])
 @pytest.mark.parametrize("modify_greedy_probs", [True, False])
@@ -183,9 +180,8 @@ def test_sample_prompt_logprobs(random_sampling, max_best_of,
                              [sampled_tokens[i, best_of]])
 
 
-@pytest.mark.skipif(
-    should_skip_kernel_test_group(), 
-    reason="Current job configured to skip this test group")
+@pytest.mark.skipif(should_skip_kernel_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("seed", list(range(16)))
 def test_get_sequence_seeds(seed):
     """Ensure that we get a different child seed from base 

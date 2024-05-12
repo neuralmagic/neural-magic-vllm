@@ -6,6 +6,7 @@ Run `pytest tests/models/test_aqlm.py`.
 import pytest
 import torch
 
+from tests.utils_skip import should_skip_models_test_group
 from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
 
 capability = torch.cuda.get_device_capability()
@@ -64,6 +65,8 @@ ground_truth_generations = [
 ]
 
 
+@pytest.mark.skipif(should_skip_models_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.skipif(aqlm_not_supported,
                     reason="AQLM is not supported on this GPU type.")
 @pytest.mark.parametrize("model", ["ISTA-DASLab/Llama-2-7b-AQLM-2Bit-1x16-hf"])

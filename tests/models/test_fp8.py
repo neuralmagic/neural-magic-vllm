@@ -8,6 +8,7 @@ import pytest
 import torch
 from transformers import AutoTokenizer
 
+from tests.utils_skip import should_skip_models_test_group
 from vllm import LLM, SamplingParams
 from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
 
@@ -49,6 +50,8 @@ fp8_not_supported = (capability <
                      QUANTIZATION_METHODS["fp8"].get_min_capability())
 
 
+@pytest.mark.skipif(should_skip_models_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.skipif(fp8_not_supported,
                     reason="fp8 is not supported on this GPU type.")
 @pytest.mark.parametrize("model_name", MODELS)

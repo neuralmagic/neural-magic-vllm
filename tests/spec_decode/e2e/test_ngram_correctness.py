@@ -26,9 +26,13 @@ for the target model outputs.
 
 import pytest
 
+from tests.utils_skip import should_skip_spec_decode_test_group
+
 from .conftest import run_greedy_equality_correctness_test
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -70,6 +74,8 @@ def test_ngram_e2e_greedy_correctness(baseline_llm_generator,
                                          force_output_len=True)
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -119,6 +125,8 @@ def test_ngram_e2e_greedy_correctness_with_preemption(baseline_llm_generator,
                                          force_output_len=True)
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{

@@ -1,11 +1,14 @@
 import pytest
 import torch
 
+from tests.utils_skip import should_skip_spec_decode_test_group
 from vllm.spec_decode.batch_expansion import BatchExpansionTop1Scorer
 
 from .utils import create_seq_group_metadata_from_prompts, mock_worker
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize('num_target_seq_ids', [100])
 @pytest.mark.skip_global_cleanup
 def test_create_target_seq_id_iterator(num_target_seq_ids: int):
@@ -27,6 +30,8 @@ def test_create_target_seq_id_iterator(num_target_seq_ids: int):
             assert next(iterator) > max_seq_id
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize('k', [1, 2, 6])
 @pytest.mark.skip_global_cleanup
 def test_get_token_ids_to_score(k: int):
@@ -54,6 +59,8 @@ def test_get_token_ids_to_score(k: int):
     assert actual_output == expected_output
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize('k', [1, 2, 6])
 @pytest.mark.skip_global_cleanup
 def test_create_single_target_seq_group_metadata(k: int):

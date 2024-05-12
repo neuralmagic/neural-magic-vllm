@@ -22,9 +22,8 @@ TOLERANCES = {
 }
 
 
-@pytest.mark.skipif(
-    should_skip_lora_test_group(), 
-    reason="Current job configured to skip this test group")
+@pytest.mark.skipif(should_skip_lora_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("m", TENSOR_SIZES)
 @pytest.mark.parametrize("n", TENSOR_SIZES)
 @pytest.mark.parametrize("k", BATCH_SIZES)
@@ -75,9 +74,8 @@ def test_apply_lora(m, n, k, rank, dtype) -> None:
     manager.reset_lora()
 
 
-@pytest.mark.skipif(
-    should_skip_lora_test_group(), 
-    reason="Current job configured to skip this test group")
+@pytest.mark.skipif(should_skip_lora_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("m", TENSOR_SIZES)
 @pytest.mark.parametrize("n", TENSOR_SIZES)
 @pytest.mark.parametrize("k", BATCH_SIZES)
@@ -147,9 +145,8 @@ def test_apply_lora_packed_2slice(m, n, k, rank, dtype) -> None:
     manager.reset_lora()
 
 
-@pytest.mark.skipif(
-    should_skip_lora_test_group(), 
-    reason="Current job configured to skip this test group")
+@pytest.mark.skipif(should_skip_lora_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("qkv", QKV_TENSOR_SIZES)
 @pytest.mark.parametrize("n", TENSOR_SIZES)
 @pytest.mark.parametrize("k", BATCH_SIZES)

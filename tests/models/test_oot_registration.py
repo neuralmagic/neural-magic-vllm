@@ -1,5 +1,7 @@
+import pytest
 import torch
 
+from tests.utils_skip import should_skip_models_test_group
 from vllm import LLM, ModelRegistry, SamplingParams
 from vllm.model_executor.models.opt import OPTForCausalLM
 from vllm.model_executor.sampling_metadata import SamplingMetadata
@@ -16,6 +18,8 @@ class MyOPTForCausalLM(OPTForCausalLM):
         return logits
 
 
+@pytest.mark.skipif(should_skip_models_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_oot_registration():
     # register our dummy model
     ModelRegistry.register_model("OPTForCausalLM", MyOPTForCausalLM)

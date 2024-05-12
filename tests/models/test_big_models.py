@@ -6,6 +6,8 @@ Run `pytest tests/models/test_big_models.py`.
 """
 import pytest
 
+from tests.utils_skip import should_skip_models_test_group
+
 MODELS = [
     "meta-llama/Llama-2-7b-hf",
     "mistralai/Mistral-7B-v0.1",
@@ -28,6 +30,8 @@ SKIPPED_MODELS_OOM = [
 ]
 
 
+@pytest.mark.skipif(should_skip_models_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("dtype", ["half"])
 @pytest.mark.parametrize("max_tokens", [32])
@@ -63,6 +67,8 @@ def test_models(
             f"Test{i}:\nHF: {hf_output_ids}\nvLLM: {vllm_output_ids}")
 
 
+@pytest.mark.skipif(should_skip_models_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("dtype", ["half"])
 def test_model_print(

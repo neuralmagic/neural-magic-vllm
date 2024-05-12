@@ -7,9 +7,8 @@ from vllm.model_executor.models.baichuan import BaiChuanBaseForCausalLM
 lora_lst = ["baichuan7B", "baichuan7B-zero", "chatglm3-6b"]
 
 
-@pytest.mark.skipif(
-    should_skip_lora_test_group(), 
-    reason="Current job configured to skip this test group")
+@pytest.mark.skipif(should_skip_lora_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("lora_name", lora_lst)
 def test_load_checkpoints(
     lora_name,

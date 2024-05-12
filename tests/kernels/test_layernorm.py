@@ -15,9 +15,8 @@ CUDA_DEVICES = [
 ]
 
 
-@pytest.mark.skipif(
-    should_skip_kernel_test_group(), 
-    reason="Current job configured to skip this test group")
+@pytest.mark.skipif(should_skip_kernel_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
 @pytest.mark.parametrize("hidden_size", HIDDEN_SIZES)
 @pytest.mark.parametrize("add_residual", ADD_RESIDUAL)

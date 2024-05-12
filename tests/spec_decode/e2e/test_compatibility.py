@@ -1,10 +1,13 @@
 import pytest
 
+from tests.utils_skip import should_skip_spec_decode_test_group
 from vllm import SamplingParams
 
 from .conftest import get_output_from_llm_generator
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -55,6 +58,8 @@ def test_spec_decode_xfail_ray(test_llm_generator):
         ray.shutdown()
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -94,6 +99,8 @@ def test_spec_decode_xfail_chunked_prefill(test_llm_generator):
                                       sampling_params)
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -146,6 +153,8 @@ def test_spec_decode_xfail_spec_max_model_len(test_llm_generator):
                                       sampling_params)
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("common_llm_kwargs", [{
     "model": "JackFram/llama-68m",
     "speculative_model": "JackFram/llama-68m",

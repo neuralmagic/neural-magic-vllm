@@ -1,7 +1,7 @@
 import pytest
 
-from tests.utils_skip import should_skip_lora_test_group
 import vllm
+from tests.utils_skip import should_skip_lora_test_group
 from vllm.lora.request import LoRARequest
 
 MODEL_PATH = "google/gemma-7b"
@@ -30,9 +30,8 @@ def do_sample(llm, lora_path: str, lora_id: int) -> str:
 
 
 # UPSTREAM SYNC: skip this test in nm-automation
-@pytest.mark.skipif(
-    should_skip_lora_test_group(), 
-    reason="Current job configured to skip this test group")
+@pytest.mark.skipif(should_skip_lora_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.skip("Flaky test in NM automation")
 def test_gemma_lora(gemma_lora_files):
     llm = vllm.LLM(MODEL_PATH,

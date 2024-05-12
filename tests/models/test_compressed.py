@@ -6,10 +6,10 @@ sparse models are in the top N selections of same model running dense.
 Run `pytest tests/models/test_compressed.py`.
 """
 
-import gc
-
 import pytest
-from compare_utils import check_logprobs_close
+
+from tests.models.utils import check_logprobs_close
+from tests.utils_skip import should_skip_models_test_group
 
 MAX_MODEL_LEN = 1024
 MODEL_FORMAT_PAIRS = [
@@ -21,6 +21,8 @@ MODEL_FORMAT_PAIRS = [
 ]
 
 
+@pytest.mark.skipif(should_skip_models_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("model_format_pairs", MODEL_FORMAT_PAIRS)
 @pytest.mark.parametrize("dtype", ["half"])
 @pytest.mark.parametrize("max_tokens", [32])
@@ -43,7 +45,6 @@ def test_models(
         example_prompts, max_tokens, num_logprobs)
 
     del sparse_model
-    gc.collect()
 
     dense_model = vllm_runner(model_name=model_name,
                               sparsity=None,
@@ -53,7 +54,6 @@ def test_models(
         example_prompts, max_tokens, num_logprobs)
 
     del dense_model
-    gc.collect()
 
     # loop through the prompts
     check_logprobs_close(

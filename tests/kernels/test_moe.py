@@ -30,9 +30,8 @@ def torch_moe(a, w1, w2, score, topk):
             topk_weight.view(B, -1, 1).to(out.dtype)).sum(dim=1)
 
 
-@pytest.mark.skipif(
-    should_skip_kernel_test_group(), 
-    reason="Current job configured to skip this test group")
+@pytest.mark.skipif(should_skip_kernel_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("m", [512, 222, 33, 1])
 @pytest.mark.parametrize("n", [2048, 256, 1024])
 @pytest.mark.parametrize("k", [128, 511, 1024])
@@ -57,9 +56,8 @@ def test_fused_moe(
     assert torch.allclose(triton_output, torch_output, atol=1e-2, rtol=0)
 
 
-@pytest.mark.skipif(
-    should_skip_kernel_test_group(), 
-    reason="Current job configured to skip this test group")
+@pytest.mark.skipif(should_skip_kernel_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("dtype",
                          [torch.float32, torch.float16, torch.bfloat16])
 @torch.inference_mode()

@@ -9,6 +9,8 @@ Run `pytest tests/models/test_models.py`.
 """
 import pytest
 
+from tests.utils_skip import should_skip_models_test_group
+
 MODELS = [
     "facebook/opt-125m",
     "gpt2",
@@ -24,6 +26,8 @@ MODELS = [
 
 # UPSTREAM SYNC: we run OOM on the A10g instances.
 @pytest.mark.skip("Not enough memory in automation testing.")
+@pytest.mark.skipif(should_skip_models_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("dtype", ["float"])
 @pytest.mark.parametrize("max_tokens", [96])
@@ -55,6 +59,8 @@ def test_models(
             f"Test{i}:\nHF: {hf_output_ids}\nvLLM: {vllm_output_ids}")
 
 
+@pytest.mark.skipif(should_skip_models_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("dtype", ["float"])
 def test_model_print(

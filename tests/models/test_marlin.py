@@ -21,6 +21,7 @@ import pytest
 import torch
 
 from tests.models.utils import check_logprobs_close
+from tests.utils_skip import should_skip_models_test_group
 from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
 
 MAX_MODEL_LEN = 1024
@@ -48,6 +49,8 @@ model_pairs = [
 
 
 @pytest.mark.flaky(reruns=2)
+@pytest.mark.skipif(should_skip_models_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.skipif(marlin_not_supported,
                     reason="Marlin is not supported on this GPU type.")
 @pytest.mark.parametrize("model_pair", model_pairs)

@@ -8,10 +8,9 @@ for the KV cache and thus more allocated blocks.
 Run `pytest tests/models/test_sparse_memory.py --forked`.
 """
 
-import gc
-
 import pytest
-import torch
+
+from tests.utils_skip import should_skip_models_test_group
 
 MODEL_FORMAT_EXTRABLOCKS = [
     ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned50", "sparse_w16a16", 2000),
@@ -20,6 +19,8 @@ MODEL_FORMAT_EXTRABLOCKS = [
 ]
 
 
+@pytest.mark.skipif(should_skip_models_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("model_format_extrablocks", MODEL_FORMAT_EXTRABLOCKS)
 @pytest.mark.parametrize("dtype", ["half"])
 def test_models(
@@ -38,8 +39,6 @@ def test_models(
     dense_num_kv_blocks = dense_gpu_alloc.num_blocks
 
     del dense_model
-    torch.cuda.empty_cache()
-    gc.collect()
 
     sparse_model = vllm_runner(
         model_name=model_name,
@@ -53,8 +52,6 @@ def test_models(
     sparse_num_kv_blocks = sparse_gpu_alloc.num_blocks
 
     del sparse_model
-    torch.cuda.empty_cache()
-    gc.collect()
 
     assert sparse_num_kv_blocks > dense_num_kv_blocks + num_extra_blocks, (
         f"Test{model_name}: Sparse model KV cache size {sparse_num_kv_blocks} "

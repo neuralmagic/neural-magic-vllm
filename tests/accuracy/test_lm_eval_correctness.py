@@ -8,6 +8,7 @@ import torch
 import yaml
 
 from tests.utils.server import ServerContext
+from tests.utils_skip import should_skip_lm_eval_test_group
 
 if TYPE_CHECKING:
     import lm_eval as lm_eval_t
@@ -50,6 +51,8 @@ TEST_DATA: List[EvalTaskDefinition] = [
 DEFAULT_RTOL = 0.05
 
 
+@pytest.mark.skipif(should_skip_lm_eval_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("eval_data", TEST_DATA)
 def test_lm_eval_correctness(
     eval_data: EvalTaskDefinition,

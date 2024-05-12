@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 import torch
 
+from tests.utils_skip import should_skip_spec_decode_test_group
 from vllm.model_executor.layers.rejection_sampler import RejectionSampler
 from vllm.model_executor.utils import set_random_seed
 from vllm.sequence import ExecuteModelRequest, SamplerOutput
@@ -18,6 +19,8 @@ from vllm.spec_decode.spec_decode_worker import (SpecDecodeWorker,
 from .utils import create_batch, create_sampler_output_list, mock_worker
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize('k', [1, 2, 6])
 @pytest.mark.parametrize('batch_size', [1, 2, 32])
 @torch.inference_mode()
@@ -50,6 +53,8 @@ def test_correctly_calls_draft_model(k: int, batch_size: int):
         assert actual_execute_model_data == execute_model_req
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize('k', [1, 2, 6])
 @pytest.mark.parametrize('batch_size', [1, 2, 32])
 @torch.inference_mode()
@@ -130,6 +135,8 @@ def test_correctly_calls_target_model(k: int, batch_size: int):
     assert expected_seen_contexts == seen_contexts
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize('k', [1, 2, 6])
 @pytest.mark.parametrize('batch_size', [1, 2, 32])
 @torch.inference_mode()
@@ -218,6 +225,8 @@ def test_correctly_calls_rejection_sampler(k: int, batch_size: int):
     assert torch.equal(actual.draft_probs, proposal_probs)
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize('k', [1, 2, 6])
 @pytest.mark.parametrize('batch_size', [1, 2, 32])
 @torch.inference_mode()
@@ -340,6 +349,8 @@ def test_correctly_formats_output(k: int, batch_size: int):
                 i].output_token
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize('k', [1, 2])
 @pytest.mark.parametrize('batch_size', [1])
 @pytest.mark.parametrize('returns_metrics', [True, False])
@@ -436,6 +447,8 @@ def test_collects_metrics(k: int, batch_size: int, returns_metrics: bool):
     assert args[0] == k or kwargs.get('k', -1) == k
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize('k', [0])
 @pytest.mark.parametrize('batch_size', [1, 2, 32])
 @torch.inference_mode()
@@ -476,6 +489,8 @@ def test_k_equals_zero(k: int, batch_size: int):
     target_worker.execute_model.assert_called_once_with(execute_model_req)
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize('k', [0, 5])
 @pytest.mark.parametrize('batch_size', [0])
 @torch.inference_mode()
@@ -518,6 +533,8 @@ def test_empty_input_batch(k: int, batch_size: int):
 
 
 @pytest.mark.skip_global_cleanup
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_init_device():
     """Verify SpecDecodeWorker invokes proposer/scorer worker init_device, as
     well as other GPU initialization.
@@ -542,6 +559,8 @@ def test_init_device():
 
 
 @torch.inference_mode()
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_initialize_cache():
     """Verify SpecDecodeWorker invokes initialize_cache on proposer/scorer
     workers.
@@ -562,6 +581,8 @@ def test_initialize_cache():
     target_worker.initialize_cache.assert_called_once_with(**kwargs)
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize('available_gpu_blocks', [1, 1024])
 @pytest.mark.parametrize('available_cpu_blocks', [500])
 @pytest.mark.parametrize('target_cache_block_size_bytes', [2 * 2 * 4096])
@@ -600,6 +621,8 @@ def test_determine_num_available_blocks(available_gpu_blocks: int,
         available_gpu_blocks)
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize('available_gpu_blocks',
                          list(range(20)) + [1024, 1024**2])
 @pytest.mark.parametrize('target_cache_block_size_bytes',

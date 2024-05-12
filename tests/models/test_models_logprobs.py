@@ -3,7 +3,9 @@
 Run `pytest tests/models/test_models_logprobs.py --forked`.
 """
 import pytest
-from compare_utils import check_logprobs_close
+
+from tests.models.utils import check_logprobs_close
+from tests.utils_skip import should_skip_models_test_group
 
 MODEL_MAX_LEN = 1024
 
@@ -37,6 +39,8 @@ SKIPPED_MODELS_OOM = [
 ]
 
 
+@pytest.mark.skipif(should_skip_models_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("dtype", ["bfloat16", "half"])
 @pytest.mark.parametrize("max_tokens", [32])

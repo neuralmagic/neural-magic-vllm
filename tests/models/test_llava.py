@@ -7,6 +7,7 @@ import pytest
 import torch
 from transformers import AutoTokenizer
 
+from tests.utils_skip import should_skip_models_test_group
 from vllm.config import VisionLanguageConfig
 
 model_and_vl_config = [
@@ -62,6 +63,8 @@ def sanitize_vllm_output(vllm_output: Tuple[List[int], str],
     return sanitized_input_ids, sanitzied_output_str
 
 
+@pytest.mark.skipif(should_skip_models_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("worker_use_ray", [False])
 @pytest.mark.parametrize("model_and_config", model_and_vl_config)
 @pytest.mark.parametrize("dtype", ["half"])

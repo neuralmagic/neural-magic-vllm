@@ -2,10 +2,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.utils_skip import should_skip_spec_decode_test_group
 from vllm.sequence import SequenceGroupMetadata
 from vllm.spec_decode.util import get_all_seq_ids, split_batch_by_proposal_len
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_get_all_seq_ids():
     """Verify get_all_seq_ids extracts all seq ids.
     """
@@ -49,6 +52,8 @@ def fake_sequence_group_metadata():
     ]
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_filter_zero_length_proposals(fake_sequence_group_metadata):
     proposal_lens = [0, 1, 0]
     filtered_groups, indices = split_batch_by_proposal_len(
@@ -65,6 +70,8 @@ def test_filter_zero_length_proposals(fake_sequence_group_metadata):
     assert indices == expected_indices
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_filter_non_zero_length_proposals(fake_sequence_group_metadata):
     proposal_lens = [0, 1, 2]
     filtered_groups, indices = split_batch_by_proposal_len(
@@ -81,6 +88,8 @@ def test_filter_non_zero_length_proposals(fake_sequence_group_metadata):
     assert indices == expected_indices
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_empty_inputs():
     filtered_groups, indices = split_batch_by_proposal_len(
         [], [], select_proposal_len_zero=True)
@@ -89,6 +98,8 @@ def test_empty_inputs():
     assert indices == []
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_all_zero_with_non_zero_filter(fake_sequence_group_metadata):
     proposal_lens = [0, 0, 0]
     filtered_groups, indices = split_batch_by_proposal_len(
@@ -100,6 +111,8 @@ def test_all_zero_with_non_zero_filter(fake_sequence_group_metadata):
     assert indices == []
 
 
+@pytest.mark.skipif(should_skip_spec_decode_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_all_non_zero_with_zero_filter(fake_sequence_group_metadata):
     proposal_lens = [1, 1, 1]
     filtered_groups, indices = split_batch_by_proposal_len(
