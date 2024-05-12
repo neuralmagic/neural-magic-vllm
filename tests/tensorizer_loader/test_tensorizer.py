@@ -10,6 +10,7 @@ import ray
 import torch
 
 from tests.entrypoints.test_openai_server import ServerRunner
+from tests.utils_skip import should_skip_tensorizer_test_group
 from vllm import SamplingParams
 from vllm.model_executor.model_loader.tensorizer import (
     EncryptionParams, TensorizerConfig, TensorSerializer,
@@ -44,6 +45,8 @@ def tensorizer_config():
 
 
 @patch('vllm.model_executor.model_loader.tensorizer.TensorizerAgent')
+@pytest.mark.skipif(should_skip_tensorizer_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_load_with_tensorizer(mock_agent, tensorizer_config):
     mock_linear_method = MagicMock()
     mock_agent_instance = mock_agent.return_value
@@ -58,6 +61,8 @@ def test_load_with_tensorizer(mock_agent, tensorizer_config):
     assert result == mock_agent_instance.deserialize.return_value
 
 
+@pytest.mark.skipif(should_skip_tensorizer_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_is_vllm_model_with_vllm_in_uri(tensorizer_config):
     tensorizer_config.vllm_tensorized = True
 
@@ -66,6 +71,8 @@ def test_is_vllm_model_with_vllm_in_uri(tensorizer_config):
     assert result is True
 
 
+@pytest.mark.skipif(should_skip_tensorizer_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_is_vllm_model_without_vllm_in_uri(tensorizer_config):
     tensorizer_config.vllm_tensorized = False
 
@@ -74,6 +81,8 @@ def test_is_vllm_model_without_vllm_in_uri(tensorizer_config):
     assert result is False
 
 
+@pytest.mark.skipif(should_skip_tensorizer_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_deserialized_vllm_model_has_same_outputs(vllm_runner, tmp_path):
     vllm_model = vllm_runner(model_ref)
     model_path = tmp_path / (model_ref + ".tensors")
@@ -99,6 +108,8 @@ def test_deserialized_vllm_model_has_same_outputs(vllm_runner, tmp_path):
     assert outputs == deserialized_outputs
 
 
+@pytest.mark.skipif(should_skip_tensorizer_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.skipif(not is_curl_installed(), reason="cURL is not installed")
 def test_can_deserialize_s3(vllm_runner):
     model_ref = "EleutherAI/pythia-1.4b"
@@ -118,6 +129,8 @@ def test_can_deserialize_s3(vllm_runner):
     assert deserialized_outputs
 
 
+@pytest.mark.skipif(should_skip_tensorizer_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.skipif(not is_curl_installed(), reason="cURL is not installed")
 def test_deserialized_encrypted_vllm_model_has_same_outputs(
         vllm_runner, tmp_path):
@@ -151,6 +164,8 @@ def test_deserialized_encrypted_vllm_model_has_same_outputs(
     assert outputs == deserialized_outputs
 
 
+@pytest.mark.skipif(should_skip_tensorizer_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_deserialized_hf_model_has_same_outputs(hf_runner, vllm_runner,
                                                 tmp_path):
     hf_model = hf_runner(model_ref)
@@ -176,6 +191,8 @@ def test_deserialized_hf_model_has_same_outputs(hf_runner, vllm_runner,
     assert outputs == deserialized_outputs
 
 
+@pytest.mark.skipif(should_skip_tensorizer_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_vllm_model_can_load_with_lora(vllm_runner, tmp_path):
     from huggingface_hub import snapshot_download
 
@@ -217,6 +234,8 @@ def test_vllm_model_can_load_with_lora(vllm_runner, tmp_path):
     assert loaded_vllm_model
 
 
+@pytest.mark.skipif(should_skip_tensorizer_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_load_without_tensorizer_load_format(vllm_runner):
     with pytest.raises(ValueError):
         vllm_runner(model_ref,
@@ -224,6 +243,8 @@ def test_load_without_tensorizer_load_format(vllm_runner):
                         tensorizer_uri="test", vllm_tensorized=False))
 
 
+@pytest.mark.skipif(should_skip_tensorizer_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.skipif(not is_curl_installed(), reason="cURL is not installed")
 def test_tensorize_vllm_model(tmp_path):
     # Test serialize command
@@ -251,6 +272,8 @@ def test_tensorize_vllm_model(tmp_path):
                                     f"\n{result.stdout}\n{result.stderr}")
 
 
+@pytest.mark.skipif(should_skip_tensorizer_test_group(),
+                    reason="Current job configured to skip this test group")
 @pytest.mark.skipif(not is_curl_installed(), reason="cURL is not installed")
 def test_openai_apiserver_with_tensorizer(tmp_path):
     ## Serialize model
@@ -301,6 +324,8 @@ def test_openai_apiserver_with_tensorizer(tmp_path):
         completion_tokens=5, prompt_tokens=6, total_tokens=11)
 
 
+@pytest.mark.skipif(should_skip_tensorizer_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_raise_value_error_on_invalid_load_format(vllm_runner):
     with pytest.raises(ValueError):
         vllm_runner(model_ref,
@@ -309,6 +334,8 @@ def test_raise_value_error_on_invalid_load_format(vllm_runner):
                         tensorizer_uri="test", vllm_tensorized=False))
 
 
+@pytest.mark.skipif(should_skip_tensorizer_test_group(),
+                    reason="Current job configured to skip this test group")
 def test_tensorizer_with_tp(vllm_runner):
     with pytest.raises(ValueError):
         model_ref = "EleutherAI/pythia-1.4b"

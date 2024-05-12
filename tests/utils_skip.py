@@ -1,3 +1,10 @@
+"""Checks enviornment variables to skip various test groups.
+
+The functions here are imported by each test file.
+The .github/actions/nm-test-skipping-env-setup sets these 
+    variables in the testing automation.
+"""
+
 import os
 
 
@@ -24,3 +31,8 @@ def should_skip_models_test_group():
 def should_skip_lm_eval_test_group():
     TEST_LM_EVAL = os.getenv("TEST_LM_EVAL", "0")
     return TEST_LM_EVAL != "1"
+
+
+def should_skip_tensorizer_test_group():
+    TEST_TENSORIZER = os.getenv("TEST_TENSORIZER", "0")
+    return TEST_TENSORIZER != "1"

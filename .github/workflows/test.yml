@@ -27,6 +27,10 @@ on:
         description: 'file containing tests to skip'
         type: string
         required: true
+      skip_test_env_vars:
+        description: 'file containing env variables controlling tests to skip'
+        type: string
+        required: true
 
   # makes workflow manually callable
   workflow_dispatch:
@@ -53,6 +57,10 @@ on:
         required: true
       test_skip_list:
         description: 'file containing tests to skip'
+        type: string
+        required: true
+      skip_test_env_vars:
+        description: 'file containing env variables controlling tests to skip'
         type: string
         required: true
 
@@ -83,6 +91,12 @@ jobs:
                 hf_token: ${{ secrets.NM_HF_TOKEN }}
                 Gi_per_thread: 1
                 nvcc_threads: 0
+            
+            - name: set skip test env
+              id: set_skip_test_env
+              uses: ./.github/actions/nm-set-skip-test-env/
+              with:
+                skip_test_env_vars: $${{ inputs.skip_test_env_vars }}
 
             - name: set python
               id: set_python
