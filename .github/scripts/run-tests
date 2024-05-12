@@ -112,15 +112,15 @@ do
     # this is a bit messy and brittle, but certain tests
     # need to be run with specific options
     if [[ "${TEST}" == *"kernels"* || "${TEST}" == *"samplers"* ]]; then
-        CUDA_VISIBLE_DEVICES=0,1 pytest -v ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        CUDA_VISIBLE_DEVICES=0,1 pytest ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     elif [[ "${TEST}" == *"distributed"* ]]; then
-        CUDA_VISIBLE_DEVICES=0,1 pytest -v ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        CUDA_VISIBLE_DEVICES=0,1 pytest ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     elif [[ "${TEST}" == *"test_models_logprobs"* ]]; then
-        pytest --forked -v ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        pytest --forked ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     elif [[ "${TEST}" == *"basic_correctness/test_preemption"* ]]; then
-        VLLM_TEST_ENABLE_ARTIFICIAL_PREEMPT=1 pytest -v ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        VLLM_TEST_ENABLE_ARTIFICIAL_PREEMPT=1 pytest ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     else
-        pytest -v ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        pytest ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     fi
 
     SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
