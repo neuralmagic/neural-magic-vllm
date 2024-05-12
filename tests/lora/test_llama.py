@@ -1,6 +1,7 @@
 import pytest
 import ray
 
+from tests.utils_skip import should_skip_lora_test_group
 import vllm
 from vllm.lora.request import LoRARequest
 
@@ -36,6 +37,9 @@ def do_sample(llm, lora_path: str, lora_id: int):
     return generated_texts
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("tp_size", [1])
 def test_llama_lora(sql_lora_files, tp_size):
     # Cannot use as it will initialize torch.cuda too early...
@@ -79,7 +83,9 @@ def test_llama_lora(sql_lora_files, tp_size):
 
     print("removing lora")
 
-
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.skip("Requires multiple GPUs")
 def test_llama_tensor_parallel_equality(sql_lora_files):
     # Cannot use as it will initialize torch.cuda too early...
@@ -121,6 +127,9 @@ def test_llama_tensor_parallel_equality(sql_lora_files):
     assert output_tp1 == output_tp4
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 def test_llama_lora_warmup(sql_lora_files):
     """Test that the LLM initialization works with a warmup LORA path and
     is more conservative"""

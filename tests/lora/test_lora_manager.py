@@ -6,6 +6,7 @@ import torch
 from safetensors.torch import load_file
 from torch import nn
 
+from tests.utils_skip import should_skip_lora_test_group
 from vllm.config import LoRAConfig
 from vllm.lora.layers import (ColumnParallelLinearWithLoRA,
                               MergedColumnParallelLinearWithLoRA,
@@ -26,6 +27,9 @@ EMBEDDING_MODULES = {
 EMBEDDING_PADDING_MODULES = ["lm_head"]
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 def test_from_lora_tensors(sql_lora_files):
     tensors = load_file(
         os.path.join(sql_lora_files, "adapter_model.safetensors"))
@@ -98,6 +102,9 @@ def create_packed_lora(
     return LoRAModel(lora_id, 8, loras)
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 def test_replace_submodules(dist_init, dummy_model):
     model = dummy_model
     model.supported_lora_modules = ["dense1", "layer1.dense2"]
@@ -116,6 +123,9 @@ def test_replace_submodules(dist_init, dummy_model):
                       RowParallelLinearWithLoRA)
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 def test_lora_model_manager(dist_init, dummy_model):
     model = dummy_model
     model.supported_lora_modules = ["dense1", "dense2", "lm_head"]
@@ -162,6 +172,9 @@ def test_lora_model_manager(dist_init, dummy_model):
     assert manager.lora_index_to_id[1] == 2
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 def test_lora_lru_cache_model_manager(dist_init, dummy_model):
     model = dummy_model
     model.supported_lora_modules = ["dense1", "dense2", "lm_head"]
@@ -211,6 +224,9 @@ def test_lora_lru_cache_model_manager(dist_init, dummy_model):
     assert manager.lora_index_to_id[1] == 3
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 def test_lru_lora_model_manager(dist_init, dummy_model):
     # This tests just the LRU cache functionality, everything else is
     # tested in test_lora_model_manager
@@ -289,6 +305,9 @@ def test_lru_lora_model_manager(dist_init, dummy_model):
     assert all(x is None for x in manager.lora_index_to_id)
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 def test_lru_cache_worker_lora_manager(llama_2_7b_model_extra_embeddings,
                                        sql_lora_files):
     lora_config = LoRAConfig(max_lora_rank=8, max_cpu_loras=4, max_loras=4)
@@ -362,6 +381,9 @@ def test_lru_cache_worker_lora_manager(llama_2_7b_model_extra_embeddings,
         ], mapping)
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 def test_worker_lora_manager(llama_2_7b_model_extra_embeddings,
                              sql_lora_files):
     # Should remove every LoRA not specified in the request.
@@ -432,6 +454,9 @@ def test_worker_lora_manager(llama_2_7b_model_extra_embeddings,
         ], mapping)
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 def test_packed_loras(dist_init, dummy_model_gate_up):
     model = dummy_model_gate_up
     model.supported_lora_modules = ["gate_up_proj"]

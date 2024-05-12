@@ -1,6 +1,7 @@
 import pytest
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
+from tests.utils_skip import should_skip_lora_test_group
 from vllm.lora.request import LoRARequest
 from vllm.transformers_utils.tokenizer import get_lora_tokenizer
 from vllm.transformers_utils.tokenizer_group import get_tokenizer_group
@@ -9,6 +10,9 @@ from ..conftest import get_tokenizer_pool_config
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("tokenizer_group_type", [None, "ray"])
 async def test_tokenizer_group_lora(sql_lora_files, tokenizer_group_type):
     reference_tokenizer = AutoTokenizer.from_pretrained(sql_lora_files)
@@ -41,6 +45,9 @@ async def test_tokenizer_group_lora(sql_lora_files, tokenizer_group_type):
             lora_request)
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 def test_get_lora_tokenizer(sql_lora_files, tmpdir):
     lora_request = None
     tokenizer = get_lora_tokenizer(lora_request)

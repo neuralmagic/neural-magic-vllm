@@ -7,6 +7,7 @@ import pytest
 import torch
 import torch.nn.functional as F
 
+from tests.utils_skip import should_skip_lora_test_group
 from vllm.config import LoRAConfig
 from vllm.lora.fully_sharded_layers import (
     ColumnParallelLinearWithShardedLoRA,
@@ -172,6 +173,9 @@ def create_random_inputs(
 
 
 @torch.inference_mode()
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("num_loras", [1, 2, 4, 8])
 @pytest.mark.parametrize("device", CUDA_DEVICES)
 @pytest.mark.parametrize("vocab_size", [512, 32000, 64000, 128000])
@@ -271,6 +275,9 @@ def test_embeddings(dist_init, num_loras, device, vocab_size) -> None:
 @torch.inference_mode()
 # @pytest.mark.skip(
 #     reason="Fails when loras are in any slot other than the first.")
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("num_loras", [1, 2, 4, 8])
 @pytest.mark.parametrize("device", CUDA_DEVICES)
 @pytest.mark.parametrize("vocab_size", [512, 32000, 64000, 128000])
@@ -409,6 +416,9 @@ def test_embeddings_with_new_embeddings(dist_init, num_loras, device,
 
 
 @torch.inference_mode()
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("num_loras", [1, 2, 4, 8])
 @pytest.mark.parametrize("device", CUDA_DEVICES)
 @pytest.mark.parametrize("vocab_size", [512, 32000, 64000, 128000])
@@ -535,6 +545,9 @@ def test_lm_head_logits_processor(dist_init, num_loras, device,
 
 
 @torch.inference_mode()
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("num_loras", [1, 2, 4, 8])
 @pytest.mark.parametrize("orientation", ["row", "column"])
 @pytest.mark.parametrize("fully_shard", [True, False])
@@ -649,6 +662,9 @@ def test_linear_parallel(dist_init, num_loras, orientation, fully_shard,
 
 
 @torch.inference_mode()
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("num_loras", [1, 2, 4, 8])
 @pytest.mark.parametrize("repeats", [1, 2, 3])
 @pytest.mark.parametrize("fully_shard", [True, False])

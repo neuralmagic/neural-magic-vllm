@@ -1,3 +1,6 @@
+import pytest
+
+from tests.utils_skip import should_skip_lora_test_group
 import vllm
 from vllm.lora.request import LoRARequest
 
@@ -35,6 +38,9 @@ def do_sample(llm, lora_path: str, lora_id: int) -> str:
     return generated_texts
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 def test_chatglm3_lora(chatglm3_lora_files):
     llm = vllm.LLM(MODEL_PATH,
                    max_model_len=1024,

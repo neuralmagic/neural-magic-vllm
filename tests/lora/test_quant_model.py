@@ -5,6 +5,7 @@ from typing import List
 
 import pytest
 
+from tests.utils_skip import should_skip_lora_test_group
 import vllm
 from vllm.lora.request import LoRARequest
 
@@ -54,6 +55,9 @@ def do_sample(llm, lora_path: str, lora_id: int, max_tokens=256):
     return generated_texts
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.skip(
     reason="ValueError: Unsupported base layer: QKVParallelLinear()")
 @pytest.mark.parametrize("model", MODELS)
@@ -148,6 +152,9 @@ def test_quant_model_lora(tinyllama_lora_files, model, tp_size):
     cleanup()
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.skip("Requires multiple GPUs")
 def test_quant_model_tp_equality(tinyllama_lora_files, model):

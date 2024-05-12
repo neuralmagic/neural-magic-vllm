@@ -1,8 +1,10 @@
+import pytest
 import os
 import random
 import tempfile
 from unittest.mock import patch
 
+from tests.utils_skip import should_skip_lora_test_group
 from vllm.config import (CacheConfig, DeviceConfig, LoadConfig, LoRAConfig,
                          ModelConfig, ParallelConfig, SchedulerConfig)
 from vllm.lora.models import LoRAMapping
@@ -10,6 +12,9 @@ from vllm.lora.request import LoRARequest
 from vllm.worker.worker import Worker
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 @patch.dict(os.environ, {"RANK": "0"})
 def test_worker_apply_lora(sql_lora_files):
     worker = Worker(

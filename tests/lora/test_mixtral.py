@@ -1,6 +1,7 @@
 import pytest
 import torch
 
+from tests.utils_skip import should_skip_lora_test_group
 import vllm
 from vllm.lora.request import LoRARequest
 
@@ -30,6 +31,9 @@ def do_sample(llm, lora_path: str, lora_id: int):
 
 
 # UPSTREAM SYNC: need to skip for nm-automation
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.skip(reason="Not enough GPU memory in automation")
 @pytest.mark.parametrize("tp_size", [4])
 def test_mixtral_lora(mixtral_lora_files, tp_size):

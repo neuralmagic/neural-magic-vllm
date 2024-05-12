@@ -3,6 +3,7 @@
 import pytest
 import torch
 
+from tests.utils_skip import should_skip_lora_test_group
 import vllm.lora.punica as punica
 
 
@@ -102,6 +103,9 @@ CUDA_DEVICES = [
 ]
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("dtype_str", ["float16", "bfloat16"])
 @pytest.mark.parametrize("h1", H1)
 @pytest.mark.parametrize("r", R)
@@ -144,6 +148,9 @@ def test_lora_a_extra_shapes(dtype_str, h1, r, seed):
         assert_close(y_ref, y_our)
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("dtype_str", ["float16", "bfloat16"])
 @pytest.mark.parametrize("h1", H1)
 @pytest.mark.parametrize("h2", H2)
@@ -178,6 +185,9 @@ def test_lora_correctness(dtype_str, h1, h2, seed, device):
         assert_close(y_ref, y_our)
 
 
+@pytest.mark.skipif(
+    should_skip_lora_test_group(), 
+    reason="Current job configured to skip this test group")
 @pytest.mark.parametrize("dtype_str", ["float16", "bfloat16"])
 @pytest.mark.parametrize("h1", H1)
 @pytest.mark.parametrize("h2", H2)
