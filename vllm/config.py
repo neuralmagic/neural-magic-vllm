@@ -200,7 +200,8 @@ class ModelConfig:
                     if self.quantization == "gptq":
                         self.quantization = quant_method
 
-                if is_format_marlin_24:
+                # If serialized in 2:4 Marlin format, use Marlin2:4.
+                elif is_format_marlin_24:
                     logger.info("The model is serialized in Marlin_24 format. "
                                 "Using Marlin_24 kernel.")
                     quant_method = "gptq_marlin_24"
@@ -249,6 +250,7 @@ class ModelConfig:
                     "%s quantization is not fully "
                     "optimized yet. The speed can be slower than "
                     "non-quantized models.", self.quantization)
+
 
     def _verify_cuda_graph(self) -> None:
         if self.max_seq_len_to_capture is None:
