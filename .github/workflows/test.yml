@@ -51,7 +51,7 @@ on:
         description: "whl to test (variable appears late binding so unusable outside 'download artifact')"
         type: string
         required: true
-      tes:
+      test_skip_env_vars:
         description: 'file containing env variables controlling tests to skip'
         type: string
         required: true
