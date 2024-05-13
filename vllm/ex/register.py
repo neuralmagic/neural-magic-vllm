@@ -43,7 +43,7 @@ def register_supported(op: Union[str, Callable]):
     op_name = operator_name(op)
     if op_name is None:
         raise RuntimeError(f"{op} has unsupported type.")
-    logger.info(f"register supported {op_name}")
+    logger.debug(f"register supported {op_name}")
     SUPPORTED.add(op)
 
 
@@ -56,7 +56,7 @@ def register_fusable(op: Union[str, Callable], is_compute: bool = False):
     if op_name is None:
         raise RuntimeError(f"{op} has unsupported type.")
     assert op_name not in FUSABLE or FUSABLE[op_name] == is_compute
-    logger.info(f"register fusable {op_name}, is_compute {is_compute}")
+    logger.debug(f"register fusable {op_name}, is_compute {is_compute}")
     register_supported(op_name)
     FUSABLE[op_name] = is_compute
 
@@ -65,7 +65,7 @@ def register_fusable(op: Union[str, Callable], is_compute: bool = False):
 Register default supported operations.
 """
 def register_defaults():
-    logger.info("REGISTER DEFAULTS")
+    logger.debug("REGISTER DEFAULTS")
     register_fusable('_operator.add')
     register_fusable('_operator.mul')
     register_fusable('_operator.getitem')

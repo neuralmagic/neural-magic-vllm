@@ -56,22 +56,6 @@ def partition_graph(
 ) -> Tuple[torch.fx.GraphModule, List[Partition]]:
     support = create_op_support(is_node_supported)
 
-    #
-    # hacking to detect extra inputs for symbolic/dynamic tensor
-    # dimensions.
-    #
-    holders = dict()
-    for n in gm.graph.nodes:
-        if (
-            n.op == "placeholder" and
-            (val := n.meta.get("example_value")) is not None and
-            isinstance(val, torch.SymInt)
-        ):
-            holders[str(val)] = n
-    #
-    # end hacking
-    #
-
     p = CapabilityBasedPartitioner(
         gm,
         support,
@@ -80,69 +64,7 @@ def partition_graph(
         allowed_single_node_partition_ops=None
     )
     parts = p.propose_partitions()
-
-    #
-    # hacking to deal with extra inputs for symbolic/dynamic tensor
-    #
-    def ff(n):
-        return f"{n.format_node()}"# "{n.meta}"
-
-    for i, pp in enumerate(parts):
-        syms = []
-        newline = "  \n"
-        logger.info(f"PART{i}: {newline.join([ff(n) for n in pp.nodes])}")
-        for n in pp.nodes:
-            if n.meta.get('example_value') is not None:
-                val = n.meta['example_value']
-                logger.info(f"example_value {val} {type(val)}")
-                if isinstance(val, FakeTensor):
-                    logger.info(f"FAKE_TENSOR {val.size()}: {any([isinstance(d, torch.SymInt) for d in val.size()])}")
-                    for d in val.size():
-                        if isinstance(d, torch.SymInt) and not d in syms:
-                            syms.append(d)
-
-        logger.info(f"SYMS: {syms}")
-        # don't add a placeholder, add a dummy use (that can be removed later)
-        if False:
-            n = next(iter(pp.nodes))
-            for s in syms:
-                #n.graph.owning_module.setattr(str(s), s)
-                n.graph.owning_module.s0 = s
-                dummy = n.graph.get_attr(str(s))
-                dummy.name = str(s)
-                #def nop(s: torch.SymInt):
-                #    pass
-                #dummy = n.graph.call_function(nop, (s,))
-                #dummy = n.graph.placeholder(str(s))
-                pp.nodes.add(dummy)
-
-        #foo = [holders[str(s)] for s in syms]
-        #pp.nodes = set(list(pp.nodes) + foo)
-        #pp.nodes.add(holders[str(s)])
-    #
-    # end hacking
-    #
-
     part_gm = p.fuse_partitions(parts)
-
-    # TODO: begin delete me
-    ph = None
-    for n in part_gm.graph.nodes:
-        if False and is_sym_placeholder(n):
-            print(f"found ph {n}")
-            ph = n
-        elif ph and n.op == 'call_module':
-            target_mod = part_gm.get_submodule(n.target)
-            n.insert_arg(0, ph)
-            target_mod.graph.inserting_before()
-            new_ph = target_mod.graph.placeholder(ph.target, type_expr=torch.SymInt)
-            new_ph.meta['example_value'] = ph.meta.get('example_value')
-            shape_env = torch._guards.detect_fake_mode().shape_env
-            # val.node.expr = ?
-            target_mod.recompile()
-
-    #part_gm.recompile()
-    # TODO: end delete me
 
     return part_gm, parts
 
@@ -192,14 +114,14 @@ def backend_compile(
 ) -> Callable:
     try:
         backend = lookup_backend(backend)
-        logger.info(f"attempting {backend} on {gm.name}")
+        logger.debug(f"attempting {backend} on {gm.name}")
         backend_compiled = backend(gm, example_inputs)
         if backend_compiled is not None:
-            logger.info(f"{backend} compiled {gm.name}.")
+            logger.debug(f"{backend} compiled {gm.name}.")
             return backend_compiled
     except Exception as ex:
-        logger.info(f"backend_compile failed: {ex}")
-        logger.info(f"Trace: {traceback.format_tb(ex.__traceback__)}")
+        logger.warning(f"backend_compile failed: {ex}")
+        logger.warning(f"Trace: {traceback.format_tb(ex.__traceback__)}")
         pass
 
     return gm.forward
@@ -240,20 +162,8 @@ class backend_class:
 
         gm.graph.eliminate_dead_code()
 
-        logger.info(f"Original module {gm}:\n{graph_print_tabular(gm.graph)}")
-        logger.info(f"input_types: {[type(inp) for inp in example_inputs]}")
-
-        # Temporary hack to get around https://github.com/pytorch/pytorch/issues/108446
-        # probably not a good long term solution.
-        for node in gm.graph.nodes:
-            if False and node.op == 'placeholder' and 'example_value' in node.meta:
-                val = node.meta['example_value']
-                if (isinstance(val, FakeTensor) and
-                    any([isinstance(d, torch.SymInt) for d in val.size()])):
-                    return gm
-        #
-        # end hack
-        #
+        logger.debug(f"Original module {gm}:\n{graph_print_tabular(gm.graph)}")
+        logger.debug(f"input_types: {[type(inp) for inp in example_inputs]}")
 
         # TODO: store these in the root module state dictionary so that code for
         # all sub-modules is shared?  Or should these be globals?
@@ -261,8 +171,8 @@ class backend_class:
 
         part_gm, parts = partition_graph(gm, example_inputs)
 
-        logger.info(f"Partitioned module: {part_gm.print_readable(False)}")
-        logger.info(f"parts: {parts}")
+        logger.debug(f"Partitioned module: {part_gm.print_readable(False)}")
+        logger.debug(f"parts: {parts}")
 
         # Get the current FakeTensorMode (there should be one since we are in
         # a backend).
@@ -288,14 +198,14 @@ class backend_class:
                     # If one of the partitioned modules is called in multiple
                     # places, we skip it.  This should not happen though.
                     if not module_inputs:
-                        logger.info(f"SKIPPING {name}: multiple callers.")
+                        logger.debug(f"SKIPPING {name}: multiple callers.")
                         continue
 
-                    logger.info(f"Optimizing {name}.")
+                    logger.debug(f"Optimizing {name}.")
                     m = optimize(backend_class.cc, fgen, m, module_inputs)
                     setattr(part_gm, name, m)
 
-                    logger.info(f"Optimized {name}: {m.print_readable(False)}")
+                    logger.debug(f"Optimized {name}: {m.print_readable(False)}")
 
                     # TODO: don't really need to recompile if nothing was modified.
                     m.recompile()
@@ -305,7 +215,7 @@ class backend_class:
 
         part_gm.recompile()
 
-        logger.info(f"Final module: {part_gm.print_readable(False)}")
+        logger.debug(f"Final module: {part_gm.print_readable(False)}")
 
         # TODO: Add option for backend for the final graph?
         return part_gm.forward

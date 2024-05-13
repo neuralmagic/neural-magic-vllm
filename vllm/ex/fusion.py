@@ -68,7 +68,7 @@ def fuse_graph_nodes(
         logger.info(f"fusion failed previously for subgraph.")
         return
 
-    logger.info(f"fused fn = {fn}")
+    logger.debug(f"fused fn = {fn}")
 
     #
     # Update the graph
@@ -82,15 +82,13 @@ def fuse_graph_nodes(
     # Note: we do not update the meta info for cf here.  It should
     # not be required after transformation anyway.
     cf = sub.module.graph.call_function(fn, args=tuple(inputs), kwargs=kwargs)
-    logger.info(f"fused op: {cf.format_node()}")
+    logger.debug(f"fused op: {cf.format_node()}")
 
     # Note: assumes single output
     outputs[0].replace_all_uses_with(cf, propagate_meta=True)
 
     sub.erase()
     sub.build([cf])  # not necessary but nice for debugging
-
-    #logger.info(f"fuse mod {mod.print_readable(False)}")
 
 
 """
@@ -206,16 +204,16 @@ def pointwise_fusion(
     # assumption, graph.nodes are in topo order
     mod.graph.lint()
 
-    logger.info("start fusion")
+    logger.debug("start fusion")
 
     # create partition groups
     # run in reverse order so predecesors of non-unary ops will appear
     # in the same partition.
     for n in reversed(mod.graph.nodes):
-        logger.info(f"CONSIDER {n}")
+        logger.debug(f"CONSIDER {n}")
 
         if n.op != 'call_function':
-            logger.info(f"  REJECT {n} not call")
+            logger.debug(f"  REJECT {n} not call")
             node_map[n] = 0
             continue
 
@@ -227,13 +225,13 @@ def pointwise_fusion(
         fusable = [pred(s, n) for s in fg.predecessors(n)]
         if not all(fusable):
             if not n in node_map:
-                logger.info(f"  REJECT {n} no fusable preds and not in map: {fusable}, {fg.predecessors(n)}")
+                logger.debug(f"  REJECT {n} no fusable preds and not in map: {fusable}, {fg.predecessors(n)}")
                 node_map[n] = 0
             continue
 
         # don't support anything with kwargs for now
         if not supported_kwargs(n):
-            logger.info(f"  REJECT {n} unsupported kwargs")
+            logger.debug(f"  REJECT {n} unsupported kwargs")
             node_map[n] = 0
             continue
 
@@ -244,15 +242,13 @@ def pointwise_fusion(
         for s in fg.predecessors(n):
             node_map[s] = node_map[n]
 
-    logger.info(f"node_map = {node_map}")
+    logger.debug(f"node_map = {node_map}")
 
     def same_partition(nodes: Set[torch.fx.Node]) -> bool:
         if len(nodes) > 0:
             part = node_map[next(iter(nodes))]
-            #logger.info(f"{part}: {[node_map[n] for n in nodes]}")
             return all([node_map[n] == part for n in nodes])
         return False
-
 
     def only_pointwise(partition: int) -> bool:
         nodes = [n for n, p in node_map.items() if p == partition]
@@ -273,7 +269,7 @@ def pointwise_fusion(
                 continue
 
             if not same_partition(nodes):
-                #logger.info(f"REJECT {n} not all neighbors in same partition {nodes}")
+                #logger.debug(f"REJECT {n} not all neighbors in same partition {nodes}")
                 continue
 
             fuse_part = next(iter(nodes))
@@ -281,11 +277,11 @@ def pointwise_fusion(
             if only_pointwise(fuse_part):
                 node_map[n] = node_map[fuse_part]
 
-    logger.info(f"final node_map = {node_map}")
+    logger.debug(f"final node_map = {node_map}")
 
     assert(all([n in node_map for n in mod.graph.nodes]))
 
-    logger.info(f"pre-fusion split mod:\n{graph_print_tabular(mod.graph, 'part', map_node)}")
+    logger.debug(f"pre-fusion split mod:\n{graph_print_tabular(mod.graph, 'part', map_node)}")
 
     subgraphs = dict()
     for n, p in node_map.items():
@@ -296,10 +292,10 @@ def pointwise_fusion(
 
     for p, nodes in subgraphs.items():
         sub = SubGraph(mod, subgraphs[p])
-        logger.info(f"Fusing sub-module:\n{sub.tabular()}")
+        logger.debug(f"Fusing sub-module:\n{sub.tabular()}")
         fuse_graph_nodes(cc, fgen, sub)
-        logger.info(f"Post fusion sub-module:\n{sub.tabular()}")
+        logger.debug(f"Post fusion sub-module:\n{sub.tabular()}")
 
-    logger.info(f"Post fusion module:\n{graph_print_tabular(mod.graph)}")
+    logger.debug(f"Post fusion module:\n{graph_print_tabular(mod.graph)}")
 
     return mod

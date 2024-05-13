@@ -164,7 +164,7 @@ class FusedOpGenerator:
         kwargs: Dict[str, Dict[str, torch.fx.node.Argument]]
     ) -> torch.fx.node.Target:
         fns = [n.target for n in nodes]
-        logger.info(f"MAKE_FUSED_OP {fns}")
+        logger.debug(f"make_fused_op: {fns}")
 
         # assume unary output for now
         assert len(outputs) == 1
@@ -305,14 +305,14 @@ class FusedOpGenerator:
     # Regsiter schema for the given 'op' in the given 'lib'.
     def register_op_schema(self, library: str, op: str, sig: str):
         op = self.mangle(op, '::').replace("torch::ops::", "")
-        logger.info(f"Registering schema for {op}: {sig}")
+        logger.debug(f"Registering schema for {op}: {sig}")
         torch.library.define(f"{op}", sig)
 
     # Regsiter meta function the given 'op' in the given 'lib'.
     def register_meta_function(self, library: str, op: str, meta_fn: Callable):
         # See also: torch.library.impl_abstract(qualname, func=None, *, lib=None, _stacklevel=1)
         op = self.mangle(op, '::').replace("torch::ops::", "")
-        logger.info(f"Registering meta function for {op}: {str(meta_fn)}")
+        logger.debug(f"Registering meta function for {op}: {str(meta_fn)}")
         torch.library.impl(f"{op}", "Meta", func=meta_fn)
 
     # Compile the code for the current "library".
@@ -352,11 +352,8 @@ class FusedOpGenerator:
             for k, v in self.callables.items():
                 # TODO: there has to be a better way than eval?
                 fn = eval(v[0])
-                logger.info(f'{self.callables[k]} = {fn}')
                 self.register_meta_function(op_lib, v[0], v[2])
                 callables[k] = fn
-
-            logger.info(f"CALLABLES {self.callables}")
 
             self.reset_fused_op()
 

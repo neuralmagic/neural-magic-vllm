@@ -257,9 +257,6 @@ class SubGraph:
             if any([user for user in n.users if not self.in_subgraph(user)]) and n not in outputs:
                 outputs.append(n)
 
-        #print(f"sub-inputs: {inputs}")
-        #print(f"sub-outputs: {outputs}")
-
         return inputs, outputs
 
     def topo_sort(self):
@@ -284,8 +281,6 @@ class SubGraph:
                 if in_degree[u] == 0:
                     worklist.append(u)
 
-        print(f"nodes = {self.nodes}")
-        print(f"order = {order}")
         assert len(order) == len(self.nodes)
 
         self.nodes = order
@@ -294,9 +289,6 @@ class SubGraph:
         self.nodes = nodes
         self.topo_sort()
         self.inputs, self.outputs = self.collect_inputs_outputs()
-
-    #def inputs(self) -> List[torch.fx.Node]: return self.inputs
-    #def outputs(self) -> List[torch.fx.Node]: return self.outputs
 
     def first_in_graph(self):
         first = None
