@@ -8,6 +8,7 @@ from vllm import SamplingParams
 from .conftest import get_logprobs_from_llm_generator
 
 
+@pytest.mark.skip("Out of CPU Memory in NM Automation")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -45,6 +46,7 @@ def test_logprobs_equality(baseline_llm_generator, test_llm_generator,
                                          force_output_len=True)
 
 
+@pytest.mark.skip("Out of CPU Memory in NM Automation")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -86,6 +88,7 @@ def test_diff_num_logprobs(baseline_llm_generator, test_llm_generator,
                                          logprob_rank=num_logprobs)
 
 
+@pytest.mark.skip("Out of CPU Memory in NM Automation")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -125,6 +128,7 @@ def test_logprobs_different_k(baseline_llm_generator, test_llm_generator,
                                          force_output_len=True)
 
 
+@pytest.mark.skip("Out of CPU Memory in NM Automation")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
@@ -168,6 +172,7 @@ def test_logprobs_when_skip_speculation(baseline_llm_generator,
                                          force_output_len=True)
 
 
+@pytest.mark.skip("Out of CPU Memory in NM Automation")
 @pytest.mark.parametrize(
     "common_llm_kwargs",
     [{
