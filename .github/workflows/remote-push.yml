@@ -20,7 +20,6 @@ jobs:
             test_label_solo: aws-avx2-32G-a10g-24G
             test_label_multi: ignore
             test_timeout: 480
-            test_skip_list: neuralmagic/tests/skip-for-remote-push.txt
             test_skip_env_vars: neuralmagic/tests/skip-test-env-vars-remote-push.txt
 
             benchmark_label: aws-avx2-32G-a10g-24G

@@ -23,11 +23,7 @@ on:
         description: "whl to test (variable appears late binding so unusable outside 'download artifact')"
         type: string
         required: true
-      test_skip_list:
-        description: 'file containing tests to skip'
-        type: string
-        required: true
-      skip_test_env_vars:
+      test_skip_env_vars:
         description: 'file containing env variables controlling tests to skip'
         type: string
         required: true
@@ -55,11 +51,7 @@ on:
         description: "whl to test (variable appears late binding so unusable outside 'download artifact')"
         type: string
         required: true
-      test_skip_list:
-        description: 'file containing tests to skip'
-        type: string
-        required: true
-      skip_test_env_vars:
+      tes:
         description: 'file containing env variables controlling tests to skip'
         type: string
         required: true
@@ -93,10 +85,10 @@ jobs:
                 nvcc_threads: 0
             
             - name: set skip test env
-              id: set_skip_test_env
+              id: set_test_skip_env_vars
               uses: ./.github/actions/nm-set-skip-test-env/
               with:
-                skip_test_env_vars: $${{ inputs.skip_test_env_vars }}
+                test_skip_env_vars: $${{ inputs.test_skip_env_vars }}
 
             - name: set python
               id: set_python
@@ -134,7 +126,6 @@ jobs:
                 pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
                 python: ${{ inputs.python }}
                 venv: TEST
-                test_skip_list: ${{ inputs.test_skip_list }}
                 test_directory: tests
                 test_results: test-results
 

@@ -45,10 +45,6 @@ on:
         description: "git commit hash or branch name"
         type: string
         required: true
-      test_skip_list:
-        description: 'file containing tests to skip'
-        type: string
-        required: true
       test_skip_env_vars:
         description: 'file containing env vars for tests to skip'
         type: string
@@ -110,9 +106,6 @@ on:
         description: "python version, e.g. 3.10.12"
         type: string
         required: true
-      test_skip_list:
-        description: 'file containing tests to skip'
-        type: string
         required: true
       test_skip_env_vars:
         description: 'file containing env vars for tests to skip'
@@ -142,7 +135,6 @@ jobs:
             gitref: ${{ github.ref }}
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
-            test_skip_list: ${{ inputs.test_skip_list }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
         secrets: inherit
 
@@ -156,7 +148,6 @@ jobs:
             gitref: ${{ github.ref }}
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
-            test_skip_list: ${{ inputs.test_skip_list }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
         secrets: inherit
 
