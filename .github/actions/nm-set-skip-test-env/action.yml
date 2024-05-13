@@ -9,8 +9,8 @@ runs:
   using: composite
   steps:
   - run: |
-      cat ${ENV_VAR_FILE}
-      cat ${ENV_VAR_FILE} >> $GITHUB_ENV
+      cat "${ENV_VAR_FILE}"
+      cat "${ENV_VAR_FILE}" >> $GITHUB_ENV
 
     env:
         ENV_VAR_FILE: ${{ inputs.test_skip_env_vars }}
