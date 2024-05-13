@@ -1,6 +1,7 @@
-import pytest
 import multiprocessing
 import tempfile
+
+import pytest
 
 
 def target_fn(env, filepath):
@@ -12,7 +13,7 @@ def target_fn(env, filepath):
 
 @pytest.mark.skip(
     reason="This test fails in automation b/c it deliberately raises "
-           "a RuntimeError. Skipping as a result.")
+    "a RuntimeError. Skipping as a result.")
 def test_library_file():
     # note: don't import vllm.distributed.device_communicators.pynccl
     # before running this test, otherwise the library file will be loaded
