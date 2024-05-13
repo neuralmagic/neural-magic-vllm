@@ -139,7 +139,7 @@ jobs:
 
     TEST-MULTI:
         needs: [BUILD]
-        if: success() && contains(fromJSON('["NIGHTLY", "RELEASE"]'), inputs.wf_category)
+        if: success() && contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category)
         uses: ./.github/workflows/test.yml
         with:
             test_label: ${{ inputs.test_label_multi }}
