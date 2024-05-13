@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="16.075" timestamp="2024-05-12T21:05:36.477909" hostname="nvidia-l4-gpu"><testcase classname="tests.engine.test_skip_tokenizer_init" name="test_skip_tokenizer_initialization[facebook/opt-125m]" time="12.196" /></testsuite></testsuites>

@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="7.519" timestamp="2024-05-12T21:19:02.731660" hostname="nvidia-l4-gpu"><testcase classname="tests.distributed.test_pynccl_library" name="test_library_file" time="3.479" /></testsuite></testsuites>

@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="19.314" timestamp="2024-05-12T20:42:18.005119" hostname="nvidia-l4-gpu"><testcase classname="tests.samplers.test_ignore_eos" name="test_beam_search_single_input[1024-half-facebook/opt-125m]" time="15.652" /></testsuite></testsuites>
