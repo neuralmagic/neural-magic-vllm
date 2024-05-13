@@ -15,7 +15,7 @@ on:
       build_label:
         description: "requested runner label (specifies instance)"
         type: string
-        default: aws-avx512-192G-4-T4-64G
+        default: gcp-k8s-build
       build_timeout:
         description: "time limit for build in minutes "
         type: string
@@ -23,11 +23,11 @@ on:
       Gi_per_thread:
         description: 'requested GiB to reserve per thread'
         type: string
-        default: "4"
+        default: "1"
       nvcc_threads:
         description: "number of threads nvcc build threads"
         type: string
-        default: "8"
+        default: "4"
       # test related parameters
       test_label_solo:
         description: "requested runner label (specifies instance)"
