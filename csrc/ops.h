@@ -181,7 +181,7 @@ void static_scaled_int8_quant(
   torch::Tensor& input,
   float scale);
 
-void quant_per_token(
+void dynamic_scaled_int8_quant(
   torch::Tensor& out,
   torch::Tensor& input,
   torch::Tensor& scales);
