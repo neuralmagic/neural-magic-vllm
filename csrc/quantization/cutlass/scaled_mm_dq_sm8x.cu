@@ -86,10 +86,10 @@ struct sm8x_gemm {
           cutlass::layout::ColumnMajor, cutlass::ComplexTransform::kNone, 16,
           float, cutlass::layout::RowMajor, 4, ElementAcc, float,
           cutlass::arch::OpClassTensorOp, Arch,
-          cutlass::gemm::GemmShape<256, 128, 64>,
+          cutlass::gemm::GemmShape<128, 128, 64>,
           cutlass::gemm::GemmShape<64, 64, 64>,
           cutlass::gemm::GemmShape<16, 8, 32>, EVTD,
-          cutlass::gemm::threadblock::ThreadblockSwizzleStreamK, 3, Operator,
+          cutlass::gemm::threadblock::ThreadblockSwizzleStreamK, 5, Operator,
           1 /* epilogue stages */
           >::GemmKernel;
 
@@ -148,7 +148,7 @@ void cutlass_scaled_mm_dq_dispatcher(torch::Tensor &out, torch::Tensor const &a,
   };
 
   typename Gemm::Op::Arguments args{
-      cutlass::gemm::GemmUniversalMode::kGemm,  // universal mode
+      cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel,  // universal mode
       problem_size,                             // problem size
       1,                                        // batch count
       epilogue_args,
