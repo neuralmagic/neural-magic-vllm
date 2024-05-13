@@ -165,18 +165,6 @@ class backend_class:
         logger.debug(f"Original module {gm}:\n{graph_print_tabular(gm.graph)}")
         logger.debug(f"input_types: {[type(inp) for inp in example_inputs]}")
 
-        # Temporary hack to get around https://github.com/pytorch/pytorch/issues/108446
-        # probably not a good long term solution.
-        for node in gm.graph.nodes:
-            if node.op == 'placeholder' and 'example_value' in node.meta:
-                val = node.meta['example_value']
-                if (isinstance(val, FakeTensor) and
-                    any([isinstance(d, torch.SymInt) for d in val.size()])):
-                    return gm
-        #
-        # end hack
-        #
-
         # TODO: store these in the root module state dictionary so that code for
         # all sub-modules is shared?  Or should these be globals?
         fgen = FusedOpGenerator()

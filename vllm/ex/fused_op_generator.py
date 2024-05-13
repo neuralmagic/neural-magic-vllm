@@ -5,6 +5,7 @@
 #
 ###############################################################################
 
+import logging
 import tempfile
 import torch
 import types
@@ -12,7 +13,7 @@ import types
 from .utils import extract_node_type, compose, build_extension, mangle_name, argument_type_str, node_function_target
 
 from typing import List, Tuple, Any, Dict, Optional, Callable, Mapping, Set
-from vllm.logger import init_logger
+from vllm.logger import init_logger, _default_handler
 
 logger = init_logger(__name__)
 
@@ -112,6 +113,53 @@ class FusedOpGenerator:
         else:
             raise FusionFail(f"unsupported getitem indexing arg: {arg}.")
 
+    def convert_slice_args(self, arg: torch.fx.node.Argument) -> str:
+        if isinstance(arg, types.EllipsisType):
+            return "py::ellipsis()"
+        elif isinstance(arg, types.NoneType):
+            return "std::nullopt" #"Py_None"
+        elif isinstance(arg, int):
+            return f"{arg}"
+        elif isinstance(arg, slice):
+            start = self.convert_getitem_arg(arg.start)
+            stop = self.convert_getitem_arg(arg.stop)
+            step = f", {self.convert_getitem_arg(arg.step)}" if arg.step is not None else ""
+            return f"{start}, {stop}{step}"
+        else:
+            raise FusionFail(f"unsupported getitem indexing arg: {arg}.")
+
+    def is_simple_slice(self, arg: torch.fx.node.Argument) -> str:
+        if not isinstance(arg, tuple) or len(arg) != 2:
+            return False
+        if not isinstance(arg[0], types.EllipsisType):
+            return False
+        if not isinstance(arg[1], slice):
+            return False
+        return True
+
+    def translate_getitem(self, n: torch.fx.Node) -> str:
+        # Note: This implementation probably has memory leaks
+        call_str = ''
+        tensor = n.args[0]
+        idx = n.args[1]
+
+        assert isinstance(idx, tuple)
+
+        if self.is_simple_slice(idx):
+            call_str = f"  auto {self.mangle(n.name, '_')} = {self.mangle(str(tensor), '_')}.slice(1, {self.convert_slice_args(idx[1])});"
+        else:
+            call_str = f"  auto {self.mangle(n.name, '_')} = to_tensor("
+            call_str = call_str + f"py::reinterpret_steal<py::object>(THPVariable_Wrap({self.mangle(str(tensor), '_')}))["
+            call_str = call_str + f"py::make_tuple("
+
+            sep = ""
+            for idx_arg in idx:
+                call_str = call_str + sep + self.convert_getitem_arg(idx_arg)
+                sep = ", "
+
+            call_str = call_str + ")]);"
+
+        return call_str
 
     def last_uses(self, nodes: List[torch.fx.Node]) -> Dict[torch.fx.Node, List[torch.fx.Node]]:
         node_to_last_use : Dict[torch.fx.Node, torch.fx.Node] = {}
@@ -127,6 +175,7 @@ class FusedOpGenerator:
             torch.fx.node.map_arg(node.kwargs, lambda n: register_last_uses(n, node))
 
         return user_to_last_uses
+
 
     def delete_unused_values(self, user_to_last_uses, user : torch.fx.Node) -> str:
         """
@@ -144,6 +193,7 @@ class FusedOpGenerator:
         for n in nodes_to_delete:
             to_delete_str = to_delete_str + sep + self.mangle(n.name, '_') + " = torch::Tensor();"
         return to_delete_str
+
 
     #
     # Generate naive C++/CUDA code for a stack of fused ops.
@@ -191,29 +241,15 @@ class FusedOpGenerator:
         self.fused_op.append('{')
         self.fused_op.append('  pybind11::gil_scoped_acquire gil_lock;')
 
-        self.fused_op.append(f'  std::cout << "GOT HERE: {op}" << std::endl;')
+        # TODO: this debug logging/print is a hack, remove it later.
+        if _default_handler.level == logging.DEBUG:
+            self.fused_op.append(f'  std::cout << "GOT HERE: {op}" << std::endl;')
 
         for n, fn in zip(nodes, fn_names):
             comment_str = f"  // ({', '.join([argument_type_str(inp) for inp in n.args])}) -> {str(extract_node_type(n))}"
 
             if fn == '_operator_getitem':
-                # Note: This implementation probably has memory leaks
-                call_str = ''
-                tensor = n.args[0]
-                idx = n.args[1]
-
-                assert isinstance(idx, tuple)
-
-                call_str = f"  auto {self.mangle(n.name, '_')} = to_tensor("
-                call_str = call_str + f"py::reinterpret_steal<py::object>(THPVariable_Wrap({self.mangle(str(tensor), '_')}))["
-                call_str = call_str + f"py::make_tuple("
-
-                sep = ""
-                for idx_arg in idx:
-                    call_str = call_str + sep + self.convert_getitem_arg(idx_arg)
-                    sep = ", "
-
-                call_str = call_str + ")]);"
+                call_str = self.translate_getitem(n)
                 assert kwargs.get(n.name) is None or len(kwargs.get(n.name)) == 0
             else:
                 call_str = f"  auto {self.mangle(n.name, '_')} = {self.mangle(fn, '::')}("
