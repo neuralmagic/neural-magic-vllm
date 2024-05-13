@@ -1,1 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="4.578" timestamp="2024-05-12T21:23:27.966413" hostname="nvidia-l4-gpu"><testcase classname="tests.tokenization.test_cached_tokenizer" name="test_cached_tokenizer" time="0.498" /></testsuite></testsuites>

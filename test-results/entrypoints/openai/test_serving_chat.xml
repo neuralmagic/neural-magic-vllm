@@ -1,1 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="7.075" timestamp="2024-05-12T21:01:23.932381" hostname="nvidia-l4-gpu"><testcase classname="tests.entrypoints.openai.test_serving_chat" name="test_async_serving_chat_init" time="1.252" /></testsuite></testsuites>
