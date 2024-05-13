@@ -1,1 +1,7 @@
+tests/distributed/test_basic_distributed_correctness.py
+tests/distributed/test_chunked_prefill_distributed.py
+tests/distributed/test_comm_ops.py
+tests/distributed/test_custom_all_reduce.py
+tests/distributed/test_pynccl_library.py
+tests/distributed/test_pynccl.py
 tests/accuracy/test_lm_eval_correctness.py

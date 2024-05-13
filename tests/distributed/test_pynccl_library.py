@@ -1,8 +1,6 @@
 import multiprocessing
 import tempfile
 
-import pytest
-
 
 def target_fn(env, filepath):
     from vllm.utils import update_environment_variables
@@ -11,9 +9,6 @@ def target_fn(env, filepath):
     nccl_integrity_check(filepath)
 
 
-@pytest.mark.skip(
-    reason="This test fails in automation b/c it deliberately raises "
-    "a RuntimeError. Skipping as a result.")
 def test_library_file():
     # note: don't import vllm.distributed.device_communicators.pynccl
     # before running this test, otherwise the library file will be loaded

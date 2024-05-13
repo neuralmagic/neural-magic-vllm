@@ -25,8 +25,6 @@ MODELS = [
 VLLM_ATTENTION_BACKEND = "VLLM_ATTENTION_BACKEND"
 
 
-@pytest.mark.skip("Failing in Automation due to "
-                  "'NameError: name 'ncclGetVersion' is not defined'")
 @pytest.mark.skipif(torch.cuda.device_count() < 2,
                     reason="Need at least 2 GPUs to run the test.")
 @pytest.mark.parametrize("model", MODELS)
