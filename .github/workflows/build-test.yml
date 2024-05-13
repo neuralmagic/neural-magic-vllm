@@ -49,6 +49,10 @@ on:
         description: 'file containing tests to skip'
         type: string
         required: true
+      test_skip_env_vars:
+        description: 'file containing env vars for tests to skip'
+        type: string
+        required: true
       # benchmark related parameters
       benchmark_label:
         description: "requested benchmark label (specifies instance)"
@@ -108,6 +112,10 @@ on:
         required: true
       test_skip_list:
         description: 'file containing tests to skip'
+        type: string
+        required: true
+      test_skip_env_vars:
+        description: 'file containing env vars for tests to skip'
         type: string
         required: true
 
