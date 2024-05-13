@@ -83,7 +83,7 @@ fi
 echo "..."
 for EXCLUDE in "${TESTS_TO_EXCLUDE[@]}"; do
     for JJ in "${!TESTS_FOUND[@]}"; do
-        if [[ ${TESTS_FOUND[$JJ]} = ${EXCLUDE} ]]; then
+        if [[ ${TESTS_FOUND[$JJ]} = {EXCLUDE} ]]; then
             echo "excluding: ${EXCLUDE}"
             unset 'TESTS_FOUND[$JJ]'
         fi
