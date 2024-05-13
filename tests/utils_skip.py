@@ -1,4 +1,4 @@
-"""Checks enviornment variables to skip various test groups.
+"""Checks environment variables to skip various test groups.
 
 The functions here are imported by each test file.
 The .github/actions/nm-test-skipping-env-setup sets these 
