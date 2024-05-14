@@ -24,6 +24,7 @@ import torch
 MODELS = [
     "meta-llama/Llama-2-7b-hf",
 ]
+DISTRIBUTED_EXECUTOR_BACKEND = "DISTRIBUTED_EXECUTOR_BACKEND"
 VLLM_ATTENTION_BACKEND = "VLLM_ATTENTION_BACKEND"
 
 
@@ -40,19 +41,21 @@ def test_models(
     dtype: str,
     max_tokens: int,
 ) -> None:
-    enforce_eager = False
+    distributed_executor_backend = os.getenv(DISTRIBUTED_EXECUTOR_BACKEND)
+
     backend_by_env_var = os.getenv(VLLM_ATTENTION_BACKEND)
-    if backend_by_env_var == "FLASHINFER":
-        enforce_eager = True
+    enforce_eager = backend_by_env_var == "FLASHINFER"
 
     hf_model = hf_runner(model, dtype=dtype)
     hf_outputs = hf_model.generate_greedy(example_prompts, max_tokens)
     del hf_model
 
-    vllm_model = vllm_runner(model,
-                             dtype=dtype,
-                             tensor_parallel_size=2,
-                             enforce_eager=enforce_eager)
+    vllm_model = vllm_runner(
+        model,
+        dtype=dtype,
+        tensor_parallel_size=2,
+        enforce_eager=enforce_eager,
+        distributed_executor_backend=distributed_executor_backend)
     vllm_outputs = vllm_model.generate_greedy(example_prompts, max_tokens)
     del vllm_model
 
