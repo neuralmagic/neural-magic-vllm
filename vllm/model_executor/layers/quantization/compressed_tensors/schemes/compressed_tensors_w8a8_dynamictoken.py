@@ -42,6 +42,7 @@ class CompressedTensorsW8A8DynamicToken(CompressedTensorsScheme):
                        params_dtype: torch.dtype, weight_loader: Callable,
                        **kwargs):
 
+        print(input_size_per_partition, output_partition_sizes, sum(output_partition_sizes))
         is_tensor_partitioned = len(output_partition_sizes) != 1
         dim = sum(output_partition_sizes) if is_tensor_partitioned else 1
 

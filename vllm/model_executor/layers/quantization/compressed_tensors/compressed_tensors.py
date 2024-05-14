@@ -12,7 +12,7 @@ from vllm.model_executor.layers.quantization.base_config import (  # noqa: E501
     QuantizationConfig)
 from vllm.model_executor.layers.quantization.compressed_tensors.schemes import (
     CompressedTensorsScheme, CompressedTensorsUnquantized,
-    CompressedTensorsW8A8DynamicToken, CompressedTensorsW8A8StaticTensor)
+    CompressedTensorsW8A8DynamicToken, CompressedTensorsW8A8StaticTensor, CompressedTensorsW4A16)
 
 
 class CompressedTensorsConfig(QuantizationConfig):
@@ -83,9 +83,12 @@ class CompressedTensorsConfig(QuantizationConfig):
                 layer_quant_details[target][
                     "weight"] = QuantizationArgs.parse_obj(
                         quant_config.get("weights"))
-                layer_quant_details[target][
-                    "input"] = QuantizationArgs.parse_obj(
-                        quant_config.get("input_activations"))
+                try:
+                    layer_quant_details[target][
+                        "input"] = QuantizationArgs.parse_obj(
+                            quant_config.get("input_activations"))
+                except:
+                    layer_quant_details[target]["input"] = None
 
         return cls(layer_quant_details=layer_quant_details,
                    ignore=ignore,
@@ -123,15 +126,24 @@ class CompressedTensorsConfig(QuantizationConfig):
             return True
         return False
 
+    def _is_w4a16(self, weight_quant: BaseModel) -> bool:
+        is_4_bits = weight_quant.num_bits == 4
+        if is_4_bits:
+            return True
+        return False
+
     def _get_schema(self, weight_quant: BaseModel,
                     input_quant: BaseModel) -> "CompressedTensorsScheme":
-        if self._is_static_tensor_w8a8(weight_quant, input_quant):
+        if self._is_w4a16(weight_quant):
+            return CompressedTensorsW4A16()
+        elif self._is_static_tensor_w8a8(weight_quant, input_quant):
             return CompressedTensorsW8A8StaticTensor(
                 fake_quant=self.fake_quant)
 
         elif self._is_dynamic_token_w8a8(weight_quant, input_quant):
             return CompressedTensorsW8A8DynamicToken(
                 fake_quant=self.fake_quant)
+
 
         raise NotImplementedError("Scheme not supported.")
 
@@ -212,6 +224,7 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
             output_partition_sizes=output_partition_sizes,
             output_size=output_size,
             params_dtype=params_dtype,
+            layer_name=layer_name,
             weight_loader=weight_loader)
 
         layer.scheme = scheme
