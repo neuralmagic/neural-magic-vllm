@@ -128,6 +128,7 @@ class FusedOpGenerator:
         else:
             raise FusionFail(f"unsupported getitem indexing arg: {arg}.")
 
+    # TODO: this could be smarter and allow either dim to have the slice
     def is_simple_slice(self, arg: torch.fx.node.Argument) -> str:
         if not isinstance(arg, tuple) or len(arg) != 2:
             return False
@@ -138,7 +139,8 @@ class FusedOpGenerator:
         return True
 
     def translate_getitem(self, n: torch.fx.Node) -> str:
-        # Note: This implementation probably has memory leaks
+        # Note: The default (non-simple slice) implementation causes extra copies of the
+        # input to be made.
         call_str = ''
         tensor = n.args[0]
         idx = n.args[1]
