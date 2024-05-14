@@ -20,7 +20,10 @@ from torch._subclasses.fake_tensor import FakeTensorMode, FakeTensor
 
 from typing import List, Tuple, Any, Dict, Optional, Callable, Mapping, Set
 
-
+"""
+Similar to torch.fx.Graph.print_tabular except it returns a string and
+allows the addition of extra columns.
+"""
 def graph_print_tabular(
     g: torch.fx.Graph,
     col: Optional[str] = None,
@@ -170,6 +173,8 @@ The FlowGraph is invalidated if the underlying GraphModule is modified.
 It can be regenerated at any time by calling the `build` method.
 
 TODO: turn getitems into "reader views"?
+
+TODO: might be able to use Node.all_input_nodes + Node.users instead
 """
 class FlowGraph:
     def __init__(self, gm: torch.fx.GraphModule):
@@ -281,6 +286,7 @@ class SubGraph:
                 if in_degree[u] == 0:
                     worklist.append(u)
 
+        # Check for cycles (should not be any).
         assert len(order) == len(self.nodes)
 
         self.nodes = order

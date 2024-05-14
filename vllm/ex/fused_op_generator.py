@@ -25,6 +25,7 @@ Should be recoverable, i.e. can fall back to the non-fused version of graph.
 class FusionFail(Exception):
     pass
 
+
 """
 The FusedOpGenerator is a class that is responsible for generating a fused CUDA/C++
 operation for sequences of gx graph nodes.
@@ -73,10 +74,8 @@ class FusedOpGenerator:
         self.fused_op = []
         self.fused_op.append(f'#include <torch/extension.h>')
         self.fused_op.append(f'#include <iostream>')
-        #self.fused_op.append(f'#include <ops.h>')
         self.fused_op.append('#define _operator_add(a, b) ((a) + (b))')
         self.fused_op.append('#define _operator_mul(a, b) ((a) * (b))')
-        #self.fused_op.append('#define silu_and_mul(a, b) (::silu_and_mul((a), (b)), (a))')
         self.fused_op.append('#define TORCH_LIBRARY_EXPAND(name, mod) TORCH_LIBRARY(name, mod)')
         self.fused_op.append('#define TORCH_LIBRARY_IMPL_EXPAND(name, k, mod) TORCH_LIBRARY_IMPL(name, k, mod)')
         self.fused_op.append('inline torch::Tensor to_tensor(py::object obj) { return THPVariable_Unpack(obj.release().ptr()); }')
@@ -113,28 +112,22 @@ class FusedOpGenerator:
         else:
             raise FusionFail(f"unsupported getitem indexing arg: {arg}.")
 
-    def convert_slice_args(self, arg: torch.fx.node.Argument) -> str:
-        if isinstance(arg, types.EllipsisType):
-            return "py::ellipsis()"
-        elif isinstance(arg, types.NoneType):
-            return "std::nullopt" #"Py_None"
-        elif isinstance(arg, int):
-            return f"{arg}"
-        elif isinstance(arg, slice):
-            start = self.convert_getitem_arg(arg.start)
-            stop = self.convert_getitem_arg(arg.stop)
-            step = f", {self.convert_getitem_arg(arg.step)}" if arg.step is not None else ""
-            return f"{start}, {stop}{step}"
-        else:
-            raise FusionFail(f"unsupported getitem indexing arg: {arg}.")
+    def convert_slice_args(self, args: Tuple[torch.fx.node.Argument]) -> str:
+        idx = 1 if isinstance(args[0], types.EllipsisType) else 0
 
-    # TODO: this could be smarter and allow either dim to have the slice
+        assert isinstance(args[idx], slice)
+
+        start = self.convert_getitem_arg(args[idx].start)
+        stop = self.convert_getitem_arg(args[idx].stop)
+        step = f", {self.convert_getitem_arg(args[idx].step)}" if args[idx].step is not None else ""
+        return f"{idx}, {start}, {stop}{step}"
+
+    # Detect simple 2d slices along a single dimension.
     def is_simple_slice(self, arg: torch.fx.node.Argument) -> str:
         if not isinstance(arg, tuple) or len(arg) != 2:
             return False
-        if not isinstance(arg[0], types.EllipsisType):
-            return False
-        if not isinstance(arg[1], slice):
+        if not ((isinstance(arg[0], types.EllipsisType) and isinstance(arg[1], slice)) or
+                (isinstance(arg[1], types.EllipsisType) and isinstance(arg[0], slice))):
             return False
         return True
 
@@ -148,7 +141,7 @@ class FusedOpGenerator:
         assert isinstance(idx, tuple)
 
         if self.is_simple_slice(idx):
-            call_str = f"  auto {self.mangle(n.name, '_')} = {self.mangle(str(tensor), '_')}.slice(1, {self.convert_slice_args(idx[1])});"
+            call_str = f"  auto {self.mangle(n.name, '_')} = {self.mangle(str(tensor), '_')}.slice({self.convert_slice_args(idx)});"
         else:
             call_str = f"  auto {self.mangle(n.name, '_')} = to_tensor("
             call_str = call_str + f"py::reinterpret_steal<py::object>(THPVariable_Wrap({self.mangle(str(tensor), '_')}))["
@@ -164,6 +157,9 @@ class FusedOpGenerator:
         return call_str
 
     def last_uses(self, nodes: List[torch.fx.Node]) -> Dict[torch.fx.Node, List[torch.fx.Node]]:
+        """
+        Collect last uses locations for all variables in the set of nodes being fused.
+        """
         node_to_last_use : Dict[torch.fx.Node, torch.fx.Node] = {}
         user_to_last_uses : Dict[torch.fx.Node, List[torch.fx.Node]] = {}
 
@@ -245,7 +241,7 @@ class FusedOpGenerator:
 
         # TODO: this debug logging/print is a hack, remove it later.
         if _default_handler.level == logging.DEBUG:
-            self.fused_op.append(f'  std::cout << "GOT HERE: {op}" << std::endl;')
+            self.fused_op.append(f'  std::cout << "Executing: {op}" << std::endl;')
 
         for n, fn in zip(nodes, fn_names):
             comment_str = f"  // ({', '.join([argument_type_str(inp) for inp in n.args])}) -> {str(extract_node_type(n))}"

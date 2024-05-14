@@ -137,33 +137,6 @@ def is_compute_fusable_pair(a: torch.fx.Node, b: torch.fx.Node) -> bool:
 
 
 """
-Determine if the given module is the result of the fusion pass or just
-an pre-existing sub-module.
-"""
-def is_fused_subgraph(mod: torch.fx.GraphModule) -> bool:
-    fg = FlowGraph(mod)
-    saw_call = False
-
-    if len([n for n in mod.graph.nodes if n.op == 'call_function']) <= 1:
-        return False
-
-    for n in mod.graph.nodes:
-        if n.op == 'call_module' or n.op == 'call_method':
-            return False
-
-        if n.op != 'call_function':
-            continue
-
-        pred = is_fusable_pair if saw_call else is_compute_fusable_pair
-        saw_call = True
-
-        if not all([pred(n, s) for s in fg.successors(n) if s.op == 'call_function']):
-            return False
-
-    return True
-
-
-"""
 Determine if any kwargs associated with 'node' are supported.
 """
 def supported_kwargs(node: torch.fx.Node, allow_const_kwargs: bool = False) -> bool:
