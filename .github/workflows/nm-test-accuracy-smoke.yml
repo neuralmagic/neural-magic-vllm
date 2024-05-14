@@ -1,4 +1,4 @@
-name: nm-lm-eval-smoke
+name: nm-test-accuracy-smoke
 on:
   # makes workflow reusable
   workflow_call:
@@ -25,6 +25,10 @@ on:
         required: true
       python:
         description: "python version, e.g. 3.10.12"
+        type: string
+        required: true
+      whl:
+        description: "whl to test (variable appears late binding so unusable outside 'download artifact')"
         type: string
         required: true
 
@@ -55,9 +59,16 @@ on:
         description: "python version, e.g. 3.10.12"
         type: string
         required: true
+      whl:
+        description: "whl to test (variable appears late binding so unusable outside 'download artifact')"
+        type: string
+        required: true
+
+env:
+  VENV_BASE: "LM_EVAL"
 
 jobs:
-  LM-EVAL-SMOKE:
+  TEST-ACCURACY-SMOKE:
 
     runs-on: ${{ inputs.label }}
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
@@ -83,7 +94,7 @@ jobs:
         uses: ./.github/actions/nm-set-python/
         with:
           python: ${{ inputs.python }}
-          venv: TEST
+          venv: ${{ env.VENV_BASE }}
 
       - name: hf cache
         id: hf_cache
@@ -91,16 +102,22 @@ jobs:
         with:
           fs_cache: ${{ secrets.HF_FS_CACHE }}
 
-      - name: build
-        id: build
-        uses: ./.github/actions/nm-build-vllm/
+      - name: download whl
+        id: download
+        uses: actions/download-artifact@v4
         with:
-          python: ${{ inputs.python }}
-          venv: TEST
-          pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
+          name: ${{ inputs.whl }}
+          path: ${{ inputs.whl }}
+
+      - name: install whl
+        id: install_whl
+        uses: ./.github/actions/nm-install-whl/
+        with:
+            python: ${{ inputs.python }}
+            venv: ${{ env.VENV_BASE }}
 
       - name: run lm-eval-smoke
         uses: ./.github/actions/nm-lm-eval-smoke/
         with:
           python: ${{ inputs.python }}
-          venv: TEST
+          venv: ${{ env.VENV_BASE }}

@@ -1,5 +1,6 @@
 import contextlib
 import gc
+import logging
 import os
 from typing import List, Optional, Tuple
 
@@ -9,6 +10,7 @@ from PIL import Image
 from transformers import (AutoModelForCausalLM, AutoProcessor,
                           LlavaForConditionalGeneration)
 
+from tests.utils.logging import make_logger
 from vllm import LLM, SamplingParams
 from vllm.config import TokenizerPoolConfig, VisionLanguageConfig
 from vllm.distributed import destroy_model_parallel
@@ -370,6 +372,7 @@ class VllmRunner:
         tensor_parallel_size: int = 1,
         block_size: int = 16,
         enable_chunked_prefill: bool = False,
+        swap_space=4,
         **kwargs,
     ) -> None:
         self.model = LLM(
@@ -377,7 +380,7 @@ class VllmRunner:
             tokenizer=tokenizer_name,
             trust_remote_code=True,
             dtype=dtype,
-            swap_space=0,
+            swap_space=swap_space,
             disable_log_stats=disable_log_stats,
             tensor_parallel_size=tensor_parallel_size,
             max_model_len=max_model_len,
@@ -555,3 +558,8 @@ def get_tokenizer_pool_config(tokenizer_group_type):
                                    pool_type="ray",
                                    extra_config={})
     raise ValueError(f"Unknown tokenizer_group_type: {tokenizer_group_type}")
+
+
+@pytest.fixture(scope="session")
+def logger() -> logging.Logger:
+    return make_logger("vllm_test")
