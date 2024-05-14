@@ -51,7 +51,7 @@ class CompressedTensorsConfig(QuantizationConfig):
         return []
 
     def get_supported_act_dtypes(cls) -> List[torch.dtype]:
-        return [torch.float32, torch.int8]
+        return [torch.float32, torch.int8, torch.float16]
 
     # Need to figure it out
     def get_min_capability(self) -> int:
@@ -135,7 +135,8 @@ class CompressedTensorsConfig(QuantizationConfig):
     def _get_schema(self, weight_quant: BaseModel,
                     input_quant: BaseModel) -> "CompressedTensorsScheme":
         if self._is_w4a16(weight_quant):
-            return CompressedTensorsW4A16()
+            return CompressedTensorsW4A16(strategy=weight_quant.strategy, group_size=weight_quant.group_size)
+
         elif self._is_static_tensor_w8a8(weight_quant, input_quant):
             return CompressedTensorsW8A8StaticTensor(
                 fake_quant=self.fake_quant)
@@ -220,6 +221,7 @@ class CompressedTensorsLinearMethod(LinearMethodBase):
                                                      layer_name=layer_name)
         scheme.create_weights(
             layer=layer,
+            input_size=input_size,
             input_size_per_partition=input_size_per_partition,
             output_partition_sizes=output_partition_sizes,
             output_size=output_size,
