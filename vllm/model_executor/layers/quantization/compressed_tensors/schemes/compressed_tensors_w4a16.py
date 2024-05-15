@@ -79,26 +79,13 @@ def unpack_gptq(w_gptq, size_k, size_n, num_bits):
 
     return res
 
-def _get_perms():
-    perm = []
-    for i in range(32):
-        perm1 = []
-        col = i // 4
-        for block in [0, 1]:
-            for row in [
-                    2 * (i % 4),
-                    2 * (i % 4) + 1,
-                    2 * (i % 4 + 4),
-                    2 * (i % 4 + 4) + 1,
-            ]:
-                perm1.append(16 * row + col + 8 * block)
-        for j in range(4):
-            perm.extend([p + 256 * j for p in perm1])
+class GPTQMarlinState(Enum):
+    import enum
 
-    perm = numpy.array(perm)
-    interleave = numpy.array([0, 2, 4, 6, 1, 3, 5, 7])
-    perm = perm.reshape((-1, 8))[:, interleave].ravel()  # type: ignore
-    perm = torch.from_numpy(perm)
+    REPACK = enum.auto()
+    READY = enum.auto()
+
+def get_scale_perms(num_bits):
     scale_perm = []
     for i in range(8):
         scale_perm.extend([i + 8 * j for j in range(8)])
@@ -106,22 +93,15 @@ def _get_perms():
     for i in range(4):
         scale_perm_single.extend(
             [2 * i + j for j in [0, 1, 8, 9, 16, 17, 24, 25]])
-    return perm, scale_perm, scale_perm_single
+    return scale_perm, scale_perm_single
 
 
-_perm, _scale_perm, _scale_perm_single = _get_perms()
-
-class GPTQMarlinState(Enum):
-    import enum
-
-    REPACK = enum.auto()
-    READY = enum.auto()
-
-def marlin_permute_scales(s, size_k, size_n, group_size):
+def marlin_permute_scales(s, size_k, size_n, group_size, num_bits):
+    scale_perm, scale_perm_single = get_scale_perms(num_bits)
     if group_size < size_k and group_size != -1:
-        s = s.reshape((-1, len(_scale_perm)))[:, _scale_perm]
+        s = s.reshape((-1, len(scale_perm)))[:, scale_perm]
     else:
-        s = s.reshape((-1, len(_scale_perm_single)))[:, _scale_perm_single]
+        s = s.reshape((-1, len(scale_perm_single)))[:, scale_perm_single]
     s = s.reshape((-1, size_n)).contiguous()
 
     return s
@@ -159,12 +139,13 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
             torch.empty(
                 output_size_per_partition,
                 input_size_per_partition // pack_factor,
+                device="cuda",
                 dtype=torch.int32,
             ),
             requires_grad=False,
         )
 
-        set_weight_attrs(weight, {"input_dim": 1, "output_dim": 0, "packed_dim": 1, "pack_factor": 8, "ignore_warning": True})
+        set_weight_attrs(weight, {"input_dim": 1, "output_dim": 0, "packed_dim": 1, "pack_factor": 8})
         set_weight_attrs(weight, {"weight_loader": weight_loader})
         layer.register_parameter("weight", weight)
 
@@ -173,21 +154,22 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
                 output_size_per_partition,
                 scales_and_zp_size,
                 1,
+                device="cuda",
                 dtype=params_dtype,
             ),
             requires_grad=False,
         )
 
         set_weight_attrs(weight_scale, {"weight_loader": weight_loader})
-        set_weight_attrs(weight_scale, {"input_dim": weight_scale_dim, "output_dim": 0, "ignore_warning": True})
+        set_weight_attrs(weight_scale, {"input_dim": weight_scale_dim, "output_dim": 0})
         layer.register_parameter("weight_scale", weight_scale)
-        
 
         weight_zero_point = Parameter(
             torch.empty(
                 output_size_per_partition,
-                input_size_per_partition // self.group_size,
+                scales_and_zp_size,
                 1,
+                device="cuda",
                 dtype=params_dtype,
             ),
             requires_grad=False,
@@ -208,7 +190,7 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
         layer.input_size_per_partition = input_size_per_partition
         layer.output_size_per_partition = output_size_per_partition
 
-       
+    
         layer.input_size = input_size
         layer.marlin_state = GPTQMarlinState.REPACK
         layer.is_k_full = True
@@ -219,7 +201,7 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
                                 dtype=torch.int,
                                 requires_grad=False)
         layer.workspace = workspace
- 
+
 
     def apply_weights(self, layer: torch.nn.Module, x: torch.Tensor):
         """
@@ -234,8 +216,7 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
         
         if layer.marlin_state == GPTQMarlinState.REPACK:
             layer.marlin_state = GPTQMarlinState.READY
-            print("Inside Repack", layer)
-
+        
             # Newly generated tensors need to replace existing tensors that are
             # already registered as parameters by vLLM (and won't be freed)
             def replace_tensor(name, new_t):
@@ -257,17 +238,14 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
                                                     requires_grad=False)
 
             # Repack weights
-            weight_temp = layer.weight.t().contiguous()
-            print("Weight temp", weight_temp.shape)
             marlin_qweight = ops.gptq_marlin_repack(
-                weight_temp,
+                layer.weight.t().contiguous(),
                 layer.g_idx_sort_indices,
                 part_size_k,
                 part_size_n,
                 4
             )
-            print("marlin weight", marlin_qweight.shape)
-            
+      
             replace_tensor("weight", marlin_qweight)
 
             # Permute scales
@@ -275,21 +253,25 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
             scales_size_n = part_size_n
 
             
-            weight_scale_temp = layer.weight_scale.squeeze().t().contiguous()
-            print("scales", weight_scale_temp.shape)
-            marlin_scales = marlin_permute_scales(weight_scale_temp, scales_size_k,
+            marlin_scales = marlin_permute_scales(layer.weight_scale.squeeze().t().contiguous(), 
+                                                  scales_size_k,
                                                   scales_size_n,
-                                                  self.group_size)
+                                                  self.group_size,
+                                                  4)
             replace_tensor("weight_scale", marlin_scales)
-            print("marlin scale", marlin_scales.shape)
-            print("\n")
 
-        output = ops.gptq_marlin_gemm(reshaped_x, layer.weight, layer.weight_scale,
-                                      layer.g_idx, layer.g_idx_sort_indices,
-                                      layer.workspace, 4, size_m, part_size_n,
-                                      part_size_k, layer.is_k_full)
+        output = ops.gptq_marlin_gemm(reshaped_x, 
+                                        layer.weight, 
+                                        layer.weight_scale,
+                                        layer.g_idx, 
+                                        layer.g_idx_sort_indices,
+                                        layer.workspace, 
+                                        4, 
+                                        size_m, 
+                                        part_size_n,
+                                        part_size_k, 
+                                        layer.is_k_full)
 
-        #print(output)
         return output.reshape(out_shape)
         """
         size_k = layer.input_size_per_partition
@@ -300,6 +282,5 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
 
         w_unpacked = unpack_gptq(weight_temp, size_k, size_n, 4)
         w = dequant(w_unpacked, scale_temp, size_k, size_n, 4, self.group_size)
-              
-        return torch.matmul(x, w)
-        
+        output = torch.matmul(x, w)
+        return output     
