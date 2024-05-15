@@ -763,8 +763,6 @@ class RowParallelLinear(LinearBase):
         if fp8_scales_shard_indexer is None and len(loaded_weight.shape) == 0:
             loaded_weight = loaded_weight.reshape(1)
 
-        # TODO: the fact that they're packed only gets dealt with at the kernel level
-        # for this particular layer?
         assert param_data.shape == loaded_weight.shape
         param_data.copy_(loaded_weight)
 

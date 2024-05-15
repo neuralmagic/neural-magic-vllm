@@ -127,12 +127,17 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
         # for group size, 128 things next to each other in memory, 2nd dimension for things next to each other in memory
         output_size_per_partition = sum(output_partition_sizes)
 
-        weight_scale_dim = None 
-        scales_and_zp_size = input_size // self.group_size
+        if self.group_size is not None:
+            group_size = self.group_size
+        else:
+            group_size = input_size
 
-        if input_size != input_size_per_partition:
+        weight_scale_dim = None 
+        scales_and_zp_size = input_size // group_size
+
+        if input_size != input_size_per_partition and self.group_size is not None:
             weight_scale_dim = 1
-            scales_and_zp_size = input_size_per_partition // self.group_size
+            scales_and_zp_size = input_size_per_partition // group_size
 
 
         weight = Parameter(
@@ -153,7 +158,6 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
             torch.empty(
                 output_size_per_partition,
                 scales_and_zp_size,
-                1,
                 device="cuda",
                 dtype=params_dtype,
             ),
@@ -168,7 +172,6 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
             torch.empty(
                 output_size_per_partition,
                 scales_and_zp_size,
-                1,
                 device="cuda",
                 dtype=params_dtype,
             ),
@@ -194,6 +197,7 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
         layer.input_size = input_size
         layer.marlin_state = GPTQMarlinState.REPACK
         layer.is_k_full = True
+        layer.group_size = group_size
 
         max_workspace_size = (output_size_per_partition // 64) * 16
 
@@ -204,7 +208,6 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
 
 
     def apply_weights(self, layer: torch.nn.Module, x: torch.Tensor):
-        """
         reshaped_x = x.reshape(-1, x.shape[-1])
 
         size_m = reshaped_x.shape[0]
@@ -256,7 +259,7 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
             marlin_scales = marlin_permute_scales(layer.weight_scale.squeeze().t().contiguous(), 
                                                   scales_size_k,
                                                   scales_size_n,
-                                                  self.group_size,
+                                                  layer.group_size,
                                                   4)
             replace_tensor("weight_scale", marlin_scales)
 
@@ -281,6 +284,7 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
         scale_temp = layer.weight_scale.squeeze().t().contiguous()
 
         w_unpacked = unpack_gptq(weight_temp, size_k, size_n, 4)
-        w = dequant(w_unpacked, scale_temp, size_k, size_n, 4, self.group_size)
+        w = dequant(w_unpacked, scale_temp, size_k, size_n, 4, layer.group_size)
         output = torch.matmul(x, w)
-        return output     
+        return output
+        """     
