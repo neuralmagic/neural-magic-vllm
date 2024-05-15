@@ -179,7 +179,7 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
         )
 
         set_weight_attrs(weight_scale, {"weight_loader": weight_loader})
-        set_weight_attrs(weight_scale, {"input_dim": 1, "output_dim": 0, "ignore_warning": True})
+        set_weight_attrs(weight_scale, {"input_dim": weight_scale_dim, "output_dim": 0, "ignore_warning": True})
         layer.register_parameter("weight_scale", weight_scale)
         
 
@@ -192,9 +192,10 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
             ),
             requires_grad=False,
         )
-        layer.register_parameter("weight_zero_point", weight_zero_point)
+        
         set_weight_attrs(weight_zero_point, {"weight_loader": weight_loader})
         set_weight_attrs(weight_zero_point, {"input_dim": weight_scale_dim, "output_dim": 0})
+        layer.register_parameter("weight_zero_point", weight_zero_point)
 
         weight_shape = Parameter(torch.empty(2,
                                             device="cuda",
@@ -207,7 +208,7 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
         layer.input_size_per_partition = input_size_per_partition
         layer.output_size_per_partition = output_size_per_partition
 
-        """
+       
         layer.input_size = input_size
         layer.marlin_state = GPTQMarlinState.REPACK
         layer.is_k_full = True
@@ -218,10 +219,9 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
                                 dtype=torch.int,
                                 requires_grad=False)
         layer.workspace = workspace
-        """
+ 
 
     def apply_weights(self, layer: torch.nn.Module, x: torch.Tensor):
-        
         """
         reshaped_x = x.reshape(-1, x.shape[-1])
 
@@ -295,14 +295,11 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
         size_k = layer.input_size_per_partition
         size_n = layer.output_size_per_partition
 
-        weight_temp = layer.weight.squeeze().t().contiguous()
+        weight_temp = layer.weight.t().contiguous()
         scale_temp = layer.weight_scale.squeeze().t().contiguous()
 
-
         w_unpacked = unpack_gptq(weight_temp, size_k, size_n, 4)
-        #print("    w_unpacked: shape = {} type = {}".format(w_unpacked.shape, w_unpacked.type()))
-
         w = dequant(w_unpacked, scale_temp, size_k, size_n, 4, self.group_size)
-        #print("    w dequant: shape = {} type = {}".format(w.shape, w.type()))
-                    
+              
         return torch.matmul(x, w)
+        
