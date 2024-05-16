@@ -18,13 +18,15 @@ from vllm.model_executor.layers.quantization.squeezellm import SqueezeLLMConfig
 QUANTIZATION_METHODS: Dict[str, Type[QuantizationConfig]] = {
     "aqlm": AQLMConfig,
     "awq": AWQConfig,
+    "deepspeedfp": DeepSpeedFPConfig,
     "fp8": Fp8Config,
+    # The order of gptq methods is important for config.py iteration over
+    # override_quantization_method(..)
+    "marlin": MarlinConfig,
+    "gptq_marlin_24": GPTQMarlin24Config,
+    "gptq_marlin": GPTQMarlinConfig,
     "gptq": GPTQConfig,
     "squeezellm": SqueezeLLMConfig,
-    "gptq_marlin": GPTQMarlinConfig,
-    "gptq_marlin_24": GPTQMarlin24Config,
-    "marlin": MarlinConfig,
-    "deepspeedfp": DeepSpeedFPConfig
 }
 
 
