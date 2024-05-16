@@ -12,7 +12,8 @@ from vllm.model_executor.layers.quantization.base_config import (  # noqa: E501
     QuantizationConfig)
 from vllm.model_executor.layers.quantization.compressed_tensors.schemes import (
     CompressedTensorsScheme, CompressedTensorsUnquantized,
-    CompressedTensorsW8A8DynamicToken, CompressedTensorsW8A8StaticTensor, CompressedTensorsW4A16)
+    CompressedTensorsW8A8DynamicToken, CompressedTensorsW8A8StaticTensor,
+    CompressedTensorsW4A16)
 
 
 class CompressedTensorsConfig(QuantizationConfig):
@@ -126,16 +127,22 @@ class CompressedTensorsConfig(QuantizationConfig):
             return True
         return False
 
-    def _is_w4a16(self, weight_quant: BaseModel) -> bool:
+    def _is_w4a16(self, weight_quant: BaseModel,
+                  input_quant: BaseModel) -> bool:
+        input_quant_none = input_quant is None
         is_4_bits = weight_quant.num_bits == 4
-        if is_4_bits:
+        is_symmetric = weight_quant.symmetric
+        is_static = not weight_quant.dynamic
+
+        if is_4_bits and input_quant_none and is_symmetric and is_static:
             return True
         return False
 
     def _get_schema(self, weight_quant: BaseModel,
                     input_quant: BaseModel) -> "CompressedTensorsScheme":
-        if self._is_w4a16(weight_quant):
-            return CompressedTensorsW4A16(strategy=weight_quant.strategy, group_size=weight_quant.group_size)
+        if self._is_w4a16(weight_quant, input_quant):
+            return CompressedTensorsW4A16(strategy=weight_quant.strategy,
+                                          group_size=weight_quant.group_size)
 
         elif self._is_static_tensor_w8a8(weight_quant, input_quant):
             return CompressedTensorsW8A8StaticTensor(
@@ -144,7 +151,6 @@ class CompressedTensorsConfig(QuantizationConfig):
         elif self._is_dynamic_token_w8a8(weight_quant, input_quant):
             return CompressedTensorsW8A8DynamicToken(
                 fake_quant=self.fake_quant)
-
 
         raise NotImplementedError("Scheme not supported.")
 

@@ -20,6 +20,8 @@ GPTQ_MARLIN_SUPPORTED_NUM_BITS = [4, 8]
 GPTQ_MARLIN_SUPPORTED_GROUP_SIZES = [-1, 32, 64, 128]
 GPTQ_MARLIN_SUPPORTED_SYM = [True]
 
+__all__ = ["GPTQMarlinState", "marlin_permute_scales", "get_scale_perms"]
+
 
 # Permutations for Marlin scale shuffling
 def get_scale_perms(num_bits):
