@@ -507,6 +507,7 @@ class LoadFormat(str, enum.Enum):
     NPCACHE = "npcache"
     DUMMY = "dummy"
     TENSORIZER = "tensorizer"
+    SHARDED_STATE = "sharded_state"
 
 
 @dataclass
