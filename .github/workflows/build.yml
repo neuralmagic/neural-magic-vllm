@@ -3,6 +3,10 @@ on:
   # makes workflow reusable
   workflow_call:
     inputs:
+      wf_category:
+        description: "categories: REMOTE, NIGHTLY, RELEASE"
+        type: string
+        default: "REMOTE"
       build_label:
         description: "requested runner label (specifies instance)"
         type: string
@@ -31,6 +35,10 @@ on:
   # makes workflow manually callable
   workflow_dispatch:
     inputs:
+      wf_category:
+        description: "categories: REMOTE, NIGHTLY, RELEASE"
+        type: string
+        default: "REMOTE"
       build_label:
         description: "requested runner label (specifies instance)"
         type: string
@@ -102,6 +110,12 @@ jobs:
                 testmo_url: https://neuralmagic.testmo.net
                 testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
                 source: 'build-test'
+
+            - name: rename for nightly
+              uses: ./.github/actions/nm-rename-for-nightly-whl/
+              if: contains(fromJSON('["NIGHTLY"]'), inputs.wf_category)
+              with:
+                package_name: "nm-vllm"
 
             - name: build
               id: build

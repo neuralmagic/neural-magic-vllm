@@ -1,0 +1,17 @@
+name: rename for nightly
+description: 'renames nm-vllm as nightly'
+inputs:
+  package_name:
+    description: "'package base name, e.g. 'nm-vllm'"
+    required: true
+runs:
+  using: composite
+  steps:
+    - run: |
+        PACKAGE_NAME=${{ inputs.package_name }}
+        sed -i "s/name=\"${PACKAGE_NAME}\"/name=\"${PACKAGE_NAME}-nightly\"/g" setup.py
+        VERSION=$(grep "__version__" vllm/__init__.py | sed -e "s/__version__ = //g" -e "s/,//g" | sed -e "s/\"//g")
+        echo ${VERSION}
+        DATE=$(date +%Y%m%d)
+        sed -i "s/__version__ = \"${VERSION}\"/__version__ = \"${VERSION}.${DATE}\"/g" vllm/__init__.py
+      shell: bash
