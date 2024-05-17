@@ -71,6 +71,12 @@ class Generator(ABC):
 
 class Cutlass2xGenerator(Generator):
 
+    GENERATE_DIR=Path(os.path.dirname(os.path.realpath(__file__))) / "generated"
+    FN_DEFN_JINJA=GENERATE_DIR / "scaled_mm_dq_c2x.jinja"
+    FN_DECL_JINJA=GENERATE_DIR / "scaled_mm_dq_c2x_fnprototype.jinja"
+    PYBIND_FILE=GENERATE_DIR / "cutlass2x_pybind.cpp" 
+    OPS_FILE=GENERATE_DIR / "cutlass2x_ops.h"
+
     def __init__(self,
                  archs: List[int],
                  tile_shapes: List[Tuple[int, int, int]],
@@ -104,7 +110,8 @@ class Cutlass2xGenerator(Generator):
                            warp_shape: Tuple[int, int, int],
                            instruction_shape: Tuple[int, int, int],
                            main_loop_stages : int):
-        f = 'generated/cutlass_scaled_mm_dq_c2x_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}'.format(
+        f = '{}/cutlass_scaled_mm_dq_c2x_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}'.format(
+                Cutlass2xGenerator.GENERATE_DIR,
                 tile_shape[0], tile_shape[1], tile_shape[2],
                 warp_shape[0], warp_shape[1], warp_shape[2],
                 instruction_shape[0], instruction_shape[1], instruction_shape[2],
@@ -123,18 +130,18 @@ class Cutlass2xGenerator(Generator):
         instruction_shape: Tuple[int, int, int],
         main_loop_stages: int):
     
-        jenv = jinja2.Environment(loader=jinja2.FileSystemLoader("./"))
-        template = jenv.get_template("./generated/scaled_mm_dq_c2x.jinja")
-        fn_defn_template = jenv.get_template("./generated/scaled_mm_dq_c2x_fnprototype.jinja")
+        jenv = jinja2.Environment(loader=jinja2.FileSystemLoader("/"))
+        fn_defn_template = jenv.get_template(str(Cutlass2xGenerator.FN_DEFN_JINJA))
+        fn_decl_template = jenv.get_template(str(Cutlass2xGenerator.FN_DECL_JINJA))
 
         pybind_fn_names = []
-        ops_fn_defn = []
+        ops_fn_decl = []
     
         code = ""
         for arch in archs:
             fn_name = Cutlass2xGenerator.generate_name(arch, tile_shape, warp_shape, instruction_shape, main_loop_stages)
-            fn_defn = fn_defn_template.render(_name = fn_name)
-            code += template.render(_name = fn_name,
+            fn_decl = fn_decl_template.render(_name = fn_name)
+            code += fn_defn_template.render(_name = fn_name,
                                     _tile_shape = get_as_cutlass_gemm_shape(tile_shape),
                                     _warp_shape = get_as_cutlass_gemm_shape(warp_shape),
                                     _instruction_shape = get_as_cutlass_gemm_shape(instruction_shape),
@@ -142,35 +149,35 @@ class Cutlass2xGenerator(Generator):
                                     _arch = arch)
 
             pybind_fn_names.append(fn_name)
-            ops_fn_defn.append(fn_defn)
+            ops_fn_decl.append(fn_decl)
     
         filename = Cutlass2xGenerator.generate_filename(archs, tile_shape, warp_shape, instruction_shape, main_loop_stages)
     
         if file_contents_same(filename, code):
             print(f"{filename} exists with the same content - Not re-generating it!")
-            return pybind_fn_names, ops_fn_defn
+            return pybind_fn_names, ops_fn_decl
     
         # write code
         with open(filename, "w+") as f:
             f.write(code)
 
-        return pybind_fn_names, ops_fn_defn
+        return pybind_fn_names, ops_fn_decl
 
     def generate(self):
         pybind_fn_names = []
-        ops_fn_defns = []
+        ops_fn_decls = []
         for ts, ws, inst_shape, ml_stage in product(self.tile_shapes,
                 self.warp_shapes, self.instruction_shapes,
                 self.main_loop_stages):
-            pybind_names, ops_defns = self.generate_2x_file(self.archs, ts, ws, inst_shape, ml_stage)
+            pybind_names, ops_decls = self.generate_2x_file(self.archs, ts, ws, inst_shape, ml_stage)
             pybind_fn_names.extend(pybind_names)
-            ops_fn_defns.extend(ops_defns)
+            ops_fn_decls.extend(ops_decls)
 
         # Write out the pybind and ops
-        self.write_pybind_cpp("_cutlass2x", pybind_fn_names, "./generated/cutlass2x_pybind.cpp")
-        self.write_ops_hpp(ops_fn_defns, "./generated/cutlass2x_ops.h")
+        self.write_pybind_cpp(pybind_fn_names, Cutlass2xGenerator.PYBIND_FILE)
+        self.write_ops_hpp(ops_fn_decls, Cutlass2xGenerator.OPS_FILE)
 
-def main():
+def generate_cutlass2x_kernels():
 
     archs = [80, 89]
     tile_shapes = [(128, 128, 64), (128, 128, 128)]
@@ -186,4 +193,4 @@ def main():
     generator.generate()
 
 if __name__ == "__main__":
-    main()
+    generate_cutlass2x_kernels()

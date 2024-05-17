@@ -379,6 +379,12 @@ def get_requirements() -> List[str]:
             "Unsupported platform, please use CUDA, ROCm, Neuron, or CPU.")
     return requirements
 
+if _is_cuda():
+    # benchmark-sweep : generate cutlass kernels before we do anything
+    #from csrc.quantization.cutlass_w8a8.generator import generate_cutlass2x_kernels
+    #generate_cutlass2x_kernels()
+    from subprocess import call
+    subprocess.call(['python3', 'csrc/quantization/cutlass_w8a8/generator.py'])
 
 ext_modules = []
 
