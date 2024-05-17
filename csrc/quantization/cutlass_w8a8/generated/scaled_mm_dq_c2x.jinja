@@ -1,0 +1,21 @@
+#include <stddef.h>
+#include <torch/extension.h>
+#include "../scaled_mm_dq_c2x.cuh"
+#include "../common.hpp"
+
+void {{ _name }}(torch::Tensor &out, torch::Tensor const &a,
+                torch::Tensor const &b,
+                torch::Tensor const &a_scales,
+                torch::Tensor const &b_scales) {
+
+  using TileShape = {{ _tile_shape }};
+  using WarpShape = {{ _warp_shape }};
+  using InstructionShape = {{ _instruction_shape }};
+  static constexpr int32_t MainLoopStages = {{ _main_loop_stages }}; 
+  return cutlass_scaled_mm_dq_sm{{ _arch }}_impl<
+      TileShape,
+      WarpShape,
+      InstructionShape,
+      MainLoopStages>(out, a, b, a_scales, b_scales);
+}
+

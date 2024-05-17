@@ -218,6 +218,29 @@ define_gpu_extension_target(
   WITH_SOABI)
 
 #
+# _cutlass2x extension
+#
+if(VLLM_GPU_LANG STREQUAL "CUDA")
+  set(VLLM_EXT_SRC)
+  file(GLOB CUTLASS_W8A8_GENERATED_SRC
+      "csrc/quantization/cutlass_w8a8/generated/*.cu")
+  list(APPEND VLLM_EXT_SRC ${CUTLASS_W8A8_GENERATED_SRC})
+  file(GLOB CUTLASS_W8A8_GENERATED_SRC
+      "csrc/quantization/cutlass_w8a8/generated/cutlass2x_pybind.cpp")
+  list(APPEND VLLM_EXT_SRC ${CUTLASS_W8A8_GENERATED_SRC})
+endif()
+
+define_gpu_extension_target(
+  _cutlass2x
+  DESTINATION vllm
+  LANGUAGE ${VLLM_GPU_LANG}
+  SOURCES ${VLLM_EXT_SRC}
+  COMPILE_FLAGS ${VLLM_GPU_FLAGS}
+  ARCHITECTURES ${VLLM_GPU_ARCHES}
+  INCLUDE_DIRECTORIES ${CUTLASS_INCLUDE_DIR};${CUTLASS_TOOLS_UTIL_INCLUDE_DIR}
+  WITH_SOABI)
+
+#
 # _moe_C extension
 #
 
@@ -321,4 +344,6 @@ endif()
 if(VLLM_GPU_LANG STREQUAL "CUDA")
   message(STATUS "Enabling moe extension.")
   add_dependencies(default _moe_C)
+  message(STATUS "Enabling cutlass2x extension")
+  add_dependencies(default _cutlass2x)
 endif()
