@@ -112,13 +112,6 @@ jobs:
                 testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
                 source: 'build-test'
 
-            # skip this ... should no be handled by setup.py
-            # - name: rename for nightly
-            #   uses: ./.github/actions/nm-rename-for-nightly-whl/
-            #   if: contains(fromJSON('["NIGHTLY"]'), inputs.wf_category)
-            #   with:
-            #     package_name: "nm-vllm"
-
             - name: build
               id: build
               uses: ./.github/actions/nm-build-vllm/
