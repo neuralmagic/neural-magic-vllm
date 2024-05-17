@@ -91,6 +91,7 @@ jobs:
               id: setenv
               uses: ./.github/actions/nm-set-env/
               with:
+                wf_category: ${{ inputs.wf_category }}
                 hf_token: ${{ secrets.NM_HF_TOKEN }}
                 Gi_per_thread: ${{ inputs.Gi_per_thread }}
                 nvcc_threads: ${{ inputs.nvcc_threads }}
@@ -111,11 +112,12 @@ jobs:
                 testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
                 source: 'build-test'
 
-            - name: rename for nightly
-              uses: ./.github/actions/nm-rename-for-nightly-whl/
-              if: contains(fromJSON('["NIGHTLY"]'), inputs.wf_category)
-              with:
-                package_name: "nm-vllm"
+            # skip this ... should no be handled by setup.py
+            # - name: rename for nightly
+            #   uses: ./.github/actions/nm-rename-for-nightly-whl/
+            #   if: contains(fromJSON('["NIGHTLY"]'), inputs.wf_category)
+            #   with:
+            #     package_name: "nm-vllm"
 
             - name: build
               id: build
