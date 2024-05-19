@@ -9,7 +9,7 @@ Run `pytest tests/models/test_compressed.py`.
 import gc
 
 import pytest
-from compare_utils import check_logprobs_close
+from tests.models.utils import check_logprobs_close
 
 MAX_MODEL_LEN = 1024
 MODEL_FORMAT_PAIRS = [
