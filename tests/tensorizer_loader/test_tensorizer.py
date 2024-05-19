@@ -2,7 +2,7 @@ import gc
 import json
 import os
 import subprocess
-from test.utils import ServerRunner
+from tests.utils import ServerRunner
 from unittest.mock import MagicMock, patch
 
 import openai
