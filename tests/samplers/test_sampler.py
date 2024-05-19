@@ -8,7 +8,6 @@ import pytest
 import torch
 from transformers import GenerationConfig, GenerationMixin
 
-from vllm.config import DeviceConfig
 from vllm.model_executor.layers.sampler import Sampler
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.model_executor.utils import set_random_seed
