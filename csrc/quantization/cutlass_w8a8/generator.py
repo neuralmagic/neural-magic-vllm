@@ -179,8 +179,8 @@ class Cutlass2xGenerator(Generator):
 
 def generate_cutlass2x_kernels():
 
-    archs = [80, 89]
-    tile_shapes = [(128, 128, 64), (128, 128, 128)]
+    archs = [80]
+    tile_shapes = [(128, 128, 64), (128, 64, 64)]
     warp_shapes = [(64, 64, 64)]
     instruction_shapes = [(16, 8, 32)]
     main_loop_stages = [5]

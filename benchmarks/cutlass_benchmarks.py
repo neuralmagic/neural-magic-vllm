@@ -43,17 +43,37 @@ def make_rand_tensors(dtype, m, n, k):
 
 # impl
 
-def pytorch_i8_impl(a, b, scale_a, scale_b):
+def pytorch_i8_impl(a, b, scale_a, scale_b, out_dtype, impl_fn = None):
     return torch.mm(a, b)
 
-def pytorch_fp8_impl(a, b, scale_a, scale_b):
-    return torch._scaled_mm(a, b, out_dtype=torch.bfloat16, scale_a=scale_a, scale_b=scale_b)
+def pytorch_fp8_impl(a, b, scale_a, scale_b, out_dtype, impl_fn = None):
+    return torch._scaled_mm(a, b, out_dtype=out_dtype, scale_a=scale_a, scale_b=scale_b)
 
-def cutlass_impl(a, b, scale_a, scale_b):
-    return ops.cutlass_scaled_mm_dq(a, b, scale_a, scale_b)
+def cutlass_impl(a, b, scale_a, scale_b, out_dtype, impl_fn = None):
+    return ops.cutlass_scaled_mm_dq(a, b, scale_a, scale_b, out_dtype = out_dtype)
+
+def autogen_cutlass2x_wrapper(a, b, scale_a, scale_b, out_dtype, impl_fn):
+    m = a.shape[0]
+    n = b.shape[1]
+    out = torch.empty((m, n), dtype=out_dtype, device=a.device)
+    return impl_fn(out, a, b, scale_a, scale_b)
+
+def get_autogen_cutlass2x_impls():
+    impls = {}
+    try:
+        import vllm._cutlass2x as cutlass2x
+        attrs = dir(cutlass2x)
+        attrs = list(filter(lambda x: x.startswith('cutlass'), attrs))
+        for attr in attrs:
+            assert impls.get(attr) is None
+            impls[attr] = getattr(cutlass2x, attr)
+    except Exception as e:
+        print ("No cutlass2x autogen kernels found")
+
+    return impls
 
 # bench
-def bench_fn(a, b, scale_a, scale_b, label, sub_label, fn, description):
+def bench_fn(a, b, scale_a, scale_b, out_dtype, label, sub_label, fn, description, impl_fn=None):
 
     min_run_time = 1
 
@@ -62,15 +82,34 @@ def bench_fn(a, b, scale_a, scale_b, label, sub_label, fn, description):
             "b" : b,
             "scale_a" : scale_a,
             "scale_b" : scale_b,
+            "out_dtype" : out_dtype,
             "fn" : fn,
+            "impl_fn" : impl_fn,
             }
     return benchmark.Timer(
-                stmt="fn(a, b, scale_a, scale_b)",
+                stmt="fn(a, b, scale_a, scale_b, out_dtype, impl_fn)",
                 globals=globals,
                 label=label,
                 sub_label=sub_label,
                 description=description,
             ).blocked_autorange(min_run_time=min_run_time)
+
+
+def bench_cutlass_impls(a, b, scale_a, scale_b, out_dtype, label, sub_label, description):
+
+    autogen_impls = get_autogen_cutlass2x_impls()
+
+    autogen_timers = []
+    for desc, fn in autogen_impls.items():
+        print (f"trying autogen kernel {desc}")
+        timer = bench_fn(a, b, scale_a, scale_b, out_dtype, label, sub_label,
+                         autogen_cutlass2x_wrapper, desc, fn)
+        autogen_timers.append(timer)
+
+    default_impl_timer = bench_fn(a, b, scale_a, scale_b, out_dtype, label, sub_label, 
+                             cutlass_impl, "cutlass_i8_i8_bf16_scaled_mm")
+
+    return autogen_timers + [default_impl_timer]
 
 def bench_int8(dtype, m, k, n, label, sub_label):
     assert dtype == torch.int8
@@ -79,14 +118,13 @@ def bench_int8(dtype, m, k, n, label, sub_label):
     scale_b = torch.tensor(1.0, device="cuda", dtype = torch.float32)
 
     py_timer = bench_fn(a.to(dtype=torch.bfloat16, device="cuda"), b.to(dtype=torch.bfloat16, device="cuda"),
-                        scale_a, scale_b, label, sub_label, 
+                        scale_a, scale_b, torch.bfloat16, label, sub_label, 
                         pytorch_i8_impl, "pytorch_bf16_bf16_bf16_matmul-no-scales")
 
-    cutlass_timer = bench_fn(a, b, scale_a.to(device="cpu"), scale_b.to(device="cpu"),
-                             label, sub_label, 
-                             cutlass_impl, "cutlass_i8_i8_bf16_scaled_mm")
+    cutlass_timers = bench_cutlass_impls(a, b, scale_a.to(device="cpu"), scale_b.to(device="cpu"),
+                                         torch.bfloat16, label, sub_label, "cutlass_i8_i8_bf16_scaled_mm")
 
-    return py_timer, cutlass_timer
+    return [py_timer] + cutlass_timers
 
 def bench_fp8(dtype, m, k, n, label, sub_label):
     assert dtype == torch.float8_e4m3fn
@@ -94,14 +132,13 @@ def bench_fp8(dtype, m, k, n, label, sub_label):
     scale_a = torch.tensor(1.0, device="cuda", dtype = torch.float32)
     scale_b = torch.tensor(1.0, device="cuda", dtype = torch.float32)
 
-    py_timer = bench_fn(a, b, scale_a, scale_b, label, sub_label, 
+    py_timer = bench_fn(a, b, scale_a, scale_b, torch.bfloat16, label, sub_label, 
                         pytorch_fp8_impl, "pytorch_fp8_fp8_bf16_scaled_mm")
 
-    cutlass_timer = bench_fn(a, b, scale_a.to(device="cpu"), scale_b.to(device="cpu"),
-                             label, sub_label, 
-                             cutlass_impl, "cutlass_fp8_fp8_bf16_scaled_mm")
+    cutlass_timers = bench_cutlass_impls(a, b, scale_a.to(device="cpu"), scale_b.to(device="cpu"),
+                                        torch.bfloat16, label, sub_label, "cutlass_fp8_fp8_bf16_scaled_mm")
 
-    return py_timer, cutlass_timer
+    return [py_timer] + cutlass_timers
 
 def bench(dtype, m, k, n, label, sublabel):
     if dtype == torch.int8:
