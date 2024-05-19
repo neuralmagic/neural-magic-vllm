@@ -4,7 +4,7 @@ import pytest
 # and debugging.
 import ray
 
-from ..utils import ServerRunner
+from tests.utils import ServerRunner
 
 # any model with a chat template should work here
 MODEL_NAME = "facebook/opt-125m"

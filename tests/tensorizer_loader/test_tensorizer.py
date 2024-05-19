@@ -2,6 +2,7 @@ import gc
 import json
 import os
 import subprocess
+from test.utils import ServerRunner
 from unittest.mock import MagicMock, patch
 
 import openai
@@ -17,8 +18,6 @@ from vllm.model_executor.model_loader.tensorizer import (TensorizerConfig,
                                                          load_with_tensorizer,
                                                          open_stream,
                                                          serialize_vllm_model)
-
-from ..utils import ServerRunner
 
 # yapf conflicts with isort for this docstring
 

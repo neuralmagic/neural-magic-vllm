@@ -13,9 +13,8 @@ import torch
 from huggingface_hub import snapshot_download
 from openai import BadRequestError
 
+from tests.utils import ServerRunner
 from vllm.transformers_utils.tokenizer import get_tokenizer
-
-from ..utils import ServerRunner
 
 # any model with a chat template should work here
 MODEL_NAME = "HuggingFaceH4/zephyr-7b-beta"

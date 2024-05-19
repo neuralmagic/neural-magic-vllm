@@ -10,7 +10,7 @@ from PIL import Image
 from transformers import (AutoModelForCausalLM, AutoProcessor, AutoTokenizer,
                           LlavaConfig, LlavaForConditionalGeneration)
 
-from tests.utils.logging import make_logger
+from tests.nm_utils.logging import make_logger
 from vllm import LLM, SamplingParams
 from vllm.config import TokenizerPoolConfig, VisionLanguageConfig
 from vllm.distributed import destroy_model_parallel
