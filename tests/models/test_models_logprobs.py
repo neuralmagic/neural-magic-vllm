@@ -3,6 +3,7 @@
 Run `pytest tests/models/test_models_logprobs.py --forked`.
 """
 import pytest
+
 from tests.models.utils import check_logprobs_close
 
 MODEL_MAX_LEN = 1024

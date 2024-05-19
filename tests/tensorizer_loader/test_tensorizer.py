@@ -2,7 +2,6 @@ import gc
 import json
 import os
 import subprocess
-from tests.utils import ServerRunner
 from unittest.mock import MagicMock, patch
 
 import openai
@@ -10,6 +9,7 @@ import pytest
 import ray
 import torch
 
+from tests.utils import ServerRunner
 from vllm import SamplingParams
 # yapf: disable
 from vllm.model_executor.model_loader.tensorizer import (TensorizerConfig,

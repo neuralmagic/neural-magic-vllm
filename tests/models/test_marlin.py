@@ -20,9 +20,8 @@ from dataclasses import dataclass
 import pytest
 import torch
 
-from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
-
 from tests.models.utils import check_logprobs_close
+from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
 
 capability = torch.cuda.get_device_capability()
 capability = capability[0] * 10 + capability[1]

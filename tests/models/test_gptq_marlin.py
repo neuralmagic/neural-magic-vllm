@@ -13,10 +13,9 @@ import os
 import pytest
 import torch
 
+from tests.models.utils import check_logprobs_close
 from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
 from vllm.model_executor.layers.rotary_embedding import _ROPE_DICT
-
-from tests.models.utils import check_logprobs_close
 
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
