@@ -17,6 +17,7 @@ void cutlass_scaled_mm_dq_sm75(torch::Tensor &out, torch::Tensor const &a,
       TileShape,
       WarpShape,
       InstructionShape,
+      cutlass::gemm::threadblock::ThreadblockSwizzleStreamK,
       MainLoopStages>(out, a, b, a_scales, b_scales);
 }
 
@@ -33,6 +34,7 @@ void cutlass_scaled_mm_dq_sm80(torch::Tensor &out, torch::Tensor const &a,
       TileShape,
       WarpShape,
       InstructionShape,
+      cutlass::gemm::threadblock::ThreadblockSwizzleStreamK,
       MainLoopStages>(out, a, b, a_scales, b_scales);
 }
 
@@ -45,5 +47,10 @@ void cutlass_scaled_mm_dq_sm89(torch::Tensor &out, torch::Tensor const &a,
   using WarpShape = cutlass::gemm::GemmShape<64, 64, 64>;
   using InstructionShape = cutlass::gemm::GemmShape<16, 8, 32>;
   static constexpr int32_t MainLoopStages = 5; 
-  cutlass_scaled_mm_dq_sm89_impl<TileShape, WarpShape, InstructionShape, MainLoopStages>(out, a, b, a_scales, b_scales);
+  cutlass_scaled_mm_dq_sm89_impl<
+      TileShape,
+      WarpShape,
+      InstructionShape,
+      cutlass::gemm::threadblock::ThreadblockSwizzleStreamK,
+      MainLoopStages>(out, a, b, a_scales, b_scales);
 }

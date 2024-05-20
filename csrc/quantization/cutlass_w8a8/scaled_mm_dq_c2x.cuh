@@ -45,6 +45,7 @@ using namespace cute;
 
 template <typename Arch, typename ElementAB_, typename ElementD_,
           typename TileShape, typename WarpShape, typename InstructionShape,
+          typename ThreadBlockSwizzle,
           int32_t MainLoopStages>
 struct cutlass_2x_gemm {
   using ElementAB = ElementAB_;
@@ -104,7 +105,7 @@ struct cutlass_2x_gemm {
       Arch, 
       TileShape, WarpShape, InstructionShape,
       EVTD,
-      cutlass::gemm::threadblock::ThreadblockSwizzleStreamK,
+      ThreadBlockSwizzle,
       MainLoopStages, Operator,
       1 /* epilogue stages */
       >::GemmKernel;
@@ -164,9 +165,9 @@ inline void cutlass_scaled_mm_dq_dispatcher(torch::Tensor &out, torch::Tensor co
   };
 
   typename Gemm::Op::Arguments args{
-      cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel,  // universal mode
-      problem_size,                                           // problem size
-      1,                                                      // batch count
+      cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel,
+      problem_size,             // problem size
+      1,                        // batch count
       epilogue_args,
       a_ptr,
       b_ptr,
@@ -194,6 +195,7 @@ inline void cutlass_scaled_mm_dq_dispatcher(torch::Tensor &out, torch::Tensor co
 template <typename TileShape,
           typename WarpShape,
           typename InstructionShape,
+          typename ThreadBlockSwizzle,
           int32_t MainLoopStages>
 inline void cutlass_scaled_mm_dq_sm75_impl(torch::Tensor &out, torch::Tensor const &a,
                                torch::Tensor const &b,
@@ -207,13 +209,13 @@ inline void cutlass_scaled_mm_dq_sm75_impl(torch::Tensor &out, torch::Tensor con
   if (out.dtype() == torch::kBFloat16) {
     return cutlass_scaled_mm_dq_dispatcher<
         cutlass_2x_gemm<cutlass::arch::Sm75, int8_t, cutlass::bfloat16_t,
-                        TileShape, WarpShape, InstructionShape, MainLoopStages>>(
+                        TileShape, WarpShape, InstructionShape, ThreadBlockSwizzle, MainLoopStages>>(
         out, a, b, a_scales, b_scales);
   } else {
     TORCH_CHECK(out.dtype() == torch::kFloat16);
     return cutlass_scaled_mm_dq_dispatcher<
         cutlass_2x_gemm<cutlass::arch::Sm75, int8_t, cutlass::half_t, TileShape,
-                        WarpShape, InstructionShape, MainLoopStages>>(out, a, b, a_scales,
+                        WarpShape, InstructionShape, ThreadBlockSwizzle, MainLoopStages>>(out, a, b, a_scales,
                                                          b_scales);
   }
 }
@@ -221,6 +223,7 @@ inline void cutlass_scaled_mm_dq_sm75_impl(torch::Tensor &out, torch::Tensor con
 template <typename TileShape,
           typename WarpShape,
           typename InstructionShape,
+          typename ThreadBlockSwizzle,
           int32_t MainLoopStages>
 inline void cutlass_scaled_mm_dq_sm80_impl(torch::Tensor &out, torch::Tensor const &a,
                                torch::Tensor const &b,
@@ -234,13 +237,13 @@ inline void cutlass_scaled_mm_dq_sm80_impl(torch::Tensor &out, torch::Tensor con
   if (out.dtype() == torch::kBFloat16) {
     return cutlass_scaled_mm_dq_dispatcher<
         cutlass_2x_gemm<cutlass::arch::Sm80, int8_t, cutlass::bfloat16_t,
-                        TileShape, WarpShape, InstructionShape, MainLoopStages>>(
+                        TileShape, WarpShape, InstructionShape, ThreadBlockSwizzle, MainLoopStages>>(
         out, a, b, a_scales, b_scales);
   } else {
     TORCH_CHECK(out.dtype() == torch::kFloat16);
     return cutlass_scaled_mm_dq_dispatcher<
         cutlass_2x_gemm<cutlass::arch::Sm80, int8_t, cutlass::half_t, TileShape,
-                        WarpShape, InstructionShape, MainLoopStages>>(out, a, b, a_scales,
+                        WarpShape, InstructionShape, ThreadBlockSwizzle, MainLoopStages>>(out, a, b, a_scales,
                                                          b_scales);
   }
 }
@@ -248,6 +251,7 @@ inline void cutlass_scaled_mm_dq_sm80_impl(torch::Tensor &out, torch::Tensor con
 template <typename TileShape,
           typename WarpShape,
           typename InstructionShape,
+          typename ThreadBlockSwizzle,
           int32_t MainLoopStages> 
 inline void cutlass_scaled_mm_dq_sm89_impl(torch::Tensor &out, torch::Tensor const &a,
                                torch::Tensor const &b,
@@ -263,13 +267,13 @@ inline void cutlass_scaled_mm_dq_sm89_impl(torch::Tensor &out, torch::Tensor con
     if (out.dtype() == torch::kBFloat16) {
       return cutlass_scaled_mm_dq_dispatcher<
           cutlass_2x_gemm<cutlass::arch::Sm89, int8_t, cutlass::bfloat16_t,
-                          TileShape, WarpShape, InstructionShape, MainLoopStages>>(
+                          TileShape, WarpShape, InstructionShape, ThreadBlockSwizzle, MainLoopStages>>(
           out, a, b, a_scales, b_scales);
     } else {
       assert(out.dtype() == torch::kFloat16);
       return cutlass_scaled_mm_dq_dispatcher<
           cutlass_2x_gemm<cutlass::arch::Sm89, int8_t, cutlass::half_t,
-                          TileShape, WarpShape, InstructionShape, MainLoopStages>>(
+                          TileShape, WarpShape, InstructionShape, ThreadBlockSwizzle, MainLoopStages>>(
           out, a, b, a_scales, b_scales);
     }
   } else {
@@ -279,13 +283,13 @@ inline void cutlass_scaled_mm_dq_sm89_impl(torch::Tensor &out, torch::Tensor con
     if (out.dtype() == torch::kBFloat16) {
       return cutlass_scaled_mm_dq_dispatcher<cutlass_2x_gemm<
           cutlass::arch::Sm89, cutlass::float_e4m3_t, cutlass::bfloat16_t,
-          TileShape, WarpShape, InstructionShape, MainLoopStages>>(out, a, b, a_scales,
+          TileShape, WarpShape, InstructionShape, ThreadBlockSwizzle, MainLoopStages>>(out, a, b, a_scales,
                                                       b_scales);
     } else {
       TORCH_CHECK(out.dtype() == torch::kFloat16);
       return cutlass_scaled_mm_dq_dispatcher<cutlass_2x_gemm<
           cutlass::arch::Sm89, cutlass::float_e4m3_t, cutlass::half_t,
-          TileShape, WarpShape, InstructionShape, MainLoopStages>>(out, a, b, a_scales,
+          TileShape, WarpShape, InstructionShape, ThreadBlockSwizzle, MainLoopStages>>(out, a, b, a_scales,
                                                       b_scales);
     }
   }

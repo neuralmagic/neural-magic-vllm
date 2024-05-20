@@ -16,6 +16,7 @@ void {{ _name }}(torch::Tensor &out, torch::Tensor const &a,
       TileShape,
       WarpShape,
       InstructionShape,
+      cutlass::gemm::threadblock::ThreadblockSwizzleStreamK,
       MainLoopStages>(out, a, b, a_scales, b_scales);
 }
 
