@@ -163,6 +163,16 @@ int cutlass_scaled_mm_dq(
     torch::Tensor const &a_scales,
     torch::Tensor const &b_scales);
 
+void cutlass_scaled_mm_dq_sm80_128x128x64_64x64x64_16x8x32_5(torch::Tensor &out, torch::Tensor const &a,
+                torch::Tensor const &b,
+                torch::Tensor const &a_scales,
+                torch::Tensor const &b_scales);
+
+void cutlass_scaled_mm_dq_sm80_128x64x64_64x64x64_16x8x32_5(torch::Tensor &out, torch::Tensor const &a,
+                torch::Tensor const &b,
+                torch::Tensor const &a_scales,
+                torch::Tensor const &b_scales);
+
 #endif
 
 void squeezellm_gemm(

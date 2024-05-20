@@ -43,8 +43,6 @@
 
 using namespace cute;
 
-namespace {
-
 template <typename Arch, typename ElementAB_, typename ElementD_,
           typename TileShape, typename WarpShape, typename InstructionShape,
           int32_t MainLoopStages>
@@ -116,7 +114,7 @@ struct cutlass_2x_gemm {
 };
 
 template <typename Gemm>
-void cutlass_scaled_mm_dq_dispatcher(torch::Tensor &out, torch::Tensor const &a,
+inline void cutlass_scaled_mm_dq_dispatcher(torch::Tensor &out, torch::Tensor const &a,
                                      torch::Tensor const &b,
                                      torch::Tensor const &a_scales,
                                      torch::Tensor const &b_scales) {
@@ -192,7 +190,6 @@ void cutlass_scaled_mm_dq_dispatcher(torch::Tensor &out, torch::Tensor const &a,
   cutlass::Status status = gemm_op(args, workspace.get());
   CUTLASS_CHECK(status);
 }
-}  // namespace
 
 template <typename TileShape,
           typename WarpShape,
