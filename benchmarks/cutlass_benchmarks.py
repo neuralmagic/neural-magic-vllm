@@ -63,7 +63,7 @@ def get_autogen_cutlass2x_impls():
     try:
         from vllm._C import ops as cutlass2x
         attrs = dir(cutlass2x)
-        attrs = list(filter(lambda x: x.startswith('cutlass'), attrs))
+        attrs = list(filter(lambda x: x.startswith('cutlass_scaled_mm_dq_sm'), attrs))
         for attr in attrs:
             assert impls.get(attr) is None
             impls[attr] = getattr(cutlass2x, attr)
