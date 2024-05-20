@@ -87,7 +87,7 @@ class Cutlass2xGenerator(Generator):
                 warp_shape:Tuple[int, int, int],
                 instruction_shape: Tuple[int, int, int],
                 main_loop_stages: int):
-        return 'cutlass_scaled_mm_dq_sm{}_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}'.format(
+        return 'autogen_cutlass_scaled_mm_dq_sm{}_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}'.format(
                 arch,
                 tile_shape[0], tile_shape[1], tile_shape[2],
                 warp_shape[0], warp_shape[1], warp_shape[2],
@@ -101,7 +101,7 @@ class Cutlass2xGenerator(Generator):
                            warp_shape: Tuple[int, int, int],
                            instruction_shape: Tuple[int, int, int],
                            main_loop_stages : int):
-        f = '{}/cutlass_scaled_mm_dq_c2x_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}'.format(
+        f = '{}/autogen_cutlass_scaled_mm_dq_c2x_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}'.format(
                 Cutlass2xGenerator.GENERATE_DIR,
                 tile_shape[0], tile_shape[1], tile_shape[2],
                 warp_shape[0], warp_shape[1], warp_shape[2],
