@@ -14,7 +14,7 @@ jobs:
     BUILD-TEST:
         uses: ./.github/workflows/build-test.yml
         with:
-            python: 3.10.12
+            python: 3.8.17
             gitref: ${{ github.ref }}
 
             test_label_solo: aws-avx2-32G-a10g-24G
@@ -24,5 +24,5 @@ jobs:
 
             benchmark_label: aws-avx2-32G-a10g-24G
             benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
-            benchmark_timeout: 180
+            benchmark_timeout: 480
         secrets: inherit
