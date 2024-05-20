@@ -1,6 +1,7 @@
 #pragma once
 
 #include <torch/extension.h>
+#include "quantization/cutlass_w8a8/autogen_cutlass2x_ops.h" 
 
 void paged_attention_v1(
   torch::Tensor& out,

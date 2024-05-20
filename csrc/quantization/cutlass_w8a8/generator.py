@@ -30,6 +30,21 @@ def file_contents_same(filepath, contents):
 class Generator(ABC):
 
     @staticmethod
+    def write_cutlass2x_ops(pybind_fn_names, ops_fn_defns, filename):
+        s = "#pragma once\n"
+        s = '#include <torch/extension.h>\n\n'
+        s += "#define CUTLASS2X_DEFS \\\n"
+        for fn_name in pybind_fn_names:
+            s += f' ops.def("{fn_name}", &{fn_name}, "{fn_name}"); \\\n'
+        s += "\n"
+
+        for ops_fn_defn in ops_fn_defns:
+            s += f'{ops_fn_defn}\n'
+
+        with open(filename, 'w+') as f:
+            f.write(s)
+
+    @staticmethod
     def write_pybind_cpp(pybind_fn_names, filename):
         s = '#include <torch/extension.h>\n'
         s += '#include "cutlass2x_ops.h"\n\n'
@@ -66,7 +81,7 @@ class Cutlass2xGenerator(Generator):
     FN_DEFN_JINJA= SCRIPT_DIR / "scaled_mm_dq_c2x.jinja"
     FN_DECL_JINJA= SCRIPT_DIR / "scaled_mm_dq_c2x_fnprototype.jinja"
     PYBIND_FILE=GENERATE_DIR / "cutlass2x_pybind.cpp" 
-    OPS_FILE=GENERATE_DIR / "cutlass2x_ops.h"
+    OPS_FILE= SCRIPT_DIR / "autogen_cutlass2x_ops.h"
 
     def __init__(self,
                  archs: List[int],
@@ -168,8 +183,9 @@ class Cutlass2xGenerator(Generator):
             ops_fn_decls.extend(ops_decls)
 
         # Write out the pybind and ops
-        self.write_pybind_cpp(pybind_fn_names, Cutlass2xGenerator.PYBIND_FILE)
-        self.write_ops_hpp(ops_fn_decls, Cutlass2xGenerator.OPS_FILE)
+        #self.write_pybind_cpp(pybind_fn_names, Cutlass2xGenerator.PYBIND_FILE)
+        #self.write_ops_hpp(ops_fn_decls, Cutlass2xGenerator.OPS_FILE)
+        self.write_cutlass2x_ops(pybind_fn_names, ops_fn_decls, Cutlass2xGenerator.OPS_FILE)
 
 def generate_cutlass2x_kernels():
 
@@ -177,7 +193,7 @@ def generate_cutlass2x_kernels():
     tile_shapes = [(128, 128, 64), (128, 64, 64)]
     warp_shapes = [(64, 64, 64)]
     instruction_shapes = [(16, 8, 32)]
-    main_loop_stages = [5]
+    main_loop_stages = [5, 4]
 
     generator = Cutlass2xGenerator(archs,
                                    tile_shapes,
