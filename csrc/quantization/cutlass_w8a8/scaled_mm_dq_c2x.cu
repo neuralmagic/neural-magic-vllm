@@ -18,6 +18,7 @@ void cutlass_scaled_mm_dq_sm75(torch::Tensor &out, torch::Tensor const &a,
       WarpShape,
       InstructionShape,
       cutlass::gemm::threadblock::ThreadblockSwizzleStreamK,
+      cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel,
       MainLoopStages>(out, a, b, a_scales, b_scales);
 }
 
@@ -35,6 +36,7 @@ void cutlass_scaled_mm_dq_sm80(torch::Tensor &out, torch::Tensor const &a,
       WarpShape,
       InstructionShape,
       cutlass::gemm::threadblock::ThreadblockSwizzleStreamK,
+      cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel,
       MainLoopStages>(out, a, b, a_scales, b_scales);
 }
 
@@ -52,5 +54,6 @@ void cutlass_scaled_mm_dq_sm89(torch::Tensor &out, torch::Tensor const &a,
       WarpShape,
       InstructionShape,
       cutlass::gemm::threadblock::ThreadblockSwizzleStreamK,
+      cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel,
       MainLoopStages>(out, a, b, a_scales, b_scales);
 }

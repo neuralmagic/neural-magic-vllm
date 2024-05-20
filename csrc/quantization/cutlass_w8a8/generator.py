@@ -45,28 +45,12 @@ class Generator(ABC):
             f.write(s)
 
     @staticmethod
-    def write_pybind_cpp(pybind_fn_names, filename):
-        s = '#include <torch/extension.h>\n'
-        s += '#include "cutlass2x_ops.h"\n\n'
-        s += f'PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)' 
-        s += '{\n'
-        for fn_name in pybind_fn_names:
-            s += f' m.def("{fn_name}", &{fn_name}, "{fn_name}");\n'
-        s += '}\n'
-
-        with open(filename, 'w+') as f:
-            f.write(s)
+    def swizzle_short_name(swizzle):
+        return swizzle.split('::')[-1]
 
     @staticmethod
-    def write_ops_hpp(ops_fn_defns, filename):
-        s = "#pragma once\n"
-        s += "#include <torch/extension.h>\n\n"
-
-        for ops_fn_defn in ops_fn_defns:
-            s += f'{ops_fn_defn}\n'
-
-        with open(filename, 'w+') as f:
-            f.write(s)
+    def gemm_mode_short_name(gemm_mode):
+        return gemm_mode.split('::')[-1]
 
     @abstractmethod
     def generate(self):
@@ -88,11 +72,15 @@ class Cutlass2xGenerator(Generator):
                  tile_shapes: List[Tuple[int, int, int]],
                  warp_shapes: List[Tuple[int, int, int]],
                  instruction_shapes: List[Tuple[int, int, int]],
+                 thread_block_swizzles: List[str],
+                 gemm_modes: List[str],
                  main_loop_stages: List[int]):
         self.archs = archs
         self.tile_shapes = tile_shapes
         self.warp_shapes = warp_shapes
         self.instruction_shapes = instruction_shapes
+        self.thread_block_swizzles = thread_block_swizzles
+        self.gemm_modes = gemm_modes
         self.main_loop_stages = main_loop_stages
 
     @staticmethod
@@ -101,12 +89,17 @@ class Cutlass2xGenerator(Generator):
                 tile_shape: Tuple[int, int, int],
                 warp_shape:Tuple[int, int, int],
                 instruction_shape: Tuple[int, int, int],
+                thread_block_swizzle: str,
+                gemm_mode: str,
                 main_loop_stages: int):
-        return 'autogen_cutlass_scaled_mm_dq_sm{}_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}'.format(
+
+        return 'autogen_cutlass_scaled_mm_dq_sm{}_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}_{}_{}'.format(
                 arch,
                 tile_shape[0], tile_shape[1], tile_shape[2],
                 warp_shape[0], warp_shape[1], warp_shape[2],
                 instruction_shape[0], instruction_shape[1], instruction_shape[2],
+                Generator.swizzle_short_name(thread_block_swizzle),
+                Generator.gemm_mode_short_name(gemm_mode),
                 main_loop_stages)
 
 
@@ -115,12 +108,16 @@ class Cutlass2xGenerator(Generator):
                            tile_shape: Tuple[int, int, int],
                            warp_shape: Tuple[int, int, int],
                            instruction_shape: Tuple[int, int, int],
+                           thread_block_swizzle: str,
+                           gemm_mode: str,
                            main_loop_stages : int):
-        f = '{}/autogen_cutlass_scaled_mm_dq_c2x_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}'.format(
+        f = '{}/autogen_cutlass_scaled_mm_dq_c2x_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}_{}_{}'.format(
                 Cutlass2xGenerator.GENERATE_DIR,
                 tile_shape[0], tile_shape[1], tile_shape[2],
                 warp_shape[0], warp_shape[1], warp_shape[2],
                 instruction_shape[0], instruction_shape[1], instruction_shape[2],
+                Generator.swizzle_short_name(thread_block_swizzle),
+                Generator.gemm_mode_short_name(gemm_mode),
                 main_loop_stages)
         for arch in archs:
             f = f + f"_{arch}"
@@ -134,6 +131,8 @@ class Cutlass2xGenerator(Generator):
         tile_shape:Tuple[int, int, int],
         warp_shape:Tuple[int, int, int],
         instruction_shape: Tuple[int, int, int],
+        thread_block_swizzle: str,
+        gemm_mode: str,
         main_loop_stages: int):
 
         # Make the generate dir
@@ -148,19 +147,21 @@ class Cutlass2xGenerator(Generator):
     
         code = ""
         for arch in archs:
-            fn_name = Cutlass2xGenerator.generate_name(arch, tile_shape, warp_shape, instruction_shape, main_loop_stages)
+            fn_name = Cutlass2xGenerator.generate_name(arch, tile_shape, warp_shape, instruction_shape, thread_block_swizzle, gemm_mode, main_loop_stages)
             fn_decl = fn_decl_template.render(_name = fn_name)
             code += fn_defn_template.render(_name = fn_name,
                                     _tile_shape = get_as_cutlass_gemm_shape(tile_shape),
                                     _warp_shape = get_as_cutlass_gemm_shape(warp_shape),
                                     _instruction_shape = get_as_cutlass_gemm_shape(instruction_shape),
                                     _main_loop_stages = main_loop_stages,
+                                    _thread_block_swizzle = thread_block_swizzle,
+                                    _gemm_mode = gemm_mode,
                                     _arch = arch)
 
             pybind_fn_names.append(fn_name)
             ops_fn_decl.append(fn_decl)
     
-        filename = Cutlass2xGenerator.generate_filename(archs, tile_shape, warp_shape, instruction_shape, main_loop_stages)
+        filename = Cutlass2xGenerator.generate_filename(archs, tile_shape, warp_shape, instruction_shape, thread_block_swizzle, gemm_mode, main_loop_stages)
     
         if file_contents_same(filename, code):
             print(f"{filename} exists with the same content - Not re-generating it!")
@@ -175,10 +176,10 @@ class Cutlass2xGenerator(Generator):
     def generate(self):
         pybind_fn_names = []
         ops_fn_decls = []
-        for ts, ws, inst_shape, ml_stage in product(self.tile_shapes,
-                self.warp_shapes, self.instruction_shapes,
-                self.main_loop_stages):
-            pybind_names, ops_decls = self.generate_2x_file(self.archs, ts, ws, inst_shape, ml_stage)
+        for ts, ws, inst_shape, swizzle, gemm_mode, ml_stage in product(self.tile_shapes,
+                self.warp_shapes, self.instruction_shapes, self.thread_block_swizzles,
+                self.gemm_modes, self.main_loop_stages):
+            pybind_names, ops_decls = self.generate_2x_file(self.archs, ts, ws, inst_shape, swizzle, gemm_mode, ml_stage)
             pybind_fn_names.extend(pybind_names)
             ops_fn_decls.extend(ops_decls)
 
@@ -193,12 +194,16 @@ def generate_cutlass2x_kernels():
     tile_shapes = [(128, 128, 64), (128, 64, 64)]
     warp_shapes = [(64, 64, 64)]
     instruction_shapes = [(16, 8, 32)]
+    thread_block_swizzles = ["cutlass::gemm::threadblock::ThreadblockSwizzleStreamK"]
+    gemm_modes = ["cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel"]
     main_loop_stages = [5, 4]
 
     generator = Cutlass2xGenerator(archs,
                                    tile_shapes,
                                    warp_shapes,
                                    instruction_shapes,
+                                   thread_block_swizzles,
+                                   gemm_modes,
                                    main_loop_stages)
     generator.generate()
 
