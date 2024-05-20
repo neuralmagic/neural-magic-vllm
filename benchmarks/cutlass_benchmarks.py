@@ -55,13 +55,13 @@ def cutlass_impl(a, b, scale_a, scale_b, out_dtype, impl_fn = None):
 def autogen_cutlass2x_wrapper(a, b, scale_a, scale_b, out_dtype, impl_fn):
     m = a.shape[0]
     n = b.shape[1]
-    out = torch.empty((m, n), dtype=out_dtype, device=a.device)
+    out = torch.zeros((m, n), dtype=out_dtype, device=a.device)
     return impl_fn(out, a, b, scale_a, scale_b)
 
 def get_autogen_cutlass2x_impls():
     impls = {}
     try:
-        import vllm._cutlass2x as cutlass2x
+        from vllm._C import ops as cutlass2x
         attrs = dir(cutlass2x)
         attrs = list(filter(lambda x: x.startswith('cutlass'), attrs))
         for attr in attrs:
@@ -99,15 +99,17 @@ def bench_cutlass_impls(a, b, scale_a, scale_b, out_dtype, label, sub_label, des
 
     autogen_impls = get_autogen_cutlass2x_impls()
 
+    print ("bench default kernel ...")
+    default_impl_timer = bench_fn(a, b, scale_a, scale_b, out_dtype, label, sub_label, 
+                             cutlass_impl, "cutlass_i8_i8_bf16_scaled_mm")
+
     autogen_timers = []
     for desc, fn in autogen_impls.items():
-        print (f"trying autogen kernel {desc}")
+        print (f"bench autogen kernel {desc} ...")
         timer = bench_fn(a, b, scale_a, scale_b, out_dtype, label, sub_label,
                          autogen_cutlass2x_wrapper, desc, fn)
         autogen_timers.append(timer)
 
-    default_impl_timer = bench_fn(a, b, scale_a, scale_b, out_dtype, label, sub_label, 
-                             cutlass_impl, "cutlass_i8_i8_bf16_scaled_mm")
 
     return autogen_timers + [default_impl_timer]
 
