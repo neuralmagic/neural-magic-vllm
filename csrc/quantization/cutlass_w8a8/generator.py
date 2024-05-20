@@ -61,9 +61,10 @@ class Generator(ABC):
 
 class Cutlass2xGenerator(Generator):
 
-    GENERATE_DIR=Path(os.path.dirname(os.path.realpath(__file__))) / "generated"
-    FN_DEFN_JINJA=GENERATE_DIR / "scaled_mm_dq_c2x.jinja"
-    FN_DECL_JINJA=GENERATE_DIR / "scaled_mm_dq_c2x_fnprototype.jinja"
+    SCRIPT_DIR=Path(os.path.dirname(os.path.realpath(__file__)))
+    GENERATE_DIR= SCRIPT_DIR / "generated"
+    FN_DEFN_JINJA= SCRIPT_DIR / "scaled_mm_dq_c2x.jinja"
+    FN_DECL_JINJA= SCRIPT_DIR / "scaled_mm_dq_c2x_fnprototype.jinja"
     PYBIND_FILE=GENERATE_DIR / "cutlass2x_pybind.cpp" 
     OPS_FILE=GENERATE_DIR / "cutlass2x_ops.h"
 
@@ -119,6 +120,9 @@ class Cutlass2xGenerator(Generator):
         warp_shape:Tuple[int, int, int],
         instruction_shape: Tuple[int, int, int],
         main_loop_stages: int):
+
+        # Make the generate dir
+        Cutlass2xGenerator.GENERATE_DIR.mkdir(exist_ok=True)
     
         jenv = jinja2.Environment(loader=jinja2.FileSystemLoader("/"))
         fn_defn_template = jenv.get_template(str(Cutlass2xGenerator.FN_DEFN_JINJA))
