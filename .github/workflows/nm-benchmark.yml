@@ -135,7 +135,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.run_id }}-${{ inputs.label }}
+          name: ${{ github.run_id }}-${{ inputs.label }}-${{ inputs.python }}
           path: benchmark-results
           retention-days: 2
 
@@ -143,7 +143,7 @@ jobs:
         if: success()
         uses: ./.github/actions/nm-copy-benchmark-data-to-efs
         with:
-          label: ${{ inputs.label }}
+          label: ${{ inputs.label }}-${{ inputs.python }}
           src: benchmark-results
           efs_dst: /EFS/benchmark_results
 
