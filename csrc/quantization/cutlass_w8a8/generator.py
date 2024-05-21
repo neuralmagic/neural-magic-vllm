@@ -63,7 +63,7 @@ class Cutlass2xGenerator(Generator):
     SCRIPT_DIR=Path(os.path.dirname(os.path.realpath(__file__)))
     GENERATE_DIR= SCRIPT_DIR / "generated"
     FN_DEFN_JINJA= SCRIPT_DIR / "scaled_mm_dq_c2x.jinja"
-    FN_DECL_JINJA= SCRIPT_DIR / "scaled_mm_dq_c2x_fnprototype.jinja"
+    FN_DECL_JINJA= SCRIPT_DIR / "scaled_mm_dq_fnprototype.jinja"
     PYBIND_FILE=GENERATE_DIR / "cutlass2x_pybind.cpp" 
     OPS_FILE= SCRIPT_DIR / "autogen_cutlass2x_ops.h"
 
@@ -195,7 +195,7 @@ def generate_cutlass2x_kernels():
     warp_shapes = [(64, 64, 64)]
     instruction_shapes = [(16, 8, 32)]
     thread_block_swizzles = ["cutlass::gemm::threadblock::ThreadblockSwizzleStreamK"]
-    gemm_modes = ["cutlass::gemm::GemmUniversalMode::kGemm"]
+    gemm_modes = ["cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel"]
     main_loop_stages = [5, 4]
 
     generator = Cutlass2xGenerator(archs,

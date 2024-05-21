@@ -1,0 +1,36 @@
+#include <stddef.h>
+#include <torch/extension.h>
+#include "../scaled_mm_dq_c3x.cuh"
+#include "../common.hpp"
+
+void {{ _name }}(torch::Tensor &out, torch::Tensor const &a,
+                torch::Tensor const &b,
+                torch::Tensor const &a_scales,
+                torch::Tensor const &b_scales) {
+
+  TORCH_CHECK(a_scales.dtype() == torch::kFloat32);
+  TORCH_CHECK(b_scales.dtype() == torch::kFloat32);
+  TORCH_CHECK(a.dtype() == {{ _torch_input_dtype }});
+  TORCH_CHECK(b.dtype() == {{ _torch_input_dtype}});
+
+  using TileShape = {{ _tile_shape }};
+  using ClusterShape = {{ _cluster_shape }};
+  using KernelSchedule = {{ _kernel_schedule }};
+  using EpilogueSchedule = {{ _epilogue_schedule }};
+  using TileSchedule = {{ _tile_schedule }};
+  static constexpr cutlass::gemm::GemmUniversalMode Mode = {{ _gemm_mode }};
+
+  if (out.dtype() == torch::kBFloat16) {
+    return cutlass_scaled_mm_dq_dispatcher<
+        cutlass_3x_gemm< {{ _cutlass_input_dtype }}, cutlass::bfloat16_t, TileShape, ClusterShape,
+                        KernelSchedule, EpilogueSchedule, TileSchedule, Mode>>(
+        out, a, b, a_scales, b_scales);
+  } else {
+    TORCH_CHECK(out.dtype() == torch::kFloat16);
+
+    return cutlass_scaled_mm_dq_dispatcher<
+        cutlass_3x_gemm<{{ _cutlass_input_dtype }}, cutlass::half_t, TileShape, ClusterShape,
+                        KernelSchedule, EpilogueSchedule, TileSchedule, Mode>>(
+        out, a, b, a_scales, b_scales);
+  }
+}
