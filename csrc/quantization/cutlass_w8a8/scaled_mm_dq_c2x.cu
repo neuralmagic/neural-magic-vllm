@@ -27,6 +27,7 @@ void cutlass_scaled_mm_dq_sm80(torch::Tensor &out, torch::Tensor const &a,
                                torch::Tensor const &a_scales,
                                torch::Tensor const &b_scales) {
 
+
   using TileShape = cutlass::gemm::GemmShape<128, 128, 64>;
   using WarpShape = cutlass::gemm::GemmShape<64, 64, 64>;
   using InstructionShape = cutlass::gemm::GemmShape<16, 8, 32>;

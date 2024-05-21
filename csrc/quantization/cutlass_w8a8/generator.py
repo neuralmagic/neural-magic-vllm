@@ -195,7 +195,7 @@ def generate_cutlass2x_kernels():
     warp_shapes = [(64, 64, 64)]
     instruction_shapes = [(16, 8, 32)]
     thread_block_swizzles = ["cutlass::gemm::threadblock::ThreadblockSwizzleStreamK"]
-    gemm_modes = ["cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel"]
+    gemm_modes = ["cutlass::gemm::GemmUniversalMode::kGemm"]
     main_loop_stages = [5, 4]
 
     generator = Cutlass2xGenerator(archs,
