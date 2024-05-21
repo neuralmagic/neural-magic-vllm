@@ -100,7 +100,9 @@ Cutlass2xArgsList = [
         DefaultCutlass2xArgs.with_tile_shape((128, 64, 64)),
         DefaultCutlass2xArgs.with_tile_shape((128, 64, 64)).with_main_loop_stages(4),
         DefaultCutlass2xArgs.with_tile_shape((128, 64, 64)).with_main_loop_stages(3)]
-Cutlass2xArgsList = Cutlass2xArgsList + list(map(lambda x: x.with_gemm_mode("cutlass::gemm::GemmUniversalMode::kGemm"), Cutlass2xArgsList))
+## TODO (varun) : We get a "Invalid argument" during kernel launch error when we include kGemm with the kGemmSplitKParallel kernels.
+# However, running the kGemm kernels on their own works fine.
+#Cutlass2xArgsList = Cutlass2xArgsList + list(map(lambda x: x.with_gemm_mode("cutlass::gemm::GemmUniversalMode::kGemm"), Cutlass2xArgsList))
 
 ## Cutlass3xArgsList
 
