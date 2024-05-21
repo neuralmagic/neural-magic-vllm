@@ -7,12 +7,18 @@
 #define CUTLASS2X_DEFS
 #endif
 
+#ifndef CUTLASS3X_DEFS
+#define CUTLASS3X_DEFS
+#endif
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   // vLLM custom ops
   pybind11::module ops = m.def_submodule("ops", "vLLM custom operators");
 
   // Defined in csrc/quantization/cutlass_w8a8/autogen_cutlass2x_ops.h
   CUTLASS2X_DEFS
+  // Defined in csrc/quantization/cutlass_w8a8/autogen_cutlass3x_ops.h
+  CUTLASS3X_DEFS
 
   // Attention ops
   ops.def(

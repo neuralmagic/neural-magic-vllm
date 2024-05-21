@@ -4,16 +4,17 @@ import jinja2
 from pathlib import Path
 from itertools import product
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from autogen_manifest import Cutlass2xArgs, Cutlass3xArgs, Cutlass2xArgsList, Cutlass3xArgsList
 import os
-
-class CutlassKernelVersion(Enum):
-    CUTLASS2 = 1
-    CUTLASS3 = 2
 
 ## Utilities ####
 
 def get_as_cutlass_gemm_shape(shape: Tuple[int, int, int]):
     return f'cutlass::gemm::GemmShape<{shape[0]}, {shape[1]}, {shape[2]}>'
+
+def get_as_cutlass3x_gemm_shape(shape: Tuple[int, int, int]):
+    return f'Shape<_{shape[0]}, _{shape[1]}, _{shape[2]}>'
 
 def file_contents_same(filepath, contents):
     if not Path(filepath).exists():
@@ -30,10 +31,10 @@ def file_contents_same(filepath, contents):
 class Generator(ABC):
 
     @staticmethod
-    def write_cutlass2x_ops(pybind_fn_names, ops_fn_defns, filename):
+    def write_ops(pybind_fn_names, ops_fn_defns, ops_macro, filename):
         s = "#pragma once\n"
         s = '#include <torch/extension.h>\n\n'
-        s += "#define CUTLASS2X_DEFS \\\n"
+        s += f"#define {ops_macro}\\\n"
         for fn_name in pybind_fn_names:
             s += f' ops.def("{fn_name}", &{fn_name}, "{fn_name}"); \\\n'
         s += "\n"
@@ -45,15 +46,20 @@ class Generator(ABC):
             f.write(s)
 
     @staticmethod
+    def last_namespace(s):
+        return s.split('::')[-1]
+
+    @staticmethod
     def swizzle_short_name(swizzle):
-        return swizzle.split('::')[-1]
+        return Generator.last_namespace(swizzle)
 
     @staticmethod
     def gemm_mode_short_name(gemm_mode):
-        return gemm_mode.split('::')[-1]
+        return Generator.last_namespace(gemm_mode)
 
     @abstractmethod
-    def generate(self):
+    @staticmethod
+    def generate():
         ...
 
 ## Cutlass 2x generator
@@ -64,24 +70,11 @@ class Cutlass2xGenerator(Generator):
     GENERATE_DIR= SCRIPT_DIR / "generated"
     FN_DEFN_JINJA= SCRIPT_DIR / "scaled_mm_dq_c2x.jinja"
     FN_DECL_JINJA= SCRIPT_DIR / "scaled_mm_dq_fnprototype.jinja"
-    PYBIND_FILE=GENERATE_DIR / "cutlass2x_pybind.cpp" 
     OPS_FILE= SCRIPT_DIR / "autogen_cutlass2x_ops.h"
+    OPS_MACRO = "CUTLASS2X_DEFS"
 
-    def __init__(self,
-                 archs: List[int],
-                 tile_shapes: List[Tuple[int, int, int]],
-                 warp_shapes: List[Tuple[int, int, int]],
-                 instruction_shapes: List[Tuple[int, int, int]],
-                 thread_block_swizzles: List[str],
-                 gemm_modes: List[str],
-                 main_loop_stages: List[int]):
-        self.archs = archs
-        self.tile_shapes = tile_shapes
-        self.warp_shapes = warp_shapes
-        self.instruction_shapes = instruction_shapes
-        self.thread_block_swizzles = thread_block_swizzles
-        self.gemm_modes = gemm_modes
-        self.main_loop_stages = main_loop_stages
+    def __init__(self)
+        pass
 
     @staticmethod
     def generate_name(
@@ -93,7 +86,7 @@ class Cutlass2xGenerator(Generator):
                 gemm_mode: str,
                 main_loop_stages: int):
 
-        return 'autogen_cutlass_scaled_mm_dq_sm{}_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}_{}_{}'.format(
+        return 'autogen_cutlass2x_scaled_mm_dq_sm{}_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}_{}_{}'.format(
                 arch,
                 tile_shape[0], tile_shape[1], tile_shape[2],
                 warp_shape[0], warp_shape[1], warp_shape[2],
@@ -173,39 +166,183 @@ class Cutlass2xGenerator(Generator):
 
         return pybind_fn_names, ops_fn_decl
 
-    def generate(self):
+    def generate(args_list: List[Cutlass2xArgs]):
         pybind_fn_names = []
         ops_fn_decls = []
-        for ts, ws, inst_shape, swizzle, gemm_mode, ml_stage in product(self.tile_shapes,
-                self.warp_shapes, self.instruction_shapes, self.thread_block_swizzles,
-                self.gemm_modes, self.main_loop_stages):
-            pybind_names, ops_decls = self.generate_2x_file(self.archs, ts, ws, inst_shape, swizzle, gemm_mode, ml_stage)
+        for args in args_list:
+            pybind_names, ops_decls = self.generate_2x_file(arg.archs, args.tile_shape,
+                    args.warp_shape, args.instruction_shape, args.thread_block_swizzle, args.gemm_mode,
+                    args.main_loop_stages)ws, inst_shape, swizzle, gemm_mode, ml_stage)
             pybind_fn_names.extend(pybind_names)
             ops_fn_decls.extend(ops_decls)
 
-        # Write out the pybind and ops
-        #self.write_pybind_cpp(pybind_fn_names, Cutlass2xGenerator.PYBIND_FILE)
-        #self.write_ops_hpp(ops_fn_decls, Cutlass2xGenerator.OPS_FILE)
-        self.write_cutlass2x_ops(pybind_fn_names, ops_fn_decls, Cutlass2xGenerator.OPS_FILE)
+        # fill-out ops.h
+        self.write_ops(pybind_fn_names, ops_fn_decls, Cutlass2xGenerator.OPS_MACRO, Cutlass2xGenerator.OPS_FILE)
+
+## Cutlass 3x Generator
+
+class Cutlass3xGenerator(Generator):
+
+    SCRIPT_DIR=Path(os.path.dirname(os.path.realpath(__file__)))
+    GENERATE_DIR= SCRIPT_DIR / "generated"
+    FN_DEFN_JINJA= SCRIPT_DIR / "scaled_mm_dq_c3x.jinja"
+    FN_DECL_JINJA= SCRIPT_DIR / "scaled_mm_dq_fnprototype.jinja"
+    OPS_FILE= SCRIPT_DIR / "autogen_cutlass3x_ops.h"
+    OPS_MACRO = "CUTLASS3X_DEFS"
+
+            fn_name = Cutlass3xGenerator.generate_name(dtype_str, arch, tile_shape, cluster_shape,
+                                                        kernel_schedule, epilogue_schedule, tile_schedule. gemm_mode)
+    @staticmethod
+    def generate_name(
+                dtype_str: str,
+                arch: int,
+                tile_shape: Tuple[int, int, int],
+                cluster_shape: Tuple[int, int, int],
+                kernel_schedule: str,
+                epilogue_schedule: str,
+                tile_schedule: str
+                gemm_mode: str):
+
+        return 'autogen_cutlass3x_scaled_mm_dq_sm{}_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}_{}'.format(
+                arch,
+                tile_shape[0], tile_shape[1], tile_shape[2],
+                cluster_shape[0], cluster_shape[1], cluster_shape[2],
+                Generator.last_namespace(kernel_schedule), 
+                Generator.last_namespace(epilogue_schedule), 
+                Generator.last_namespace(tile_schedule), 
+                Generator.last_namespace(gemm_mode),
+                dype_str)
+
+    @staticmethod
+    def generate_filename(
+                dtype_str: str,
+                arch: int,
+                tile_shape: Tuple[int, int, int],
+                cluster_shape: Tuple[int, int, int],
+                kernel_schedule: str,
+                epilogue_schedule: str,
+                tile_schedule: str
+                gemm_mode: str):
+
+        f = '{}/autogen_cutlass_scaled_mm_dq_c3x_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}_{}'.format(
+                Cutlass2xGenerator.GENERATE_DIR,
+                tile_shape[0], tile_shape[1], tile_shape[2],
+                cluster_shape[0], cluster_shape[1], cluster_shape[2],
+                Generator.last_namespace(kernel_schedule), 
+                Generator.last_namespace(epilogue_schedule), 
+                Generator.last_namespace(tile_schedule), 
+                Generator.last_namespace(gemm_mode),
+                dtype_str)
+        for arch in archs:
+            f = f + f"_{arch}"
+    
+        f = f + ".cu"
+        return f
+
+    def generate_3x_file(
+        dtype_str: str,
+        archs :List[int],
+        tile_shape:Tuple[int, int, int],
+        cluster_shape:Tuple[int, int, int],
+        kernel_schedule,
+        epilogue_schedule,
+        tile_schedule,
+        gemm_mode):
+
+        def to_torch_dtype_str(dtype_str):
+            if dtype_str == "int8":
+                return "torch::kInt8"
+            if dtype_str == "fp8":
+                return  "torch::kFloat8_e4m3fn"
+            raise ValueError("unknown type")
+
+        def to_cutlass_dtype_str(dtype_str):
+            if dtype_str == "int8":
+                return "int8_t"
+            if dtype_str == "fp8":
+                return  "cutlass::float_e4m3_t"
+            raise ValueError("unknown type")
+
+        # Make the generate dir
+        Cutlass3xGenerator.GENERATE_DIR.mkdir(exist_ok=True)
+    
+        jenv = jinja2.Environment(loader=jinja2.FileSystemLoader("/"))
+        fn_defn_template = jenv.get_template(str(Cutlass3xGenerator.FN_DEFN_JINJA))
+        fn_decl_template = jenv.get_template(str(Cutlass3xGenerator.FN_DECL_JINJA))
+
+        pybind_fn_names = []
+        ops_fn_decl = []
+    
+        code = ""
+        for arch in archs:
+            fn_name = Cutlass3xGenerator.generate_name(dtype_str, arch, tile_shape, cluster_shape,
+                                                        kernel_schedule, epilogue_schedule, tile_schedule, gemm_mode)
+            fn_decl = fn_decl_template.render(_name = fn_name)
+            code += fn_defn_template.render(_name = fn_name,
+                                    _torch_input_dtype = to_torch_dtype_str(dtype_str),
+                                    _cutlass_input_dtype = to_cutlass_dtype_str(dtype_str),
+                                    _tile_shape = get_as_cutlass3x_gemm_shape(tile_shape),
+                                    _cluster_shape = get_as_cutlass3x_gemm_shape(cluster_shape),
+                                    _kernel_schedule = kernel_schedule,
+                                    _epilogue_schedule = epilogue_schedule,
+                                    _tile_schedule = tile_schedule, 
+                                    _gemm_mode = gemm_mode)
+
+            pybind_fn_names.append(fn_name)
+            ops_fn_decl.append(fn_decl)
+    
+        filename = Cutlass3xGenerator.generate_filename(dtype_str, arch, tile_shape, cluster_shape,
+                                                        kernel_schedule, epilogue_schedule, tile_schedule, gemm_mode)
+    
+        if file_contents_same(filename, code):
+            print(f"{filename} exists with the same content - Not re-generating it!")
+            return pybind_fn_names, ops_fn_decl
+    
+        # write code
+        with open(filename, "w+") as f:
+            f.write(code)
+
+        return pybind_fn_names, ops_fn_decl
+
+    @staticmethod
+    def generate(args_list: List[Cutlass3xArgs]):
+        pybind_fn_names = []
+        ops_fn_decls = []
+        for args in args_list:
+            pybind_names, ops_decls = self.generate_3x_file(args.dtype_str, [args.arch], args.tile_shape,
+                    args.cluster_shape, args.kernel_schedule, args.epilogue_schedule, args.tile_schedule, 
+                    args.gemm_mode)
+            pybind_fn_names.extend(pybind_names)
+            ops_fn_decls.extend(ops_decls)
+
+        return pybind_fn_names, ops_fn_decls
 
 def generate_cutlass2x_kernels():
+    generator = Cutlass2xGenerator()
+    generator.generate(Cutlass2xArgsList)
 
-    archs = [80]
-    tile_shapes = [(128, 128, 64), (128, 64, 64)]
-    warp_shapes = [(64, 64, 64)]
-    instruction_shapes = [(16, 8, 32)]
-    thread_block_swizzles = ["cutlass::gemm::threadblock::ThreadblockSwizzleStreamK"]
-    gemm_modes = ["cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel"]
-    main_loop_stages = [5, 4]
+def generate_cutlass_3x_kernels():
+    generator = Cutlass3xGenerator()
+    generator.generate(Cutlass3xArgsList)
 
-    generator = Cutlass2xGenerator(archs,
-                                   tile_shapes,
-                                   warp_shapes,
-                                   instruction_shapes,
-                                   thread_block_swizzles,
-                                   gemm_modes,
-                                   main_loop_stages)
-    generator.generate()
+def main(args):
+
+    if args.version == "all":
+        generated_cutlass_2x_kernels()
+        generate_cutlass_3x_kernels()
+    if args.version == "2x":
+        generated_cutlass_2x_kernels()
+    if args.version == "3x":
+        generated_cutlass_3x_kernels()
 
 if __name__ == "__main__":
     generate_cutlass2x_kernels()
+
+
+    parser = argparse.ArgumentParser(
+            description="Autogen cutlass kernels")
+
+    parser.add_argument("--version", required=True, type=str, default="all", choices=["all", "2x", "3x"])
+
+    args = parser.parse_args()
+    main(args)
