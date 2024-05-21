@@ -49,7 +49,7 @@ template <typename ElementAB_, typename ElementD_, typename TileShape,
           typename TileSchedule,
           GemmUniversalMode Mode_>
 struct cutlass_3x_gemm {
-  static const Mode = Mode_;
+  static const GemmUniversalMode Mode = Mode_;
   using ElementAB = ElementAB_;
   using ElementD = ElementD_;
   using ElementAcc =

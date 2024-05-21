@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import List, Tuple
 import copy
 
 @dataclass
@@ -96,15 +97,16 @@ Cutlass2xArgsList = [
         DefaultCutlass2xArgs,
         DefaultCutlass2xArgs.with_main_loop_stages(4),
         DefaultCutlass2xArgs.with_main_loop_stages(3),
-        DefaultCutlass2xArgs.with_tile_shape(128, 64, 64),
-        DefaultCutlass2xArgs.with_tile_shape(128, 64, 64).with_main_loop_stages(4),
-        DefaultCutlass2xArgs.with_tile_shape(128, 64, 64).with_main_loop_stages(3)]
-Cutlass2xArgsList = list(map(lambda x: x.with_gemm_mode("cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel", Cutlass2xArgsList)))
+        DefaultCutlass2xArgs.with_tile_shape((128, 64, 64)),
+        DefaultCutlass2xArgs.with_tile_shape((128, 64, 64)).with_main_loop_stages(4),
+        DefaultCutlass2xArgs.with_tile_shape((128, 64, 64)).with_main_loop_stages(3)]
+Cutlass2xArgsList = Cutlass2xArgsList + list(map(lambda x: x.with_gemm_mode("cutlass::gemm::GemmUniversalMode::kGemm"), Cutlass2xArgsList))
 
 ## Cutlass3xArgsList
 
-DefaultCutlass3xArgsI8 = Cutlass3xArgs("90",
+DefaultCutlass3xArgsI8 = Cutlass3xArgs(
         "int8",
+        90,
         (128, 128, 128),
         (1, 2, 1),
         "cutlass::gemm::KernelTmaWarpSpecializedPingpong",
@@ -112,8 +114,9 @@ DefaultCutlass3xArgsI8 = Cutlass3xArgs("90",
         "cutlass::gemm::PersistentScheduler",
         "cutlass::gemm::GemmUniversalMode::kGemm")
 
-DefaultCutlass3xArgsFP8 = Cutlass3xArgs("90",
+DefaultCutlass3xArgsFP8 = Cutlass3xArgs(
         "fp8",
+        90,
         (128, 128, 128),
         (1, 2, 1),
         "cutlass::gemm::KernelCpAsyncWarpSpecializedCooperative",

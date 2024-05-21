@@ -57,7 +57,6 @@ class Generator(ABC):
     def gemm_mode_short_name(gemm_mode):
         return Generator.last_namespace(gemm_mode)
 
-    @abstractmethod
     @staticmethod
     def generate():
         ...
@@ -73,7 +72,7 @@ class Cutlass2xGenerator(Generator):
     OPS_FILE= SCRIPT_DIR / "autogen_cutlass2x_ops.h"
     OPS_MACRO = "CUTLASS2X_DEFS"
 
-    def __init__(self)
+    def __init__(self):
         pass
 
     @staticmethod
@@ -166,18 +165,19 @@ class Cutlass2xGenerator(Generator):
 
         return pybind_fn_names, ops_fn_decl
 
+    @staticmethod
     def generate(args_list: List[Cutlass2xArgs]):
         pybind_fn_names = []
         ops_fn_decls = []
         for args in args_list:
-            pybind_names, ops_decls = self.generate_2x_file(arg.archs, args.tile_shape,
+            pybind_names, ops_decls = Cutlass2xGenerator.generate_2x_file(args.archs, args.tile_shape,
                     args.warp_shape, args.instruction_shape, args.thread_block_swizzle, args.gemm_mode,
-                    args.main_loop_stages)ws, inst_shape, swizzle, gemm_mode, ml_stage)
+                    args.main_loop_stages)
             pybind_fn_names.extend(pybind_names)
             ops_fn_decls.extend(ops_decls)
 
         # fill-out ops.h
-        self.write_ops(pybind_fn_names, ops_fn_decls, Cutlass2xGenerator.OPS_MACRO, Cutlass2xGenerator.OPS_FILE)
+        Generator.write_ops(pybind_fn_names, ops_fn_decls, Cutlass2xGenerator.OPS_MACRO, Cutlass2xGenerator.OPS_FILE)
 
 ## Cutlass 3x Generator
 
@@ -190,8 +190,6 @@ class Cutlass3xGenerator(Generator):
     OPS_FILE= SCRIPT_DIR / "autogen_cutlass3x_ops.h"
     OPS_MACRO = "CUTLASS3X_DEFS"
 
-            fn_name = Cutlass3xGenerator.generate_name(dtype_str, arch, tile_shape, cluster_shape,
-                                                        kernel_schedule, epilogue_schedule, tile_schedule. gemm_mode)
     @staticmethod
     def generate_name(
                 dtype_str: str,
@@ -200,7 +198,7 @@ class Cutlass3xGenerator(Generator):
                 cluster_shape: Tuple[int, int, int],
                 kernel_schedule: str,
                 epilogue_schedule: str,
-                tile_schedule: str
+                tile_schedule: str,
                 gemm_mode: str):
 
         return 'autogen_cutlass3x_scaled_mm_dq_sm{}_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}_{}'.format(
@@ -211,7 +209,7 @@ class Cutlass3xGenerator(Generator):
                 Generator.last_namespace(epilogue_schedule), 
                 Generator.last_namespace(tile_schedule), 
                 Generator.last_namespace(gemm_mode),
-                dype_str)
+                dtype_str)
 
     @staticmethod
     def generate_filename(
@@ -221,10 +219,10 @@ class Cutlass3xGenerator(Generator):
                 cluster_shape: Tuple[int, int, int],
                 kernel_schedule: str,
                 epilogue_schedule: str,
-                tile_schedule: str
+                tile_schedule: str,
                 gemm_mode: str):
 
-        f = '{}/autogen_cutlass_scaled_mm_dq_c3x_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}_{}'.format(
+        f = '{}/autogen_cutlass_scaled_mm_dq_c3x_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}_{}_{}'.format(
                 Cutlass2xGenerator.GENERATE_DIR,
                 tile_shape[0], tile_shape[1], tile_shape[2],
                 cluster_shape[0], cluster_shape[1], cluster_shape[2],
@@ -232,9 +230,8 @@ class Cutlass3xGenerator(Generator):
                 Generator.last_namespace(epilogue_schedule), 
                 Generator.last_namespace(tile_schedule), 
                 Generator.last_namespace(gemm_mode),
-                dtype_str)
-        for arch in archs:
-            f = f + f"_{arch}"
+                dtype_str,
+                arch)
     
         f = f + ".cu"
         return f
@@ -309,36 +306,32 @@ class Cutlass3xGenerator(Generator):
         pybind_fn_names = []
         ops_fn_decls = []
         for args in args_list:
-            pybind_names, ops_decls = self.generate_3x_file(args.dtype_str, [args.arch], args.tile_shape,
+            pybind_names, ops_decls = Cutlass3xGenerator.generate_3x_file(args.dtype_str, [args.arch], args.tile_shape,
                     args.cluster_shape, args.kernel_schedule, args.epilogue_schedule, args.tile_schedule, 
                     args.gemm_mode)
             pybind_fn_names.extend(pybind_names)
             ops_fn_decls.extend(ops_decls)
 
-        return pybind_fn_names, ops_fn_decls
+        # fill-out ops.h
+        Generator.write_ops(pybind_fn_names, ops_fn_decls, Cutlass3xGenerator.OPS_MACRO, Cutlass3xGenerator.OPS_FILE)
 
 def generate_cutlass2x_kernels():
-    generator = Cutlass2xGenerator()
-    generator.generate(Cutlass2xArgsList)
+    Cutlass2xGenerator.generate(Cutlass2xArgsList)
 
-def generate_cutlass_3x_kernels():
-    generator = Cutlass3xGenerator()
-    generator.generate(Cutlass3xArgsList)
+def generate_cutlass3x_kernels():
+    Cutlass3xGenerator.generate(Cutlass3xArgsList)
 
 def main(args):
-
     if args.version == "all":
-        generated_cutlass_2x_kernels()
-        generate_cutlass_3x_kernels()
+        generate_cutlass2x_kernels()
+        generate_cutlass3x_kernels()
     if args.version == "2x":
-        generated_cutlass_2x_kernels()
+        generate_cutlass2x_kernels()
     if args.version == "3x":
-        generated_cutlass_3x_kernels()
+        generate_cutlass3x_kernels()
 
 if __name__ == "__main__":
-    generate_cutlass2x_kernels()
-
-
+    import argparse
     parser = argparse.ArgumentParser(
             description="Autogen cutlass kernels")
 
