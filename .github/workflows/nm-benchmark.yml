@@ -171,7 +171,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.set_gh_action_benchmark_input_artifact_name.outputs.gh_action_benchmark_input_artifact_name}}
+          name: ${{ steps.set_gh_action_benchmark_input_artifact_name.outputs.gh_action_benchmark_input_artifact_name}}-${{ inputs.python }}
           path: gh-action-benchmark-jsons
           retention-days: 1
 
@@ -180,6 +180,7 @@ jobs:
         uses: ./.github/actions/nm-copy-benchmark-data-to-efs
         with:
           label: ${{ inputs.label }}
+          python: ${{ inputs.python }}
           src: gh-action-benchmark-jsons
           efs_dst: /EFS/benchmark_results
 
