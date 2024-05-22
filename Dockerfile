@@ -137,7 +137,7 @@ ADD . /vllm-workspace/
 
 # UPSTREAM SYNC: Install sparsity extras
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip3 install nm-magic-wand-nightly
+    pip3 install nm-magic-wand==0.2.2
 
 # install development dependencies (for testing)
 RUN --mount=type=cache,target=/root/.cache/pip \
