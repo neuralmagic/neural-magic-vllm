@@ -13,6 +13,7 @@ from tests.conftest import HfRunnerNM
 from tests.models.compare_utils import check_logprobs_close
 from tests.utils.logging import make_logger
 from tests.utils.server import ServerContext
+from vllm.model_executor.layers.quantization import get_quantization_config
 
 
 @pytest.fixture(scope="session")
@@ -47,60 +48,68 @@ async def my_chat(
 
 
 @pytest.mark.parametrize(
-    "model, max_model_len, sparsity",
+    "model, max_model_len, sparsity, gptq_config",
     [
-        ("mistralai/Mistral-7B-Instruct-v0.2", 4096, None),
-        # pytest.param("mistralai/Mixtral-8x7B-Instruct-v0.1", 4096, None,
-        #              marks=pytest.mark.skip(
-        #                  "skipped because the HFRunner "
-        #                  "will need the 'optimum' package")),
-        # ("neuralmagic/zephyr-7b-beta-marlin", 4096, None),
-        # ("neuralmagic/OpenHermes-2.5-Mistral-7B-pruned50",
-        #  4096, "sparse_w16a16"),
-        # ("NousResearch/Llama-2-7b-chat-hf", 4096, None),
+        ("mistralai/Mistral-7B-Instruct-v0.2", 4096, None, None),
+        # pytest.param("mistralai/Mixtral-8x7B-Instruct-v0.1", 4096, None, None,
+        #              # marks=pytest.mark.skip(
+        #              #     "skipped because the HFRunner "
+        #              #     "will need the 'optimum' package")
+        #              ),
+        # pytest.param("neuralmagic/zephyr-7b-beta-marlin", 4096, None, None,
+        #              # marks=pytest.mark.skip(
+        #              #     "skipped because the HFRunner "
+        #              #     "will need the 'optimum' package")
+        #              ),
+        ("neuralmagic/OpenHermes-2.5-Mistral-7B-pruned50", 4096,
+         "sparse_w16a16", None),
+        ("NousResearch/Llama-2-7b-chat-hf", 4096, None, None),
         # pytest.param(
         #     "neuralmagic/TinyLlama-1.1B-Chat-v1.0-marlin",
         #     None,
         #     None,
-        #     marks=pytest.mark.skip(
-        #         "skipped because the HFRunner will need the "
-        #         "'optimum' package")
-        # ),
-        # ("neuralmagic/Llama-2-7b-pruned70-retrained-ultrachat",
-        #  4096, "sparse_w16a16"),
-        # ("HuggingFaceH4/zephyr-7b-gemma-v0.1", 4096, None),
-        # ("Qwen/Qwen1.5-7B-Chat", 4096, None),
-        # ("microsoft/phi-2", 2048, None),
-        # pytest.param(
-        #     "neuralmagic/phi-2-super-marlin",
-        #     2048,
         #     None,
-        #     marks=pytest.mark.skip(
-        #         "skipped because the HFRunner will need the "
-        #         "'optimum' package")
+        #     # marks=pytest.mark.skip(
+        #     #     "skipped because the HFRunner will need the "
+        #     #     "'optimum' package")
         # ),
-        # ("neuralmagic/phi-2-pruned50", 2048, "sparse_w16a16"),
+        ("neuralmagic/Llama-2-7b-pruned70-retrained-ultrachat", 4096,
+         "sparse_w16a16", None),
+        ("HuggingFaceH4/zephyr-7b-gemma-v0.1", 4096, None, None),
+        ("Qwen/Qwen1.5-7B-Chat", 4096, None, None),
+        ("microsoft/phi-2", 2048, None, None),
+        pytest.param(
+            "neuralmagic/phi-2-super-marlin",
+            2048,
+            None,
+            None,
+            marks=pytest.mark.skip(
+                "https://app.asana.com/0/1206976017967941/1207360919122996")),
+        pytest.param(
+            "neuralmagic/phi-2-pruned50",
+            2048,
+            "sparse_w16a16",
+            None,
+            marks=pytest.mark.skip(
+                "https://app.asana.com/0/1206976017967941/1207360919122996")),
         # pytest.param(
         #     "Qwen/Qwen1.5-MoE-A2.7B-Chat",
         #     4096,
         #     None,
+        #     None,
         #     marks=pytest.mark.skip(
-        #         "ValueError: The checkpoint you are trying to load has model"
-        #         "type `qwen2_moe` but Transformers does not recognize this "
-        #         "architecture. This could be because of an issue with the "
-        #         "checkpoint, or because your version of Transformers is "
-        #         "out of date.")),
-        # pytest.param("casperhansen/gemma-7b-it-awq", 4096, None,
-        #              marks=pytest.mark.skip(
-        #                  "skipped because the HFRunner will need the "
-        #                  "autoawq library")),
+        #         "CUDA out of memory. Tried to allocate 20.00 MiB. GPU")
+        # ),
+        pytest.param("casperhansen/gemma-7b-it-awq", 4096, None,
+                     "gptq_marlin"),
         # pytest.param(
         #     "TheBloke/Llama-2-7B-Chat-GPTQ",
         #     4096,
         #     None,
-        #     marks=pytest.mark.skip(
-        #         "skipped because the HFRunner will need the "
-        #         "'optimum' package")
+        #     None,
+        #     # marks=pytest.mark.skip(
+        #     #     "skipped because the HFRunner will need the "
+        #     #     "'optimum' package")
         # ),
     ])
 @pytest.mark.parametrize("max_tokens", [32])
@@ -116,6 +125,7 @@ def test_models_on_server(
     model: str,
     max_model_len: int,
     sparsity: str,
+    gptq_config: str,
     tensor_parallel_size: int,
     max_tokens: int,
     num_logprobs: int,
@@ -131,6 +141,8 @@ def test_models_on_server(
     :param model:  The Hugginface id for a model to test with
     :param max_model_len: passed to the vllm Server's --max-model-len option
     :param sparsity: passed to the vllm Server's --sparsity option
+    :param gptq_config: quantization method id for this model.  default None
+        means quantization isn't involved.
     :param tensor_parallel_size: passed to the vllm Server's
         --tensor_parallel_size option
     :param max_tokens: the total number of tokens to consider for closeness
@@ -143,6 +155,16 @@ def test_models_on_server(
     if tensor_parallel_size and gpu_count < tensor_parallel_size:
         pytest.skip(f"gpu count {gpu_count} is insufficient for "
                     f"tensor_parallel_size = {tensor_parallel_size}")
+
+    # skip this model if the current device does not have the required
+    # gpu capability.
+    device_capability = torch.cuda.get_device_capability()
+    capability = device_capability[0] * 10 + device_capability[1]
+    if gptq_config and (
+            capability <
+            get_quantization_config(gptq_config).get_min_capability()):
+        pytest.skip("insufficient system GPU device capability "
+                    f"({capability}) for this model")
 
     hf_token = getenv("HF_TOKEN", None)
     logger.info("loading chat prompts for testing.")
@@ -160,7 +182,7 @@ def test_models_on_server(
     logger.info("generating chat responses from HuggingFace runner.")
     hf_model = hf_runner_nm(model, access_token=hf_token)
     hf_outputs = hf_model.generate_greedy_logprobs_nm_use_tokens(
-        chat_prompts, max_tokens, num_logprobs)
+        chat_prompts, max_tokens, num_logprobs, ignore_special_tokens=True)
 
     del hf_model
 
@@ -176,7 +198,6 @@ def test_models_on_server(
         api_server_args["--tensor-parallel-size"] = tensor_parallel_size
 
     # some devices will require a different `dtype`
-    device_capability = torch.cuda.get_device_capability()
     if device_capability[0] < 8:
         api_server_args["--dtype"] = "half"
 

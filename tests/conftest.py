@@ -153,13 +153,15 @@ class HfRunner:
                 model_name,
                 torch_dtype=torch_dtype,
                 trust_remote_code=True,
-                token=access_token).cuda()
+                token=access_token,
+            ).cuda()
             self.processor = None
         else:
             self.model = _VISION_LANGUAGE_MODELS[model_name].from_pretrained(
                 model_name,
                 torch_dtype=torch_dtype,
                 trust_remote_code=True,
+                token=access_token,
             ).cuda()
             self.processor = AutoProcessor.from_pretrained(
                 model_name,
@@ -355,11 +357,14 @@ class HfRunnerNM(HfRunner):
         return [(output_ids, output_str, output_logprobs)
                 for output_ids, output_str, output_logprobs in outputs]
 
+    SPECIAL_TOKENS = ["<|im_start|>", "<|im_end|>", "�", "</s>"]
+
     def _decode_token_by_position_index(
             self,
             token_index: int,
             token_ids: List[int],
-            clean_up_tokenization_spaces: bool = True) -> str:
+            clean_up_tokenization_spaces: bool = True,
+            ignore_special_tokens: bool = False) -> str:
         """
         helper function to calculate a token string at the specified index
         based on the previous tokens.
@@ -369,6 +374,8 @@ class HfRunnerNM(HfRunner):
         :param token_ids: the list of token ids
         :param clean_up_tokenization_spaces: option to pass to
             `tokenizer.decode()`
+        :param ignore_special_tokens: converts hard coded special tokens to
+            an empty string
         """
         lookback = 4
         prior_str = self.tokenizer.decode(
@@ -378,6 +385,8 @@ class HfRunnerNM(HfRunner):
             token_ids[token_index - lookback:token_index],
             clean_up_tokenization_spaces=clean_up_tokenization_spaces)
         token = current_str[-(len(current_str) - len(prior_str)):]
+        if ignore_special_tokens and token in self.SPECIAL_TOKENS:
+            token = ""
         return token
 
     def generate_greedy_logprobs_nm_use_tokens(
@@ -385,6 +394,7 @@ class HfRunnerNM(HfRunner):
         prompts: List[str],
         max_tokens: int,
         topk_logprobs_count: int,
+        ignore_special_tokens: bool = False
     ) -> List[Tuple[List[int], str, List[Dict]]]:
         all_logprobs = []
         all_output_tokens = []
@@ -422,7 +432,8 @@ class HfRunnerNM(HfRunner):
                 token_str = self._decode_token_by_position_index(
                     input_len + tok_idx + 1,
                     indexed_seq,
-                    clean_up_tokenization_spaces=False)
+                    clean_up_tokenization_spaces=False,
+                    ignore_special_tokens=True)
                 output_tokens.append(token_str)
                 for alt_token_id, logprob in zip(topk.indices[0],
                                                  topk.values[0]):
@@ -432,7 +443,8 @@ class HfRunnerNM(HfRunner):
                     logprob_str = self._decode_token_by_position_index(
                         input_len + tok_idx + 1,
                         indexed_seq,
-                        clean_up_tokenization_spaces=False)
+                        clean_up_tokenization_spaces=False,
+                        ignore_special_tokens=True)
                     tok_logprobs_dct[logprob_str] = logprob.item()
 
                 seq_logprobs_lst.append(tok_logprobs_dct)
