@@ -85,3 +85,4 @@ tests/engine/test_computed_prefix_blocks.py
 tests/basic_correctness/test_chunked_prefill.py
 tests/basic_correctness/test_basic_correctness.py
 tests/test_cache_block_hashing.py
+test/test_sharded_state_loader.py
