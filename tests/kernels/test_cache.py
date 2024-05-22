@@ -4,6 +4,7 @@ from typing import Tuple
 import pytest
 import torch
 
+from vllm import _custom_ops as ops
 from vllm._C import cache_ops
 from vllm.utils import is_hip
 
@@ -84,7 +85,7 @@ def test_copy_blocks(
     cloned_value_caches = [value_cache.clone() for value_cache in value_caches]
 
     # Call the copy blocks kernel.
-    cache_ops.copy_blocks(key_caches, value_caches, block_mapping)
+    ops.copy_blocks(key_caches, value_caches, block_mapping)
 
     # Run the reference implementation.
     for src, dsts in block_mapping.items():
@@ -149,9 +150,9 @@ def test_reshape_and_cache(
     # Clone the KV caches.
     if kv_cache_dtype == "fp8":
         cloned_key_cache = torch.empty_like(key_cache, dtype=torch.float16)
-        cache_ops.convert_fp8(key_cache, cloned_key_cache)
+        ops.convert_fp8(key_cache, cloned_key_cache)
         cloned_value_cache = torch.empty_like(value_cache, dtype=torch.float16)
-        cache_ops.convert_fp8(value_cache, cloned_value_cache)
+        ops.convert_fp8(value_cache, cloned_value_cache)
     else:
         cloned_key_cache = key_cache.clone()
         cloned_value_cache = value_cache.clone()
@@ -160,14 +161,14 @@ def test_reshape_and_cache(
     kv_scale = 1.0
 
     # Call the reshape_and_cache kernel.
-    cache_ops.reshape_and_cache(key, value, key_cache, value_cache,
-                                slot_mapping, kv_cache_dtype, kv_scale)
+    ops.reshape_and_cache(key, value, key_cache, value_cache, slot_mapping,
+                          kv_cache_dtype, kv_scale)
 
     if kv_cache_dtype == "fp8":
         result_key_cache = torch.empty_like(key_cache, dtype=torch.float16)
-        cache_ops.convert_fp8(key_cache, result_key_cache)
+        ops.convert_fp8(key_cache, result_key_cache)
         result_value_cache = torch.empty_like(value_cache, dtype=torch.float16)
-        cache_ops.convert_fp8(value_cache, result_value_cache)
+        ops.convert_fp8(value_cache, result_value_cache)
 
     # Run the reference implementation.
     reshaped_key = key.reshape(num_tokens, *key_cache[0, :, :, 0, :].shape)
@@ -193,6 +194,85 @@ def test_reshape_and_cache(
     else:
         assert torch.allclose(key_cache, cloned_key_cache)
         assert torch.allclose(value_cache, cloned_value_cache)
+
+
+@pytest.mark.parametrize("num_tokens", NUM_TOKENS)
+@pytest.mark.parametrize("num_heads", NUM_HEADS)
+@pytest.mark.parametrize("head_size", HEAD_SIZES)
+@pytest.mark.parametrize("block_size", BLOCK_SIZES)
+@pytest.mark.parametrize("num_blocks", NUM_BLOCKS)
+@pytest.mark.parametrize("dtype", DTYPES)
+@pytest.mark.parametrize("seed", SEEDS)
+@pytest.mark.parametrize("device", CUDA_DEVICES)
+@pytest.mark.parametrize("kv_cache_dtype", KV_CACHE_DTYPE)
+@torch.inference_mode()
+def test_reshape_and_cache_flash(
+    kv_cache_factory_flashinfer,
+    num_tokens: int,
+    num_heads: int,
+    head_size: int,
+    block_size: int,
+    num_blocks: int,
+    dtype: torch.dtype,
+    seed: int,
+    device: str,
+    kv_cache_dtype: str,
+) -> None:
+    # UPSTREAM SYNC: needed to pass multi-gpu tests
+    if device != "cuda:0":
+        pytest.skip("Skipping multi-gpu tests for now [ bad test setup ]")
+    if kv_cache_dtype == "fp8":
+        pytest.skip("Fp8 kv cache not supportef for flashinfer")
+    random.seed(seed)
+    torch.random.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+
+    # Create a random slot mapping.
+    num_slots = block_size * num_blocks
+    slot_mapping = random.sample(range(num_slots), num_tokens)
+    slot_mapping = torch.tensor(slot_mapping, dtype=torch.long, device='cuda')
+
+    qkv = torch.randn(num_tokens,
+                      3,
+                      num_heads,
+                      head_size,
+                      dtype=dtype,
+                      device=device)
+    _, key, value = qkv.unbind(dim=1)
+
+    # Create the KV caches.
+    key_caches, value_caches = kv_cache_factory_flashinfer(
+        num_blocks,
+        block_size,
+        1,
+        num_heads,
+        head_size,
+        kv_cache_dtype,
+        dtype,
+    )
+    key_cache, value_cache = key_caches[0], value_caches[0]
+
+    # Clone the KV caches.
+    cloned_key_cache = key_cache.clone()
+    cloned_value_cache = value_cache.clone()
+
+    # Call the reshape_and_cache kernel.
+    cache_ops.reshape_and_cache_flash(key, value, key_cache, value_cache,
+                                      slot_mapping, kv_cache_dtype)
+
+    # Run the reference implementation.
+    block_indicies = torch.div(slot_mapping, block_size, rounding_mode='floor')
+    block_indicies = block_indicies.cpu().tolist()
+    block_offsets = slot_mapping % block_size
+    block_offsets = block_offsets.cpu().tolist()
+    for i in range(num_tokens):
+        block_idx = block_indicies[i]
+        block_offset = block_offsets[i]
+        cloned_key_cache[block_idx, block_offset, :, :] = key[i]
+        cloned_value_cache[block_idx, block_offset, :, :] = value[i]
+
+    assert torch.allclose(key_cache, cloned_key_cache)
+    assert torch.allclose(value_cache, cloned_value_cache)
 
 
 @pytest.mark.parametrize("direction", COPYING_DIRECTION)
@@ -255,9 +335,8 @@ def test_swap_blocks(
     src_value_caches_clone = src_value_caches[0].clone()
 
     # Call the swap_blocks kernel.
-    cache_ops.swap_blocks(src_key_caches[0], dist_key_caches[0], block_mapping)
-    cache_ops.swap_blocks(src_value_caches[0], dist_value_caches[0],
-                          block_mapping)
+    ops.swap_blocks(src_key_caches[0], dist_key_caches[0], block_mapping)
+    ops.swap_blocks(src_value_caches[0], dist_value_caches[0], block_mapping)
 
     for src, dst in block_mapping.items():
         assert torch.allclose(src_key_caches_clone[src].cpu(),
@@ -295,9 +374,9 @@ def test_fp8_conversion(
     cache.uniform_(low, high)
 
     cache_fp8 = torch.empty_like(cache, dtype=torch.uint8)
-    cache_ops.convert_fp8(cache, cache_fp8)
+    ops.convert_fp8(cache, cache_fp8)
 
     converted_cache = torch.empty_like(cache)
-    cache_ops.convert_fp8(cache_fp8, converted_cache)
+    ops.convert_fp8(cache_fp8, converted_cache)
 
     assert torch.allclose(cache, converted_cache, atol=0.001, rtol=0.1)

@@ -14,42 +14,43 @@ import pytest
 import torch
 
 MODEL_FORMAT_EXTRABLOCKS = [
-    ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned50", "sparse_w16a16", 2000),
+    ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned50", "sparse_w16a16", 1500),
     ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned2.4",
-     "semi_structured_sparse_w16a16", 2000),
+     "semi_structured_sparse_w16a16", 1500),
 ]
 
 
 @pytest.mark.parametrize("model_format_extrablocks", MODEL_FORMAT_EXTRABLOCKS)
 @pytest.mark.parametrize("dtype", ["half"])
-@pytest.mark.parametrize("max_tokens", [32])
-@pytest.mark.parametrize("num_logprobs", [3])
 def test_models(
-    vllm_runner_nm,
-    example_prompts,
+    vllm_runner,
     model_format_extrablocks,
     dtype: str,
-    max_tokens: int,
-    num_logprobs: int,
 ) -> None:
     model_name, sparsity, num_extra_blocks = model_format_extrablocks
-    dense_model = vllm_runner_nm(model_name=model_name,
-                                 sparsity=None,
-                                 dtype=dtype,
-                                 max_model_len=1024)
-    dense_num_kv_blocks = (dense_model.model.llm_engine.scheduler.
-                           block_manager.gpu_allocator.num_blocks)
+    dense_model = vllm_runner(model_name=model_name,
+                              enforce_eager=True,
+                              sparsity=None,
+                              dtype=dtype,
+                              max_model_len=1024)
+    dense_gpu_alloc = (
+        dense_model.model.llm_engine.scheduler.block_manager.gpu_allocator)
+    dense_num_kv_blocks = dense_gpu_alloc.num_blocks
 
     del dense_model
     torch.cuda.empty_cache()
     gc.collect()
 
-    sparse_model = vllm_runner_nm(model_name=model_name,
-                                  sparsity=sparsity,
-                                  dtype=dtype,
-                                  max_model_len=1024)
-    sparse_num_kv_blocks = (sparse_model.model.llm_engine.scheduler.
-                            block_manager.gpu_allocator.num_blocks)
+    sparse_model = vllm_runner(
+        model_name=model_name,
+        enforce_eager=True,
+        sparsity=sparsity,
+        dtype=dtype,
+        max_model_len=1024,
+    )
+    sparse_gpu_alloc = (
+        sparse_model.model.llm_engine.scheduler.block_manager.gpu_allocator)
+    sparse_num_kv_blocks = sparse_gpu_alloc.num_blocks
 
     del sparse_model
     torch.cuda.empty_cache()

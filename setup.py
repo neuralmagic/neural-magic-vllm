@@ -2,6 +2,8 @@
 # UPSTREAM SYNC: noqa is required for passing ruff.
 # This file has been modified by Neural Magic
 
+import datetime
+import importlib.util
 import io
 import logging
 import os
@@ -9,7 +11,7 @@ import re
 import subprocess
 import sys
 from shutil import which
-from typing import List
+from typing import Dict, List
 
 import torch
 from packaging.version import Version, parse
@@ -17,10 +19,23 @@ from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 from torch.utils.cpp_extension import CUDA_HOME
 
+
+def load_module_from_path(module_name, path):
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 ROOT_DIR = os.path.dirname(__file__)
 logger = logging.getLogger(__name__)
-# Target device of vLLM, supporting [cuda (by default), rocm, neuron, cpu]
-VLLM_TARGET_DEVICE = os.getenv("VLLM_TARGET_DEVICE", "cuda")
+
+# cannot import envs directly because it depends on vllm,
+#  which is not installed yet
+envs = load_module_from_path('envs', os.path.join(ROOT_DIR, 'vllm', 'envs.py'))
+
+VLLM_TARGET_DEVICE = envs.VLLM_TARGET_DEVICE
 
 # vLLM only supports Linux platform
 assert sys.platform.startswith(
@@ -56,7 +71,7 @@ class CMakeExtension(Extension):
 
 class cmake_build_ext(build_ext):
     # A dict of extension directories that have been configured.
-    did_config = {}
+    did_config: Dict[str, bool] = {}
 
     #
     # Determine number of compilation jobs and optionally nvcc compile threads.
@@ -64,10 +79,10 @@ class cmake_build_ext(build_ext):
     def compute_num_jobs(self):
         # `num_jobs` is either the value of the MAX_JOBS environment variable
         # (if defined) or the number of CPUs available.
-        num_jobs = os.environ.get("MAX_JOBS", None)
+        num_jobs = envs.MAX_JOBS
         if num_jobs is not None:
             num_jobs = int(num_jobs)
-            logger.info(f"Using MAX_JOBS={num_jobs} as the number of jobs.")
+            logger.info("Using MAX_JOBS=%d as the number of jobs.", num_jobs)
         else:
             try:
                 # os.sched_getaffinity() isn't universally available, so fall
@@ -82,11 +97,12 @@ class cmake_build_ext(build_ext):
             # environment variable (if defined) or 1.
             # when it is set, we reduce `num_jobs` to avoid
             # overloading the system.
-            nvcc_threads = os.getenv("NVCC_THREADS", None)
+            nvcc_threads = envs.NVCC_THREADS
             if nvcc_threads is not None:
                 nvcc_threads = int(nvcc_threads)
-                logger.info(f"Using NVCC_THREADS={nvcc_threads} as the number"
-                            " of nvcc threads.")
+                logger.info(
+                    "Using NVCC_THREADS=%d as the number of nvcc threads.",
+                    nvcc_threads)
             else:
                 nvcc_threads = 1
             num_jobs = max(1, num_jobs // nvcc_threads)
@@ -107,7 +123,7 @@ class cmake_build_ext(build_ext):
         # Select the build type.
         # Note: optimization level + debug info are set by the build type
         default_cfg = "Debug" if self.debug else "RelWithDebInfo"
-        cfg = os.getenv("CMAKE_BUILD_TYPE", default_cfg)
+        cfg = envs.CMAKE_BUILD_TYPE or default_cfg
 
         # where .so files will be written, should be the same for all extensions
         # that use the same CMakeLists.txt.
@@ -121,7 +137,7 @@ class cmake_build_ext(build_ext):
             '-DVLLM_TARGET_DEVICE={}'.format(VLLM_TARGET_DEVICE),
         ]
 
-        verbose = bool(int(os.getenv('VERBOSE', '0')))
+        verbose = envs.VERBOSE
         if verbose:
             cmake_args += ['-DCMAKE_VERBOSE_MAKEFILE=ON']
 
@@ -208,7 +224,7 @@ def _is_neuron() -> bool:
         subprocess.run(["neuron-ls"], capture_output=True, check=True)
     except (FileNotFoundError, PermissionError, subprocess.CalledProcessError):
         torch_neuronx_installed = False
-    return torch_neuronx_installed
+    return torch_neuronx_installed or envs.VLLM_BUILD_WITH_NEURON
 
 
 def _is_cpu() -> bool:
@@ -216,7 +232,7 @@ def _is_cpu() -> bool:
 
 
 def _install_punica() -> bool:
-    return bool(int(os.getenv("VLLM_INSTALL_PUNICA_KERNELS", "0")))
+    return envs.VLLM_INSTALL_PUNICA_KERNELS
 
 
 def get_hipcc_rocm_version():
@@ -265,6 +281,7 @@ def get_nvcc_cuda_version() -> Version:
 
     Adapted from https://github.com/NVIDIA/apex/blob/8b7a1ff183741dd8f9b87e7bafd04cfde99cea28/setup.py
     """
+    assert CUDA_HOME is not None, "CUDA_HOME is not set"
     nvcc_output = subprocess.check_output([CUDA_HOME + "/bin/nvcc", "-V"],
                                           universal_newlines=True)
     output = nvcc_output.split()
@@ -290,8 +307,27 @@ def find_version(filepath: str) -> str:
         raise RuntimeError("Unable to find version string.")
 
 
+# Neuralmagic packaging ENV's
+NM_RELEASE_TYPE = 'NM_RELEASE_TYPE'
+
+
+def get_nm_vllm_package_name() -> str:
+    nm_release_type = os.getenv(NM_RELEASE_TYPE)
+    package_name = None
+    if nm_release_type == 'RELEASE':
+        package_name = 'nm-vllm'
+    else:
+        package_name = 'nm-vllm-nightly'
+    return package_name
+
+
 def get_vllm_version() -> str:
     version = find_version(get_path("vllm", "__init__.py"))
+
+    nm_release_type = os.getenv(NM_RELEASE_TYPE)
+    if nm_release_type != 'RELEASE':
+        date = datetime.date.today().strftime("%Y%m%d")
+        version += f'.{date}'
 
     if _is_cuda():
         cuda_version = str(get_nvcc_cuda_version())
@@ -377,23 +413,19 @@ if not _is_neuron():
 
 # UPSTREAM SYNC: needed for sparsity
 _sparsity_deps = ["nm-magic-wand-nightly"]
-
-
-def get_extra_requirements() -> dict:
-    return {
-        "sparse": _sparsity_deps,
-        "sparsity": _sparsity_deps,
-    }
-
+nm_release_type = os.getenv(NM_RELEASE_TYPE)
+if nm_release_type == 'RELEASE':
+    _sparsity_deps = ["nm-magic-wand"]
 
 package_data = {
     "vllm": ["py.typed", "model_executor/layers/fused_moe/configs/*.json"]
 }
-if os.environ.get("VLLM_USE_PRECOMPILED"):
+if envs.VLLM_USE_PRECOMPILED:
+    ext_modules = []
     package_data["vllm"].append("*.so")
 
 setup(
-    name="nm-vllm",
+    name=get_nm_vllm_package_name(),
     version=get_vllm_version(),
     author="vLLM Team, Neural Magic",
     author_email="support@neuralmagic.com",
@@ -422,11 +454,16 @@ setup(
                    'licenses/LICENSE.punica', 'licenses/LICENSE.squeezellm',
                    'licenses/LICENSE.tensorrtllm', 'licenses/LICENSE.vllm'),
     packages=find_packages(exclude=("benchmarks", "csrc", "docs", "examples",
-                                    "tests")),
+                                    "tests*")),
     python_requires=">=3.8",
     install_requires=get_requirements(),
-    extras_require=get_extra_requirements(),
     ext_modules=ext_modules,
+    extras_require={
+        "tensorizer": ["tensorizer==2.9.0"],
+        # UPSTREAM SYNC: required for sparsity
+        "sparse": _sparsity_deps,
+        "sparsity": _sparsity_deps,
+    },
     cmdclass={"build_ext": cmake_build_ext} if not _is_neuron() else {},
     package_data=package_data,
 )

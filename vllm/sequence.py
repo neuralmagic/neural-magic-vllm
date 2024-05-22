@@ -1,7 +1,7 @@
 """Sequence and its related classes."""
 import copy
 import enum
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from vllm.block import LogicalTokenBlock
@@ -28,7 +28,10 @@ class Logprob:
     decoded_token: Optional[str] = None
 
 
+# {token_id -> logprob} per each sequence group. None if the corresponding
+# sequence group doesn't require prompt logprob.
 PromptLogprobs = List[Optional[Dict[int, Logprob]]]
+# {token_id -> logprob} for each sequence group.
 SampleLogprobs = List[Dict[int, Logprob]]
 
 
@@ -166,7 +169,7 @@ class SequenceData:
         self._stage = SequenceStage.PREFILL
 
     def get_num_uncomputed_tokens(self) -> int:
-        """Return the number of prefil tokens that are not computed."""
+        """Return the number of prefill tokens that are not computed."""
         # we use `get_len()` which includes prompt_len + output_len instead
         # of prompt_len here. This is because during recompute we need to
         # prefill for both prompt and output.
@@ -177,10 +180,10 @@ class SequenceData:
             return self.prompt_token_ids[-1]
         return self.output_token_ids[-1]
 
-    def get_prompt_token_ids(self) -> int:
+    def get_prompt_token_ids(self) -> List[int]:
         return self.prompt_token_ids
 
-    def get_output_token_ids(self) -> int:
+    def get_output_token_ids(self) -> List[int]:
         return self.output_token_ids
 
     @property
@@ -221,7 +224,7 @@ class Sequence:
         self.eos_token_id = eos_token_id
         self.lora_request = lora_request
 
-        self.data = SequenceData(prompt_token_ids)
+        self.data: SequenceData = SequenceData(prompt_token_ids)
         self.output_logprobs: SampleLogprobs = []
         self.output_text = ""
 
@@ -240,6 +243,12 @@ class Sequence:
     @property
     def lora_int_id(self) -> int:
         return self.lora_request.lora_int_id if self.lora_request else 0
+
+    def get_output_text_to_return(self, buffer_length: int):
+        # We return the full output text if the sequence is finished.
+        truncate = buffer_length and not self.is_finished()
+        return self.output_text[:-buffer_length] if truncate else (
+            self.output_text)
 
     def hash_of_block(self, logical_idx: int) -> int:
         # TODO This can produce incorrect hash when block size > prompt size
@@ -345,12 +354,9 @@ class Sequence:
     def get_num_new_tokens(self) -> int:
         """Get the number of new tokens to be computed.
 
-        Args:
-            remainig_token_budget: The remaining token budgets.
         Returns:
-            The new number of tokens to be computed. I.e., 1 for decode, prompt
-            size for prefill. If there's not enough remainig_token_budget, it
-            can return the chunked number of new tokens.
+            The new number of tokens to be computed. I.e., 1 for decode, or
+            the remaining prompt size for prefill.
         """
         if self.data.stage == SequenceStage.DECODE:
             return 1
@@ -370,7 +376,7 @@ class SequenceGroupState:
     """Mutable state tied to a specific sequence group"""
 
     # torch.Generator used in seeded sampling
-    generator: Optional = None
+    generator: Optional = None  # type: ignore
 
 
 class MultiModalData:
@@ -446,8 +452,15 @@ class SequenceGroup:
     def lora_int_id(self) -> int:
         return self.lora_request.lora_int_id if self.lora_request else 0
 
-    def get_last_latency(self, now: float) -> float:
-        """Gets last token latency for Request level timings."""
+    def get_last_latency(self, now: float) -> Optional[float]:
+        """Sets the last token time for Request level timings."""
+        # If still in prefill phase, raise Error.
+        if self.is_prefill():
+            raise ValueError(
+                "seq_group.get_last_latency() should not be called "
+                "if the seq_group is in prefill phase.")
+
+        # Otherwise return token latency.
         latency = now - self.metrics.last_token_time
         self.metrics.last_token_time = now
         return latency
@@ -459,7 +472,12 @@ class SequenceGroup:
 
     def maybe_set_first_token_time(self, time: float) -> None:
         """Sets the first token time for Request level timings."""
-        if self.metrics.first_token_time is None:
+        # Note: in a case where a sequence_group is swapped and
+        #   recomputed, the time between iterations is counted
+        #   in TPOT, rather than recalculating TTFT (since from the )
+        #   POV of the user, there is simply a long generation delay.
+        if (self.metrics.first_token_time is None
+                and self.get_seqs()[0].get_output_len() == 1):
             self.metrics.first_token_time = time
 
     def maybe_set_first_scheduled_time(self, time: float) -> None:
@@ -515,10 +533,16 @@ class SequenceGroup:
     def get_num_uncomputed_tokens(self) -> int:
         num_uncomputed_tokens = 0
         for seq in self.get_seqs():
-            num_uncomputed_tokens += seq.data.get_num_uncomputed_tokens()
+            if not seq.is_finished():
+                num_uncomputed_tokens += seq.data.get_num_uncomputed_tokens()
         return num_uncomputed_tokens
 
     def num_seqs(self, status: Optional[SequenceStatus] = None) -> int:
+        # Optimization. We don't need to call get_seqs if we don't need to
+        # filter by states.
+        if status is None:
+            return len(self.seqs_dict)
+
         return len(self.get_seqs(status))
 
     def num_unfinished_seqs(self) -> int:
@@ -571,10 +595,15 @@ class SequenceGroupMetadata:
         sampling_params: The sampling parameters used to generate the outputs.
         block_tables: The block tables. (Seq id -> list of physical block
             numbers)
+        do_sample: True if sampling is required. Sampling is not required when
+            e.g., prefill is chunked, and the current iteration only computes
+            query tokens for prefill, we don't need sampling.
         token_chunk_size: The number of tokens to be processed (per sequence).
             None if chunking is not required.
-        state: Internal state tied to this sequence group.
         lora_request: LoRA request.
+        computed_block_nums: The block numbers that are already computed,
+            used in prefix caching.
+        state: Internal state tied to this sequence group.
         multi_modal_data: Multi modal data.
     """
 
@@ -585,6 +614,7 @@ class SequenceGroupMetadata:
         seq_data: Dict[int, SequenceData],
         sampling_params: SamplingParams,
         block_tables: Dict[int, List[int]],
+        do_sample: bool = True,
         token_chunk_size: Optional[int] = None,
         lora_request: Optional[LoRARequest] = None,
         computed_block_nums: Optional[List[int]] = None,
@@ -601,6 +631,7 @@ class SequenceGroupMetadata:
         self.multi_modal_data = multi_modal_data
         self.state = SequenceGroupState() if state is None else state
         self._token_chunk_size = token_chunk_size
+        self.do_sample = do_sample
 
         if self._token_chunk_size is None:
             if is_prompt:
@@ -613,7 +644,7 @@ class SequenceGroupMetadata:
         return self.lora_request.lora_int_id if self.lora_request else 0
 
     @property
-    def token_chunk_size(self) -> int:
+    def token_chunk_size(self) -> Optional[int]:
         """Return the number of tokens to be processed (chunk size)."""
         return self._token_chunk_size
 
@@ -662,6 +693,7 @@ class SequenceGroupOutput:
         prompt_logprobs: Optional[PromptLogprobs],
     ) -> None:
         self.samples = samples
+        # Prompt logprob for each prompt query token.
         self.prompt_logprobs = prompt_logprobs
 
     def __repr__(self) -> str:
@@ -689,6 +721,9 @@ class SamplerOutput:
     # On-device tensor containing probabilities of each token.
     sampled_token_probs: Optional["torch.Tensor"] = None
 
+    # On-device tensor containing the logprobs of each token.
+    logprobs: Optional["torch.Tensor"] = None
+
     # On-device tensor containing the sampled token ids.
     sampled_token_ids: Optional["torch.Tensor"] = None
 
@@ -707,3 +742,46 @@ class SamplerOutput:
     def __eq__(self, other: object):
         return isinstance(other,
                           self.__class__) and self.outputs == other.outputs
+
+    def __repr__(self) -> str:
+        """Show the shape of a tensor instead of its values to reduce noise.
+        """
+        sampled_token_probs_repr = ("None" if self.sampled_token_probs is None
+                                    else self.sampled_token_probs.shape)
+        sampled_token_ids_repr = ("None" if self.sampled_token_ids is None else
+                                  self.sampled_token_ids.shape)
+        return (
+            f"SamplerOutput(outputs={self.outputs}, "
+            f"sampled_token_probs={sampled_token_probs_repr}, "
+            f"sampled_token_ids={sampled_token_ids_repr}, "
+            f"spec_decode_worker_metrics={self.spec_decode_worker_metrics})")
+
+
+@dataclass
+class ExecuteModelRequest:
+    """The model execution request."""
+    # The sequence group metadata list.
+    seq_group_metadata_list: List[SequenceGroupMetadata]
+    # Blocks to swap in. Dict of CPU -> GPU block number.
+    blocks_to_swap_in: Dict[int, int] = field(default_factory=dict)
+    # Blocks to swap out. Dict of GPU -> CPU block number.
+    blocks_to_swap_out: Dict[int, int] = field(default_factory=dict)
+    # Blocks to copy. Source to a list of dest blocks.
+    blocks_to_copy: Dict[int, List[int]] = field(default_factory=dict)
+    # The number of slots for lookahead decoding.
+    num_lookahead_slots: int = 0
+    # The number of requests in the running queue.
+    running_queue_size: int = 0
+
+    def clone(
+        self, seq_group_metadata_list: List[SequenceGroupMetadata]
+    ) -> "ExecuteModelRequest":
+        """Clone the request with a new sequence group metadata list."""
+        return ExecuteModelRequest(
+            seq_group_metadata_list=seq_group_metadata_list,
+            blocks_to_swap_in=self.blocks_to_swap_in.copy(),
+            blocks_to_swap_out=self.blocks_to_swap_out.copy(),
+            blocks_to_copy=self.blocks_to_copy.copy(),
+            num_lookahead_slots=self.num_lookahead_slots,
+            running_queue_size=self.running_queue_size,
+        )
