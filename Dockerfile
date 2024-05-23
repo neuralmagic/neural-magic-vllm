@@ -123,6 +123,10 @@ RUN --mount=type=bind,from=build,src=/workspace/dist,target=/vllm-workspace/dist
     --mount=type=cache,target=/root/.cache/pip \
     pip install dist/*.whl --verbose
 
+RUN --mount=type=bind,from=build,src=/workspace/dist,target=/vllm-workspace/dist \
+    --mount=type=cache,target=/root/.cache/pip \
+    pip3 install nm-magic-wand==0.2.2 --extra-index-url https://pypi.neuralmagic.com/simple 
+
 RUN --mount=type=bind,from=flash-attn-builder,src=/usr/src/flash-attention-v2,target=/usr/src/flash-attention-v2 \
     --mount=type=cache,target=/root/.cache/pip \
     pip install /usr/src/flash-attention-v2/*.whl --no-cache-dir
