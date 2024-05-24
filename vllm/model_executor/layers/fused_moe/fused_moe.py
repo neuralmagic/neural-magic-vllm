@@ -472,6 +472,11 @@ def fused_moe(
                             compute_type=compute_type,
                             use_fp8=use_fp8)
 
+    print("")
+    print("intermediate 1:", intermediate_cache1.size())
+    print("intermediate 2:", intermediate_cache2.size())
+    print("intermediate 3:", intermediate_cache3.size())
+
     if inplace:
         return torch.sum(intermediate_cache3.view(*intermediate_cache3.shape),
                          dim=1,
@@ -652,6 +657,8 @@ def fused_marlin_moe(
     hidden_states: torch.Tensor,
     w1: torch.Tensor,
     w2: torch.Tensor,
+    scales1: torch.Tensor,
+    scales2: torch.Tensor,
     gating_output: torch.Tensor,
     topk: int,
     renormalize: bool,
@@ -684,7 +691,7 @@ def fused_marlin_moe(
     # Check constraints.
     assert hidden_states.shape[0] == gating_output.shape[0], (
         "Number of tokens mismatch")
-    assert hidden_states.shape[1] == w1.shape[2], "Hidden size mismatch"
+    assert hidden_states.shape[1] * 2 == w1.shape[2], "Hidden size mismatch"
     assert gating_output.shape[1] == w1.shape[0], "Number of experts mismatch"
     assert hidden_states.is_contiguous(), "Hidden_states must be contiguous"
     assert w1.is_contiguous(), "Expert weights1 must be contiguous"
@@ -692,6 +699,8 @@ def fused_marlin_moe(
     assert hidden_states.dtype in [
         torch.float32, torch.float16, torch.bfloat16
     ]
+
+
     M, K = hidden_states.shape
     E, N, _ = w1.shape
 
@@ -763,40 +772,6 @@ def fused_marlin_moe(
 
     print(sorted_token_ids, expert_ids, num_tokens_post_padded, config['BLOCK_SIZE_M'])
 
-    w_refs1 = []
-    qweights1 = []
-    scaless1 = []
-
-    for i in range(w1.shape[0]):
-        w_ref, qweight, scales = marlin_quantize(w1[i], 4, -1)
-        w_refs1.append(w_ref)
-        qweights1.append(qweight)
-        scaless1.append(scales)
-
-    w_ref1 = stack_and_dev(w_refs1)
-    qweight1 = stack_and_dev(qweights1)
-    scales1 = stack_and_dev(scaless1)
-
-    print("MNK:", M, N, K)
-    print("A size:", hidden_states.size())
-    print("wref size:", w_ref1.size())
-    print("qweight size:", qweight1.size())
-    print("scales size:", scales1.size())
-
-    # w_refs2 = []
-    qweights2 = []
-    scaless2 = []
-
-    for i in range(w2.shape[0]):
-        _, qweight, scales = marlin_quantize(w2[i], 4, -1)
-        # w_refs1.append(w_ref)
-        qweights2.append(qweight)
-        scaless2.append(scales)
-
-    # w_ref2 = stack_and_dev(w_refs2)
-    qweight2 = stack_and_dev(qweights2)
-    scales2 = stack_and_dev(scaless2)
-
     max_workspace_size = (N // 64) * 16
     workspace = torch.zeros(max_workspace_size,
                             dtype=torch.int,
@@ -805,11 +780,15 @@ def fused_marlin_moe(
 
     sorted_token_ids = sorted_token_ids // topk
 
-    intermediate_cache1 = moe_kernels.marlin_gemm_moe(hidden_states, qweight1, sorted_token_ids, scales1, workspace, M, w1.shape[2], w1.shape[1])
+    print(w1.size(), w2.size())
+
+    intermediate_cache1 = moe_kernels.marlin_gemm_moe(hidden_states, w1, sorted_token_ids, scales1, workspace, M, w1.shape[2] // 2, w1.shape[1] * 8)
 
     ops.silu_and_mul(intermediate_cache2, intermediate_cache1.view(-1, N))
 
-    intermediate_cache3 = moe_kernels.marlin_gemm_moe(intermediate_cache2, qweight2, sorted_token_ids, scales2, workspace, M, w2.shape[2], w2.shape[1])
+    intermediate_cache3 = moe_kernels.marlin_gemm_moe(intermediate_cache2, w2, sorted_token_ids, scales2, workspace, M, w2.shape[2] // 2, w2.shape[1] * 8)
+
+    print("intermediate:", intermediate_cache3.size())
 
     if inplace:
         return torch.sum(intermediate_cache3.view(*intermediate_cache3.shape),
