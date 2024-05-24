@@ -1387,6 +1387,8 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
 
   // ZeroOutput<<<1, num_threads>>>((int4*)C, tot_m, prob_n);
 
+  int moe_stride = ceildiv(prob_m, moe_block_size) * moe_block_size;
+
   // TODO get scales size accurately
   // TODO sorted row idx must be obtained with sorted_id // num_experts
   // printf("==LOOP==\n");
@@ -1395,7 +1397,7 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
     const int4* A_ptr     = (const int4*)A;
     const int4* B_ptr     = (const int4*)B + (prob_n * prob_k / 32) * expert_idx;
     int4*       C_ptr     = (int4*)C;
-    int*        sorted_ids_ptr  = (int*)sorted_ids;// + moe_block_size * expert_idx;
+    int*        sorted_ids_ptr  = (int*)sorted_ids + moe_stride * expert_idx;
     const int4* s_ptr     = (const int4*)s + (((group_size == -1 || group_size == 0) ? 1 : prob_k / group_size) * prob_n / 8) * expert_idx;
     // const int*  g_idx_ptr = (const int*)g_idx + prob_k * expert_idx;
     // const int*  perm_ptr  = (const int*)perm;

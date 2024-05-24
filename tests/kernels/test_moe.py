@@ -324,10 +324,10 @@ def test_fused_marlin_moe():
     torch_output = torch_moe(a, w1, w2, score, topk)
     # assert torch.allclose(marlin_output, torch_output, atol=1e-2, rtol=0)
 
-@pytest.mark.parametrize("m", [512]) #, 222, 33, 1])
-@pytest.mark.parametrize("n", [2048]) #, 256, 1024])
-@pytest.mark.parametrize("k", [128]) #, 511, 1024])
-@pytest.mark.parametrize("e", [8]) #, 64])
+@pytest.mark.parametrize("m", [4]) #[512, 222, 33, 1])
+@pytest.mark.parametrize("n", [2048]) #[2048, 256, 1024])
+@pytest.mark.parametrize("k", [1024]) #, 511, 1024])
+@pytest.mark.parametrize("e", [4]) #, 64])
 @pytest.mark.parametrize("topk", [2]) #, 6])
 @pytest.mark.parametrize("dtype", [torch.float16]) #, torch.bfloat16])
 def test_fused_marlin_moe_2(
@@ -343,6 +343,6 @@ def test_fused_marlin_moe_2(
     w2 = torch.randn((e, k, n), device='cuda', dtype=dtype) / 10
 
     score = torch.randn((m, e), device='cuda', dtype=dtype)
-    triton_output = fused_marlin_moe(a, w1, w2, score, topk, renormalize=False)
+    marlin_output = fused_marlin_moe(a, w1, w2, score, topk, renormalize=False)
     torch_output = torch_moe(a, w1, w2, score, topk)
-    assert torch.allclose(triton_output, torch_output, atol=1e-2, rtol=0)
+    assert torch.allclose(marlin_output, torch_output, atol=1e-2, rtol=0)

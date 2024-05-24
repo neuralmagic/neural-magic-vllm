@@ -537,7 +537,7 @@ def marlin_weights(q_w, size_k, size_n, num_bits, perm):
     q_packed = numpy.zeros((q_w.shape[0], q_w.shape[1] // pack_factor),
                            dtype=numpy.uint32)
 
-    print("PACKED:", q_w.shape, ">>", q_packed.shape)
+    # print("PACKED:", q_w.shape, ">>", q_packed.shape)
 
     for i in range(pack_factor):
         q_packed |= q_w[:, i::pack_factor] << num_bits * i
@@ -613,10 +613,10 @@ def marlin_quantize(
     num_bits: int,
     group_size: int,
 ):
-    print("START:", w.size(), num_bits, group_size)
+    # print("START:", w.size(), num_bits, group_size)
     perm, scale_perm, scale_perm_single = get_marlin_perms()
 
-    print("SHAPE:", w.shape)
+    # print("SHAPE:", w.shape)
     #TODO experts dim
     size_k, size_n = w.shape
 
@@ -627,7 +627,7 @@ def marlin_quantize(
 
     # Quantize
     w_ref, q_w, s = quantize_weights(w, num_bits, group_size)
-    print("interm:", w_ref.size(), q_w.size(), s.size())
+    # print("interm:", w_ref.size(), q_w.size(), s.size())
 
     #TODO experts
     # Reformat to marlin
@@ -761,19 +761,27 @@ def fused_marlin_moe(
     sorted_token_ids, expert_ids, num_tokens_post_padded = moe_align_block_size(
         topk_ids, config['BLOCK_SIZE_M'], E)
 
-    # w_refs1 = []
+    print(sorted_token_ids, expert_ids, num_tokens_post_padded, config['BLOCK_SIZE_M'])
+
+    w_refs1 = []
     qweights1 = []
     scaless1 = []
 
     for i in range(w1.shape[0]):
-        _, qweight, scales = marlin_quantize(w1[i], 4, -1)
-        # w_refs1.append(w_ref)
+        w_ref, qweight, scales = marlin_quantize(w1[i], 4, -1)
+        w_refs1.append(w_ref)
         qweights1.append(qweight)
         scaless1.append(scales)
 
-    # w_ref1 = stack_and_dev(w_refs1)
+    w_ref1 = stack_and_dev(w_refs1)
     qweight1 = stack_and_dev(qweights1)
     scales1 = stack_and_dev(scaless1)
+
+    print("MNK:", M, N, K)
+    print("A size:", hidden_states.size())
+    print("wref size:", w_ref1.size())
+    print("qweight size:", qweight1.size())
+    print("scales size:", scales1.size())
 
     # w_refs2 = []
     qweights2 = []
@@ -795,11 +803,13 @@ def fused_marlin_moe(
                             device="cuda",
                             requires_grad=False)
 
-    intermediate_cache1 = moe_kernels.marlin_gemm_moe(hidden_states, qweight1, sorted_token_ids, scales1, workspace, M, N, K)
+    sorted_token_ids = sorted_token_ids // topk
+
+    intermediate_cache1 = moe_kernels.marlin_gemm_moe(hidden_states, qweight1, sorted_token_ids, scales1, workspace, M, w1.shape[2], w1.shape[1])
 
     ops.silu_and_mul(intermediate_cache2, intermediate_cache1.view(-1, N))
 
-    intermediate_cache3 = moe_kernels.marlin_gemm_moe(intermediate_cache2, qweight2, sorted_token_ids, scales2, workspace, M, N, K)
+    intermediate_cache3 = moe_kernels.marlin_gemm_moe(intermediate_cache2, qweight2, sorted_token_ids, scales2, workspace, M, w2.shape[2], w2.shape[1])
 
     if inplace:
         return torch.sum(intermediate_cache3.view(*intermediate_cache3.shape),
