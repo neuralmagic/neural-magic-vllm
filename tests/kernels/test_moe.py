@@ -23,6 +23,7 @@ def torch_moe(a, w1, w2, score, topk):
     topk_weight, topk_ids = torch.topk(score, topk)
     topk_weight = topk_weight.view(-1)
     topk_ids = topk_ids.view(-1)
+    print(topk_ids)
     for i in range(w1.shape[0]):
         mask = topk_ids == i
         # print(mask)
@@ -324,16 +325,18 @@ def test_fused_marlin_moe():
     shuffles = torch.range(0, m - 1, dtype=torch.int)
     sorted_ids = torch.full([m + (moe_block_size - 1)], m, dtype=torch.int).cuda()
     sorted_ids[:m] = shuffles
+    topk_ids = torch.full(e, 0, dtype=torch.int).cuda()
 
     score = torch.randn((m, e), device='cuda', dtype=dtype)
-    marlin_output = moe_kernels.marlin_gemm_moe(a, qweight, sorted_ids, scales, workspace, m, n, k)
+    marlin_output = moe_kernels.marlin_gemm_moe(a, qweight, sorted_ids, topk_ids, scales, workspace, m, n, k,
+        64, e, 1, moe_block_size)
     torch_output = torch_moe(a, w1, w2, score, topk)
     # assert torch.allclose(marlin_output, torch_output, atol=1e-2, rtol=0)
 
-@pytest.mark.parametrize("m", [4]) #[512, 222, 33, 1])
+@pytest.mark.parametrize("m", [8]) #[512, 222, 33, 1])
 @pytest.mark.parametrize("n", [2048]) #[2048, 256, 1024])
 @pytest.mark.parametrize("k", [1024]) #, 511, 1024])
-@pytest.mark.parametrize("e", [4]) #, 64])
+@pytest.mark.parametrize("e", [2]) #, 64])
 @pytest.mark.parametrize("topk", [2]) #, 6])
 @pytest.mark.parametrize("dtype", [torch.float16]) #, torch.bfloat16])
 def test_fused_marlin_moe_2(
@@ -353,7 +356,7 @@ def test_fused_marlin_moe_2(
     scaless1 = []
 
     for i in range(w1.shape[0]):
-        _, qweight, scales = marlin_quantize(w1[i], 4, -1)
+        _, qweight, scales = marlin_quantize(w1[i].transpose(1, 0), 4, -1)
         # w_refs1.append(w_ref)
         qweights1.append(qweight)
         scaless1.append(scales)
@@ -373,7 +376,7 @@ def test_fused_marlin_moe_2(
     scaless2 = []
 
     for i in range(w2.shape[0]):
-        _, qweight, scales = marlin_quantize(w2[i], 4, -1)
+        _, qweight, scales = marlin_quantize(w2[i].transpose(1, 0), 4, -1)
         # w_refs1.append(w_ref)
         qweights2.append(qweight)
         scaless2.append(scales)
@@ -386,10 +389,13 @@ def test_fused_marlin_moe_2(
     print(w2.size(), "->", qweight2.size())
 
     score = torch.randn((m, e), device='cuda', dtype=dtype)
-    marlin_output = fused_marlin_moe(a, qweight1, qweight2, scales1, scales2, score, topk, renormalize=False)
+    marlin_output = fused_marlin_moe(m, n, k, e, a, qweight1, qweight2, scales1, scales2, score, topk, renormalize=False)
     torch_output = torch_moe(a, w1, w2, score, topk)
 
     print(marlin_output.size())
     print(torch_output.size())
 
-    # assert torch.allclose(marlin_output, torch_output, atol=1e-2, rtol=0)
+    print(marlin_output)
+    print(torch_output)
+
+    assert torch.allclose(marlin_output, torch_output, atol=1e-2, rtol=0)

@@ -473,6 +473,7 @@ def fused_moe(
                             use_fp8=use_fp8)
 
     print("")
+    print("Ws:", w1.size(), w2.size())
     print("intermediate 1:", intermediate_cache1.size())
     print("intermediate 2:", intermediate_cache2.size())
     print("intermediate 3:", intermediate_cache3.size())
@@ -654,6 +655,10 @@ def stack_and_dev(tensors: List[torch.Tensor]):
 
 
 def fused_marlin_moe(
+    M: int,
+    N: int,
+    K: int,
+    E: int,
     hidden_states: torch.Tensor,
     w1: torch.Tensor,
     w2: torch.Tensor,
@@ -689,20 +694,20 @@ def fused_marlin_moe(
     - torch.Tensor: The output tensor after applying the MoE layer.
     """
     # Check constraints.
-    assert hidden_states.shape[0] == gating_output.shape[0], (
-        "Number of tokens mismatch")
-    assert hidden_states.shape[1] * 2 == w1.shape[2], "Hidden size mismatch"
-    assert gating_output.shape[1] == w1.shape[0], "Number of experts mismatch"
-    assert hidden_states.is_contiguous(), "Hidden_states must be contiguous"
-    assert w1.is_contiguous(), "Expert weights1 must be contiguous"
-    assert w2.is_contiguous(), "Expert weights2 must be contiguous"
-    assert hidden_states.dtype in [
-        torch.float32, torch.float16, torch.bfloat16
-    ]
+    # assert hidden_states.shape[0] == gating_output.shape[0], (
+    #     "Number of tokens mismatch")
+    # assert hidden_states.shape[1] * 2 == w1.shape[2], "Hidden size mismatch"
+    # assert gating_output.shape[1] == w1.shape[0], "Number of experts mismatch"
+    # assert hidden_states.is_contiguous(), "Hidden_states must be contiguous"
+    # assert w1.is_contiguous(), "Expert weights1 must be contiguous"
+    # assert w2.is_contiguous(), "Expert weights2 must be contiguous"
+    # assert hidden_states.dtype in [
+    #     torch.float32, torch.float16, torch.bfloat16
+    # ]
 
 
-    M, K = hidden_states.shape
-    E, N, _ = w1.shape
+    # M, K = hidden_states.shape
+    # E, N, _ = w1.shape
 
     if is_hip():
         # The MoE kernels are not yet supported on ROCm.
@@ -725,6 +730,7 @@ def fused_marlin_moe(
                                             topk,
                                             dtype=torch.int32,
                                             device=hidden_states.device)
+
         moe_kernels.topk_softmax(
             topk_weights,
             topk_ids,
@@ -735,12 +741,15 @@ def fused_marlin_moe(
     if renormalize:
         topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
 
+    print("topk_weights:", topk_weights)
+    print("topk_ids:", topk_ids)
+    # print("token_expert_indicies:", token_expert_indicies)
+
     if override_config:
         config = override_config
     else:
         # First try to load optimal config from the file
-        configs = get_moe_configs(E, w2.shape[2],
-                                  "float8" if use_fp8 else None)
+        configs = get_moe_configs(E, K, "float8" if use_fp8 else None)
 
         if configs:
             # If an optimal configuration map has been found, look up the
@@ -763,14 +772,18 @@ def fused_marlin_moe(
                     'GROUP_SIZE_M': 1
                 }
 
-    intermediate_cache2 = torch.empty((M * topk_ids.shape[1], N // 2),
+    intermediate_cache2 = torch.empty((M * topk_ids.shape[1], N),
                                       device=hidden_states.device,
                                       dtype=hidden_states.dtype)
 
     sorted_token_ids, expert_ids, num_tokens_post_padded = moe_align_block_size(
         topk_ids, config['BLOCK_SIZE_M'], E)
 
-    print(sorted_token_ids, expert_ids, num_tokens_post_padded, config['BLOCK_SIZE_M'])
+    print("sorted_token_ids:", sorted_token_ids)
+    print("expert_ids:", expert_ids)
+    print("num_tokens_post_padded:", num_tokens_post_padded, config['BLOCK_SIZE_M'])
+
+    print("scales size:", scales1.size(), scales2.size())
 
     max_workspace_size = (N // 64) * 16
     workspace = torch.zeros(max_workspace_size,
@@ -778,17 +791,24 @@ def fused_marlin_moe(
                             device="cuda",
                             requires_grad=False)
 
-    sorted_token_ids = sorted_token_ids // topk
-
-    print(w1.size(), w2.size())
-
-    intermediate_cache1 = moe_kernels.marlin_gemm_moe(hidden_states, w1, sorted_token_ids, scales1, workspace, M, w1.shape[2] // 2, w1.shape[1] * 8)
+    intermediate_cache1 = moe_kernels.marlin_gemm_moe(hidden_states, w1,
+        sorted_token_ids, topk_ids, scales1, workspace,
+        M, N * 2, K, num_tokens_post_padded, E, topk, 16)
 
     ops.silu_and_mul(intermediate_cache2, intermediate_cache1.view(-1, N))
 
-    intermediate_cache3 = moe_kernels.marlin_gemm_moe(intermediate_cache2, w2, sorted_token_ids, scales2, workspace, M, w2.shape[2] // 2, w2.shape[1] * 8)
+    intermediate_cache3 = moe_kernels.marlin_gemm_moe(intermediate_cache2, w2,
+        sorted_token_ids, topk_ids, scales2, workspace,
+        M, K, N, num_tokens_post_padded, E, topk, 16)
 
-    print("intermediate:", intermediate_cache3.size())
+    # intermediate_cache3 = intermediate_cache3.reshape
+
+    # return intermediate_cache3
+
+    print("Ws:", w1.size(), w2.size())
+    print("intermediate 1:", intermediate_cache1.size())
+    print("intermediate 2:", intermediate_cache2.size())
+    print("intermediate 3:", intermediate_cache3.size())
 
     if inplace:
         return torch.sum(intermediate_cache3.view(*intermediate_cache3.shape),
