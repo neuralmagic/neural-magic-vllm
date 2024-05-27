@@ -101,11 +101,17 @@ RUN apt-get update -y \
 # or future versions of triton.
 RUN ldconfig /usr/local/cuda-12.4/compat/
 
+# UPSTREAM SYNC: Install sparsity extras
+RUN --mount=type=bind,from=build,src=/workspace/dist,target=/vllm-workspace/dist \
+    --mount=type=cache,target=/root/.cache/pip \
+    pip install nm-magic-wand-nightly --extra-index-url https://pypi.neuralmagic.com/simple
+
 # install vllm wheel first, so that torch etc will be installed
 RUN --mount=type=bind,from=build,src=/workspace/dist,target=/vllm-workspace/dist \
     --mount=type=cache,target=/root/.cache/pip \
     pip install dist/*.whl --verbose
 #################### vLLM installation IMAGE ####################
+
 
 #################### TEST IMAGE ####################
 # image to run unit testing suite
@@ -113,10 +119,6 @@ RUN --mount=type=bind,from=build,src=/workspace/dist,target=/vllm-workspace/dist
 FROM vllm-base AS test
 
 ADD . /vllm-workspace/
-
-# UPSTREAM SYNC: Install sparsity extras
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip3 install nm-magic-wand-nightly
 
 # install development dependencies (for testing)
 RUN --mount=type=cache,target=/root/.cache/pip \
