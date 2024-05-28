@@ -209,6 +209,12 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
       COMPILE_FLAGS
       "-gencode arch=compute_90a,code=sm_90a")
 
+  set_source_files_properties(
+      ${CUTLASS_W8A8_GENERATED_SRC}
+      PROPERTIES
+      COMPILE_FLAGS
+      "-gencode arch=compute_90a,code=sm_90a")
+
 endif()
 
 define_gpu_extension_target(

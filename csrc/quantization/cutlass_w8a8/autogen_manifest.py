@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import List, Tuple
+from itertools import product
 import copy
 
 @dataclass
@@ -55,7 +56,7 @@ class Cutlass3xArgs:
 
     def with_cluster_shape(self, cs):
         clone = copy.deepcopy(self)
-        clone.tile_shape = cs 
+        clone.cluster_shape = cs 
         return clone
 
     def with_tile_schedule(self, ts):
@@ -126,4 +127,236 @@ DefaultCutlass3xArgsFP8 = Cutlass3xArgs(
         "cutlass::gemm::PersistentScheduler",
         "cutlass::gemm::GemmUniversalMode::kGemm")
 
-Cutlass3xArgsList = [DefaultCutlass3xArgsI8, DefaultCutlass3xArgsFP8]
+## Kernel Schedules
+## All 
+# struct KernelMultistage { };
+# struct KernelCpAsyncWarpSpecialized { };
+# struct KernelCpAsyncWarpSpecializedPingpong { };
+# struct KernelCpAsyncWarpSpecializedCooperative { };
+# struct KernelTma { };
+# struct KernelTmaWarpSpecialized { };
+# struct KernelTmaWarpSpecializedPingpong { };
+# struct KernelTmaWarpSpecializedCooperative { };
+# struct KernelPtrArrayTmaWarpSpecializedCooperative { };
+## FP8
+# struct KernelTmaWarpSpecializedFP8FastAccum : KernelTmaWarpSpecialized { };
+# struct KernelTmaWarpSpecializedPingpongFP8FastAccum : KernelTmaWarpSpecializedPingpong { };
+# struct KernelTmaWarpSpecializedCooperativeFP8FastAccum: KernelTmaWarpSpecializedCooperative { };
+# struct KernelPtrArrayTmaWarpSpecializedCooperativeFP8FastAccum : KernelPtrArrayTmaWarpSpecializedCooperative { };
+
+## Epilogue policies
+# struct NoSmemWarpSpecialized {};
+# struct PtrArrayNoSmemWarpSpecialized {};
+# struct TmaWarpSpecialized {};
+# struct TmaWarpSpecializedCooperative {};
+
+## Tile scheduler
+# struct PersistentScheduler { };
+# struct StreamKScheduler { };
+
+## Kgemms
+# kGemm
+# kGemmSplitKParallel,
+# kBatched,
+# kArray,
+# kGrouped,
+# kInvalid
+
+Cutlass3xArgsListI8 = [
+
+    Cutlass3xArgs(
+            "int8",
+            90,
+            (128, 128, 128),
+            (1, 2, 1),
+            "cutlass::gemm::KernelTmaWarpSpecialized",
+            "cutlass::epilogue::TmaWarpSpecialized",
+            "cutlass::gemm::PersistentScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm"),
+    Cutlass3xArgs(
+            "int8",
+            90,
+            (128, 128, 128),
+            (1, 2, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedPingpong",
+            "cutlass::epilogue::TmaWarpSpecialized",
+            "cutlass::gemm::PersistentScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm"),
+    Cutlass3xArgs(
+            "int8",
+            90,
+            (128, 128, 128),
+            (1, 2, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedCooperative",
+            "cutlass::epilogue::TmaWarpSpecializedCooperative",
+            "cutlass::gemm::PersistentScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm"),
+    Cutlass3xArgs(
+            "int8",
+            90,
+            (128, 128, 128),
+            (1, 1, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedCooperative",
+            "cutlass::epilogue::TmaWarpSpecializedCooperative",
+            "cutlass::gemm::StreamKScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm"),
+        ]
+
+Cutlass3xArgsList=Cutlass3xArgsListI8
+
+def bad_3x_arg(arg):
+
+    bad_tiles = [(256,256,256)]
+    if arg.tile_shape in bad_tiles:
+        return True
+
+    if "Cooperative" in arg.kernel_schedule and arg.tile_shape[0] < 128:
+        return True
+
+    return False
+
+#cluster_shapes = [(1, 1, 1), (2, 1, 1), (1, 2, 1), (1, 1, 2),
+#                  (2, 2, 1), (2, 1, 2), (1, 2, 2),
+#                  (4, 1, 1), (1, 4, 1), (1, 1, 4)]
+tile_shapes_m = [64, 128, 256]
+tile_shapes_n = [64, 128, 256]
+tile_shapes_k = [32, 64, 128, 256]
+tile_shapes = list(product(tile_shapes_m, tile_shapes_n, tile_shapes_k))
+
+tile_cluster_shapes = list(product(tile_shapes, [(1,1,1)]))
+
+Cutlass3xArgsTileList = []
+for arg in Cutlass3xArgsList:
+    for tile_cluster in tile_cluster_shapes:
+        tile, cluster = tile_cluster
+        Cutlass3xArgsTileList.append(
+                arg.with_tile_shape(tile).with_cluster_shape(cluster))
+
+Cutlass3xArgsTileListI8 = list(filter(lambda x: not bad_3x_arg(x) ,Cutlass3xArgsTileList))
+
+cluster_shapes = [(1, 1, 1), (2, 1, 1), (1, 2, 1), 
+                  (2, 2, 1), (4, 1, 1), (1, 4, 1),
+                  (8, 1, 1), (1, 8, 1), (4, 4, 1)]
+
+Cutlass3xArgsClusterList = []
+for arg in Cutlass3xArgsList:
+    for cluster in cluster_shapes:
+        Cutlass3xArgsClusterList.append(
+                arg.with_cluster_shape(cluster))
+
+Cutlass3xArgsClusterListI8 = list(filter(lambda x: not bad_3x_arg(x) ,Cutlass3xArgsClusterList))
+
+Cutlass3xArgsListFP8 = [
+    Cutlass3xArgs(
+            "fp8",
+            90,
+            (128, 128, 128),
+            (1, 2, 1),
+            "cutlass::gemm::KernelTmaWarpSpecialized",
+            "cutlass::epilogue::TmaWarpSpecialized",
+            "cutlass::gemm::PersistentScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm"),
+    Cutlass3xArgs(
+            "fp8",
+            90,
+            (128, 128, 128),
+            (1, 2, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedCooperative",
+            "cutlass::epilogue::TmaWarpSpecializedCooperative",
+            "cutlass::gemm::PersistentScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel"),
+    Cutlass3xArgs(
+            "fp8",
+            90,
+            (128, 128, 128),
+            (1, 2, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedPingpong",
+            "cutlass::epilogue::TmaWarpSpecialized",
+            "cutlass::gemm::PersistentScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm"),
+    Cutlass3xArgs(
+            "fp8",
+            90,
+            (128, 128, 128),
+            (1, 2, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedCooperative",
+            "cutlass::epilogue::TmaWarpSpecializedCooperative",
+            "cutlass::gemm::PersistentScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm"),
+
+    Cutlass3xArgs(
+            "fp8",
+            90,
+            (128, 128, 64),
+            (1, 1, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedCooperative",
+            "cutlass::epilogue::TmaWarpSpecializedCooperative",
+            "cutlass::gemm::StreamKScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm"),
+
+    Cutlass3xArgs(
+            "fp8",
+            90,
+            (128, 128, 64),
+            (1, 1, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedCooperative",
+            "cutlass::epilogue::TmaWarpSpecializedCooperative",
+            "cutlass::gemm::StreamKScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel")
+    ]
+
+Cutlass3xArgsListFP8FastAccum = [
+    Cutlass3xArgs(
+            "fp8",
+            90,
+            (128, 128, 128),
+            (1, 2, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedFP8FastAccum",
+            "cutlass::epilogue::TmaWarpSpecialized",
+            "cutlass::gemm::PersistentScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm"),
+    Cutlass3xArgs(
+            "fp8",
+            90,
+            (128, 128, 128),
+            (1, 2, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedPingpongFP8FastAccum",
+            "cutlass::epilogue::TmaWarpSpecialized",
+            "cutlass::gemm::PersistentScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm"),
+    Cutlass3xArgs(
+            "fp8",
+            90,
+            (128, 128, 128),
+            (1, 2, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedCooperativeFP8FastAccum",
+            "cutlass::epilogue::TmaWarpSpecializedCooperative",
+            "cutlass::gemm::PersistentScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm"),
+
+    Cutlass3xArgs(
+            "fp8",
+            90,
+            (128, 128, 64),
+            (1, 1, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedCooperativeFP8FastAccum",
+            "cutlass::epilogue::TmaWarpSpecializedCooperative",
+            "cutlass::gemm::StreamKScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm"),
+        ]
+
+clusters_fp8 = [(1, 2, 1), (1, 8, 1), (1, 4, 1), (4, 4, 1), (2, 1, 1) ]
+
+tile_shapes_fp8 =  [(128, 128, 128), (128, 64, 128), (64, 64, 256),
+        (64, 64, 128), (64, 128, 256), (64, 128, 128)]
+
+tiles_clusters_fp8 = list(product(tile_shapes_fp8, clusters_fp8))
+
+Cutlass3xArgsListFP8FastAccumTC = []
+for arg in Cutlass3xArgsListFP8FastAccum:
+    for tile_cluster in tiles_clusters_fp8:
+        tile, cluster = tile_cluster
+        Cutlass3xArgsListFP8FastAccumTC.append(arg.with_tile_shape(tile).with_cluster_shape(cluster))
+
+Cutlass3xArgsListFP8FastAccumTC = list(filter(
+    lambda x: not bad_3x_arg(x), Cutlass3xArgsListFP8FastAccumTC))

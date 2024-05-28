@@ -9,7 +9,7 @@ from vllm import _custom_ops as ops
 from bench_plot import plot_measurements, plot_model_measurements
 
 DEFAULT_MODELS = list(WEIGHT_SHAPES.keys())[1:]
-DEFAULT_BATCH_SIZES = [1, 16, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256]
+DEFAULT_BATCH_SIZES = [1, 16, 32, 64, 128, 256, 512]
 
 # helpers 
 
@@ -49,6 +49,9 @@ def pytorch_i8_impl(a, b, scale_a, scale_b, out_dtype, impl_fn = None):
 def pytorch_fp8_impl(a, b, scale_a, scale_b, out_dtype, impl_fn = None):
     return torch._scaled_mm(a, b, out_dtype=out_dtype, scale_a=scale_a, scale_b=scale_b)
 
+def pytorch_fp8_fastaccum_impl(a, b, scale_a, scale_b, out_dtype, impl_fn = None):
+    return torch._scaled_mm(a, b, out_dtype=out_dtype, scale_a=scale_a, scale_b=scale_b, use_fast_accum=True)
+
 def cutlass_impl(a, b, scale_a, scale_b, out_dtype, impl_fn = None):
     return ops.cutlass_scaled_mm_dq(a, b, scale_a, scale_b, out_dtype = out_dtype)
 
@@ -57,6 +60,19 @@ def autogen_cutlass2x_wrapper(a, b, scale_a, scale_b, out_dtype, impl_fn):
     n = b.shape[1]
     out = torch.zeros((m, n), dtype=out_dtype, device=a.device)
     return impl_fn(out, a, b, scale_a, scale_b)
+
+def get_autogen_cutlass3x_impls(dtype):
+    impls = []
+
+    type_str = 'int8' if dtype == torch.int8 else "fp8"
+    try:
+        from vllm._C import ops as cutlass2x
+        impls = dir(cutlass2x)
+        impls = list(filter(lambda x: x.startswith('autogen_cutlass3x') and type_str in x, impls))
+    except Exception as e:
+        print ("No cutlass3x autogen kernels found")
+
+    return impls
 
 def get_autogen_cutlass2x_impls():
     impls = {}
@@ -97,19 +113,33 @@ def bench_fn(a, b, scale_a, scale_b, out_dtype, label, sub_label, fn, descriptio
 
 def bench_cutlass_impls(a, b, scale_a, scale_b, out_dtype, label, sub_label, description):
 
-    autogen_impls = get_autogen_cutlass2x_impls()
+    #autogen_impls = get_autogen_cutlass2x_impls()
+    autogen_impls_all = get_autogen_cutlass3x_impls(a.dtype)
+    # Run autogen kernels to see if they work
+    autogen_impls = []
+    for autogen_impl in autogen_impls_all:
+        from vllm._C import ops as cutlass2x
+        impl = getattr(cutlass2x, autogen_impl)
+        try:
+            autogen_cutlass2x_wrapper(a, b, scale_a, scale_b, out_dtype, impl)
+            print(f"Success : {autogen_impl}")
+            autogen_impls.append(autogen_impl)
+        except Exception as e:
+            print(f"Error : can't run Cutlass2x impl {autogen_impl}")
+            torch.cuda.synchronize()
+            pass
+
+    autogen_timers = []
+    for desc in autogen_impls:
+        print (f"bench autogen kernel {desc} ...")
+        from vllm._C import ops as cutlass2x
+        timer = bench_fn(a, b, scale_a, scale_b, out_dtype, label, sub_label,
+                         autogen_cutlass2x_wrapper, desc, getattr(cutlass2x, desc))
+        autogen_timers.append(timer)
 
     print ("bench default kernel ...")
     default_impl_timer = bench_fn(a, b, scale_a, scale_b, out_dtype, label, sub_label, 
-                             cutlass_impl, "cutlass_i8_i8_bf16_scaled_mm")
-
-    autogen_timers = []
-    for desc, fn in autogen_impls.items():
-        print (f"bench autogen kernel {desc} ...")
-        timer = bench_fn(a, b, scale_a, scale_b, out_dtype, label, sub_label,
-                         autogen_cutlass2x_wrapper, desc, fn)
-        autogen_timers.append(timer)
-
+                             cutlass_impl, description)
 
     return autogen_timers + [default_impl_timer]
 
@@ -134,13 +164,28 @@ def bench_fp8(dtype, m, k, n, label, sub_label):
     scale_a = torch.tensor(1.0, device="cuda", dtype = torch.float32)
     scale_b = torch.tensor(1.0, device="cuda", dtype = torch.float32)
 
-    py_timer = bench_fn(a, b, scale_a, scale_b, torch.bfloat16, label, sub_label, 
-                        pytorch_fp8_impl, "pytorch_fp8_fp8_bf16_scaled_mm")
+    py_timers = []
+    py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.bfloat16, label, sub_label, 
+                        pytorch_fp8_impl, "pytorch_fp8_fp8_bf16_scaled_mm"))
+    py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.bfloat16, label, sub_label, 
+                        pytorch_fp8_fastaccum_impl, "pytorch_fp8_fp8_bf16_scaled_mm_fastaccum"))
+    py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.float16, label, sub_label, 
+                        pytorch_fp8_impl, "pytorch_fp8_fp8_fp16_scaled_mm"))
+    py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.float16, label, sub_label, 
+                        pytorch_fp8_fastaccum_impl, "pytorch_fp8_fp8_fp16_scaled_mm_fastaccum"))
+    py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.float32, label, sub_label, 
+                        pytorch_fp8_impl, "pytorch_fp8_fp8_fp32_scaled_mm"))
+    py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.float32, label, sub_label, 
+                        pytorch_fp8_fastaccum_impl, "pytorch_fp8_fp8_fp32_scaled_mm_fastaccum"))
 
-    cutlass_timers = bench_cutlass_impls(a, b, scale_a.to(device="cpu"), scale_b.to(device="cpu"),
-                                        torch.bfloat16, label, sub_label, "cutlass_fp8_fp8_bf16_scaled_mm")
+    #py_timer = bench_fn(a, b, scale_a, scale_b, torch.bfloat16, label, sub_label, 
+    #                    pytorch_fp8_impl, "pytorch_fp8_fp8_bf16_scaled_mm")
 
-    return [py_timer] + cutlass_timers
+    #cutlass_timers = bench_cutlass_impls(a, b, scale_a.to(device="cpu"), scale_b.to(device="cpu"),
+    #                                    torch.bfloat16, label, sub_label, "cutlass_fp8_fp8_bf16_scaled_mm")
+
+    #return [py_timer] + cutlass_timers
+    return py_timers
 
 def bench(dtype, m, k, n, label, sublabel):
     if dtype == torch.int8:

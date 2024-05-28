@@ -13,6 +13,8 @@
 #include "cute/atom/mma_atom.hpp"
 #include "cutlass/numeric_types.h"
 
+#include "cutlass/util/device_memory.h"
+
 #include "cutlass/gemm/device/gemm_universal_adapter.h"
 #include "cutlass/gemm/kernel/gemm_universal.hpp"
 #include "cutlass/epilogue/collective/collective_builder.hpp"
@@ -179,9 +181,13 @@ inline void cutlass_scaled_mm_dq_dispatcher(torch::Tensor &out, torch::Tensor co
   CUTLASS_CHECK(gemm_op.can_implement(args));
 
   size_t workspace_size = gemm_op.get_workspace_size(args);
-  TORCH_CHECK(workspace_size == 0);
-
-  cutlass::Status status = gemm_op.run(args);
-  CUTLASS_CHECK(status);
+  if (workspace_size) {
+    cutlass::device_memory::allocation<uint8_t> workspace(workspace_size);
+    cutlass::Status status = gemm_op.run(args, workspace.get());
+    CUTLASS_CHECK(status);
+  } else {
+    cutlass::Status status = gemm_op.run(args);
+    CUTLASS_CHECK(status);
+  }
 }
 

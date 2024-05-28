@@ -5,7 +5,9 @@ from pathlib import Path
 from itertools import product
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from autogen_manifest import Cutlass2xArgs, Cutlass3xArgs, Cutlass2xArgsList, Cutlass3xArgsList
+from autogen_manifest import (Cutlass2xArgs, Cutlass3xArgs, Cutlass2xArgsList,
+        Cutlass3xArgsList, Cutlass3xArgsTileList, Cutlass3xArgsListFP8FastAccum,
+        Cutlass3xArgsClusterList, Cutlass3xArgsListFP8FastAccumTC)
 import os
 
 ## Utilities ####
@@ -319,7 +321,7 @@ def generate_cutlass2x_kernels():
     Cutlass2xGenerator.generate(Cutlass2xArgsList)
 
 def generate_cutlass3x_kernels():
-    Cutlass3xGenerator.generate(Cutlass3xArgsList)
+    Cutlass3xGenerator.generate(Cutlass3xArgsListFP8FastAccumTC)
 
 def main(args):
     if args.version == "all":
