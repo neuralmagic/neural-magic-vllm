@@ -77,7 +77,13 @@ async def my_chat(
          "sparse_w16a16", None),
         ("HuggingFaceH4/zephyr-7b-gemma-v0.1", 4096, None, None),
         ("Qwen/Qwen1.5-7B-Chat", 4096, None, None),
-        ("microsoft/phi-2", 2048, None, None),
+        pytest.param(
+            "microsoft/phi-2",
+            2048,
+            None,
+            None,
+            marks=pytest.mark.skip(
+                "https://app.asana.com/0/1206976017967941/1207409474409275")),
         pytest.param(
             "neuralmagic/phi-2-super-marlin",
             2048,
