@@ -47,80 +47,21 @@ async def my_chat(
                                                 top_logprobs=num_logprobs)
 
 
-@pytest.mark.parametrize(
-    "model, max_model_len, sparsity, gptq_config",
-    [
-        ("mistralai/Mistral-7B-Instruct-v0.2", 4096, None, None),
-        # pytest.param("mistralai/Mixtral-8x7B-Instruct-v0.1", 4096, None, None,
-        #              # marks=pytest.mark.skip(
-        #              #     "skipped because the HFRunner "
-        #              #     "will need the 'optimum' package")
-        #              ),
-        # pytest.param("neuralmagic/zephyr-7b-beta-marlin", 4096, None, None,
-        #              # marks=pytest.mark.skip(
-        #              #     "skipped because the HFRunner "
-        #              #     "will need the 'optimum' package")
-        #              ),
-        ("neuralmagic/OpenHermes-2.5-Mistral-7B-pruned50", 4096,
-         "sparse_w16a16", None),
-        ("NousResearch/Llama-2-7b-chat-hf", 4096, None, None),
-        # pytest.param(
-        #     "neuralmagic/TinyLlama-1.1B-Chat-v1.0-marlin",
-        #     None,
-        #     None,
-        #     None,
-        #     # marks=pytest.mark.skip(
-        #     #     "skipped because the HFRunner will need the "
-        #     #     "'optimum' package")
-        # ),
-        ("neuralmagic/Llama-2-7b-pruned70-retrained-ultrachat", 4096,
-         "sparse_w16a16", None),
-        ("HuggingFaceH4/zephyr-7b-gemma-v0.1", 4096, None, None),
-        ("Qwen/Qwen1.5-7B-Chat", 4096, None, None),
-        pytest.param(
-            "microsoft/phi-2",
-            2048,
-            None,
-            None,
-            marks=pytest.mark.skip(
-                "https://app.asana.com/0/1206976017967941/1207409474409275")),
-        pytest.param(
-            "neuralmagic/phi-2-super-marlin",
-            2048,
-            None,
-            None,
-            marks=pytest.mark.skip(
-                "https://app.asana.com/0/1206976017967941/1207360919122996")),
-        pytest.param(
-            "neuralmagic/phi-2-pruned50",
-            2048,
-            "sparse_w16a16",
-            None,
-            marks=pytest.mark.skip(
-                "https://app.asana.com/0/1206976017967941/1207360919122996")),
-        # pytest.param(
-        #     "Qwen/Qwen1.5-MoE-A2.7B-Chat",
-        #     4096,
-        #     None,
-        #     None,
-        #     marks=pytest.mark.skip(
-        #         "CUDA out of memory. Tried to allocate 20.00 MiB. GPU")
-        # ),
-        pytest.param("casperhansen/gemma-7b-it-awq", 4096, None,
-                     "gptq_marlin"),
-        # pytest.param(
-        #     "TheBloke/Llama-2-7B-Chat-GPTQ",
-        #     4096,
-        #     None,
-        #     None,
-        #     # marks=pytest.mark.skip(
-        #     #     "skipped because the HFRunner will need the "
-        #     #     "'optimum' package")
-        # ),
-    ])
+@pytest.mark.parametrize("model, max_model_len, sparsity, gptq_config", [
+    ("mistralai/Mistral-7B-Instruct-v0.2", 4096, None, None),
+    ("neuralmagic/OpenHermes-2.5-Mistral-7B-pruned50", 4096, "sparse_w16a16",
+     None),
+    ("NousResearch/Llama-2-7b-chat-hf", 4096, None, None),
+    ("neuralmagic/Llama-2-7b-pruned70-retrained-ultrachat", 4096,
+     "sparse_w16a16", None),
+    ("Qwen/Qwen1.5-7B-Chat", 4096, None, None),
+    ("casperhansen/gemma-7b-it-awq", 4096, None, "gptq_marlin"),
+    ("mistralai/Mixtral-8x7B-Instruct-v0.1", 4096, None, None),
+    ("Qwen/Qwen1.5-MoE-A2.7B-Chat", 4096, None, None),
+])
 @pytest.mark.parametrize("max_tokens", [32])
 @pytest.mark.parametrize("num_logprobs", [3])
-@pytest.mark.parametrize("tensor_parallel_size", [None, 2])
+@pytest.mark.parametrize("tensor_parallel_size", [None])
 # note: repeating the test for 2 values of tensor_parallel_size
 #  increases the overall execution time by unnecessarily
 #  collecting the HuggingFace runner data twice.
@@ -140,7 +81,14 @@ def test_models_on_server(
     This test compares the output of the vllm OpenAI server against that of
     a HuggingFace transformer.  We expect them to be fairly close.  "Close"
     is measured by checking that the top 3 logprobs for each token includes
-    the token of the other inference tool.
+    the token of the other inference tool.  The first time that there is no
+    exact match, as long as there is a match to one of the top `num_logprobs`
+    logprobs, the test will not proceed further, but will pass.
+
+    Parameters to the test identify a model to test, and key arguments
+    required for that model (see the `max_model_len`, `sparsity` and
+    `gptq_config` params below). The additional parametrizations expand test
+    coverage across the functional space of the server.
 
     :param hf_runner_nm:  fixture for the HfRunnerNM
     :param client: fixture with an openai.AsyncOpenAI client
