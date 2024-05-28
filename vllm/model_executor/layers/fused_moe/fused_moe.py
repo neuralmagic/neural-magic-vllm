@@ -791,28 +791,35 @@ def fused_marlin_moe(
                             device="cuda",
                             requires_grad=False)
 
+    # intermediate_cache1 = moe_kernels.marlin_gemm_moe(hidden_states, w1,
+    #     sorted_token_ids, topk_ids, scales1, workspace,
+    #     M, N * 2, K, num_tokens_post_padded, E, topk, config['BLOCK_SIZE_M'])
+
     intermediate_cache1 = moe_kernels.marlin_gemm_moe(hidden_states, w1,
         sorted_token_ids, topk_ids, scales1, workspace,
-        M, N * 2, K, num_tokens_post_padded, E, topk, 16)
+        M, N, K, num_tokens_post_padded, E, topk, config['BLOCK_SIZE_M'])
 
-    ops.silu_and_mul(intermediate_cache2, intermediate_cache1.view(-1, N))
-
-    intermediate_cache3 = moe_kernels.marlin_gemm_moe(intermediate_cache2, w2,
-        sorted_token_ids, topk_ids, scales2, workspace,
-        M, K, N, num_tokens_post_padded, E, topk, 16)
-
-    # intermediate_cache3 = intermediate_cache3.reshape
-
-    # return intermediate_cache3
-
-    print("Ws:", w1.size(), w2.size())
-    print("intermediate 1:", intermediate_cache1.size())
-    print("intermediate 2:", intermediate_cache2.size())
-    print("intermediate 3:", intermediate_cache3.size())
-
-    if inplace:
-        return torch.sum(intermediate_cache3.view(*intermediate_cache3.shape),
-                         dim=1,
-                         out=hidden_states)
-    return torch.sum(intermediate_cache3.view(*intermediate_cache3.shape),
+    return torch.sum(intermediate_cache1.view(*intermediate_cache1.shape),
                      dim=1)
+
+    # ops.silu_and_mul(intermediate_cache2, intermediate_cache1.view(-1, N))
+
+    # intermediate_cache3 = moe_kernels.marlin_gemm_moe(intermediate_cache2, w2,
+    #     sorted_token_ids, topk_ids, scales2, workspace,
+    #     M, K, N, num_tokens_post_padded, E, topk, config['BLOCK_SIZE_M'])
+
+    # # intermediate_cache3 = intermediate_cache3.reshape
+
+    # # return intermediate_cache3
+
+    # print("Ws:", w1.size(), w2.size())
+    # print("intermediate 1:", intermediate_cache1.size())
+    # print("intermediate 2:", intermediate_cache2.size())
+    # print("intermediate 3:", intermediate_cache3.size())
+
+    # if inplace:
+    #     return torch.sum(intermediate_cache3.view(*intermediate_cache3.shape),
+    #                      dim=1,
+    #                      out=hidden_states)
+    # return torch.sum(intermediate_cache3.view(*intermediate_cache3.shape),
+    #                  dim=1)
