@@ -31,6 +31,7 @@ class Server:
                 self.cmd.append(str(v))
         self.max_ready_wait = max_ready_wait
         self.proc = None
+        self.running = False
 
     def __enter__(self):
         log_banner(self.logger, "server startup command", shlex.join(self.cmd))
@@ -41,6 +42,8 @@ class Server:
             self._wait_for_server_ready()
         except:
             self.__exit__(sys.exc_info())
+
+        return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         print('context manager __exit__')
@@ -62,6 +65,7 @@ class Server:
                 if requests.get(
                         f"http://{BENCH_SERVER_HOST}:{BENCH_SERVER_PORT}/health",
                         timeout=10).status_code == 200:
+                    self.running = True
                     break
             except Exception as e:
                 if self.proc and self.proc.poll() is not None:
@@ -117,7 +121,9 @@ def run_benchmark_serving_script(config: NamedTuple,
     assert config.script_name == 'benchmark_serving'
 
     def run_bench(server_cmd: str, bench_cmd: List[str], model: str) -> None:
-        with Server(server_cmd):
+        with Server(server_cmd) as server:
+            if not server.running:
+                return
             # server warmup
             warmup_server(server_host=BENCH_SERVER_HOST,
                           server_port=BENCH_SERVER_PORT,
