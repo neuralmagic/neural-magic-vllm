@@ -453,7 +453,7 @@ setup(
     install_requires=get_requirements(),
     ext_modules=ext_modules,
     # UPSTREAM SYNC: needed for sparsity
-    _sparsity_deps = [f"nm-magic-wand-nightly"]
+    _sparsity_deps = ["nm-magic-wand-nightly"]
     nm_release_type = os.getenv(NM_RELEASE_TYPE)
     if nm_release_type == 'RELEASE':
         # gate magic-wand version in nm-vllm for release; for nightly, we always install the latest
