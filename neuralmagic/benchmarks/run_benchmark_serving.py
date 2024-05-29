@@ -37,7 +37,10 @@ class Server:
         self.proc = subprocess.Popen(self.cmd,
                                      stderr=subprocess.STDOUT,
                                      stdout=subprocess.PIPE)
-        self._wait_for_server_ready()
+        try:
+            self._wait_for_server_ready()
+        except:
+            self.__exit__(sys.exc_info())
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         print('context manager __exit__')
