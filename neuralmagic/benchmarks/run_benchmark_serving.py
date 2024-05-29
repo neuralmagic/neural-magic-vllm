@@ -6,7 +6,6 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from tempfile import TemporaryFile
 from typing import Dict, List, NamedTuple, Optional
 
 import requests
@@ -30,28 +29,23 @@ class Server:
             self.cmd.extend([f"--{k}", str(v)])
         self.max_ready_wait = max_ready_wait
         self.proc = None
-        self.output_file = TemporaryFile()
 
     def __enter__(self):
         log_banner(self.logger, "server startup command", shlex.join(self.cmd))
         self.proc = subprocess.Popen(self.cmd,
                                      stderr=subprocess.STDOUT,
-                                     stdout=self.output_file.fileno())
+                                     stdout=subprocess.PIPE)
         self._wait_for_server_ready()
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         if self.proc and self.proc.poll() is None:
             self.logger.info("killing server")
             self.proc.kill()
-
-        if exc_type is None:
-            return  # only log if an exception occurred
-
-        self.output_file.seek(0)
-        self.output = self.output_file.read()
-        self.output_file.close()
-
-        log_banner(self.logger, "server output", self.output)
+        log_banner(
+            self.logger, "context exit args", f"exc_type={exc_type}\n"
+            f"exc_value={exc_value}\n"
+            f"exc_traceback={exc_traceback}")
+        log_banner(self.logger, "server output", self.proc.stdout)
 
     def _wait_for_server_ready(self):
         self.logger.info("waiting for server to become ready")
