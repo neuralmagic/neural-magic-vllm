@@ -16,3 +16,4 @@ tests/spec_decode/e2e/test_ngram_correctness.py
 tests/spec_decode/e2e/test_compatibility.py
 tests/spec_decode/e2e/test_multistep_correctness.py
 tests/accuracy/test_lm_eval_correctness.py
+tests/engine/test_multiproc_workers.py
