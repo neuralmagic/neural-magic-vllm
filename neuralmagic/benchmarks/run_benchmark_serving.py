@@ -26,7 +26,9 @@ class Server:
         self.logger = make_logger("nm-vllm-server")
         self.cmd = [sys.executable, "-m", "vllm.entrypoints.api_server"]
         for k, v in args.items():
-            self.cmd.extend([f"--{k}", str(v)])
+            self.cmd.append(f"--{k}")
+            if v:
+                self.cmd.append(str(v))
         self.max_ready_wait = max_ready_wait
         self.proc = None
 
