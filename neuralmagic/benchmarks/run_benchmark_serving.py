@@ -11,8 +11,8 @@ from typing import Dict, List, NamedTuple, Optional
 
 import requests
 
-from ...tests.utils.logging import log_banner, make_logger
 from ..tools.call_cmd import call_cmd
+from ..tools.logging import log_banner, make_logger
 from .common import (benchmark_configs, download_model,
                      max_model_length_from_model_id, script_args_to_cla)
 from .scripts.common import num_available_gpus, warmup_server
