@@ -65,7 +65,8 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
             "pack_factor": 8
         })
         set_weight_attrs(weight, {"weight_loader": weight_loader})
-        layer.register_parameter("weight", weight)
+        #layer.register_parameter("weight", weight)
+        layer.register_parameter("weight_packed", weight)
 
         weight_scale = Parameter(
             torch.empty(
@@ -83,23 +84,6 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
             "output_dim": 0
         })
         layer.register_parameter("weight_scale", weight_scale)
-
-        weight_zero_point = Parameter(
-            torch.empty(
-                output_size_per_partition,
-                scales_and_zp_size,
-                device="cuda",
-                dtype=params_dtype,
-            ),
-            requires_grad=False,
-        )
-
-        set_weight_attrs(weight_zero_point, {"weight_loader": weight_loader})
-        set_weight_attrs(weight_zero_point, {
-            "input_dim": weight_scale_dim,
-            "output_dim": 0
-        })
-        layer.register_parameter("weight_zero_point", weight_zero_point)
 
         weight_shape = Parameter(torch.empty(2,
                                              device="cuda",
@@ -146,7 +130,8 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
                 getattr(layer, name).copy_(new_t)
                 del new_t
 
-            cur_device = layer.weight.device
+            #cur_device = layer.weight.device
+            cur_device = layer.weight_packed.device
 
             # Reset g_idx related tensors
             layer.g_idx = Parameter(torch.empty(0,
@@ -158,11 +143,17 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
                                                  requires_grad=False)
 
             # Repack weights
+            """
             marlin_qweight = ops.gptq_marlin_repack(
                 layer.weight.t().contiguous(), layer.g_idx_sort_indices,
                 part_size_k, part_size_n, 4)
+            """
+            marlin_qweight = ops.gptq_marlin_repack(
+                layer.weight_packed.t().contiguous(), layer.g_idx_sort_indices,
+                part_size_k, part_size_n, 4)
 
-            replace_tensor("weight", marlin_qweight)
+            #replace_tensor("weight", marlin_qweight)
+            replace_tensor("weight_packed", marlin_qweight)
 
             # Permute scales
             scales_size_k = part_size_k
@@ -173,10 +164,16 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
                 scales_size_n, layer.group_size, 4)
             replace_tensor("weight_scale", marlin_scales)
 
+        '''
         output = ops.gptq_marlin_gemm(reshaped_x, layer.weight,
                                       layer.weight_scale, layer.g_idx,
                                       layer.g_idx_sort_indices,
                                       layer.workspace, 4, size_m, part_size_n,
                                       part_size_k, layer.is_k_full)
-
+        '''
+        output = ops.gptq_marlin_gemm(reshaped_x, layer.weight_packed,
+                                      layer.weight_scale, layer.g_idx,
+                                      layer.g_idx_sort_indices,
+                                      layer.workspace, 4, size_m, part_size_n,
+                                      part_size_k, layer.is_k_full)
         return output.reshape(out_shape)
