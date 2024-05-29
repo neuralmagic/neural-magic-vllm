@@ -46,16 +46,13 @@ class Server:
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        print('context manager __exit__')
-        self.logger.info('context manager __exit__')
         if self.proc and self.proc.poll() is None:
             self.logger.info("killing server")
             self.proc.kill()
-        log_banner(
-            self.logger, "context exit args", f"exc_type={exc_type}\n"
-            f"exc_value={exc_value}\n"
-            f"exc_traceback={exc_traceback}")
-        log_banner(self.logger, "server output", self.proc.stdout)
+
+        if exc_type is not None:
+            # only log output when an error occurred
+            log_banner(self.logger, "server output", self.proc.stdout)
 
     def _wait_for_server_ready(self):
         self.logger.info("waiting for server to become ready")
