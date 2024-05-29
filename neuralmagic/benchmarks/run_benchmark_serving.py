@@ -38,6 +38,8 @@ class Server:
         self._wait_for_server_ready()
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
+        print('context manager __exit__')
+        self.logger.info('context manager __exit__')
         if self.proc and self.proc.poll() is None:
             self.logger.info("killing server")
             self.proc.kill()
