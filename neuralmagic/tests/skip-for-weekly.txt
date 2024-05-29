@@ -1,4 +1,4 @@
-test/test_sharded_state_loader.py
+tests/test_sharded_state_loader.py
 tests/distributed/test_basic_distributed_correctness.py
 tests/distributed/test_chunked_prefill_distributed.py
 tests/distributed/test_comm_ops.py
