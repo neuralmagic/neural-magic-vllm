@@ -411,6 +411,14 @@ if _is_cuda():
 if not _is_neuron():
     ext_modules.append(CMakeExtension(name="vllm._C"))
 
+# UPSTREAM SYNC: needed for sparsity
+_sparsity_deps = ["nm-magic-wand-nightly"]
+nm_release_type = os.getenv(NM_RELEASE_TYPE)
+if nm_release_type == 'RELEASE':
+    # gate magic-wand version in nm-vllm for release; for nightly, we always install the latest
+    magic_wand_version_dep = "0.2.2"
+    _sparsity_deps = [f"nm-magic-wand~={magic_wand_version_dep}"]
+
 package_data = {
     "vllm": ["py.typed", "model_executor/layers/fused_moe/configs/*.json"]
 }
@@ -452,13 +460,6 @@ setup(
     python_requires=">=3.8",
     install_requires=get_requirements(),
     ext_modules=ext_modules,
-    # UPSTREAM SYNC: needed for sparsity
-    _sparsity_deps = ["nm-magic-wand-nightly"]
-    nm_release_type = os.getenv(NM_RELEASE_TYPE)
-    if nm_release_type == 'RELEASE':
-        # gate magic-wand version in nm-vllm for release; for nightly, we always install the latest
-        magic_wand_version_dep = "0.2.2"
-        _sparsity_deps = [f"nm-magic-wand~={magic_wand_version_dep}"]
     extras_require={
         "tensorizer": ["tensorizer==2.9.0"],
         # UPSTREAM SYNC: required for sparsity
