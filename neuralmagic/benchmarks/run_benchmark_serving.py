@@ -40,7 +40,7 @@ class Server:
                                      stdout=subprocess.PIPE)
         try:
             self._wait_for_server_ready()
-        except:
+        except:  # noqa: E722
             self.__exit__(sys.exc_info())
 
         return self
