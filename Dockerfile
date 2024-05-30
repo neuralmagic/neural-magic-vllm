@@ -97,7 +97,6 @@ RUN --mount=type=bind,from=flash-attn-builder,src=/usr/src/flash-attention-v2,ta
     pip install /usr/src/flash-attention-v2/*.whl --no-cache-dir
 #################### vLLM installation IMAGE ####################
 
-
 #################### TEST IMAGE ####################
 # image to run unit testing suite
 # note that this uses vllm installed by `pip`
