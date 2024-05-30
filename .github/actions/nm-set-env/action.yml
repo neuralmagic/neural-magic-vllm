@@ -27,7 +27,7 @@ runs:
       echo "LD_LIBRARY_PATH=/usr/local/cuda-12.1/lib64::/usr/local/cuda-12.1/lib64:" >> $GITHUB_ENV
       # HF Cache
       echo "HF_TOKEN=${HF_TOKEN_SECRET}" >> $GITHUB_ENV
-      echo "HF_HOME=/EFS/hf_home" >> $GITHUB_ENV
+      echo "HF_HOME=/model-cache" >> $GITHUB_ENV
       # build
       NUM_THREADS=$(./.github/scripts/determine-threading -G ${{ inputs.Gi_per_thread }})
       echo "MAX_JOBS=${NUM_THREADS}" >> $GITHUB_ENV
