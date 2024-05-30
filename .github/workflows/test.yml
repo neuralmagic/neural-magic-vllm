@@ -56,9 +56,6 @@ on:
         type: string
         required: true
 
-env:
-    VENV_BASE: "TEST"
-
 jobs:
 
     TEST:
@@ -89,7 +86,7 @@ jobs:
               uses: ./.github/actions/nm-set-python/
               with:
                 python: ${{ inputs.python }}
-                venv: ${{ env.VENV_BASE }}
+                venv:
 
             - name: hf cache
               id: hf_cache
