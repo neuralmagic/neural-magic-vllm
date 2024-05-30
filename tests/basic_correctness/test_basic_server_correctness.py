@@ -11,8 +11,8 @@ from transformers import AutoTokenizer
 
 from tests.conftest import HfRunnerNM
 from tests.models.compare_utils import check_logprobs_close
-from tests.utils.logging import make_logger
-from tests.utils.server import ServerContext
+from tests.nm_utils.logging import make_logger
+from tests.nm_utils.server import ServerContext
 from vllm.model_executor.layers.quantization import get_quantization_config
 
 
