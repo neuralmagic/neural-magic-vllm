@@ -37,7 +37,8 @@ class Server:
         log_banner(self.logger, "server startup command", shlex.join(self.cmd))
         self.proc = subprocess.Popen(self.cmd,
                                      stderr=subprocess.STDOUT,
-                                     stdout=subprocess.PIPE)
+                                     stdout=subprocess.PIPE,
+                                     encoding="utf-8")
         try:
             self._wait_for_server_ready()
         except:  # noqa: E722
@@ -52,7 +53,7 @@ class Server:
 
         if exc_type is not None:
             # only log output when an error occurred
-            log_banner(self.logger, "server output", self.proc.stdout)
+            log_banner(self.logger, "server output", self.proc.stdout.read())
 
     def _wait_for_server_ready(self):
         self.logger.info("waiting for server to become ready")
