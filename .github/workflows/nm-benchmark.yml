@@ -78,6 +78,13 @@ jobs:
       gh_action_benchmark_input_artifact_name: ${{ steps.set_gh_action_benchmark_input_artifact_name.outputs.gh_action_benchmark_input_artifact_name}}
 
     steps:
+
+      - name: set python
+        id: set_python
+        uses: actions/setup-python@v5
+        with:
+            python-version: ${{ inputs.python }}
+
       - name: checkout repository code
         uses: actions/checkout@v4
         with:
@@ -92,12 +99,6 @@ jobs:
           hf_token: ${{ secrets.NM_HF_TOKEN }}
           Gi_per_thread: 1
           nvcc_threads: 0
-
-      - name: set python
-        id: set_python
-        uses: actions/setup-python@v5
-        with:
-            python-version: ${{ inputs.python }}
 
       - name: hf cache
         id: hf_cache
