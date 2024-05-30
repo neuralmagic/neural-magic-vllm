@@ -2,7 +2,7 @@ name: HF cache
 description: 'mount HF cache'
 inputs:
   fs_cache:
-    description: 'filesystem to use for HF cache'
+    description: '(deprecated) filesystem to use for HF cache'
     required: true
 runs:
   using: composite
