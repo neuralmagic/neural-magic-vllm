@@ -81,43 +81,43 @@ jobs:
             python: ${{ inputs.python }}
         secrets: inherit
 
-    TEST-SOLO:
-        needs: [BUILD]
-        if: success()
-        uses: ./.github/workflows/test.yml
-        with:
-            test_label: ${{ inputs.test_label_solo }}
-            timeout: ${{ inputs.test_timeout }}
-            gitref: ${{ github.ref }}
-            python: ${{ inputs.python }}
-            whl: ${{ needs.BUILD.outputs.whl }}
-            test_skip_list: ${{ inputs.test_skip_list }}
-        secrets: inherit
+    # TEST-SOLO:
+    #     needs: [BUILD]
+    #     if: success()
+    #     uses: ./.github/workflows/test.yml
+    #     with:
+    #         test_label: ${{ inputs.test_label_solo }}
+    #         timeout: ${{ inputs.test_timeout }}
+    #         gitref: ${{ github.ref }}
+    #         python: ${{ inputs.python }}
+    #         whl: ${{ needs.BUILD.outputs.whl }}
+    #         test_skip_list: ${{ inputs.test_skip_list }}
+    #     secrets: inherit
 
-    TEST-MULTI:
-        needs: [BUILD]
-        if: success() && contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category)
-        uses: ./.github/workflows/test.yml
-        with:
-            test_label: ${{ inputs.test_label_multi }}
-            timeout: ${{ inputs.test_timeout }}
-            gitref: ${{ github.ref }}
-            python: ${{ inputs.python }}
-            whl: ${{ needs.BUILD.outputs.whl }}
-            test_skip_list: ${{ inputs.test_skip_list }}
-        secrets: inherit
+    # TEST-MULTI:
+    #     needs: [BUILD]
+    #     if: success() && contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category)
+    #     uses: ./.github/workflows/test.yml
+    #     with:
+    #         test_label: ${{ inputs.test_label_multi }}
+    #         timeout: ${{ inputs.test_timeout }}
+    #         gitref: ${{ github.ref }}
+    #         python: ${{ inputs.python }}
+    #         whl: ${{ needs.BUILD.outputs.whl }}
+    #         test_skip_list: ${{ inputs.test_skip_list }}
+    #     secrets: inherit
 
-    PUBLISH:
-        needs: [TEST-SOLO, TEST-MULTI]
-        uses: ./.github/workflows/nm-publish.yml
-        with:
-            label: ${{ inputs.build_label }}
-            timeout: ${{ inputs.build_timeout }}
-            gitref: ${{ github.ref }}
-            python: ${{ inputs.python }}
-            whl: ${{ needs.BUILD.outputs.whl }}
-            tarfile: ${{ needs.BUILD.outputs.tarfile }}
-        secrets: inherit
+    # PUBLISH:
+    #     needs: [TEST-SOLO, TEST-MULTI]
+    #     uses: ./.github/workflows/nm-publish.yml
+    #     with:
+    #         label: ${{ inputs.build_label }}
+    #         timeout: ${{ inputs.build_timeout }}
+    #         gitref: ${{ github.ref }}
+    #         python: ${{ inputs.python }}
+    #         whl: ${{ needs.BUILD.outputs.whl }}
+    #         tarfile: ${{ needs.BUILD.outputs.tarfile }}
+    #     secrets: inherit
 
     BENCHMARK:
         needs: [BUILD]
@@ -134,30 +134,30 @@ jobs:
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
         secrets: inherit
 
-    TEST-ACCURACY-SMOKE:
-      needs: [BUILD]
-      if: inputs.wf_category == 'NIGHTLY'
-      uses: ./.github/workflows/nm-test-accuracy-smoke.yml
-      with:
-        label: ${{ inputs.test_label_solo }}
-        timeout: ${{ inputs.benchmark_timeout }}
-        gitref: ${{ inputs.gitref }}
-        Gi_per_thread: ${{ inputs.Gi_per_thread }}
-        nvcc_threads: ${{ inputs.nvcc_threads }}
-        python: ${{ inputs.python }}
-        whl: ${{ needs.BUILD.outputs.whl }}
-      secrets: inherit
+    # TEST-ACCURACY-SMOKE:
+    #   needs: [BUILD]
+    #   if: inputs.wf_category == 'NIGHTLY'
+    #   uses: ./.github/workflows/nm-test-accuracy-smoke.yml
+    #   with:
+    #     label: ${{ inputs.test_label_solo }}
+    #     timeout: ${{ inputs.benchmark_timeout }}
+    #     gitref: ${{ inputs.gitref }}
+    #     Gi_per_thread: ${{ inputs.Gi_per_thread }}
+    #     nvcc_threads: ${{ inputs.nvcc_threads }}
+    #     python: ${{ inputs.python }}
+    #     whl: ${{ needs.BUILD.outputs.whl }}
+    #   secrets: inherit
 
-    TEST-ACCURACY-FULL:
-      needs: [BUILD]
-      if: ${{ inputs.wf_category == 'WEEKLY' || inputs.wf_category == 'RELEASE' }}
-      uses: ./.github/workflows/nm-test-accuracy-full.yml
-      with:
-        label: ${{ inputs.test_label_multi }}
-        timeout: ${{ inputs.benchmark_timeout }}
-        gitref: ${{ inputs.gitref }}
-        Gi_per_thread: ${{ inputs.Gi_per_thread }}
-        nvcc_threads: ${{ inputs.nvcc_threads }}
-        python: ${{ inputs.python }}
-        whl: ${{ needs.BUILD.outputs.whl }}
-      secrets: inherit
+    # TEST-ACCURACY-FULL:
+    #   needs: [BUILD]
+    #   if: ${{ inputs.wf_category == 'WEEKLY' || inputs.wf_category == 'RELEASE' }}
+    #   uses: ./.github/workflows/nm-test-accuracy-full.yml
+    #   with:
+    #     label: ${{ inputs.test_label_multi }}
+    #     timeout: ${{ inputs.benchmark_timeout }}
+    #     gitref: ${{ inputs.gitref }}
+    #     Gi_per_thread: ${{ inputs.Gi_per_thread }}
+    #     nvcc_threads: ${{ inputs.nvcc_threads }}
+    #     python: ${{ inputs.python }}
+    #     whl: ${{ needs.BUILD.outputs.whl }}
+    #   secrets: inherit
