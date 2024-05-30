@@ -23,14 +23,14 @@ void {{ _name }}(torch::Tensor &out, torch::Tensor const &a,
   if (out.dtype() == torch::kBFloat16) {
     return cutlass_scaled_mm_dq_dispatcher<
         cutlass_3x_gemm< {{ _cutlass_input_dtype }}, cutlass::bfloat16_t, TileShape, ClusterShape,
-                        KernelSchedule, EpilogueSchedule, TileSchedule, Mode>>(
+                        KernelSchedule, EpilogueSchedule, TileSchedule, Mode, {{ _acc_type }} >>(
         out, a, b, a_scales, b_scales);
   } else {
     TORCH_CHECK(out.dtype() == torch::kFloat16);
 
     return cutlass_scaled_mm_dq_dispatcher<
         cutlass_3x_gemm<{{ _cutlass_input_dtype }}, cutlass::half_t, TileShape, ClusterShape,
-                        KernelSchedule, EpilogueSchedule, TileSchedule, Mode>>(
+                        KernelSchedule, EpilogueSchedule, TileSchedule, Mode, {{ _acc_type }} >>(
         out, a, b, a_scales, b_scales);
   }
 }

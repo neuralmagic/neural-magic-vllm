@@ -62,4 +62,3 @@ void cutlass_scaled_mm_dq_sm90(torch::Tensor &out, torch::Tensor const &a,
     }
   }
 }
-

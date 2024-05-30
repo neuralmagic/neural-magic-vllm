@@ -48,6 +48,7 @@ class Cutlass3xArgs:
     epilogue_schedule: str
     tile_schedule: str
     gemm_mode: str
+    acc_type: str
 
     def with_tile_shape(self, ts):
         clone = copy.deepcopy(self)
@@ -115,7 +116,8 @@ DefaultCutlass3xArgsI8 = Cutlass3xArgs(
         "cutlass::gemm::KernelTmaWarpSpecializedPingpong",
         "cutlass::epilogue::TmaWarpSpecialized",
         "cutlass::gemm::PersistentScheduler",
-        "cutlass::gemm::GemmUniversalMode::kGemm")
+        "cutlass::gemm::GemmUniversalMode::kGemm",
+        "int32_t")
 
 DefaultCutlass3xArgsFP8 = Cutlass3xArgs(
         "fp8",
@@ -125,7 +127,8 @@ DefaultCutlass3xArgsFP8 = Cutlass3xArgs(
         "cutlass::gemm::KernelCpAsyncWarpSpecializedCooperative",
         "cutlass::epilogue::TmaWarpSpecializedCooperative",
         "cutlass::gemm::PersistentScheduler",
-        "cutlass::gemm::GemmUniversalMode::kGemm")
+        "cutlass::gemm::GemmUniversalMode::kGemm",
+        "float")
 
 ## Kernel Schedules
 ## All 
@@ -172,7 +175,8 @@ Cutlass3xArgsListI8 = [
             "cutlass::gemm::KernelTmaWarpSpecialized",
             "cutlass::epilogue::TmaWarpSpecialized",
             "cutlass::gemm::PersistentScheduler",
-            "cutlass::gemm::GemmUniversalMode::kGemm"),
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "int32_t"),
     Cutlass3xArgs(
             "int8",
             90,
@@ -181,7 +185,8 @@ Cutlass3xArgsListI8 = [
             "cutlass::gemm::KernelTmaWarpSpecializedPingpong",
             "cutlass::epilogue::TmaWarpSpecialized",
             "cutlass::gemm::PersistentScheduler",
-            "cutlass::gemm::GemmUniversalMode::kGemm"),
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "int32_t"),
     Cutlass3xArgs(
             "int8",
             90,
@@ -190,7 +195,8 @@ Cutlass3xArgsListI8 = [
             "cutlass::gemm::KernelTmaWarpSpecializedCooperative",
             "cutlass::epilogue::TmaWarpSpecializedCooperative",
             "cutlass::gemm::PersistentScheduler",
-            "cutlass::gemm::GemmUniversalMode::kGemm"),
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "int32_t"),
     Cutlass3xArgs(
             "int8",
             90,
@@ -199,7 +205,8 @@ Cutlass3xArgsListI8 = [
             "cutlass::gemm::KernelTmaWarpSpecializedCooperative",
             "cutlass::epilogue::TmaWarpSpecializedCooperative",
             "cutlass::gemm::StreamKScheduler",
-            "cutlass::gemm::GemmUniversalMode::kGemm"),
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "int32_t")
         ]
 
 Cutlass3xArgsList=Cutlass3xArgsListI8
@@ -255,7 +262,8 @@ Cutlass3xArgsListFP8 = [
             "cutlass::gemm::KernelTmaWarpSpecialized",
             "cutlass::epilogue::TmaWarpSpecialized",
             "cutlass::gemm::PersistentScheduler",
-            "cutlass::gemm::GemmUniversalMode::kGemm"),
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "float"),
     Cutlass3xArgs(
             "fp8",
             90,
@@ -264,7 +272,8 @@ Cutlass3xArgsListFP8 = [
             "cutlass::gemm::KernelTmaWarpSpecializedCooperative",
             "cutlass::epilogue::TmaWarpSpecializedCooperative",
             "cutlass::gemm::PersistentScheduler",
-            "cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel"),
+            "cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel",
+            "float"),
     Cutlass3xArgs(
             "fp8",
             90,
@@ -273,7 +282,8 @@ Cutlass3xArgsListFP8 = [
             "cutlass::gemm::KernelTmaWarpSpecializedPingpong",
             "cutlass::epilogue::TmaWarpSpecialized",
             "cutlass::gemm::PersistentScheduler",
-            "cutlass::gemm::GemmUniversalMode::kGemm"),
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "float"),
     Cutlass3xArgs(
             "fp8",
             90,
@@ -282,7 +292,8 @@ Cutlass3xArgsListFP8 = [
             "cutlass::gemm::KernelTmaWarpSpecializedCooperative",
             "cutlass::epilogue::TmaWarpSpecializedCooperative",
             "cutlass::gemm::PersistentScheduler",
-            "cutlass::gemm::GemmUniversalMode::kGemm"),
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "float"),
 
     Cutlass3xArgs(
             "fp8",
@@ -292,7 +303,8 @@ Cutlass3xArgsListFP8 = [
             "cutlass::gemm::KernelTmaWarpSpecializedCooperative",
             "cutlass::epilogue::TmaWarpSpecializedCooperative",
             "cutlass::gemm::StreamKScheduler",
-            "cutlass::gemm::GemmUniversalMode::kGemm"),
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "float"),
 
     Cutlass3xArgs(
             "fp8",
@@ -302,7 +314,8 @@ Cutlass3xArgsListFP8 = [
             "cutlass::gemm::KernelTmaWarpSpecializedCooperative",
             "cutlass::epilogue::TmaWarpSpecializedCooperative",
             "cutlass::gemm::StreamKScheduler",
-            "cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel")
+            "cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel",
+            "float")
     ]
 
 Cutlass3xArgsListFP8FastAccum = [
@@ -314,7 +327,8 @@ Cutlass3xArgsListFP8FastAccum = [
             "cutlass::gemm::KernelTmaWarpSpecializedFP8FastAccum",
             "cutlass::epilogue::TmaWarpSpecialized",
             "cutlass::gemm::PersistentScheduler",
-            "cutlass::gemm::GemmUniversalMode::kGemm"),
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "float"),
     Cutlass3xArgs(
             "fp8",
             90,
@@ -323,7 +337,8 @@ Cutlass3xArgsListFP8FastAccum = [
             "cutlass::gemm::KernelTmaWarpSpecializedPingpongFP8FastAccum",
             "cutlass::epilogue::TmaWarpSpecialized",
             "cutlass::gemm::PersistentScheduler",
-            "cutlass::gemm::GemmUniversalMode::kGemm"),
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "float"),
     Cutlass3xArgs(
             "fp8",
             90,
@@ -332,7 +347,8 @@ Cutlass3xArgsListFP8FastAccum = [
             "cutlass::gemm::KernelTmaWarpSpecializedCooperativeFP8FastAccum",
             "cutlass::epilogue::TmaWarpSpecializedCooperative",
             "cutlass::gemm::PersistentScheduler",
-            "cutlass::gemm::GemmUniversalMode::kGemm"),
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "float"),
 
     Cutlass3xArgs(
             "fp8",
@@ -342,7 +358,8 @@ Cutlass3xArgsListFP8FastAccum = [
             "cutlass::gemm::KernelTmaWarpSpecializedCooperativeFP8FastAccum",
             "cutlass::epilogue::TmaWarpSpecializedCooperative",
             "cutlass::gemm::StreamKScheduler",
-            "cutlass::gemm::GemmUniversalMode::kGemm"),
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "float"),
         ]
 
 clusters_fp8 = [(1, 2, 1), (1, 8, 1), (1, 4, 1), (4, 4, 1), (2, 1, 1) ]
@@ -360,3 +377,50 @@ for arg in Cutlass3xArgsListFP8FastAccum:
 
 Cutlass3xArgsListFP8FastAccumTC = list(filter(
     lambda x: not bad_3x_arg(x), Cutlass3xArgsListFP8FastAccumTC))
+
+Cutlass3xArgsListAccExperiments = [
+
+    Cutlass3xArgs(
+            "fp8",
+            90,
+            (128, 128, 128),
+            (1, 2, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedCooperativeFP8FastAccum",
+            "cutlass::epilogue::TmaWarpSpecializedCooperative",
+            "cutlass::gemm::PersistentScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "float"),
+
+    Cutlass3xArgs(
+            "fp8",
+            90,
+            (128, 128, 128),
+            (1, 2, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedCooperativeFP8FastAccum",
+            "cutlass::epilogue::TmaWarpSpecializedCooperative",
+            "cutlass::gemm::PersistentScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "cutlass::half_t"),
+
+    Cutlass3xArgs(
+            "fp8",
+            90,
+            (128, 128, 128),
+            (1, 2, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedCooperative",
+            "cutlass::epilogue::TmaWarpSpecializedCooperative",
+            "cutlass::gemm::PersistentScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "float"),
+
+    Cutlass3xArgs(
+            "fp8",
+            90,
+            (128, 128, 128),
+            (1, 2, 1),
+            "cutlass::gemm::KernelTmaWarpSpecializedCooperative",
+            "cutlass::epilogue::TmaWarpSpecializedCooperative",
+            "cutlass::gemm::PersistentScheduler",
+            "cutlass::gemm::GemmUniversalMode::kGemm",
+            "cutlass::half_t"),
+        ]

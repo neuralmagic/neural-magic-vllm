@@ -49,14 +49,15 @@ template <typename ElementAB_, typename ElementD_, typename TileShape,
           typename ClusterShape, typename KernelSchedule,
           typename EpilogueSchedule,
           typename TileSchedule,
-          GemmUniversalMode Mode_>
+          GemmUniversalMode Mode_,
+          typename ElementAcc = typename std::conditional<std::is_same_v<ElementAB_, int8_t>, int32_t, float>::type>
 struct cutlass_3x_gemm {
   static const GemmUniversalMode Mode = Mode_;
   using ElementAB = ElementAB_;
   using ElementD = ElementD_;
-  using ElementAcc =
-      typename std::conditional<std::is_same_v<ElementAB, int8_t>, int32_t,
-                                float>::type;
+  //using ElementAcc =
+  //    typename std::conditional<std::is_same_v<ElementAB, int8_t>, int32_t,
+  //                              float>::type;
 
   using EpilogueDescriptor =
       cutlass::epilogue::collective::detail::EpilogueDescriptor<

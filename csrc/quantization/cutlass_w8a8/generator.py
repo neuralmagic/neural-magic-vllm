@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from autogen_manifest import (Cutlass2xArgs, Cutlass3xArgs, Cutlass2xArgsList,
         Cutlass3xArgsList, Cutlass3xArgsTileList, Cutlass3xArgsListFP8FastAccum,
-        Cutlass3xArgsClusterList, Cutlass3xArgsListFP8FastAccumTC)
+        Cutlass3xArgsClusterList, Cutlass3xArgsListFP8FastAccumTC, Cutlass3xArgsListAccExperiments)
 import os
 
 ## Utilities ####
@@ -201,9 +201,10 @@ class Cutlass3xGenerator(Generator):
                 kernel_schedule: str,
                 epilogue_schedule: str,
                 tile_schedule: str,
-                gemm_mode: str):
+                gemm_mode: str,
+                acc_type: str):
 
-        return 'autogen_cutlass3x_scaled_mm_dq_sm{}_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}_{}'.format(
+        return 'autogen_cutlass3x_scaled_mm_dq_sm{}_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}_{}_{}'.format(
                 arch,
                 tile_shape[0], tile_shape[1], tile_shape[2],
                 cluster_shape[0], cluster_shape[1], cluster_shape[2],
@@ -211,6 +212,7 @@ class Cutlass3xGenerator(Generator):
                 Generator.last_namespace(epilogue_schedule), 
                 Generator.last_namespace(tile_schedule), 
                 Generator.last_namespace(gemm_mode),
+                Generator.last_namespace(acc_type),
                 dtype_str)
 
     @staticmethod
@@ -222,9 +224,10 @@ class Cutlass3xGenerator(Generator):
                 kernel_schedule: str,
                 epilogue_schedule: str,
                 tile_schedule: str,
-                gemm_mode: str):
+                gemm_mode: str,
+                acc_type: str):
 
-        f = '{}/autogen_cutlass_scaled_mm_dq_c3x_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}_{}_{}'.format(
+        f = '{}/autogen_cutlass_scaled_mm_dq_c3x_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}_{}_{}_{}'.format(
                 Cutlass2xGenerator.GENERATE_DIR,
                 tile_shape[0], tile_shape[1], tile_shape[2],
                 cluster_shape[0], cluster_shape[1], cluster_shape[2],
@@ -232,6 +235,7 @@ class Cutlass3xGenerator(Generator):
                 Generator.last_namespace(epilogue_schedule), 
                 Generator.last_namespace(tile_schedule), 
                 Generator.last_namespace(gemm_mode),
+                Generator.last_namespace(acc_type),
                 dtype_str,
                 arch)
     
@@ -246,7 +250,8 @@ class Cutlass3xGenerator(Generator):
         kernel_schedule,
         epilogue_schedule,
         tile_schedule,
-        gemm_mode):
+        gemm_mode,
+        acc_type):
 
         def to_torch_dtype_str(dtype_str):
             if dtype_str == "int8":
@@ -275,7 +280,7 @@ class Cutlass3xGenerator(Generator):
         code = ""
         for arch in archs:
             fn_name = Cutlass3xGenerator.generate_name(dtype_str, arch, tile_shape, cluster_shape,
-                                                        kernel_schedule, epilogue_schedule, tile_schedule, gemm_mode)
+                                                        kernel_schedule, epilogue_schedule, tile_schedule, gemm_mode, acc_type)
             fn_decl = fn_decl_template.render(_name = fn_name)
             code += fn_defn_template.render(_name = fn_name,
                                     _torch_input_dtype = to_torch_dtype_str(dtype_str),
@@ -285,13 +290,14 @@ class Cutlass3xGenerator(Generator):
                                     _kernel_schedule = kernel_schedule,
                                     _epilogue_schedule = epilogue_schedule,
                                     _tile_schedule = tile_schedule, 
-                                    _gemm_mode = gemm_mode)
+                                    _gemm_mode = gemm_mode,
+                                    _acc_type = acc_type)
 
             pybind_fn_names.append(fn_name)
             ops_fn_decl.append(fn_decl)
     
         filename = Cutlass3xGenerator.generate_filename(dtype_str, arch, tile_shape, cluster_shape,
-                                                        kernel_schedule, epilogue_schedule, tile_schedule, gemm_mode)
+                                                        kernel_schedule, epilogue_schedule, tile_schedule, gemm_mode, acc_type)
     
         if file_contents_same(filename, code):
             print(f"{filename} exists with the same content - Not re-generating it!")
@@ -310,7 +316,7 @@ class Cutlass3xGenerator(Generator):
         for args in args_list:
             pybind_names, ops_decls = Cutlass3xGenerator.generate_3x_file(args.dtype_str, [args.arch], args.tile_shape,
                     args.cluster_shape, args.kernel_schedule, args.epilogue_schedule, args.tile_schedule, 
-                    args.gemm_mode)
+                    args.gemm_mode, args.acc_type)
             pybind_fn_names.extend(pybind_names)
             ops_fn_decls.extend(ops_decls)
 
@@ -321,7 +327,7 @@ def generate_cutlass2x_kernels():
     Cutlass2xGenerator.generate(Cutlass2xArgsList)
 
 def generate_cutlass3x_kernels():
-    Cutlass3xGenerator.generate(Cutlass3xArgsListFP8FastAccumTC)
+    Cutlass3xGenerator.generate(Cutlass3xArgsListAccExperiments)
 
 def main(args):
     if args.version == "all":

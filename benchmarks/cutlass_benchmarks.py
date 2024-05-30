@@ -164,19 +164,21 @@ def bench_fp8(dtype, m, k, n, label, sub_label):
     scale_a = torch.tensor(1.0, device="cuda", dtype = torch.float32)
     scale_b = torch.tensor(1.0, device="cuda", dtype = torch.float32)
 
-    py_timers = []
-    py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.bfloat16, label, sub_label, 
-                        pytorch_fp8_impl, "pytorch_fp8_fp8_bf16_scaled_mm"))
-    py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.bfloat16, label, sub_label, 
-                        pytorch_fp8_fastaccum_impl, "pytorch_fp8_fp8_bf16_scaled_mm_fastaccum"))
-    py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.float16, label, sub_label, 
-                        pytorch_fp8_impl, "pytorch_fp8_fp8_fp16_scaled_mm"))
-    py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.float16, label, sub_label, 
-                        pytorch_fp8_fastaccum_impl, "pytorch_fp8_fp8_fp16_scaled_mm_fastaccum"))
-    py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.float32, label, sub_label, 
-                        pytorch_fp8_impl, "pytorch_fp8_fp8_fp32_scaled_mm"))
-    py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.float32, label, sub_label, 
-                        pytorch_fp8_fastaccum_impl, "pytorch_fp8_fp8_fp32_scaled_mm_fastaccum"))
+    #py_timers = []
+    #py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.bfloat16, label, sub_label, 
+    #                    pytorch_fp8_impl, "pytorch_fp8_fp8_bf16_scaled_mm"))
+    #py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.bfloat16, label, sub_label, 
+    #                    pytorch_fp8_fastaccum_impl, "pytorch_fp8_fp8_bf16_scaled_mm_fastaccum"))
+    #py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.float16, label, sub_label, 
+    #                    pytorch_fp8_impl, "pytorch_fp8_fp8_fp16_scaled_mm"))
+    #py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.float16, label, sub_label, 
+    #                    pytorch_fp8_fastaccum_impl, "pytorch_fp8_fp8_fp16_scaled_mm_fastaccum"))
+    #py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.float32, label, sub_label, 
+    #                    pytorch_fp8_impl, "pytorch_fp8_fp8_fp32_scaled_mm"))
+    #py_timers.append(bench_fn(a, b, scale_a, scale_b, torch.float32, label, sub_label, 
+    #                    pytorch_fp8_fastaccum_impl, "pytorch_fp8_fp8_fp32_scaled_mm_fastaccum"))
+
+    #return py_timers
 
     #py_timer = bench_fn(a, b, scale_a, scale_b, torch.bfloat16, label, sub_label, 
     #                    pytorch_fp8_impl, "pytorch_fp8_fp8_bf16_scaled_mm")
@@ -184,8 +186,13 @@ def bench_fp8(dtype, m, k, n, label, sub_label):
     #cutlass_timers = bench_cutlass_impls(a, b, scale_a.to(device="cpu"), scale_b.to(device="cpu"),
     #                                    torch.bfloat16, label, sub_label, "cutlass_fp8_fp8_bf16_scaled_mm")
 
-    #return [py_timer] + cutlass_timers
-    return py_timers
+    cutlass_timers = bench_cutlass_impls(a, b, scale_a.to(device="cpu"), scale_b.to(device="cpu"),
+                                        torch.float16, label, sub_label, "cutlass_fp8_fp8_fp16_scaled_mm")
+
+    #cutlass_timers = cutlass_timers +  bench_cutlass_impls(a, b, scale_a.to(device="cpu"), scale_b.to(device="cpu"),
+    #                                    torch.float16, label, sub_label, "cutlass_fp8_fp8_fp16_scaled_mm")
+
+    return cutlass_timers
 
 def bench(dtype, m, k, n, label, sublabel):
     if dtype == torch.int8:
