@@ -121,7 +121,7 @@ def run_benchmark_serving_script(config: NamedTuple,
     def run_bench(server_cmd: str, bench_cmd: List[str], model: str) -> None:
         with Server(server_cmd) as server:
             if not server.running:
-                return
+                raise RuntimeError("server isn't running :(")
             # server warmup
             warmup_server(server_host=BENCH_SERVER_HOST,
                           server_port=BENCH_SERVER_PORT,
