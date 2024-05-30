@@ -115,7 +115,7 @@ jobs:
               with:
                 pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
                 python: ${{ inputs.python }}
-                venv: TEST
+                venv:
                 test_skip_list: ${{ inputs.test_skip_list }}
                 test_directory: tests
                 test_results: test-results
