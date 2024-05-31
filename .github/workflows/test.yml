@@ -103,16 +103,18 @@ jobs:
               run: |
                 cd tests && sudo bash ../.buildkite/download-images.sh
 
-            # - name: take a look
-            #   run: |
-            #     ls /home/runner/_work/_tool/Python/3.10.12/x64/bin/python
-            #     ls /home/runner/_work/_tool/Python/3.10.12/x64/lib
+            - name: take a look
+              run: |
+                ls /home/runner/_work/_tool/Python/3.10.12/x64/bin
+                ls /home/runner/_work/_tool/Python/3.10.12/x64/lib
+                which python
+                which pip
 
-            # - name: install from pypi
-            #   run: |
-            #     mv vllm vllm-ignore
-            #     mv csrc csrc-ignore
-            #     pip3 install --extra-index-url https://pypi.neuralmagic.com/simple nm-vllm[sparse]
+            - name: install from pypi
+              run: |
+                mv vllm vllm-ignore
+                mv csrc csrc-ignore
+                pip3 install --extra-index-url https://pypi.neuralmagic.com/simple nm-vllm[sparse]
 
             - name: run tests
               uses: ./.github/actions/nm-test-whl/
