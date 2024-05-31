@@ -99,13 +99,24 @@ jobs:
               with:
                 fs_cache: ${{ secrets.HF_FS_CACHE }}
 
-            - name: take a look
+            - name: install from pypi
               run: |
-                ls -al /model-cache
-                cd /model-cache
-                mkdir tmp
-                cd tmp
                 pip3 download --extra-index-url https://pypi.neuralmagic.com/simple nm-vllm[sparse]
+
+            - name: run tests
+              uses: ./.github/actions/nm-test-whl/
+              with:
+                test_skip_list: ${{ inputs.test_skip_list }}
+                test_directory: tests
+                test_results: test-results
+
+            # - name: take a look
+            #   run: |
+            #     ls -al /model-cache
+            #     cd /model-cache
+            #     mkdir tmp
+            #     cd tmp
+            #     pip3 download --extra-index-url https://pypi.neuralmagic.com/simple nm-vllm[sparse]
 
             # - name: create testmo run
             #   id: create_testmo_run
