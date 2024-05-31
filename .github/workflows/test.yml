@@ -93,6 +93,22 @@ jobs:
                 Gi_per_thread: 1
                 nvcc_threads: 0
 
+            - name: install testmo
+              uses: ./.github/actions/nm-install-testmo/
+
+            - name: create testmo run
+              id: create_testmo_run
+              uses: ./.github/actions/nm-testmo-run-create/
+              if: success() || failure()
+              with:
+                testmo_url: https://neuralmagic.testmo.net
+                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+                source: 'build-test'
+
+            - name: verify python
+              id: verify_python
+              uses: ./.github/actions/nm-verify-python/
+
             - name: hf cache
               id: hf_cache
               uses: ./.github/actions/nm-hf-cache/
@@ -110,28 +126,12 @@ jobs:
                 pip3 install --extra-index-url https://pypi.neuralmagic.com/simple nm-vllm[sparse]
 
             - name: run tests
+              id: test
               uses: ./.github/actions/nm-test-whl/
               with:
                 test_skip_list: ${{ inputs.test_skip_list }}
                 test_directory: tests
                 test_results: test-results
-
-            # - name: take a look
-            #   run: |
-            #     ls -al /model-cache
-            #     cd /model-cache
-            #     mkdir tmp
-            #     cd tmp
-            #     pip3 download --extra-index-url https://pypi.neuralmagic.com/simple nm-vllm[sparse]
-
-            # - name: create testmo run
-            #   id: create_testmo_run
-            #   uses: ./.github/actions/nm-testmo-run-create/
-            #   if: success() || failure()
-            #   with:
-            #     testmo_url: https://neuralmagic.testmo.net
-            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-            #     source: 'build-test'
 
             # - name: download whl
             #   id: download
@@ -151,41 +151,41 @@ jobs:
             #     test_directory: tests
             #     test_results: test-results
 
-            # - name: upload code coverage html
-            #   uses: actions/upload-artifact@v4
-            #   if: success() || failure()
-            #   with:
-            #     name: cc-vllm-html-${{ inputs.test_label }}-${{ inputs.python }}
-            #     path: cc-vllm-html
-            #     retention-days: 15
+            - name: upload code coverage html
+              uses: actions/upload-artifact@v4
+              if: success() || failure()
+              with:
+                name: cc-vllm-html-${{ inputs.test_label }}-${{ inputs.python }}
+                path: cc-vllm-html
+                retention-days: 15
 
-            # - name: report test results
-            #   id: report_test
-            #   uses: ./.github/actions/nm-testmo-run-submit-thread/
-            #   if: success() || failure()
-            #   with:
-            #     testmo_url: https://neuralmagic.testmo.net
-            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-            #     testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
-            #     results: test-results
-            #     step_status: ${{ steps.test.outputs.status }}
+            - name: report test results
+              id: report_test
+              uses: ./.github/actions/nm-testmo-run-submit-thread/
+              if: success() || failure()
+              with:
+                testmo_url: https://neuralmagic.testmo.net
+                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+                testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
+                results: test-results
+                step_status: ${{ steps.test.outputs.status }}
 
-            # - name: summary
-            #   uses: ./.github/actions/nm-summary-test/
-            #   if: success() || failure()
-            #   with:
-            #     test_label: ${{ inputs.test_label }}
-            #     gitref: ${{ inputs.gitref }}
-            #     testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
-            #     python: ${{ steps.set_python.outputs.version }}
-            #     whl: ${{ steps.test.outputs.whl }}
-            #     magic_wand: ${{ steps.test.outputs.magic_wand }}
-            #     test_status: ${{ steps.test.outputs.status }}
+            - name: summary
+              uses: ./.github/actions/nm-summary-test/
+              if: success() || failure()
+              with:
+                test_label: ${{ inputs.test_label }}
+                gitref: ${{ inputs.gitref }}
+                testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
+                python: ${{ steps.verify_python.outputs.version }}
+                whl: ${{ steps.test.outputs.whl }}
+                magic_wand: ${{ steps.test.outputs.magic_wand }}
+                test_status: ${{ steps.test.outputs.status }}
 
-            # - name: complete testmo run
-            #   uses: ./.github/actions/nm-testmo-run-complete/
-            #   if: success() || failure()
-            #   with:
-            #     testmo_url: https://neuralmagic.testmo.net
-            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-            #     testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
+            - name: complete testmo run
+              uses: ./.github/actions/nm-testmo-run-complete/
+              if: success() || failure()
+              with:
+                testmo_url: https://neuralmagic.testmo.net
+                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+                testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
