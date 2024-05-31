@@ -99,9 +99,9 @@ jobs:
               with:
                 fs_cache: ${{ secrets.HF_FS_CACHE }}
 
-            # - name: run buildkite script
-            #   run: |
-            #       sudo bash ./.buildkite/download-images.sh
+            - name: run buildkite script
+              run: |
+                cd tests && sudo bash ../.buildkite/download-images.sh
 
             - name: install from pypi
               run: |
