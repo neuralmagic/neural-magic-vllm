@@ -71,6 +71,12 @@ jobs:
               with:
                 python-version: ${{ inputs.python }}
 
+            - name: install automation components
+              run: |
+                sudo apt-get update --fix-missing
+                sudo apt-get install -y git-all
+                sudo apt-get install -y curl
+
             - name: checkout
               id: checkout
               uses: actions/checkout@v4
