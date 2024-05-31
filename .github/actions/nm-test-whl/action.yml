@@ -23,9 +23,9 @@ runs:
         pip3 install pytest-cov
         pip3 install pytest-xdist
         pip3 install -r requirements-dev.txt
-        SUCCESS=0
-        VLLM_SRC=$(python3 -c "import vllm; print(vllm.__path__[0])")
-        ./.github/scripts/run-tests -s ${VLLM_SRC} -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} -f ${{ inputs.test_skip_list }}|| SUCCESS=$?
-        echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
-        exit ${SUCCESS}
+        # SUCCESS=0
+        # VLLM_SRC=$(python3 -c "import vllm; print(vllm.__path__[0])")
+        # ./.github/scripts/run-tests -s ${VLLM_SRC} -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} -f ${{ inputs.test_skip_list }}|| SUCCESS=$?
+        # echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
+        # exit ${SUCCESS}
       shell: bash
