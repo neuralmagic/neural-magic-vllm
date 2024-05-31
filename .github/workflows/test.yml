@@ -101,9 +101,9 @@ jobs:
 
             - name: install from pypi
               run: |
-                pip3 install --extra-index-url https://pypi.neuralmagic.com/simple nm-vllm[sparse]
                 mv vllm vllm-ignore
                 mv csrc csrc-ignore
+                pip3 install --extra-index-url https://pypi.neuralmagic.com/simple nm-vllm[sparse]
 
             - name: run tests
               uses: ./.github/actions/nm-test-whl/
