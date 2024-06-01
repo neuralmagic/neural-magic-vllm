@@ -37,3 +37,6 @@ aiohttp
 
 # Multimodal
 pillow
+
+# quantization
+bitsandbytes==0.42.0
