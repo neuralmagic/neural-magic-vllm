@@ -64,6 +64,7 @@ jobs:
             id: build
             uses: ./.github/actions/nm-build-docker/
             with:
+              docker_tag: ${{ inputs.docker_tag }}
               build_type: ${{ inputs.build_type }}
               build_version: ${{ inputs.build_version }}
 
