@@ -38,10 +38,6 @@ jobs:
         timeout-minutes: 60
 
         steps:
-
-          - name: Set up nvidia-container-toolkit
-            id: setup
-            uses: ./.github/actions/nm-setup-nvidia-container-toolkit/
           
 #          - name: Set up Docker Buildx
 #            id: buildx
@@ -59,6 +55,10 @@ jobs:
             with:
               fetch-depth: 1
               submodules: recursive
+
+          - name: Set up nvidia-container-toolkit
+            id: setup
+            uses: ./.github/actions/nm-setup-nvidia-container-toolkit/
 
           - name: Build image
             id: build
