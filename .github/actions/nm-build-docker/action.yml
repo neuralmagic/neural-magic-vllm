@@ -21,11 +21,13 @@ runs:
       docker stop $(docker ps -a -q) || echo 'no container to stop'
       docker rm $(docker ps -a -q) || echo 'no container to remove'
       docker rmi -f $(docker images -aq) || echo 'no image to remove'
-      docker system prune --all
+      docker system prune --all --force
       # build
       docker build --tag ghcr.io/neuralmagic/nm-vllm-openai:${{ inputs.docker_tag }} \
              --build-arg build_type=${{ inputs.build_type }} \
              --build-arg build_version=${{ inputs.build_version }} \
              --target vllm-openai . || status=$?
       echo "status=${status}" >> $GITHUB_OUTPUT
+      echo "status=${status}"
+      exit ${status}
     shell: bash
