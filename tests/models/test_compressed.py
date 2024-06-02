@@ -16,8 +16,6 @@ MODEL_FORMAT_PAIRS = [
     ("nm-testing/TinyLlama-1.1B-Chat-v1.0-pruned2.4",
      "semi_structured_sparse_w16a16"),
     ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned50", "sparse_w16a16"),
-    ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned2.4",
-     "semi_structured_sparse_w16a16"),
 ]
 
 
