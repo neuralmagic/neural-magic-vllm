@@ -416,9 +416,6 @@ if not _is_neuron():
     if _install_punica():
         ext_modules.append(CMakeExtension(name="vllm._punica_C"))
 
-if not _is_neuron():
-    ext_modules.append(CMakeExtension(name="vllm._C"))
-
 # UPSTREAM SYNC: needed for sparsity
 _sparsity_deps = ["nm-magic-wand-nightly"]
 nm_release_type = os.getenv(NM_RELEASE_TYPE)
