@@ -27,6 +27,11 @@ runs:
              --build-arg build_type=${{ inputs.build_type }} \
              --build-arg build_version=${{ inputs.build_version }} \
              --target vllm-openai . || status=$?
+      if [ ${status} -eq 0 ] && [[ "${build_type}" = "release" ]]; then
+          echo "Also tag image for release build as latest"
+          docker image tag ghcr.io/neuralmagic/nm-vllm-openai:${{ inputs.docker_tag }} ghcr.io/neuralmagic/nm-vllm-openai:latest || ((status+=$?))
+      fi
+      docker image ls -a
       echo "status=${status}" >> $GITHUB_OUTPUT
       echo "status=${status}"
       exit ${status}

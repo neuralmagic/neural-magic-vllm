@@ -65,3 +65,12 @@ jobs:
               target: vllm-openai
               push: true
               tags: ghcr.io/neuralmagic/nm-vllm-openai:${{ inputs.docker_tag }}
+
+          - name: Push image (latest for release)
+            uses: docker/build-push-action@v5
+            if: ${{ inputs.push_to_repository == 'yes' && steps.build.outputs.status == 0 && inputs.build_type == 'release'}}
+            with:
+              context: .
+              target: vllm-openai
+              push: true
+              tags: ghcr.io/neuralmagic/nm-vllm-openai:latest
