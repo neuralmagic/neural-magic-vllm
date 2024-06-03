@@ -85,6 +85,13 @@ jobs:
         with:
             python-version: ${{ inputs.python }}
 
+      - name: install automation components
+        run: |
+            sudo apt-get update --fix-missing
+            sudo apt-get install -y git-all
+            sudo apt-get install -y curl
+            sudo apt install libnccl2
+
       - name: checkout repository code
         uses: actions/checkout@v4
         with:

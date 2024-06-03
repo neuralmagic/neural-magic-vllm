@@ -124,7 +124,7 @@ jobs:
         if: success()
         uses: ./.github/workflows/nm-benchmark.yml
         with:
-            label: ${{ inputs.test_label_solo }}
+            label: ${{ inputs.benchmark_label }}
             benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
             timeout: ${{ inputs.benchmark_timeout }}
             gitref: ${{ github.ref }}
