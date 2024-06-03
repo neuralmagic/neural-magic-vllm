@@ -142,12 +142,6 @@ jobs:
           path: benchmark-results
           retention-days: 2
 
-      - name: mount EFS
-        run: |
-            sudo mkdir -m 777 -p /EFS
-            sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${{ secrets.HF_FS_CACHE }}:/ /EFS
-            sudo chown -R $(whoami):$(whoami) /EFS
-
       - name: copy benchmark results to EFS store
         if: success()
         uses: ./.github/actions/nm-copy-benchmark-data-to-efs
