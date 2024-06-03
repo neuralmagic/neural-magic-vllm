@@ -270,6 +270,16 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
   int slice_count = 0; // total number of active threadblocks in the current slice
   int slice_idx;       // index of threadblock in current slice; numbered bottom to top
 
+  // if (threadIdx.x == 160 && blockIdx.x == 21) {
+  //   printf("par: (%d * %d) / %d = %d >= %d?\n",
+  //     iters, blockIdx.x, k_tiles, slice_col_par, n_tiles);
+  // }
+
+    if (threadIdx.x == 0 && blockIdx.x == 0) {
+    printf("first sorted ids in kernel: %d %d %d %d (expert %d)\n",
+        sorted_ids[0], sorted_ids[1], sorted_ids[2], sorted_ids[3], expert_idx);
+  }
+
   // We can easily implement parallel problem execution by just remapping indices and advancing
   // global pointers
   if (slice_col_par >= n_tiles) {
@@ -280,6 +290,10 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
     /// slice_col as C col slice idx?
     slice_col = slice_col_par % n_tiles;
     sorted_ids += (slice_col_par / n_tiles) * 16 * thread_m_blocks;
+    // if (threadIdx.x == 160 && blockIdx.x == 21) {
+    //   printf("adv. sorted by: (%d / %d) * 16 * %d = %d (%d %d)\n", slice_col_par, n_tiles, thread_m_blocks,
+    //     (slice_col_par / n_tiles) * 16 * thread_m_blocks, threadIdx.x, blockIdx.x);
+    // }
   }
 
   // Compute all information about the current slice which is required for synchronization.
@@ -319,6 +333,9 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
     }
   };
   init_slice();
+  // if (threadIdx.x == 160 && blockIdx.x == 21) {
+  //   printf("slices: %d %d\n", slice_col, slice_col_par);
+  // }
 
   // A sizes/strides
 
@@ -421,14 +438,29 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
 
   // int shs_size = sh_max_num_groups * s_sh_stride + threads;
   int shs_size = group_blocks > 0 ? stages * s_sh_stage : threads;
-  // printf("SHS size: %d\n", shs_size);
+
+  // if (threadIdx.x == 0 && blockIdx.x == 0) {
+  //   printf("SHS size: %d\n", shs_size);
+  //   printf("off: %d %d %d\n", (stages * a_sh_stage),
+  //                             (stages * a_sh_stage) + (stages * b_sh_stage),
+  //                             (stages * a_sh_stage) + (stages * b_sh_stage) + shs_size);
+  //   printf("BT: %d %d\n", gridDim.x, blockDim.x);
+  // }
 
   extern __shared__ int4 sh[];
   // Shared memory storage for global fetch pipelines.
   int4* sh_a      = sh;
   int4* sh_b      = sh_a + (stages * a_sh_stage);
   int4* sh_s      = sh_b + (stages * b_sh_stage);
-  int*  sh_sorted = (int*)(sh_s + shs_size);
+  // int*  sh_sorted = sorted_ids;//(int*)(sh_s + shs_size);
+
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+
+    // printf("sh: %ld %ld %ld %ld\n", sh_a, sh_b, sh_s, sh_sorted);
+    // for (int i = 0; i < (stages * a_sh_stage) + (stages * b_sh_stage) + shs_size + tot_m; ++i) {
+    //   printf("%d %d\n", i, ((int*)(sh + i))[0]);
+    // }
+  }
 
   // printf("sh arrays: %d %d %d\n", stages * a_sh_stage, stages * b_sh_stage, shs_size);
 
@@ -513,8 +545,8 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
         int new_idx = sorted_row * a_gl_stride + a_idx % a_gl_stride;
         if (sorted_row >= 0 && sorted_row < tot_m) {
           const __half* ha = reinterpret_cast<const __half*>(&A[new_idx]);
-          printf("LOAD ROW: %d -> %d -> %d, expert: %d -- %f\n",
-              row, sorted_ids[row], sorted_row, expert_idx, __half2float(ha[0]));
+          // printf("LOAD ROW: %d -> %d -> %d, expert: %d -- %f\n",
+          //     row, sorted_ids[row], sorted_row, expert_idx, __half2float(ha[0]));
           cp_async4_pred(&sh_a_stage[a_sh_wr_trans[i]],
                         &A[new_idx],
                         a_sh_wr_pred[i]);
@@ -560,11 +592,13 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
     const int mpt = ceildiv(prob_m, threads);
     for (int i = 0; i < mpt; i++) {
       if ((i * sorted_gl_stride) + threadIdx.x < prob_m) {
-        sh_sorted[(i * sorted_sh_stride) + threadIdx.x] =
-            sorted_ids[(i * sorted_gl_stride) + threadIdx.x];
-        printf("load %d -> %d to shared sorted, eid: %d  (%d / %d)\n", (i * sorted_gl_stride) + threadIdx.x,
-            sorted_ids[(i * sorted_gl_stride) + threadIdx.x], expert_idx, (i * sorted_sh_stride) + threadIdx.x,
-                sh_sorted[(i * sorted_sh_stride) + threadIdx.x]);
+        // printf("load %d -> %d to shared sorted, eid: %d  (%d)\n", (i * sorted_gl_stride) + threadIdx.x,
+        //     sorted_ids[(i * sorted_gl_stride) + threadIdx.x], expert_idx, (i * sorted_sh_stride) + threadIdx.x);
+        // sh_sorted[(i * sorted_sh_stride) + threadIdx.x] =
+        //     sorted_ids[(i * sorted_gl_stride) + threadIdx.x];
+        // printf("load %d -> %d to shared sorted, eid: %d  (%d / %d)\n", (i * sorted_gl_stride) + threadIdx.x,
+        //     sorted_ids[(i * sorted_gl_stride) + threadIdx.x], expert_idx, (i * sorted_sh_stride) + threadIdx.x,
+        //         sh_sorted[(i * sorted_sh_stride) + threadIdx.x]);
       }
     }
   };
@@ -710,7 +744,7 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
     // We are very careful here to reduce directly in the output buffer to maximize L2 cache
     // utilization in this step. To do this, we write out results in FP16 (but still reduce with
     // FP32 compute).
-    printf("REDUCE\n");
+    // printf("REDUCE\n");
     constexpr int active_threads = 32 * thread_n_blocks / 4;
     if (threadIdx.x < active_threads) {
       int c_gl_stride     = prob_n / 8;
@@ -731,13 +765,14 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
 #pragma unroll
         for (int i = 0; i < thread_m_blocks * 4; i++) {
           int c_idx = c_gl_wr + c_gl_wr_delta_o * (i / 2) + c_gl_wr_delta_i * (i % 2);
-          int sorted_row = sh_sorted[c_idx / c_gl_stride];
+          // int sorted_row = sh_sorted[c_idx / c_gl_stride];
+          int sorted_row = sorted_ids[c_idx / c_gl_stride];
           int new_idx = sorted_row * c_gl_stride + c_idx % c_gl_stride;
           // THE final write to sh happens here in last==true iteration
           // TODO where is sh[] accessed later?
           cp_async4_pred(&sh[c_sh_wr + c_sh_wr_delta * i],
                          &red_tmp[new_idx],
-                         8 * (i / 2) + row < prob_m && (i < (thread_m_blocks - 1) * 4 || sh_sorted[8 * (i / 2) + row] < tot_m * topk));
+                         8 * (i / 2) + row < prob_m && (i < (thread_m_blocks - 1) * 4 || sorted_ids[8 * (i / 2) + row] < tot_m * topk));
         }
         cp_async_fence();
         cp_async_wait<0>();
@@ -745,7 +780,7 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
 
 #pragma unroll
       for (int i = 0; i < thread_m_blocks * 4; i++) {
-        if (8 * (i / 2) + row < prob_m && (i < (thread_m_blocks - 1) * 4 || sh_sorted[8 * (i / 2) + row] < tot_m * topk)) {
+        if (8 * (i / 2) + row < prob_m && (i < (thread_m_blocks - 1) * 4 || sorted_ids[8 * (i / 2) + row] < tot_m * topk)) {
           if (!first) {
             int4 c_red = sh[c_sh_wr + i * c_sh_wr_delta];
 #pragma unroll
@@ -767,9 +802,12 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
             // frag_c[4 * 2 * 4 * (i / 4) + 4 * j + (i % 4)] * frag_s[?]
 
             int c_idx = c_gl_wr + c_gl_wr_delta_o * (i / 2) + c_gl_wr_delta_i * (i % 2);
-            int row = sh_sorted[c_idx / c_gl_stride];
-            int new_idx = row * c_gl_stride + c_idx % c_gl_stride;
-            red_tmp[new_idx] = c;
+            // int row = sh_sorted[c_idx / c_gl_stride];
+            int row = sorted_ids[c_idx / c_gl_stride];
+            if (row < tot_m * topk) {
+              int new_idx = row * c_gl_stride + c_idx % c_gl_stride;
+              red_tmp[new_idx] = c;
+            }
           }
         }
       }
@@ -783,6 +821,10 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
     constexpr int c_sh_stride   = 2 * thread_n_blocks + 1;
     int           c_gl_wr_delta = c_gl_stride * (threads / (2 * thread_n_blocks));
     constexpr int c_sh_rd_delta = c_sh_stride * (threads / (2 * thread_n_blocks));
+
+    // if (threadIdx.x == 0 && blockIdx.x == 0) {
+    //   printf("WRITE RESULT\n");
+    // }
 
     int c_gl_wr =
         c_gl_stride * (threadIdx.x / (2 * thread_n_blocks)) + (threadIdx.x % (2 * thread_n_blocks));
@@ -827,25 +869,34 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
 
 #pragma unroll
     for (int i = 0; i < ceildiv(16 * thread_m_blocks, threads / (2 * thread_n_blocks)); i++) {
+      // if (threadIdx.x == 0 && blockIdx.x == 0) {
+        // printf("SAVE TO C: %d (%d %d)\n", i, threadIdx.x, blockIdx.x);
+      // }
       if (c_gl_wr < c_gl_wr_end) {
         // int row = sh_sorted[c_gl_wr / c_gl_stride];
         int row = sorted_ids[c_gl_wr / c_gl_stride];
-        int off = row * c_gl_stride + c_gl_wr % c_gl_stride;
-        __half* ctrg = reinterpret_cast<__half*>(&C[off]);
-        // HERE we read from sh, how is the access different?
-        __half* csrc = reinterpret_cast<__half*>(&sh[c_sh_rd]); 
-        printf("c offset: %d at row %d from %d, expert %d (%d %d) -- %f += %f\n",
-            off, row, c_gl_wr / c_gl_stride, expert_idx, threadIdx.x, blockIdx.x,
-            __half2float(ctrg[0]), __half2float(csrc[0]));
-        for (int j = 0; j < 8; ++j) {
-          // printf("csrc %f\n", __half2float(csrc[j]));
-          // printf("ctrg %f\n", __half2float(ctrg[j]));
-          // printf("csrc %f, ctrg %f\n", __half2float(csrc[j]), __half2float(ctrg[j]));
-          __half old = ctrg[j];
-          ctrg[j] = __float2half(__half2float(old) + __half2float(csrc[j]));
+        if (row < tot_m * topk) {
+          int off = row * c_gl_stride + c_gl_wr % c_gl_stride;
+          __half* ctrg = reinterpret_cast<__half*>(&C[off]);
+          // HERE we read from sh, how is the access different?
+          __half* csrc = reinterpret_cast<__half*>(&sh[c_sh_rd]);
+          // if (c_gl_wr % c_gl_stride == 0) {
+          // if (threadIdx.x == 160 && blockIdx.x == 21) {
+          // printf("c offset: %d at row %d from (%d / %d = %d) + %d, expert %d (%d %d) (slice: %d, par: %d) -- %f += %f\n",
+          //     off, row, c_gl_wr, c_gl_stride, c_gl_wr / c_gl_stride, c_gl_wr % c_gl_stride,
+          //     expert_idx, threadIdx.x, blockIdx.x, slice_col, slice_col_par,
+          //     __half2float(ctrg[0]), __half2float(csrc[0]));
+          // }
+          for (int j = 0; j < 8; ++j) {
+            // printf("csrc %f\n", __half2float(csrc[j]));
+            // printf("ctrg %f\n", __half2float(ctrg[j]));
+            // printf("csrc %f, ctrg %f\n", __half2float(csrc[j]), __half2float(ctrg[j]));
+            __half old = ctrg[j];
+            ctrg[j] = __float2half(__half2float(old) + __half2float(csrc[j]));
+          }
+          c_gl_wr += c_gl_wr_delta;
+          c_sh_rd += c_sh_rd_delta;
         }
-        c_gl_wr += c_gl_wr_delta;
-        c_sh_rd += c_sh_rd_delta;
       }
     }
   };
@@ -853,7 +904,7 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
   // Start global fetch and register load pipelines.
   auto start_pipes = [&]() {
 
-  fetch_sorted_ids_to_shared();
+  // fetch_sorted_ids_to_shared();
   __syncthreads();
 
 #pragma unroll
@@ -937,6 +988,11 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
         write_result();
       slice_row = 0;
       slice_col_par++;
+
+      // if (threadIdx.x == 160 && blockIdx.x == 21) {
+      //   printf("++, %d, %d\n", slice_idx, slice_count);
+      // }
+      
       slice_col++;
       init_slice();
       if (slice_iters) {
@@ -1135,8 +1191,8 @@ thread_config_t determine_thread_config(int prob_m, int prob_n, int prob_k) {
   __CALL_IF_MOE(4, N_BLOCKS, K_BLOCKS, -1, NUM_THREADS)
 
 void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids, void* topk_ids, void* s,
-                     void* red_tmp, int prob_m, int prob_n, int prob_k, void* workspace,
-                     int num_groups, int group_size,
+                     int* expert_offsets, void* red_tmp, int prob_m, int prob_n, int prob_k,  int64_t tot_its,
+                     void* workspace, int num_groups, int group_size,
                      int num_tokens_post_padded, int num_experts, int topk, int moe_block_size,
                      int dev, cudaStream_t stream, int thread_k, int thread_n, int sms, int max_par) {
 
@@ -1151,10 +1207,6 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
 
   TORCH_CHECK(prob_m > 0 && prob_n > 0 && prob_k > 0, "Invalid MNK = [", prob_m, ", ", prob_n, ", ",
               prob_k, "]");
-
-  int tot_m        = prob_m;
-  int tot_m_blocks = ceildiv(tot_m, 16);
-  int pad          = 16 * tot_m_blocks - tot_m;
 
   if (sms == -1) {
     cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, dev);
@@ -1206,18 +1258,20 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
   // ZeroOutput<<<1, num_threads>>>((int4*)C, tot_m, prob_n);
 
   // TODO fix
-  int moe_stride = ceildiv(prob_m, moe_block_size) * moe_block_size;
-  printf("moe stride: %d\n", moe_stride);
+  // int moe_stride = ceildiv(prob_m, moe_block_size) * moe_block_size;
+  // printf("moe stride: %d\n", moe_stride);
+
+   int tot_m = prob_m;
 
   // TODO get scales size accurately
   // TODO sorted row idx must be obtained with sorted_id // num_experts
   // printf("==LOOP==\n");
   for (int expert_idx = 0; expert_idx < num_experts; ++expert_idx) {
-    // printf("init ptrs for expert %d and gs %d\n", expert_idx, group_size);
+    printf("init ptrs for expert %d and gs %d\n", expert_idx, group_size);
     const int4* A_ptr     = (const int4*)A;
     const int4* B_ptr     = (const int4*)B + (prob_n * prob_k / 32) * expert_idx;
     int4*       C_ptr     = (int4*)C;
-    int*        sorted_ids_ptr  = (int*)sorted_ids + moe_stride * expert_idx;
+    int*        sorted_ids_ptr  = (int*)sorted_ids + expert_offsets[expert_idx];
     int*        topk_ids_ptr = (int*)topk_ids; // TODO adjust
     const int4* s_ptr     = (const int4*)s + (((group_size == -1 || group_size == 0) ? 1 : prob_k / group_size) * prob_n / 8) * expert_idx;
     // const int*  g_idx_ptr = (const int*)g_idx + prob_k * expert_idx;
@@ -1234,20 +1288,29 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
 
     int* locks = (int*)workspace;
 
+    int tot_its        = expert_offsets[expert_idx + 1] - expert_offsets[expert_idx]; //prob_m;
+    if (tot_its == 0) {
+      continue;
+    }
+    int tot_m_blocks = ceildiv(tot_its, 16);
+    int pad          = 16 * tot_m_blocks - tot_its;
+
     // Main loop
     for (int i = 0; i < tot_m_blocks; i += 4) {
       int thread_m_blocks = tot_m_blocks - i;
-      prob_m              = tot_m - 16 * i;
+      prob_m              = tot_its - 16 * i;
       int par             = 1;
       if (thread_m_blocks > 4) {
         // Note that parallel > 1 currently only works for inputs without any padding
         par = (16 * thread_m_blocks - pad) / 64;
         if (par > max_par)
           par = max_par;
+        printf("PAR: %d\n", par);
         prob_m = 64 * par;
         i += 4 * (par - 1);
         thread_m_blocks = 4;
       }
+       printf("MAIN LOOP ITER %d / %d FOR EXPERT %d\n", i, tot_m_blocks, expert_idx);
 
       // Define kernel configurations
 
@@ -1276,7 +1339,7 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
 } // namespace marlin
 
 torch::Tensor marlin_gemm_moe(torch::Tensor& a, torch::Tensor& b_q_weights, torch::Tensor& sorted_ids, torch::Tensor& topk_ids,
-                        torch::Tensor& b_scales, torch::Tensor& workspace, int64_t size_m, int64_t size_n, int64_t size_k,
+                        torch::Tensor& b_scales, int* expert_offsets, torch::Tensor& workspace, int64_t size_m, int64_t size_n, int64_t size_k,
                         int64_t num_tokens_post_padded, int64_t num_experts, int64_t topk, int64_t moe_block_size)
 {
   int version = 0;
@@ -1325,8 +1388,8 @@ torch::Tensor marlin_gemm_moe(torch::Tensor& a, torch::Tensor& b_q_weights, torc
 
   marlin::marlin_mm_moe_f16i4(a.data_ptr(), b_q_weights.data_ptr(), c.data_ptr(),
                 sorted_ids.data_ptr(), topk_ids.data_ptr(), b_scales.data_ptr(),
-                red_tmp.data_ptr(), size_m, size_n, size_k,
-                workspace.data_ptr(), num_groups, group_size,
+                expert_offsets, red_tmp.data_ptr(), size_m, size_n, size_k,
+                sorted_ids.size(0), workspace.data_ptr(), num_groups, group_size,
                 num_tokens_post_padded, num_experts, topk, moe_block_size,
                 dev, at::cuda::getCurrentCUDAStream(dev), thread_k, thread_n, sms, max_par);
   return c;

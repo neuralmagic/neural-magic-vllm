@@ -26,6 +26,7 @@ def torch_moe(a, w1, w2, score, topk):
     topk_ids = topk_ids.view(-1)
     print(topk_ids)
     for i in range(w1.shape[0]):
+    # for i in range(1):
         mask = topk_ids == i
         # print(mask)
         if mask.sum():
@@ -33,6 +34,7 @@ def torch_moe(a, w1, w2, score, topk):
             # out[mask] = SiluAndMul()(
             #     a[mask] @ w1[i].transpose(0, 1)) @ w2[i].transpose(0, 1)
     print("OUT2:", out.size())
+    # print("OUT TORCH:", out);
     # return (out.view(B, -1, w2.shape[1]) *
     #         topk_weight.view(B, -1, 1).to(out.dtype)).sum(dim=1)
     return (out.view(B, -1, w1.shape[1])).sum(dim=1)
@@ -40,7 +42,7 @@ def torch_moe(a, w1, w2, score, topk):
 @pytest.mark.parametrize("m", [4]) #[512, 222, 33, 1])
 @pytest.mark.parametrize("n", [2048]) #[2048, 256, 1024])
 @pytest.mark.parametrize("k", [1024]) #, 511, 1024])
-@pytest.mark.parametrize("e", [4]) #, 64])
+@pytest.mark.parametrize("e", [2]) #, 64])
 @pytest.mark.parametrize("topk", [2]) #, 6])
 @pytest.mark.parametrize("dtype", [torch.float16]) #, torch.bfloat16])
 def test_fused_moe(
@@ -299,6 +301,8 @@ def test_fused_marlin_moe():
     w2 = torch.randn((e, k, n), device='cuda', dtype=dtype) / 10
     w_m = torch.randn((e_m, k, n), device='cuda', dtype=dtype) / 10
 
+    eoff = torch.ones((1))
+
     a_2d = a.view(-1, a.shape[-1])
 
     w_refs = []
@@ -331,16 +335,16 @@ def test_fused_marlin_moe():
     topk_ids = torch.full(e, 0, dtype=torch.int).cuda()
 
     score = torch.randn((m, e), device='cuda', dtype=dtype)
-    marlin_output = moe_kernels.marlin_gemm_moe(a, qweight, sorted_ids, topk_ids, scales, workspace, m, n, k,
+    marlin_output = moe_kernels.marlin_gemm_moe(a, qweight, sorted_ids, topk_ids, scales, eoff, workspace, m, n, k,
         64, e, 1, moe_block_size)
     torch_output = torch_moe(a, w1, w2, score, topk)
     # assert torch.allclose(marlin_output, torch_output, atol=1e-2, rtol=0)
 
-@pytest.mark.parametrize("m", [48]) #, 512, 222, 33, 1])
-@pytest.mark.parametrize("n", [128]) #[2048, 2048, 256, 1024])
-@pytest.mark.parametrize("k", [128]) #[1024, 511, 1024])
-@pytest.mark.parametrize("e", [4]) #, 64])
-@pytest.mark.parametrize("topk", [2]) #[2, 6])
+@pytest.mark.parametrize("m", [64]) # [64, 512, 222, 33, 1])
+@pytest.mark.parametrize("n", [2048]) # [128, 2048, 256, 1024])
+@pytest.mark.parametrize("k", [1024]) # [128, 1024, 512])
+@pytest.mark.parametrize("e", [4]) # [4, 8]) # 64])
+@pytest.mark.parametrize("topk", [2]) # [2, 6])
 @pytest.mark.parametrize("dtype", [torch.float16]) #, torch.bfloat16])
 def test_fused_marlin_moe_2(
     m: int,
@@ -350,6 +354,9 @@ def test_fused_marlin_moe_2(
     topk: int,
     dtype: torch.dtype,
 ):
+    if topk > e:
+        return
+
     a = torch.randn((m, k), device='cuda', dtype=dtype) / 10
     # w1 = torch.randn((e, n, k), device='cuda', dtype=dtype) / 10
     w1 = torch.randn((e, n, k), device='cuda', dtype=dtype) / 10
@@ -400,7 +407,13 @@ def test_fused_marlin_moe_2(
     print(marlin_output.size())
     print(torch_output.size())
 
-    print(marlin_output)
-    print(torch_output)
+    # print(marlin_output)
+    # print(torch_output)
+
+    # for i in range(m):
+    #     print(i, marlin_output[i][0].item(), torch_output[i][0].item())
+    # print("---")
+    # for i in range(n):
+    #     print(i, marlin_output[m - 1][i].item(), torch_output[m - 1][i].item())
 
     assert torch.allclose(marlin_output, torch_output, atol=1e-2)

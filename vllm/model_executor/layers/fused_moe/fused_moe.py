@@ -205,6 +205,7 @@ def moe_align_block_size(
         by block_size for proper block matrix operations.
     """
     max_num_tokens_padded = topk_ids.numel() + num_experts * (block_size - 1)
+    print(max_num_tokens_padded, "=", topk_ids.numel(), "+", num_experts, "*", (block_size - 1))
     sorted_ids = torch.empty((max_num_tokens_padded, ),
                              dtype=torch.int32,
                              device=topk_ids.device)
@@ -218,6 +219,7 @@ def moe_align_block_size(
                                       device=topk_ids.device)
     ops.moe_align_block_size(topk_ids, num_experts, block_size, sorted_ids,
                              expert_ids, num_tokens_post_pad)
+    print("tokens pad:", max_num_tokens_padded, num_tokens_post_pad)
     return sorted_ids, expert_ids, num_tokens_post_pad
 
 
@@ -742,7 +744,9 @@ def fused_marlin_moe(
         topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
 
     print("topk_weights:", topk_weights)
+    torch.set_printoptions(profile="full")
     print("topk_ids:", topk_ids)
+    torch.set_printoptions(profile="default")
     # print("token_expert_indicies:", token_expert_indicies)
 
     if override_config:
@@ -776,12 +780,18 @@ def fused_marlin_moe(
                                       device=hidden_states.device,
                                       dtype=hidden_states.dtype)
 
-    sorted_token_ids, expert_ids, num_tokens_post_padded = moe_align_block_size(
-        topk_ids, config['BLOCK_SIZE_M'], E)
+    block_size_m = config['BLOCK_SIZE_M']
 
+    sorted_token_ids, expert_ids, num_tokens_post_padded = moe_align_block_size(
+        topk_ids, block_size_m, E)
+
+    # sorted_token_ids[:M] = torch.range(0, M - 1, dtype=torch.int)
+
+    torch.set_printoptions(profile="full")
     print("sorted_token_ids:", sorted_token_ids)
+    torch.set_printoptions(profile="default")
     print("expert_ids:", expert_ids)
-    print("num_tokens_post_padded:", num_tokens_post_padded, config['BLOCK_SIZE_M'])
+    print("num_tokens_post_padded:", num_tokens_post_padded, block_size_m)
 
     print("scales size:", scales1.size(), scales2.size())
 
@@ -791,13 +801,30 @@ def fused_marlin_moe(
                             device="cuda",
                             requires_grad=False)
 
+    expert_offsets = [0] * (E + 1)
+    occurences = torch.bincount(topk_ids.flatten()).to(dtype=torch.int)
+    print("occurences:", occurences)
+    erange = min(E, len(occurences))
+    for i in range(erange):
+        ex_blocks = (occurences[i].item() + block_size_m - 1) // block_size_m
+        expert_offsets[i + 1] = ex_blocks * block_size_m + expert_offsets[i]
+    for i in range(len(occurences), E):
+        expert_offsets[i] = sorted_token_ids.size()[0]
+
+    print("expert_offsets:", expert_offsets)
+    expert_offsets_np = numpy.asarray(expert_offsets)
+
+
+
     # intermediate_cache1 = moe_kernels.marlin_gemm_moe(hidden_states, w1,
     #     sorted_token_ids, topk_ids, scales1, workspace,
-    #     M, N * 2, K, num_tokens_post_padded, E, topk, config['BLOCK_SIZE_M'])
+    #     M, N * 2, K, num_tokens_post_padded, E, topk, block_size_m)
 
     intermediate_cache1 = moe_kernels.marlin_gemm_moe(hidden_states, w1,
-        sorted_token_ids, topk_ids, scales1, workspace,
-        M, N, K, num_tokens_post_padded, E, topk, config['BLOCK_SIZE_M'])
+        sorted_token_ids, topk_ids, scales1, expert_offsets_np, workspace,
+        M, N, K, num_tokens_post_padded, E, topk, block_size_m)
+
+    # print("OUT MOE:", intermediate_cache1);
 
     return torch.sum(intermediate_cache1.view(*intermediate_cache1.shape),
                      dim=1)
@@ -806,7 +833,7 @@ def fused_marlin_moe(
 
     # intermediate_cache3 = moe_kernels.marlin_gemm_moe(intermediate_cache2, w2,
     #     sorted_token_ids, topk_ids, scales2, workspace,
-    #     M, K, N, num_tokens_post_padded, E, topk, config['BLOCK_SIZE_M'])
+    #     M, K, N, num_tokens_post_padded, E, topk, block_size_m)
 
     # # intermediate_cache3 = intermediate_cache3.reshape
 
