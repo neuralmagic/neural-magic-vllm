@@ -76,7 +76,6 @@ jobs:
                 sudo apt-get update --fix-missing
                 sudo apt-get install -y git-all
                 sudo apt-get install -y curl
-                sudo apt install libnccl2
 
             - name: checkout
               id: checkout
