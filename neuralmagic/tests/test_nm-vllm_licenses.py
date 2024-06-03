@@ -43,8 +43,7 @@ def build_dist_info_path() -> Tuple[str, Path]:
         cmd, shell=True, stderr=subprocess.STDOUT).decode("utf-8")
     try:
         package = [
-            line for line in packages.splitlines()
-            if "nm-vllm" in line
+            line for line in packages.splitlines() if "nm-vllm" in line
         ][0]
     except IndexError as ie:
         raise ValueError(f"nm-vllm is not installed. see:\n{packages}") from ie
@@ -99,8 +98,7 @@ class TestNMThirdPartyLicenseFiles:
 
     @mark.parametrize(
         ("file_name", "content_regex"),
-        [param(lf[0], lf[1],
-               marks=lf[2]) for lf in THIRD_PARTY_LICENSE_FILES],
+        [param(lf[0], lf[1], marks=lf[2]) for lf in THIRD_PARTY_LICENSE_FILES],
     )
     def test_license_file_presence_content(self,
                                            build_dist_info_path: Tuple[str,
@@ -112,8 +110,8 @@ class TestNMThirdPartyLicenseFiles:
         package_name, dist_info = build_dist_info_path
         self.check_file_exists_and_content(dist_info, file_name, content_regex)
 
-    def test_expected_files_included(self,
-                                     build_dist_info_path: Tuple[str, Path]):
+    def test_expected_files_included(self, build_dist_info_path: Tuple[str,
+                                                                       Path]):
         """
         verifies that the list of license files in the directory matches the
         list provided in the METADATA file included with the distribution.
