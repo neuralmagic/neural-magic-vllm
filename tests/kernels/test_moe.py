@@ -340,11 +340,11 @@ def test_fused_marlin_moe():
     torch_output = torch_moe(a, w1, w2, score, topk)
     # assert torch.allclose(marlin_output, torch_output, atol=1e-2, rtol=0)
 
-@pytest.mark.parametrize("m", [64]) # [64, 512, 222, 33, 1])
-@pytest.mark.parametrize("n", [2048]) # [128, 2048, 256, 1024])
-@pytest.mark.parametrize("k", [1024]) # [128, 1024, 512])
-@pytest.mark.parametrize("e", [4]) # [4, 8]) # 64])
-@pytest.mark.parametrize("topk", [2]) # [2, 6])
+@pytest.mark.parametrize("m", [64, 512, 222, 33, 1])
+@pytest.mark.parametrize("n", [128, 2048, 256, 1024])
+@pytest.mark.parametrize("k", [128, 1024, 512])
+@pytest.mark.parametrize("e", [4, 8]) # 64])
+@pytest.mark.parametrize("topk", [2, 6])
 @pytest.mark.parametrize("dtype", [torch.float16]) #, torch.bfloat16])
 def test_fused_marlin_moe_2(
     m: int,

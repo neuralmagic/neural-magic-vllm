@@ -276,8 +276,8 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
   // }
 
     if (threadIdx.x == 0 && blockIdx.x == 0) {
-    printf("first sorted ids in kernel: %d %d %d %d (expert %d)\n",
-        sorted_ids[0], sorted_ids[1], sorted_ids[2], sorted_ids[3], expert_idx);
+    printf("first sorted ids in kernel: %d %d %d %d (expert %d) %d %d\n",
+        sorted_ids[0], sorted_ids[1], sorted_ids[2], sorted_ids[3], expert_idx, prob_m, tot_m);
   }
 
   // We can easily implement parallel problem execution by just remapping indices and advancing
@@ -768,11 +768,13 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
           // int sorted_row = sh_sorted[c_idx / c_gl_stride];
           int sorted_row = sorted_ids[c_idx / c_gl_stride];
           int new_idx = sorted_row * c_gl_stride + c_idx % c_gl_stride;
-          // THE final write to sh happens here in last==true iteration
-          // TODO where is sh[] accessed later?
-          cp_async4_pred(&sh[c_sh_wr + c_sh_wr_delta * i],
-                         &red_tmp[new_idx],
-                         8 * (i / 2) + row < prob_m && (i < (thread_m_blocks - 1) * 4 || sorted_ids[8 * (i / 2) + row] < tot_m * topk));
+          if (sorted_row < tot_m * topk) {
+            // THE final write to sh happens here in last==true iteration
+            // TODO where is sh[] accessed later?
+            cp_async4_pred(&sh[c_sh_wr + c_sh_wr_delta * i],
+                          &red_tmp[new_idx],
+                          8 * (i / 2) + row < prob_m && (i < (thread_m_blocks - 1) * 4 || sorted_ids[8 * (i / 2) + row] < tot_m * topk));
+          }
         }
         cp_async_fence();
         cp_async_wait<0>();
@@ -881,7 +883,7 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
           // HERE we read from sh, how is the access different?
           __half* csrc = reinterpret_cast<__half*>(&sh[c_sh_rd]);
           // if (c_gl_wr % c_gl_stride == 0) {
-          // if (threadIdx.x == 160 && blockIdx.x == 21) {
+          // // if (threadIdx.x == 160 && blockIdx.x == 21) {
           // printf("c offset: %d at row %d from (%d / %d = %d) + %d, expert %d (%d %d) (slice: %d, par: %d) -- %f += %f\n",
           //     off, row, c_gl_wr, c_gl_stride, c_gl_wr / c_gl_stride, c_gl_wr % c_gl_stride,
           //     expert_idx, threadIdx.x, blockIdx.x, slice_col, slice_col_par,
@@ -1267,7 +1269,7 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
   // TODO sorted row idx must be obtained with sorted_id // num_experts
   // printf("==LOOP==\n");
   for (int expert_idx = 0; expert_idx < num_experts; ++expert_idx) {
-    printf("init ptrs for expert %d and gs %d\n", expert_idx, group_size);
+    // printf("init ptrs for expert %d and gs %d\n", expert_idx, group_size);
     const int4* A_ptr     = (const int4*)A;
     const int4* B_ptr     = (const int4*)B + (prob_n * prob_k / 32) * expert_idx;
     int4*       C_ptr     = (int4*)C;
@@ -1305,12 +1307,12 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
         par = (16 * thread_m_blocks - pad) / 64;
         if (par > max_par)
           par = max_par;
-        printf("PAR: %d\n", par);
+        // printf("PAR: %d\n", par);
         prob_m = 64 * par;
         i += 4 * (par - 1);
         thread_m_blocks = 4;
       }
-       printf("MAIN LOOP ITER %d / %d FOR EXPERT %d\n", i, tot_m_blocks, expert_idx);
+      //  printf("MAIN LOOP ITER %d / %d FOR EXPERT %d\n", i, tot_m_blocks, expert_idx);
 
       // Define kernel configurations
 
