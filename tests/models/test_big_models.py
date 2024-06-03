@@ -8,6 +8,7 @@ Run `pytest tests/models/test_big_models.py`.
 import sys
 
 import pytest
+import torch
 
 MODELS = [
     "meta-llama/Llama-2-7b-hf",
@@ -36,9 +37,14 @@ SKIPPED_MODELS_PY38 = [
     "mosaicml/mpt-7b",
 ]
 
+#TODO: remove this after CPU float16 support ready
+target_dtype = "float"
+if torch.cuda.is_available():
+    target_dtype = "half"
+
 
 @pytest.mark.parametrize("model", MODELS)
-@pytest.mark.parametrize("dtype", ["half"])
+@pytest.mark.parametrize("dtype", [target_dtype])
 @pytest.mark.parametrize("max_tokens", [32])
 def test_models(
     hf_runner,
@@ -78,7 +84,7 @@ def test_models(
 
 @pytest.mark.skip("Slow and not useful (just prints model).")
 @pytest.mark.parametrize("model", MODELS)
-@pytest.mark.parametrize("dtype", ["half"])
+@pytest.mark.parametrize("dtype", [target_dtype])
 def test_model_print(
     vllm_runner,
     model: str,
