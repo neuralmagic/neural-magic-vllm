@@ -1,13 +1,6 @@
 name: Docker Build + Publish
 
 on:
-  # For now, just manually trigger
-  # push:
-  #   branches:
-  #     - main
-  # pull_request:
-  #   branches:
-  #     - main
   workflow_dispatch:
     inputs:
       docker_tag:
