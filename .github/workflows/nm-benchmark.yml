@@ -67,6 +67,9 @@ on:
           - 'false'
         default: 'false'
 
+env:
+    BENCHMARK_RESULTS: /model-cache/benchmark_results
+
 jobs:
 
   BENCHMARK:
@@ -142,6 +145,15 @@ jobs:
           path: benchmark-results
           retention-days: 2
 
+      - name: mount EFS
+        if: contains(fromJson('["aws"]', ${{ inputs.label }})
+        run: |
+            sudo mkdir -m 777 -p /EFS
+            sudo mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${{ secrets.HF_FS_CACHE }}:/ /EFS
+            sudo chown -R $(whoami):$(whoami) /EFS
+            # update results target
+            echo "BENCHMARK_RESULTS=/EFS/benchmark_results" >> $GITHUB_ENV
+
       - name: copy benchmark results to Filestore
         if: success()
         uses: ./.github/actions/nm-copy-benchmark-data-to-fs
@@ -149,7 +161,7 @@ jobs:
           label: ${{ inputs.label }}
           python: ${{ inputs.python }}
           src: benchmark-results
-          fs_dst: /model-cache/benchmark_results
+          fs_dst: ${{ env.BENCHMARK_RESULTS }}
 
       # Produce GHA benchmark JSONs
       - name: make github-action-benchmark JSONs
@@ -186,7 +198,7 @@ jobs:
           label: ${{ inputs.label }}
           python: ${{ inputs.python }}
           src: gh-action-benchmark-jsons
-          fs_dst: /model-cache/benchmark_results
+          fs_dst: ${{ env.BENCHMARK_RESULTS }}
 
   BENCHMARK_REPORT:
 
