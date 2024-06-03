@@ -25,8 +25,6 @@ def is_custom_op_supported(op_name: str) -> bool:
     op, overloads = torch._C._jit_get_operation(op_name)
     return op is not None
 
-from vllm.lowering_utils import vllm_lib, register_vllm_lowering
-
 
 def hint_on_error(fn):
 
