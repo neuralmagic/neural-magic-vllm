@@ -1,4 +1,4 @@
-name: Weekly
+name: nm Weekly
 run-name: ${{ github.actor }} triggered weekly on ${{ github.ref }}
 on:
   schedule:

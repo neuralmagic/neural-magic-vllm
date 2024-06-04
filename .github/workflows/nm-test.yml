@@ -1,4 +1,4 @@
-name: test
+name: nm test
 on:
   # makes workflow reusable
   workflow_call:

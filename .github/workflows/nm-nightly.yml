@@ -1,4 +1,4 @@
-name: Nightly
+name: nm Nightly
 run-name: ${{ github.actor }} triggered nightly on ${{ github.ref }}
 on:
     schedule:
