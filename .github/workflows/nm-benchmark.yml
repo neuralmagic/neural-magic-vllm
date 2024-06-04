@@ -1,4 +1,4 @@
-name: benchmark
+name: nm benchmark
 on:
   # makes workflow reusable
   workflow_call:
@@ -132,8 +132,8 @@ jobs:
       - name: install whl
         run: |
             pip install --extra-index-url https://pypi.neuralmagic.com/simple nm-vllm
-            mv vllm vllm-ignore
-            mv csrc csrc-ignore
+            mv vllm vllm-ignore  || echo "no 'vllm' folder to move"
+            mv csrc csrc-ignore  || echo "no 'csrc' folder to move"
 
       - name: run benchmarks
         uses: ./.github/actions/nm-benchmark/

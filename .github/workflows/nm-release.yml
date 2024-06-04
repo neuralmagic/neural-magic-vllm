@@ -1,4 +1,4 @@
-name: release
+name: nm release
 run-name: ${{ github.actor }} verifying branch '${{ github.ref }}'
 on:
   workflow_dispatch:
