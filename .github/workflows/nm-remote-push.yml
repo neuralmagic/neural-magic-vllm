@@ -13,7 +13,7 @@ concurrency:
 jobs:
 
     BUILD-TEST-3-8:
-        uses: ./.github/workflows/build-test.yml
+        uses: ./.github/workflows/nm-build-test.yml
         with:
             python: 3.8.17
             gitref: ${{ github.ref }}
@@ -29,7 +29,7 @@ jobs:
         secrets: inherit
 
     BUILD-TEST-3-9:
-        uses: ./.github/workflows/build-test.yml
+        uses: ./.github/workflows/nm-build-test.yml
         with:
             python: 3.9.17
             gitref: ${{ github.ref }}
@@ -45,7 +45,7 @@ jobs:
         secrets: inherit
 
     BUILD-TEST-3-10:
-        uses: ./.github/workflows/build-test.yml
+        uses: ./.github/workflows/nm-build-test.yml
         with:
             python: 3.10.12
             gitref: ${{ github.ref }}
@@ -61,7 +61,7 @@ jobs:
         secrets: inherit
 
     BUILD-TEST-3-11:
-        uses: ./.github/workflows/build-test.yml
+        uses: ./.github/workflows/nm-build-test.yml
         with:
             python: 3.11.4
             gitref: ${{ github.ref }}

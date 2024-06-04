@@ -115,25 +115,19 @@ jobs:
         with:
           fs_cache: ${{ secrets.HF_FS_CACHE }}
 
-    #   - name: download whl
-    #     id: download
-    #     uses: actions/download-artifact@v4
-    #     with:
-    #       name: ${{ inputs.whl }}
-    #       path: ${{ inputs.whl }}
-
-    #   - name: install whl
-    #     id: install_whl
-    #     uses: ./.github/actions/nm-install-whl/
-    #     with:
-    #         python: ${{ inputs.python }}
-    #         venv:
+      - name: download whl
+        id: download
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.whl }}
+          path: ${{ inputs.whl }}
 
       - name: install whl
-        run: |
-            pip install --extra-index-url https://pypi.neuralmagic.com/simple nm-vllm
-            mv vllm vllm-ignore  || echo "no 'vllm' folder to move"
-            mv csrc csrc-ignore  || echo "no 'csrc' folder to move"
+        id: install_whl
+        uses: ./.github/actions/nm-install-whl/
+        with:
+            python: ${{ inputs.python }}
+            venv:
 
       - name: run benchmarks
         uses: ./.github/actions/nm-benchmark/
@@ -142,10 +136,6 @@ jobs:
           output_directory: benchmark-results
           python: ${{ inputs.python }}
           venv:
-
-      - name: take a look
-        run: |
-            ls -al benchmark-results
 
       - name: store benchmark result artifacts
         if: success()

@@ -128,13 +128,6 @@ jobs:
                 python: ${{ inputs.python }}
                 venv:
 
-            # TODO: DELETE
-            # - name: install from pypi
-            #   run: |
-            #     mv vllm vllm-ignore
-            #     mv csrc csrc-ignore
-            #     pip3 install --extra-index-url https://pypi.neuralmagic.com/simple nm-vllm[sparse]
-
             - name: run buildkite script
               run: |
                 cd tests && sudo bash ../.buildkite/download-images.sh
@@ -146,18 +139,6 @@ jobs:
                 test_skip_list: ${{ inputs.test_skip_list }}
                 test_directory: tests
                 test_results: test-results
-
-            # TODO: DELETE
-            # - name: install and test whl
-            #   id: test
-            #   uses: ./.github/actions/nm-install-test-whl/
-            #   with:
-            #     pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
-            #     python: ${{ inputs.python }}
-            #     venv:
-            #     test_skip_list: ${{ inputs.test_skip_list }}
-            #     test_directory: tests
-            #     test_results: test-results
 
             - name: upload code coverage html
               uses: actions/upload-artifact@v4

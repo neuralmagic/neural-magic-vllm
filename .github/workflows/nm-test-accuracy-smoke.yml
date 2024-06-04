@@ -1,4 +1,4 @@
-name: nm-test-accuracy-smoke
+name: nm test accuracy smoke
 on:
   # makes workflow reusable
   workflow_call:

@@ -70,7 +70,7 @@ on:
 jobs:
 
     BUILD:
-        uses: ./.github/workflows/build.yml
+        uses: ./.github/workflows/nm-build.yml
         with:
             wf_category: ${{ inputs.wf_category }}
             build_label: ${{ inputs.build_label }}
@@ -84,7 +84,7 @@ jobs:
     TEST-SOLO:
         needs: [BUILD]
         if: success()
-        uses: ./.github/workflows/test.yml
+        uses: ./.github/workflows/nm-test.yml
         with:
             test_label: ${{ inputs.test_label_solo }}
             timeout: ${{ inputs.test_timeout }}
@@ -97,7 +97,7 @@ jobs:
     TEST-MULTI:
         needs: [BUILD]
         if: success() && contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category)
-        uses: ./.github/workflows/test.yml
+        uses: ./.github/workflows/nm-test.yml
         with:
             test_label: ${{ inputs.test_label_multi }}
             timeout: ${{ inputs.test_timeout }}

@@ -18,7 +18,7 @@ on:
 jobs:
 
     PYTHON-3-8:
-        uses: ./.github/workflows/build-test.yml
+        uses: ./.github/workflows/nm-build-test.yml
         with:
             wf_category: NIGHTLY
             python: 3.8.17
@@ -36,7 +36,7 @@ jobs:
         secrets: inherit
 
     PYTHON-3-9:
-        uses: ./.github/workflows/build-test.yml
+        uses: ./.github/workflows/nm-build-test.yml
         with:
             wf_category: NIGHTLY
             python: 3.9.17
@@ -54,7 +54,7 @@ jobs:
         secrets: inherit
 
     PYTHON-3-10:
-        uses: ./.github/workflows/build-test.yml
+        uses: ./.github/workflows/nm-build-test.yml
         with:
             wf_category: NIGHTLY
             python: 3.10.12
@@ -72,7 +72,7 @@ jobs:
         secrets: inherit
 
     PYTHON-3-11:
-        uses: ./.github/workflows/build-test.yml
+        uses: ./.github/workflows/nm-build-test.yml
         with:
             wf_category: NIGHTLY
             python: 3.11.4

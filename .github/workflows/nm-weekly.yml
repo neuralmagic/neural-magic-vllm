@@ -18,7 +18,7 @@ on:
 jobs:
 
   BUILD-TEST:
-    uses: ./.github/workflows/build-test.yml
+    uses: ./.github/workflows/nm-build-test.yml
     with:
       wf_category: WEEKLY
       python: 3.10.12
