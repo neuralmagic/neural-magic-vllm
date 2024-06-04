@@ -92,7 +92,7 @@ jobs:
         run: |
             sudo apt-get update --fix-missing
             sudo apt-get install -y git-all
-            sudo apt-get install -y curl
+            sudo apt-get install -y curl wget
 
       - name: checkout repository code
         uses: actions/checkout@v4
