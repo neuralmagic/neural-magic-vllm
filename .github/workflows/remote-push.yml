@@ -38,7 +38,7 @@ jobs:
             test_timeout: 480
             test_skip_list: neuralmagic/tests/skip-for-remote-push-tmp.txt
 
-            benchmark_label: gcp-k8s-t4-solo
+            benchmark_label: gcp-k8s-l4-solo
             benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
             benchmark_timeout: 480
         secrets: inherit
