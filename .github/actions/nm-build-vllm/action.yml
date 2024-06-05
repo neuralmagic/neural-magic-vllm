@@ -40,6 +40,12 @@ runs:
       if [ ${SUCCESS} -ne 0 ]; then
         exit 1
       fi
+      # strip binaries
+      for eachso in $(find . -type f -name '*.so')
+      do
+          strip $eachso
+          file $eachso
+      done
       # whl
       SUCCESS=0
       pip3 wheel --no-deps -w dist . || SUCCESS=$?
