@@ -99,7 +99,10 @@ done
 echo "..."
 
 # download required artifacts for testing
-(cd ${TEST_DIR} && bash ../.buildkite/download-images.sh)
+cd ${TEST_DIR}
+if [ -f "../.buildkite/download-images.sh" ]; then
+    bash ../.buildkite/download-images.sh
+fi
 
 # run selected tests
 SUCCESS=0
