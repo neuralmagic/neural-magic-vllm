@@ -92,6 +92,10 @@ int cutlass_scaled_mm_dq(torch::Tensor& out, torch::Tensor const& a,
                          torch::Tensor const& b, torch::Tensor const& a_scales,
                          torch::Tensor const& b_scales);
 
+int cutlass_scaled_mm_dq_transpose(torch::Tensor& out, torch::Tensor const& a,
+                         torch::Tensor const& b, torch::Tensor const& a_scales,
+                         torch::Tensor const& b_scales);
+
 #endif
 
 void static_scaled_int8_quant(torch::Tensor& out, torch::Tensor& input,

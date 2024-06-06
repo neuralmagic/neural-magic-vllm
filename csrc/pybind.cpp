@@ -54,6 +54,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   ops.def("cutlass_scaled_mm_dq", &cutlass_scaled_mm_dq,
           "CUTLASS w8a8 GEMM, supporting symmetric per-tensor or "
           "per-row/column quantization.");
+
+  ops.def("cutlass_scaled_mm_dq_transpose", &cutlass_scaled_mm_dq_transpose,
+          "CUTLASS w8a8 GEMM, supporting symmetric per-tensor or "
+          "per-row/column quantization.");
 #endif
 
   ops.def("gptq_gemm", &gptq_gemm, "Quantized GEMM for GPTQ");
