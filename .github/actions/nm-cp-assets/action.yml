@@ -10,11 +10,11 @@ runs:
     - id: mv_assets
       run: |
         VERSION_BASE=$(./.github/scripts/convert-version ${{ inputs.python }})
-        WHL=$(find assets -type f -name "*nm_magic_wand*${VERSION_BASE}*.whl")
+        WHL=$(find assets -type f -name "*nm_vllm*${VERSION_BASE}*.whl")
         WHL_FILE=$(basename ${WHL})
         echo "whl: ${WHL}"
         echo "whl_file: ${WHL_FILE}"
-        TAR=$(find assets -path "*${{ inputs.python }}-nm-magic-wand*.tar.gz" -type f -name "nm-magic-wand*.tar.gz")
+        TAR=$(find assets -path "*${{ inputs.python }}-nm-vllm*.tar.gz" -type f -name "nm-vllm*.tar.gz")
         TAR_FILE=$(basename ${TAR})
         echo "tar: ${TAR}"
         echo "tar_file: ${TAR_FILE}"
