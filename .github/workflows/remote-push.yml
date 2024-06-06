@@ -4,6 +4,7 @@ on:
   push:
     branches-ignore:
       - main
+      - upload-to-gcp
 
 concurrency:
   group: ${{ github.head_ref || github.ref_name }}
