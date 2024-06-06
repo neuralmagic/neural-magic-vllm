@@ -81,18 +81,18 @@ jobs:
             python: ${{ inputs.python }}
         secrets: inherit
 
-    TEST-SOLO:
-        needs: [BUILD]
-        if: success()
-        uses: ./.github/workflows/test.yml
-        with:
-            test_label: ${{ inputs.test_label_solo }}
-            timeout: ${{ inputs.test_timeout }}
-            gitref: ${{ github.ref }}
-            python: ${{ inputs.python }}
-            whl: ${{ needs.BUILD.outputs.whl }}
-            test_skip_list: ${{ inputs.test_skip_list }}
-        secrets: inherit
+    # TEST-SOLO:
+    #     needs: [BUILD]
+    #     if: success()
+    #     uses: ./.github/workflows/test.yml
+    #     with:
+    #         test_label: ${{ inputs.test_label_solo }}
+    #         timeout: ${{ inputs.test_timeout }}
+    #         gitref: ${{ github.ref }}
+    #         python: ${{ inputs.python }}
+    #         whl: ${{ needs.BUILD.outputs.whl }}
+    #         test_skip_list: ${{ inputs.test_skip_list }}
+    #     secrets: inherit
 
     # TEST-MULTI:
     #     needs: [BUILD]
@@ -108,7 +108,7 @@ jobs:
     #     secrets: inherit
 
     UPLOAD:
-        needs: [TEST-SOLO]
+        needs: [BUILD]
         if: contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category)
         uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
         with:

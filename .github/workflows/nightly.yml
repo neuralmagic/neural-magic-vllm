@@ -60,7 +60,7 @@ jobs:
             python: 3.10.12
             gitref: ${{ github.ref }}
 
-            test_label_solo: gcp-k8s-t4-duo
+            test_label_solo: aws-avx2-32G-a10g-24G
             test_label_multi: ignore
             test_timeout: 480
             test_skip_list: neuralmagic/tests/skip-for-remote-push-tmp.txt
@@ -78,7 +78,7 @@ jobs:
             python: 3.11.4
             gitref: ${{ github.ref }}
 
-            test_label_solo: gcp-k8s-t4-duo
+            test_label_solo: aws-test-a10g-24G
             test_label_multi: ignore
             test_timeout: 480
             test_skip_list: neuralmagic/tests/skip-for-remote-push-tmp.txt
