@@ -66,7 +66,9 @@ struct cutlass_2x_gemm_transpose {
 
   using OutputTileThreadMap =
       cutlass::epilogue::threadblock::OutputTileThreadLayout<
-          TileShape, WarpShape, float, 1, 1 /* epilogue stages */
+          TileShape, WarpShape, float,
+          1, /* elements per access - needs to be 1 when the output layout is AffineRankK*/
+          1 /* epilogue stages */
           >;
 
   using Accum = cutlass::epilogue::threadblock::VisitorAccFetch;
@@ -94,9 +96,6 @@ struct cutlass_2x_gemm_transpose {
   using D = cutlass::epilogue::threadblock::VisitorAuxStore<
       OutputTileThreadMap, ElementD, cutlass::FloatRoundStyle::round_to_nearest,
       Stride<Int<1>, int64_t, Int<0>>>;
-  //using D = cutlass::epilogue::threadblock::VisitorAuxStore<
-  //    OutputTileThreadMap, ElementD, cutlass::FloatRoundStyle::round_to_nearest,
-  //    Stride<Int<1>, int64_t, Int<0>>>;
 
   using EVTD = cutlass::epilogue::threadblock::Sm80EVT<D, EVTCompute1>;
 
@@ -124,41 +123,31 @@ struct cutlass_2x_gemm_transpose {
 };
 
 template <typename Gemm>
-void cutlass_scaled_mm_dq_dispatcher_transpose(torch::Tensor& out, torch::Tensor const& a,
-                                     torch::Tensor const& b,
+void cutlass_scaled_mm_dq_dispatcher_transpose(torch::Tensor& out_, torch::Tensor const& a_,
+                                     torch::Tensor const& b_,
                                      torch::Tensor const& a_scales,
                                      torch::Tensor const& b_scales) {
   using ElementAB = typename Gemm::ElementAB;
   using ElementD = typename Gemm::ElementD;
 
-  int32_t m = b.size(1);
-  int32_t n = a.size(0);
-  int32_t k = b.size(0);
+  auto a = b_.transpose(0, 1);
+  auto b = a_.transpose(0, 1);
+  auto out = out_.transpose(0, 1);
 
-  //int32_t m = a.size(0);
-  //int32_t n = b.size(1);
-  //int32_t k = a.size(1);
+  int32_t m = a.size(0);
+  int32_t n = b.size(1);
+  int32_t k = a.size(1);
   cutlass::gemm::GemmCoord problem_size{m, n, k};
 
-  int64_t lda = b.stride(1);
-  int64_t ldb = a.stride(0);
-  int64_t ldc = out.stride(0);
-
-  //int64_t lda = a.stride(0);
-  //int64_t ldb = b.stride(1);
-  //int64_t ldc = out.stride(0);
-
-  std::cerr<<"m n k - "<<m<<", "<<n<<", "<<k<<"\n";
-  std::cerr<<"strides a b c "<<lda<<" "<<ldb<<" "<<ldc<<"\n";
-
-  //using StrideC = Stride<int64_t, Int<1>, Int<0>>;
-  //StrideC c_stride{ldc, Int<1>{}, Int<0>{}};
+  int64_t lda = a.stride(0);
+  int64_t ldb = b.stride(1);
+  int64_t ldc = out.stride(1);
 
   using StrideC = Stride<Int<1>, int64_t, Int<0>>;
   StrideC c_stride{ Int<1>{}, ldc, Int<0>{}};
 
-  auto a_ptr = static_cast<ElementAB const*>(b.data_ptr());
-  auto b_ptr = static_cast<ElementAB const*>(a.data_ptr());
+  auto a_ptr = static_cast<ElementAB const*>(a.data_ptr());
+  auto b_ptr = static_cast<ElementAB const*>(b.data_ptr());
   auto c_ptr = static_cast<ElementD*>(out.data_ptr());
 
   auto a_scales_ptr = a_scales.data_ptr<float>();
@@ -195,16 +184,10 @@ void cutlass_scaled_mm_dq_dispatcher_transpose(torch::Tensor& out, torch::Tensor
       0,  // batch_stride_b
       0,  // batch_stride_c
       0,  // batch_stride_d
-      //lda,
-      //ldb,
-      cutlass::layout::RowMajor(lda).stride(), 
+      cutlass::layout::RowMajor(lda).stride(),
       cutlass::layout::ColumnMajor(ldb).stride(),
-      //Gemm::OutLayout::Stride(static_cast<int64_t>(1), ldc),
-      //Gemm::OutLayout::Stride(static_cast<int64_t>(1), ldc)};
       cutlass::layout::AffineRankN<2>(static_cast<int64_t>(1), ldc).stride(),
       cutlass::layout::AffineRankN<2>(static_cast<int64_t>(1), ldc).stride()};
-      //cutlass::layout::AffineRankN<2>(ldc, static_cast<int64_t>(1)).stride(),
-      //cutlass::layout::AffineRankN<2>(ldc, static_cast<int64_t>(1)).stride()};
 
   // Launch the CUTLASS GEMM kernel.
   typename Gemm::Op gemm_op;
