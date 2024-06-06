@@ -253,6 +253,29 @@ for arg in Cutlass3xArgsList:
 
 Cutlass3xArgsClusterListI8 = list(filter(lambda x: not bad_3x_arg(x) ,Cutlass3xArgsClusterList))
 
+
+## Promising Tile List 
+tile_shapes = [(128, 128, 128),
+               (128, 64, 128),
+               (64, 128, 256),
+               (64, 64, 256),
+               (64, 64, 128),
+               (64, 128, 128)]
+cluster_shapes = [(1, 1, 1), (1, 2, 1), (2, 1, 1),
+                  (4, 4, 1), (1, 4, 1), (1, 8, 1)]
+
+tile_cluster_shapes = list(product(tile_shapes, cluster_shapes))
+
+Cutlass3xArgsTileClusterListI8 = []
+for arg in Cutlass3xArgsListI8:
+    for tile_cluster in tile_cluster_shapes:
+        tile, cluster = tile_cluster
+        Cutlass3xArgsTileClusterListI8.append(
+                arg.with_tile_shape(tile).with_cluster_shape(cluster))
+
+Cutlass3xArgsTileClusterListI8 = list(filter(lambda x: not bad_3x_arg(x) ,Cutlass3xArgsTileClusterListI8))
+
+
 Cutlass3xArgsListFP8 = [
     Cutlass3xArgs(
             "fp8",
