@@ -194,6 +194,7 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
     "csrc/custom_all_reduce.cu"
     "csrc/quantization/cutlass_w8a8/scaled_mm_dq_entry.cu"
     "csrc/quantization/cutlass_w8a8/scaled_mm_dq_c2x_transpose.cu"
+    "csrc/quantization/cutlass_w8a8/scaled_mm_dq_c3x_transpose.cu"
     "csrc/quantization/cutlass_w8a8/scaled_mm_dq_c2x.cu"
     "csrc/quantization/cutlass_w8a8/scaled_mm_dq_c3x.cu")
 
@@ -204,6 +205,7 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
   if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER 12.0)
     set_source_files_properties(
           "csrc/quantization/cutlass_w8a8/scaled_mm_dq_c3x.cu"
+          "csrc/quantization/cutlass_w8a8/scaled_mm_dq_c3x_transpose.cu"
           PROPERTIES
           COMPILE_FLAGS
           "-gencode arch=compute_90a,code=sm_90a")
