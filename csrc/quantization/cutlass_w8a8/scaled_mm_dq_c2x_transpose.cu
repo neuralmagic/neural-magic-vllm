@@ -66,15 +66,15 @@ struct cutlass_2x_gemm_transpose {
 
   using OutputTileThreadMap =
       cutlass::epilogue::threadblock::OutputTileThreadLayout<
-          TileShape, WarpShape, float, 4, 1 /* epilogue stages */
+          TileShape, WarpShape, float, 1, 1 /* epilogue stages */
           >;
 
   using Accum = cutlass::epilogue::threadblock::VisitorAccFetch;
 
-  using ScaleA = cutlass::epilogue::threadblock::VisitorColOrScalarBroadcast<
+  using ScaleB = cutlass::epilogue::threadblock::VisitorColOrScalarBroadcast<
       OutputTileThreadMap, float, Stride<Int<1>, Int<0>, Int<0>>>;
 
-  using ScaleB = cutlass::epilogue::threadblock::VisitorRowOrScalarBroadcast<
+  using ScaleA = cutlass::epilogue::threadblock::VisitorRowOrScalarBroadcast<
       OutputTileThreadMap, float, Stride<Int<0>, Int<1>, Int<0>>>;
 
   using Compute0 = cutlass::epilogue::threadblock::VisitorCompute<
@@ -93,18 +93,23 @@ struct cutlass_2x_gemm_transpose {
 
   using D = cutlass::epilogue::threadblock::VisitorAuxStore<
       OutputTileThreadMap, ElementD, cutlass::FloatRoundStyle::round_to_nearest,
-      Stride<int64_t, Int<1>, Int<0>>>;
+      Stride<Int<1>, int64_t, Int<0>>>;
+  //using D = cutlass::epilogue::threadblock::VisitorAuxStore<
+  //    OutputTileThreadMap, ElementD, cutlass::FloatRoundStyle::round_to_nearest,
+  //    Stride<Int<1>, int64_t, Int<0>>>;
 
   using EVTD = cutlass::epilogue::threadblock::Sm80EVT<D, EVTCompute1>;
 
   // clang-format off
   using RowMajor = typename cutlass::layout::RowMajor;
   using ColumnMajor = typename cutlass::layout::ColumnMajor;
+  using OutLayout = cutlass::layout::AffineRankN<2>;
+
   using KernelType = 
     typename cutlass::gemm::kernel::DefaultGemmWithVisitor<
       ElementAB, RowMajor, cutlass::ComplexTransform::kNone, 16, 
       ElementAB, ColumnMajor, cutlass::ComplexTransform::kNone, 16, 
-      float, cutlass::layout::ColumnMajor, 4,
+      float, OutLayout, 1,
       ElementAcc, float, cutlass::arch::OpClassTensorOp, 
       Arch, 
       TileShape, WarpShape, InstructionShape,
@@ -119,27 +124,41 @@ struct cutlass_2x_gemm_transpose {
 };
 
 template <typename Gemm>
-void cutlass_scaled_mm_dq_dispatcher(torch::Tensor& out, torch::Tensor const& a,
+void cutlass_scaled_mm_dq_dispatcher_transpose(torch::Tensor& out, torch::Tensor const& a,
                                      torch::Tensor const& b,
                                      torch::Tensor const& a_scales,
                                      torch::Tensor const& b_scales) {
   using ElementAB = typename Gemm::ElementAB;
   using ElementD = typename Gemm::ElementD;
 
-  int32_t m = a.size(0);
-  int32_t n = b.size(1);
-  int32_t k = a.size(1);
+  int32_t m = b.size(1);
+  int32_t n = a.size(0);
+  int32_t k = b.size(0);
+
+  //int32_t m = a.size(0);
+  //int32_t n = b.size(1);
+  //int32_t k = a.size(1);
   cutlass::gemm::GemmCoord problem_size{m, n, k};
 
-  int64_t lda = a.stride(0);
-  int64_t ldb = b.stride(1);
+  int64_t lda = b.stride(1);
+  int64_t ldb = a.stride(0);
   int64_t ldc = out.stride(0);
 
-  using StrideC = Stride<int64_t, Int<1>, Int<0>>;
-  StrideC c_stride{ldc, Int<1>{}, Int<0>{}};
+  //int64_t lda = a.stride(0);
+  //int64_t ldb = b.stride(1);
+  //int64_t ldc = out.stride(0);
 
-  auto a_ptr = static_cast<ElementAB const*>(a.data_ptr());
-  auto b_ptr = static_cast<ElementAB const*>(b.data_ptr());
+  std::cerr<<"m n k - "<<m<<", "<<n<<", "<<k<<"\n";
+  std::cerr<<"strides a b c "<<lda<<" "<<ldb<<" "<<ldc<<"\n";
+
+  //using StrideC = Stride<int64_t, Int<1>, Int<0>>;
+  //StrideC c_stride{ldc, Int<1>{}, Int<0>{}};
+
+  using StrideC = Stride<Int<1>, int64_t, Int<0>>;
+  StrideC c_stride{ Int<1>{}, ldc, Int<0>{}};
+
+  auto a_ptr = static_cast<ElementAB const*>(b.data_ptr());
+  auto b_ptr = static_cast<ElementAB const*>(a.data_ptr());
   auto c_ptr = static_cast<ElementD*>(out.data_ptr());
 
   auto a_scales_ptr = a_scales.data_ptr<float>();
@@ -162,6 +181,7 @@ void cutlass_scaled_mm_dq_dispatcher(torch::Tensor& out, torch::Tensor const& a,
       d_args,
   };
 
+  // cutlass/include/cutlass/gemm/kernel/gemm_universal_streamk.h - GemmUniversalStreamk::Arguments
   typename Gemm::Op::Arguments args{
       cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel,  // universal mode
       problem_size,                                           // problem size
@@ -169,16 +189,22 @@ void cutlass_scaled_mm_dq_dispatcher(torch::Tensor& out, torch::Tensor const& a,
       epilogue_args,
       a_ptr,
       b_ptr,
-      nullptr,
-      nullptr,
-      0,
-      0,
-      0,
-      0,
-      lda,
-      ldb,
-      ldc,
-      ldc};
+      nullptr, // ptr_c
+      nullptr, // ptr_d 
+      0,  // batch_stride_a
+      0,  // batch_stride_b
+      0,  // batch_stride_c
+      0,  // batch_stride_d
+      //lda,
+      //ldb,
+      cutlass::layout::RowMajor(lda).stride(), 
+      cutlass::layout::ColumnMajor(ldb).stride(),
+      //Gemm::OutLayout::Stride(static_cast<int64_t>(1), ldc),
+      //Gemm::OutLayout::Stride(static_cast<int64_t>(1), ldc)};
+      cutlass::layout::AffineRankN<2>(static_cast<int64_t>(1), ldc).stride(),
+      cutlass::layout::AffineRankN<2>(static_cast<int64_t>(1), ldc).stride()};
+      //cutlass::layout::AffineRankN<2>(ldc, static_cast<int64_t>(1)).stride(),
+      //cutlass::layout::AffineRankN<2>(ldc, static_cast<int64_t>(1)).stride()};
 
   // Launch the CUTLASS GEMM kernel.
   typename Gemm::Op gemm_op;
@@ -194,34 +220,7 @@ void cutlass_scaled_mm_dq_dispatcher(torch::Tensor& out, torch::Tensor const& a,
 
 }  // namespace
 
-void cutlass_scaled_mm_dq_sm75(torch::Tensor& out, torch::Tensor const& a,
-                               torch::Tensor const& b,
-                               torch::Tensor const& a_scales,
-                               torch::Tensor const& b_scales) {
-  TORCH_CHECK(a.dtype() == torch::kInt8);
-  TORCH_CHECK(b.dtype() == torch::kInt8);
-  TORCH_CHECK(a_scales.dtype() == torch::kFloat32);
-  TORCH_CHECK(b_scales.dtype() == torch::kFloat32);
-
-  using TileShape = typename cutlass::gemm::GemmShape<128, 128, 64>;
-  using WarpShape = typename cutlass::gemm::GemmShape<64, 64, 64>;
-  using InstructionShape = typename cutlass::gemm::GemmShape<8, 8, 16>;
-
-  if (out.dtype() == torch::kBFloat16) {
-    return cutlass_scaled_mm_dq_dispatcher<
-        cutlass_2x_gemm_transpose<cutlass::arch::Sm75, int8_t, cutlass::bfloat16_t,
-                        TileShape, WarpShape, InstructionShape, 2>>(
-        out, a, b, a_scales, b_scales);
-  } else {
-    TORCH_CHECK(out.dtype() == torch::kFloat16);
-    return cutlass_scaled_mm_dq_dispatcher<
-        cutlass_2x_gemm_transpose<cutlass::arch::Sm75, int8_t, cutlass::half_t, TileShape,
-                        WarpShape, InstructionShape, 2>>(out, a, b, a_scales,
-                                                         b_scales);
-  }
-}
-
-void cutlass_scaled_mm_dq_sm80(torch::Tensor& out, torch::Tensor const& a,
+void cutlass_scaled_mm_dq_sm80_transpose(torch::Tensor& out, torch::Tensor const& a,
                                torch::Tensor const& b,
                                torch::Tensor const& a_scales,
                                torch::Tensor const& b_scales) {
@@ -235,60 +234,16 @@ void cutlass_scaled_mm_dq_sm80(torch::Tensor& out, torch::Tensor const& a,
   using InstructionShape = typename cutlass::gemm::GemmShape<16, 8, 32>;
 
   if (out.dtype() == torch::kBFloat16) {
-    return cutlass_scaled_mm_dq_dispatcher<
+    return cutlass_scaled_mm_dq_dispatcher_transpose<
         cutlass_2x_gemm_transpose<cutlass::arch::Sm80, int8_t, cutlass::bfloat16_t,
                         TileShape, WarpShape, InstructionShape, 5>>(
         out, a, b, a_scales, b_scales);
   } else {
     TORCH_CHECK(out.dtype() == torch::kFloat16);
-    return cutlass_scaled_mm_dq_dispatcher<
+    return cutlass_scaled_mm_dq_dispatcher_transpose<
         cutlass_2x_gemm_transpose<cutlass::arch::Sm80, int8_t, cutlass::half_t, TileShape,
                         WarpShape, InstructionShape, 5>>(out, a, b, a_scales,
                                                          b_scales);
   }
 }
 
-void cutlass_scaled_mm_dq_sm89(torch::Tensor& out, torch::Tensor const& a,
-                               torch::Tensor const& b,
-                               torch::Tensor const& a_scales,
-                               torch::Tensor const& b_scales) {
-  using TileShape = typename cutlass::gemm::GemmShape<128, 128, 64>;
-  using WarpShape = typename cutlass::gemm::GemmShape<64, 64, 64>;
-  using InstructionShape = typename cutlass::gemm::GemmShape<16, 8, 32>;
-
-  TORCH_CHECK(a_scales.dtype() == torch::kFloat32);
-  TORCH_CHECK(b_scales.dtype() == torch::kFloat32);
-
-  if (a.dtype() == torch::kInt8) {
-    TORCH_CHECK(b.dtype() == torch::kInt8);
-
-    if (out.dtype() == torch::kBFloat16) {
-      return cutlass_scaled_mm_dq_dispatcher<
-          cutlass_2x_gemm_transpose<cutlass::arch::Sm89, int8_t, cutlass::bfloat16_t,
-                          TileShape, WarpShape, InstructionShape, 5>>(
-          out, a, b, a_scales, b_scales);
-    } else {
-      assert(out.dtype() == torch::kFloat16);
-      return cutlass_scaled_mm_dq_dispatcher<
-          cutlass_2x_gemm_transpose<cutlass::arch::Sm89, int8_t, cutlass::half_t,
-                          TileShape, WarpShape, InstructionShape, 5>>(
-          out, a, b, a_scales, b_scales);
-    }
-  } else {
-    TORCH_CHECK(a.dtype() == torch::kFloat8_e4m3fn);
-    TORCH_CHECK(b.dtype() == torch::kFloat8_e4m3fn);
-
-    if (out.dtype() == torch::kBFloat16) {
-      return cutlass_scaled_mm_dq_dispatcher<cutlass_2x_gemm_transpose<
-          cutlass::arch::Sm89, cutlass::float_e4m3_t, cutlass::bfloat16_t,
-          TileShape, WarpShape, InstructionShape, 5>>(out, a, b, a_scales,
-                                                      b_scales);
-    } else {
-      TORCH_CHECK(out.dtype() == torch::kFloat16);
-      return cutlass_scaled_mm_dq_dispatcher<cutlass_2x_gemm_transpose<
-          cutlass::arch::Sm89, cutlass::float_e4m3_t, cutlass::half_t,
-          TileShape, WarpShape, InstructionShape, 5>>(out, a, b, a_scales,
-                                                      b_scales);
-    }
-  }
-}

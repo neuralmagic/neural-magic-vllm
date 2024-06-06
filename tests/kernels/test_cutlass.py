@@ -74,10 +74,19 @@ def cutlass_int8_gemm_helper(m: int,
     scale_b = (torch.randn(
         (1, n_b_scales), device=device, dtype=torch.float32) / 10)
 
-    out = ops.cutlass_scaled_mm_dq(a, b, scale_a, scale_b, out_dtype)
+    #scale_a = (torch.ones(
+    #    (m_a_scales, 1), device=device, dtype=torch.float32))
+    #scale_b = (torch.ones(
+    #    (1, n_b_scales), device=device, dtype=torch.float32))
+
     baseline = torch.mm(scale_a * a.to(dtype=torch.float32),
                         scale_b *
                         b.to(dtype=torch.float32)).to(dtype=out_dtype)
+
+    out = ops.cutlass_scaled_mm_dq(a, b, scale_a, scale_b, out_dtype)
+
+    print(f"baseline {baseline}\n\n")
+    print(f"out {out}\n\n")
 
     assert torch.allclose(out, baseline, rtol=1e-1, atol=1e0)
 
@@ -102,6 +111,25 @@ def test_cutlass_fp8_gemm(m: int, n: int, k: int, per_act_token: bool,
 def test_cutlass_int8_gemm(m: int, n: int, k: int, per_act_token: bool,
                            per_out_ch: bool):
     cutlass_int8_gemm_helper(m, n, k, per_act_token, per_out_ch)
+
+@pytest.mark.parametrize("m", [512])
+@pytest.mark.parametrize("n", [2048])
+@pytest.mark.parametrize("k", [128])
+@pytest.mark.parametrize("per_act_token", [True])
+@pytest.mark.parametrize("per_out_ch", [True])
+def test_cutlass_int8_gemm_smoke(m: int, n: int, k: int, per_act_token: bool,
+                           per_out_ch: bool):
+    cutlass_int8_gemm_helper(m, n, k, per_act_token, per_out_ch)
+
+#@pytest.mark.parametrize("m", [16])
+#@pytest.mark.parametrize("n", [16])
+#@pytest.mark.parametrize("k", [16])
+#@pytest.mark.parametrize("per_act_token", [False])
+#@pytest.mark.parametrize("per_out_ch", [False])
+#def test_cutlass_int8_gemm_smoke(m: int, n: int, k: int, per_act_token: bool,
+#                           per_out_ch: bool):
+#    torch.manual_seed(0)
+#    cutlass_int8_gemm_helper(m, n, k, per_act_token, per_out_ch)
 
 
 @pytest.mark.parametrize("per_act_token", [True, False])

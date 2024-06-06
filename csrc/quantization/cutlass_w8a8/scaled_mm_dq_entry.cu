@@ -18,6 +18,11 @@ void cutlass_scaled_mm_dq_sm89(torch::Tensor& c, torch::Tensor const& a,
                                torch::Tensor const& a_scales,
                                torch::Tensor const& b_scales);
 
+void cutlass_scaled_mm_dq_sm80_transpose(torch::Tensor& c, torch::Tensor const& a,
+                               torch::Tensor const& b,
+                               torch::Tensor const& a_scales,
+                               torch::Tensor const& b_scales);
+
 #if defined CUDA_VERSION && CUDA_VERSION >= 12000
 void cutlass_scaled_mm_dq_sm90(torch::Tensor& c, torch::Tensor const& a,
                                torch::Tensor const& b,
@@ -59,14 +64,16 @@ void cutlass_scaled_mm_dq(torch::Tensor& c, torch::Tensor const& a,
 #if defined CUDA_VERSION && CUDA_VERSION >= 12000
     cutlass_scaled_mm_dq_sm90(c, a, b, a_scales, b_scales);
 #else
-    cutlass_scaled_mm_dq_sm80(c, a, b, a_scales, b_scales);
+    cutlass_scaled_mm_dq_sm80_transpose(c, a, b, a_scales, b_scales);
+    //cutlass_scaled_mm_dq_sm80(c, a, b, a_scales, b_scales);
 #endif
   } else if (version_num == 89) {
     // Ada Lovelace
     cutlass_scaled_mm_dq_sm89(c, a, b, a_scales, b_scales);
   } else if (version_num >= 80) {
     // Ampere
-    cutlass_scaled_mm_dq_sm80(c, a, b, a_scales, b_scales);
+    cutlass_scaled_mm_dq_sm80_transpose(c, a, b, a_scales, b_scales);
+    //cutlass_scaled_mm_dq_sm80(c, a, b, a_scales, b_scales);
   } else {
     // Turing
     TORCH_CHECK(version_num >= 75);
