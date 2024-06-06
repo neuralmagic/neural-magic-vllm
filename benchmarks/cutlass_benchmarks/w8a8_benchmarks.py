@@ -82,6 +82,14 @@ def cutlass_impl(a: torch.tensor, b: torch.tensor, scale_a: torch.tensor,
                                     scale_b,
                                     out_dtype=out_dtype)
 
+def cutlass_transpose_impl(a: torch.tensor, b: torch.tensor, scale_a: torch.tensor,
+                 scale_b: torch.tensor,
+                 out_dtype: torch.dtype) -> torch.tensor:
+    return ops.cutlass_scaled_mm_dq_transpose(a,
+                                              b,
+                                              scale_a,
+                                              scale_b,
+                                              out_dtype=out_dtype)
 
 # bench
 def bench_fn(a: torch.tensor, b: torch.tensor, scale_a: torch.tensor,
@@ -124,9 +132,15 @@ def bench_int8(dtype: torch.dtype, m: int, k: int, n: int, label: str,
 
     # cutlass impl
     timers.append(
-        bench_fn(a, b, scale_a.to(device="cpu"), scale_b.to(device="cpu"),
+        bench_fn(a, b, scale_a, scale_b,
                  torch.bfloat16, label, sub_label, cutlass_impl,
                  "cutlass_i8_i8_bf16_scaled_mm"))
+
+    # cutlass transpose impl
+    timers.append(
+        bench_fn(a, b, scale_a, scale_b,
+                 torch.bfloat16, label, sub_label, cutlass_transpose_impl,
+                 "cutlass_i8_i8_bf16_scaled_mm(transpose-trick)"))
 
     return timers
 
@@ -164,14 +178,24 @@ def bench_fp8(dtype: torch.dtype, m: int, k: int, n: int, label: str,
 
     # cutlass impl: bf16 output
     timers.append(
-        bench_fn(a, b, scale_a.to(device="cpu"), scale_b.to(device="cpu"),
+        bench_fn(a, b, scale_a, scale_b,
                  torch.bfloat16, label, sub_label, cutlass_impl,
                  "cutlass_fp8_fp8_bf16_scaled_mm"))
     # cutlass impl: fp16 output
     timers.append(
-        bench_fn(a, b, scale_a.to(device="cpu"), scale_b.to(device="cpu"),
+        bench_fn(a, b, scale_a, scale_b,
                  torch.float16, label, sub_label, cutlass_impl,
                  "cutlass_fp8_fp8_fp16_scaled_mm"))
+    # cutlass impl transposed: bf16 output
+    timers.append(
+        bench_fn(a, b, scale_a, scale_b,
+                 torch.bfloat16, label, sub_label, cutlass_transpose_impl,
+                 "cutlass_fp8_fp8_bf16_scaled_mm(transpose-trick)"))
+    # cutlass impl: fp16 output
+    timers.append(
+        bench_fn(a, b, scale_a, scale_b,
+                 torch.float16, label, sub_label, cutlass_transpose_impl,
+                 "cutlass_fp8_fp8_fp16_scaled_mm(transpose-trick)"))
     return timers
 
 
