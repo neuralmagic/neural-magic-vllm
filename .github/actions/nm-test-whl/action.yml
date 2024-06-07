@@ -26,6 +26,7 @@ runs:
         SUCCESS=0
         VLLM_SRC=$(python3 -c "import vllm; print(vllm.__path__[0])")
         ./.github/scripts/run-tests -s ${VLLM_SRC} -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} -f ${{ inputs.test_skip_list }}|| SUCCESS=$?
+        pytest ./neuralmagic/tests/test_nm-vllm_licenses.py --junitxml=${{ inputs.test_results }}/test_nm-vllm_licenses.xml
         echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
         exit ${SUCCESS}
       shell: bash
