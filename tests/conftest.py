@@ -2,6 +2,8 @@ import contextlib
 import gc
 import logging
 import os
+import subprocess
+import sys
 from typing import Any, Dict, List, Optional, Tuple, TypeVar
 
 import pytest
@@ -750,6 +752,25 @@ def caplog_vllm(temporary_enable_log_propagate, caplog):
     # To capture vllm log, we should enable propagate=True temporarily
     # because caplog depends on logs propagated to the root logger.
     yield caplog
+
+
+@pytest.fixture(scope="session")
+def num_gpus_available():
+    """Get number of GPUs without initializing the CUDA context
+    in current process."""
+
+    try:
+        out = subprocess.run([
+            sys.executable, "-c",
+            "import torch; print(torch.cuda.device_count())"
+        ],
+                             capture_output=True,
+                             check=True,
+                             text=True)
+    except subprocess.CalledProcessError as e:
+        logger.warning("Failed to get number of GPUs.", exc_info=e)
+        return 0
+    return int(out.stdout.strip())
 
 
 @pytest.fixture(scope="session")
