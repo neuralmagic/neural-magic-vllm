@@ -49,19 +49,20 @@ jobs:
             id: setup
             uses: ./.github/actions/nm-setup-nvidia-container-toolkit/
 
-          - name: Build image
-            id: build
-            uses: ./.github/actions/nm-build-docker/
-            with:
-              docker_tag: ${{ inputs.docker_tag }}
-              build_type: ${{ inputs.build_type }}
-              build_version: ${{ inputs.build_version }}
-
           - name: Get image additional tag
             id: tag
             uses: ./.github/actions/nm-get-tag/
             with:
               build_type: ${{ inputs.build_type }}
+
+          - name: Build image
+            id: build
+            uses: ./.github/actions/nm-build-docker/
+            with:
+              docker_tag: ${{ inputs.docker_tag }}
+              additional_tag: ${{ steps.tag.outputs.tag }}
+              build_type: ${{ inputs.build_type }}
+              build_version: ${{ inputs.build_version }}
 
           - name: Push image
             uses: docker/build-push-action@v5
