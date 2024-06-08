@@ -68,9 +68,13 @@ on:
         default: "false"
       # lm-eval related parameters
       lm_eval_label:
-        description: "requested lm-eval label (specifies instance)"
+        description: "requested runner label (specifies instance)"
         type: string
         default: ""
+      lm_eval_timeout:
+        description: "time limit for lm_eval"
+        type: string
+        default: "60"
       lm_eval_configuration:
         description: "configuration for lm-eval test (see neuralmagic/lm-eval)"
         type: string
@@ -148,6 +152,7 @@ jobs:
       uses: ./.github/workflows/nm-lm-eval.yml
       with:
         label: ${{ inputs.test_label_solo }}
+        timeout: ${{ inputs.lm_eval_timeout }}
         gitref: ${{ inputs.gitref }}
         python: ${{ inputs.python }}
         whl: ${{ needs.BUILD.outputs.whl }}
