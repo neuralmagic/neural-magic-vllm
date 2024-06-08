@@ -23,8 +23,8 @@ on:
         description: "whl to test (variable appears late binding so unusable outside 'download artifact')"
         type: string
         required: true
-      test_configuration:
-        description: 'file containing tests configuration'
+      lm_eval_configuration:
+        description: 'file containing tests configuration (see: nm-vllm/neuralmagic/lm-eval)'
         type: string
         required: true
 
@@ -51,8 +51,8 @@ on:
         description: "whl to test (variable appears late binding so unusable outside 'download artifact')"
         type: string
         required: true
-      test_configuration:
-        description: 'file containing tests configuration'
+      lm_eval_configuration:
+        description: 'file containing tests configuration (see: nm-vllm/neuralmagic/lm-eval)'
         type: string
         required: true
 
@@ -110,4 +110,4 @@ jobs:
         with:
           python: ${{ inputs.python }}
           venv:
-          test_configuration: ${{ inputs.test_configuration }}
+          lm_eval_configuration: ${{ inputs.lm_eval_configuration }}

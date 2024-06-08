@@ -46,7 +46,7 @@ on:
         type: string
         required: true
       test_skip_list:
-        description: 'file containing tests to skip'
+        description: 'file containing tests to skip (see neuralmagic/tests)'
         type: string
         required: true
       # benchmark related parameters
@@ -67,7 +67,14 @@ on:
         type: string
         default: "false"
       # lm-eval related parameters
-      
+      lm_eval_label:
+        description: "requested lm-eval label (specifies instance)"
+        type: string
+        default: ""
+      lm_eval_configuration:
+        description: "configuration for lm-eval test (see neuralmagic/lm-eval)"
+        type: string
+        default: "" 
 
 jobs:
 
@@ -144,4 +151,5 @@ jobs:
         gitref: ${{ inputs.gitref }}
         python: ${{ inputs.python }}
         whl: ${{ needs.BUILD.outputs.whl }}
+        lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
       secrets: inherit
