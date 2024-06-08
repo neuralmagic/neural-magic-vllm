@@ -15,14 +15,6 @@ on:
         description: "git commit hash or branch name"
         type: string
         required: true
-      Gi_per_thread:
-        description: 'requested GiB to reserve per thread'
-        type: string
-        required: true
-      nvcc_threads:
-        description: "number of threads nvcc build threads"
-        type: string
-        required: true
       python:
         description: "python version, e.g. 3.10.12"
         type: string
@@ -45,14 +37,6 @@ on:
         required: true
       gitref:
         description: "git commit hash or branch name"
-        type: string
-        required: true
-      Gi_per_thread:
-        description: 'requested GiB to reserve per thread'
-        type: string
-        required: true
-      nvcc_threads:
-        description: "number of threads nvcc build threads"
         type: string
         required: true
       python:
@@ -90,8 +74,6 @@ jobs:
         uses: ./.github/actions/nm-set-env/
         with:
           hf_token: ${{ secrets.NM_HF_TOKEN }}
-          Gi_per_thread: ${{ inputs.Gi_per_thread }}
-          nvcc_threads: ${{ inputs.nvcc_threads }}
 
       - name: hf cache
         id: hf_cache

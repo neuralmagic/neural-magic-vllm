@@ -19,14 +19,6 @@ on:
         description: "git commit hash or branch name"
         type: string
         required: true
-      Gi_per_thread:
-        description: 'requested GiB to reserve per thread'
-        type: string
-        required: true
-      nvcc_threads:
-        description: 'requested number of threads for nvcc'
-        type: string
-        required: true
       python:
         description: "python version, e.g. 3.10.12"
         type: string
@@ -49,14 +41,6 @@ on:
         required: true
       gitref:
         description: "git commit hash or branch name"
-        type: string
-        required: true
-      Gi_per_thread:
-        description: 'requested GiB to reserve per thread'
-        type: string
-        required: true
-      nvcc_threads:
-        description: 'requested number of threads for nvcc'
         type: string
         required: true
       python:
@@ -93,8 +77,6 @@ jobs:
               with:
                 wf_category: ${{ inputs.wf_category }}
                 hf_token: ${{ secrets.NM_HF_TOKEN }}
-                Gi_per_thread: ${{ inputs.Gi_per_thread }}
-                nvcc_threads: ${{ inputs.nvcc_threads }}
 
             - name: set python
               id: set_python

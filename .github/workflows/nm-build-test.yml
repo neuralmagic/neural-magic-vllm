@@ -20,14 +20,6 @@ on:
         description: "time limit for build in minutes "
         type: string
         default: "120"
-      Gi_per_thread:
-        description: 'requested GiB to reserve per thread'
-        type: string
-        default: "1"
-      nvcc_threads:
-        description: "number of threads nvcc build threads"
-        type: string
-        default: "4"
       # test related parameters
       test_label_solo:
         description: "requested runner label (specifies instance)"
@@ -76,8 +68,6 @@ jobs:
             build_label: ${{ inputs.build_label }}
             timeout: ${{ inputs.build_timeout }}
             gitref: ${{ github.ref }}
-            Gi_per_thread: ${{ inputs.Gi_per_thread }}
-            nvcc_threads: ${{ inputs.nvcc_threads }}
             python: ${{ inputs.python }}
         secrets: inherit
 
@@ -142,8 +132,6 @@ jobs:
         label: ${{ inputs.test_label_multi }}
         timeout: ${{ inputs.benchmark_timeout }}
         gitref: ${{ inputs.gitref }}
-        Gi_per_thread: ${{ inputs.Gi_per_thread }}
-        nvcc_threads: ${{ inputs.nvcc_threads }}
         python: ${{ inputs.python }}
         whl: ${{ needs.BUILD.outputs.whl }}
       secrets: inherit
