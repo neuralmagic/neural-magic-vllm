@@ -142,7 +142,7 @@ class MixtralMoE(nn.Module):
                     "weight_loader": self.weight_loader,
                 })
 
-            # ACT_SCALE (for fp8)
+            # INPUT_SCALE (for fp8)
             if quant_config.activation_scheme == "static":
                 if not quant_config.is_checkpoint_fp8_serialized:
                     raise ValueError(
@@ -175,7 +175,15 @@ class MixtralMoE(nn.Module):
                        shard_size:2 * shard_size, :] = loaded_weight[shard, :]
         if weight_name.endswith("w2.weight"):
             param_data[expert_id, :, :] = loaded_weight[:, shard]
-        if "act_scale" in weight_name or "weight_scale" in weight_name:
+
+        # Loading scales
+        if "input_scale" in weight_name or "w2.weight_scale" in weight_name:
+            if param_data[expert_id] != 1 and (param_data[expert_id] -
+                                               loaded_weight).abs() > 1e-5:
+                raise ValueError(
+                    "input_scales of w1 and w3 of a layer "
+                    f"must be equal. But got {param_data[expert_id]} "
+                    f"vs. {loaded_weight}")
             param_data[expert_id] = loaded_weight
 
     def process_weights_after_loading(self):
@@ -199,20 +207,22 @@ class MixtralMoE(nn.Module):
             self.w13_weight = nn.Parameter(w13_weight, requires_grad=False)
             self.w2_weight = nn.Parameter(w2_weight, requires_grad=False)
 
-        # If checkpoint is fp8 + static, cleanup act_scales.
-        #   Since state_dict has an act_scale per expert but our kernels
-        #   are passed one act_scale shared across all experts.
-        elif self.quant_config.activation_scheme == "static":
-            if self.a13_scale is None or self.a2_scale is None:
-                raise ValueError(
-                    "QuantConfig has static quantization, but found "
-                    "activation scales are None.")
+        else:
+            # If checkpoint is fp8 + static, cleanup input_scales.
+            #   Since state_dict has an input_scale per expert but our kernels
+            #   are passed one input_scale shared across all experts.
+            if self.quant_config.activation_scheme == "static":
+                if self.a13_scale is None or self.a2_scale is None:
+                    raise ValueError(
+                        "QuantConfig has static quantization, but found "
+                        "activation scales are None.")
 
-            if (not all_close_1d(self.a13_scale)
-                    or not all_close_1d(self.a2_scale)):
-                print_warning_once(
-                    "Found act_scales that are not equal for fp8 MoE layer. "
-                    "Using the maximum across experts for each layer. ")
+                if (not all_close_1d(self.a13_scale)
+                        or not all_close_1d(self.a2_scale)):
+                    print_warning_once(
+                        "Found input_scales that are not equal for "
+                        "fp8 MoE layer. Using the maximum across experts "
+                        "for each layer. ")
 
             self.a13_scale = nn.Parameter(self.a13_scale.max(),
                                           requires_grad=False)
@@ -532,7 +542,7 @@ class MixtralForCausalLM(nn.Module):
             # These are the activation scales for the experts
             # (param_name, weight_name, expert_id)
             ("a13_scale" if weight_name in ["w1", "w3"] else "a2_scale",
-             f"experts.{expert_id}.{weight_name}.act_scale", expert_id)
+             f"experts.{expert_id}.{weight_name}.input_scale", expert_id)
             for expert_id in range(self.config.num_local_experts)
             for weight_name in ["w1", "w2", "w3"]
         ]
