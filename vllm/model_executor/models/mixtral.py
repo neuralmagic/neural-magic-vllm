@@ -182,11 +182,11 @@ class MixtralMoE(nn.Module):
             param_data[expert_id, :, :] = loaded_weight[:, shard]
 
         # Loading scales
-        if "act_scale" in weight_name or "w2.weight_scale" in weight_name:
+        if "input_scale" in weight_name or "w2.weight_scale" in weight_name:
             if param_data[expert_id] != 1 and (param_data[expert_id] -
                                                loaded_weight).abs() > 1e-5:
                 raise ValueError(
-                    "act_scales of w1 and w3 of a layer "
+                    "input_scales of w1 and w3 of a layer "
                     f"must be equal. But got {param_data[expert_id]} "
                     f"vs. {loaded_weight}")
             param_data[expert_id] = loaded_weight
@@ -225,9 +225,9 @@ class MixtralMoE(nn.Module):
             self.w2_weight = nn.Parameter(w2_weight, requires_grad=False)
 
         else:
-            # If checkpoint is fp8 + static, cleanup act_scales.
-            #   Since state_dict has an act_scale per expert but our kernels
-            #   are passed one act_scale shared across all experts.
+            # If checkpoint is fp8 + static, cleanup input_scales.
+            #   Since state_dict has an input_scale per expert but our kernels
+            #   are passed one input_scale shared across all experts.
             if self.quant_config.activation_scheme == "static":
                 if self.a13_scale is None or self.a2_scale is None:
                     raise ValueError(
@@ -237,7 +237,7 @@ class MixtralMoE(nn.Module):
                 if (not all_close_1d(self.a13_scale)
                         or not all_close_1d(self.a2_scale)):
                     print_warning_once(
-                        "Found act_scales that are not equal for "
+                        "Found input_scales that are not equal for "
                         "fp8 MoE layer. Using the maximum across experts "
                         "for each layer. ")
 

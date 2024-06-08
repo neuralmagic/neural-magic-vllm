@@ -254,11 +254,11 @@ class Fp8LinearMethod(LinearMethodBase):
               bias: Optional[torch.Tensor] = None) -> torch.Tensor:
 
         # ops.scaled_fp8_quant supports both dynamic and static quant.
-        #   If dynamic, layer.act_scale is None and x_scale computed from x.
-        #   If static,  layer.act_scale is scalar and x_scale set to act_scale.
+        #   If dynamic, layer.input_scale is None and x_scale computed from x.
+        #   If static, layer.input_scale is scalar and x_scale is input_scale.
 
         if bias is None and self.cutlass_fp8_supported:
-            qinput, x_scale = ops.scaled_fp8_quant(x, layer.act_scale)
+            qinput, x_scale = ops.scaled_fp8_quant(x, layer.input_scale)
 
             # Fused GEMM_DQ
             output = ops.cutlass_scaled_mm_dq(
@@ -271,7 +271,7 @@ class Fp8LinearMethod(LinearMethodBase):
 
         else:
             qinput, x_scale = ops.scaled_fp8_quant(x,
-                                                   layer.act_scale,
+                                                   layer.input_scale,
                                                    batch_dim_padding=17)
 
             # Fused GEMM_DQ -- note we padded the input above because
