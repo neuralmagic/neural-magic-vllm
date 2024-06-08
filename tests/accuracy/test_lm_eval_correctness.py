@@ -1,10 +1,10 @@
 import logging
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, TypedDict
 
 import numpy
 import pytest
-import os
 import torch
 import yaml
 
@@ -45,9 +45,7 @@ class EvalTaskDefinition(EvalTaskDefinitionOpts):
 
 TEST_DATA_FILE = os.environ.get("LM_EVAL_TEST_DATA_FILE", None)
 if TEST_DATA_FILE is None:
-    raise ValueError(
-        "LM_EVAL_TEST_DATA_FILE env variable is not set."
-    )
+    raise ValueError("LM_EVAL_TEST_DATA_FILE env variable is not set.")
 TEST_DATA_FILE = Path(TEST_DATA_FILE)
 
 TEST_DATA: List[EvalTaskDefinition] = [
