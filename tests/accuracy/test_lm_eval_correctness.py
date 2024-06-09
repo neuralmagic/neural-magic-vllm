@@ -10,8 +10,8 @@ import yaml
 from tests.nm_utils.server import ServerContext
 from tests.nm_utils.utils_skip import should_skip_test_group
 
-if should_skip_test_group(group_name="TEST_LM_EVAL"):
-    pytest.skip("TEST_LM_EVAL is set to 0, skipping group",
+if should_skip_test_group(group_name="TEST_ACCURACY"):
+    pytest.skip("TEST_ACCURACY=0, skipping accuracy test group",
                 allow_module_level=True)
 
 if TYPE_CHECKING:

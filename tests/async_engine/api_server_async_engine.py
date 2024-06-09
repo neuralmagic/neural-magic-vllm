@@ -2,12 +2,18 @@
 import argparse
 from typing import Any, Dict
 
+import pytest
 import uvicorn
 from fastapi.responses import JSONResponse, Response
 
 import vllm.entrypoints.api_server
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
+
+if should_skip_test_group(group_name="TEST_ASYNC_ENGINE"):
+    pytest.skip("TEST_ASYNC_ENGINE=0, async engine test group",
+                allow_module_level=True)
 
 app = vllm.entrypoints.api_server.app
 
