@@ -28,7 +28,7 @@ jobs:
             benchmark_timeout: 480
 
             lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_configuration: ./neuralmagic/lm-eval/remote-push.yaml
+            lm_eval_configuration: ./neuralmagic/lm-eval/smoke-small-models.yaml
             lm_eval_timeout: 60
         secrets: inherit
 
@@ -48,7 +48,7 @@ jobs:
             benchmark_timeout: 480
 
             lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_configuration: ./neuralmagic/lm-eval/remote-push.yaml
+            lm_eval_configuration: ./neuralmagic/lm-eval/smoke-small-models.yaml
             lm_eval_timeout: 60
         secrets: inherit
 
@@ -68,7 +68,7 @@ jobs:
             benchmark_timeout: 480
 
             lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_configuration: ./neuralmagic/lm-eval/remote-push.yaml
+            lm_eval_configuration: ./neuralmagic/lm-eval/smoke-small-models.yaml
             lm_eval_timeout: 60
         secrets: inherit
 
@@ -88,6 +88,6 @@ jobs:
             benchmark_timeout: 480
 
             lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_configuration: ./neuralmagic/lm-eval/remote-push.yaml
+            lm_eval_configuration: ./neuralmagic/lm-eval/smoke-small-models.yaml
             lm_eval_timeout: 60
         secrets: inherit
