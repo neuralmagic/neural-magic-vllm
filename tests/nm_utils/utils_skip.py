@@ -35,3 +35,17 @@ def should_skip_lm_eval_test_group():
 def should_skip_tensorizer_test_group():
     TEST_TENSORIZER = os.getenv("TEST_TENSORIZER", "0")
     return TEST_TENSORIZER != "1"
+
+
+MAP = {
+    "TEST_KERNELS": should_skip_kernel_test_group,
+    "TEST_LORA": should_skip_lora_test_group,
+    "TEST_SPEC_DECODE": should_skip_spec_decode_test_group,
+    "TEST_ALL_MODELS": should_skip_models_test_group,
+    "TEST_LM_EVAL": should_skip_lm_eval_test_group,
+    "TEST_TENSORIZER": should_skip_tensorizer_test_group
+}
+
+
+def should_skip_test_group(group_name: str) -> bool:
+    return MAP[group_name]()

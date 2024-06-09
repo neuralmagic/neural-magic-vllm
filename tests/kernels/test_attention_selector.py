@@ -4,6 +4,11 @@ from unittest.mock import patch
 import pytest
 import torch
 
+from tests.nm_utils.utils_skip import should_skip_test_group
+
+if should_skip_test_group(group_name="TEST_KERNELS"):
+    pytest.mark.skip("TEST_KERNELS=0, skipping group", allow_module_level=True)
+
 from vllm.attention.selector import which_attn_to_use
 
 
