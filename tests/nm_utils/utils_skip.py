@@ -8,59 +8,58 @@ import os
 
 
 def should_skip_accuracy_test_group():
-    TEST_ACCURACY = os.getenv("TEST_ACCURACY", "0")
-    return TEST_ACCURACY != "1"
+    TEST_ACCURACY = os.getenv("TEST_ACCURACY", "1")
+    return TEST_ACCURACY == "0"
 
 
 def should_skip_async_engine_test_group():
-    TEST_ASYNC_ENGINE = os.getenv("TEST_ASYNC_ENGINE", "0")
-    print(TEST_ASYNC_ENGINE)
-    return TEST_ASYNC_ENGINE != "1"
+    TEST_ASYNC_ENGINE = os.getenv("TEST_ASYNC_ENGINE", "1")
+    return TEST_ASYNC_ENGINE == "0"
 
 
 def should_skip_basic_correctness_test_group():
-    TEST_BASIC_CORRECTNESS = os.getenv("TEST_BASIC_CORRECTNESS", "0")
-    return TEST_BASIC_CORRECTNESS != "1"
+    TEST_BASIC_CORRECTNESS = os.getenv("TEST_BASIC_CORRECTNESS", "1")
+    return TEST_BASIC_CORRECTNESS == "0"
 
 
 def should_skip_core_test_group():
-    TEST_CORE = os.getenv("TEST_CORE", "0")
-    return TEST_CORE != "1"
+    TEST_CORE = os.getenv("TEST_CORE", "1")
+    return TEST_CORE == "0"
 
 
 def should_skip_distributed_test_group():
-    TEST_DISTRIBUTED = os.getenv("TEST_DISTRIBUTED", "0")
-    return TEST_DISTRIBUTED != "1"
+    TEST_DISTRIBUTED = os.getenv("TEST_DISTRIBUTED", "1")
+    return TEST_DISTRIBUTED == "0"
 
 
 def should_skip_engine_test_group():
-    TEST_ENGINE = os.getenv("TEST_ENGINE", "0")
-    return TEST_ENGINE != "1"
+    TEST_ENGINE = os.getenv("TEST_ENGINE", "1")
+    return TEST_ENGINE == "0"
 
 
 def should_skip_entrypoints_test_group():
-    TEST_ENTRYPOINTS = os.getenv("TEST_ENTRYPOINTS", "0")
-    return TEST_ENTRYPOINTS != "1"
+    TEST_ENTRYPOINTS = os.getenv("TEST_ENTRYPOINTS", "1")
+    return TEST_ENTRYPOINTS == "0"
 
 
 def should_skip_kernels_test_groups():
-    TEST_KERNELS = os.getenv("TEST_KERNELS", "0")
-    return TEST_KERNELS != "1"
+    TEST_KERNELS = os.getenv("TEST_KERNELS", "1")
+    return TEST_KERNELS == "0"
 
 
 def should_skip_lora_test_group():
-    TEST_LORA = os.getenv("TEST_LORA", "0")
-    return TEST_LORA != "1"
+    TEST_LORA = os.getenv("TEST_LORA", "1")
+    return TEST_LORA == "0"
 
 
 def should_skip_metrics_test_group():
-    TEST_METRICS = os.getenv("TEST_METRICS", "0")
-    return TEST_METRICS != "1"
+    TEST_METRICS = os.getenv("TEST_METRICS", "1")
+    return TEST_METRICS == "0"
 
 
 def should_skip_model_executor_test_group():
-    TEST_MODEL_EXECUTOR = os.getenv("TEST_MODEL_EXECUTOR", "0")
-    return TEST_MODEL_EXECUTOR != "1"
+    TEST_MODEL_EXECUTOR = os.getenv("TEST_MODEL_EXECUTOR", "1")
+    return TEST_MODEL_EXECUTOR == "0"
 
 
 def should_skip_models_test_group():
