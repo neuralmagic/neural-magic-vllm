@@ -66,10 +66,6 @@ async def my_chat(
 @pytest.mark.parametrize("max_tokens", [32])
 @pytest.mark.parametrize("num_logprobs", [3])
 @pytest.mark.parametrize("tensor_parallel_size", [1])
-# note: repeating the test for 2 values of tensor_parallel_size
-#  increases the overall execution time by unnecessarily
-#  collecting the HuggingFace runner data twice.
-#  Consider refactoring to eliminate that repeat.
 def test_models_on_server(
     hf_runner_nm: HfRunnerNM,
     client: AsyncOpenAI,

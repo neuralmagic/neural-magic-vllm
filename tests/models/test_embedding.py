@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from tests.nm_utils.utils_skip import should_skip_test_group
 
 if should_skip_test_group(group_name="TEST_ALL_MODELS"):
-    pytest.skip("TEST_ALL_MODELS=0, skipping kernel group",
+    pytest.skip("TEST_ALL_MODELS=0, skipping non core model group",
                 allow_module_level=True)
 
 MODELS = [
