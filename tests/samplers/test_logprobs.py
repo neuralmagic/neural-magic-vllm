@@ -1,9 +1,14 @@
 import pytest
 import torch
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm import SamplingParams
 
 from ..conftest import VllmRunner
+
+if should_skip_test_group(group_name="TEST_SAMPLER"):
+    pytest.skip("TEST_SAMPLER=0, skipping sampler group",
+                allow_module_level=True)
 
 MODELS = ["facebook/opt-125m"]
 

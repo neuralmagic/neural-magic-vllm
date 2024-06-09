@@ -37,13 +37,25 @@ def should_skip_tensorizer_test_group():
     return TEST_TENSORIZER != "1"
 
 
+def should_skip_sampler_test_group():
+    TEST_SAMPLER = os.getenv("TEST_SAMPLER", "0")
+    return TEST_SAMPLER != "1"
+
+
+def should_skip_entrypoints_group():
+    TEST_ENTRYPOINTS = os.getenv("TEST_ENTRYPOINTS", "0")
+    return TEST_ENTRYPOINTS != "1"
+
+
 MAP = {
     "TEST_KERNELS": should_skip_kernel_test_group,
     "TEST_LORA": should_skip_lora_test_group,
     "TEST_SPEC_DECODE": should_skip_spec_decode_test_group,
     "TEST_ALL_MODELS": should_skip_models_test_group,
     "TEST_LM_EVAL": should_skip_lm_eval_test_group,
-    "TEST_TENSORIZER": should_skip_tensorizer_test_group
+    "TEST_TENSORIZER": should_skip_tensorizer_test_group,
+    "TEST_SAMPLER": should_skip_sampler_test_group,
+    "TEST_ENTRYPOINTS": should_skip_entrypoints_group,
 }
 
 

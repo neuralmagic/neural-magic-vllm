@@ -9,6 +9,7 @@ import pytest
 import ray
 import torch
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from tests.utils import ServerRunner
 from vllm import SamplingParams
 # yapf: disable
@@ -21,7 +22,6 @@ from vllm.model_executor.model_loader.tensorizer import (TensorizerConfig,
 
 # yapf conflicts with isort for this docstring
 
-from tests.nm_utils.utils_skip import should_skip_test_group
 
 if should_skip_test_group(group_name="TEST_TENSORIZER"):
     pytest.skip("TEST_TENSORIZER=0, skipping tensorizer group",

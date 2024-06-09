@@ -7,6 +7,12 @@ import gc
 import pytest
 import torch
 
+from tests.nm_utils.utils_skip import should_skip_test_group
+
+if should_skip_test_group(group_name="TEST_SAMPLER"):
+    pytest.skip("TEST_SAMPLER=0, skipping sampler group",
+                allow_module_level=True)
+
 # FIXME(zhuohan): The test can not pass if we:
 #   1. Increase max_tokens to 256.
 #   2. Increase beam_width to 8.
