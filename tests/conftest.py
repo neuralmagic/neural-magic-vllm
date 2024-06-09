@@ -472,21 +472,21 @@ class HfRunnerNM(HfRunner):
 
     def generate_greedy_logprobs_nm_use_tokens(
         self,
-        prompts: List[str],
+        input_ids_lst: List[torch.Tensor],
         max_tokens: int,
         topk_logprobs_count: int,
-        ignore_special_tokens: bool = False
     ) -> List[Tuple[List[int], str, List[Dict]]]:
         all_logprobs = []
         all_output_tokens = []
         all_output_strs = []
 
-        for prompt in prompts:
-            input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids
+        for input_ids in input_ids_lst:
             output = self.model.generate(
-                input_ids.cuda(),
-                use_cache=True,
+                input_ids,
                 do_sample=False,
+                temperature=None,           # Explicitly set to avoid warning
+                top_p=None,                 # Explicitly set to avoid warning
+                top_k=None,                 # Explicitly set to avoid warning
                 max_new_tokens=max_tokens,
                 output_hidden_states=True,
                 return_dict_in_generate=True,
