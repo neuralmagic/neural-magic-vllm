@@ -22,8 +22,8 @@ from vllm.model_executor.layers.quantization.utils.quant_utils import (
     gptq_pack, quantize_weights, sort_weights)
 
 if should_skip_test_group(group_name="TEST_KERNELS"):
-    pytest.mark.skip("TEST_KERNELS=0, skipping kernel group",
-                     allow_module_level=True)
+    pytest.skip("TEST_KERNELS=0, skipping kernel group",
+                allow_module_level=True)
 
 ACT_ORDER_OPTS = [False, True]
 K_FULL_OPTS = [False, True]

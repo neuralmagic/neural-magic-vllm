@@ -10,8 +10,9 @@ from vllm.model_executor.layers.activation import (FastGELU, GeluAndMul,
 from .allclose_default import get_default_atol, get_default_rtol
 
 if should_skip_test_group(group_name="TEST_KERNELS"):
-    pytest.mark.skip("TEST_KERNELS=0, skipping kernel group",
-                     allow_module_level=True)
+    pytest.skip("TEST_KERNELS=0, skipping kernel group",
+                allow_module_level=True)
+
 
 DTYPES = [torch.half, torch.bfloat16, torch.float]
 NUM_TOKENS = [7, 83, 2048]  # Arbitrary values for testing

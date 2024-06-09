@@ -12,8 +12,8 @@ from vllm.attention.backends.xformers import _make_alibi_bias
 from vllm.attention.ops.prefix_prefill import context_attention_fwd
 
 if should_skip_test_group(group_name="TEST_KERNELS"):
-    pytest.mark.skip("TEST_KERNELS=0, skipping kernel group",
-                     allow_module_level=True)
+    pytest.skip("TEST_KERNELS=0, skipping kernel group",
+                allow_module_level=True)
 
 NUM_HEADS = [64]
 NUM_QUERIES_PER_KV = [1, 8, 64]

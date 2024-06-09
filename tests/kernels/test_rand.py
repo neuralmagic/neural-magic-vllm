@@ -8,9 +8,8 @@ from vllm.model_executor.layers.ops.rand import seeded_uniform
 from vllm.model_executor.utils import set_random_seed
 
 if should_skip_test_group(group_name="TEST_KERNELS"):
-    pytest.mark.skip("TEST_KERNELS=0, skipping kernel group",
-                     allow_module_level=True)
-
+    pytest.skip("TEST_KERNELS=0, skipping kernel group",
+                allow_module_level=True)
 
 @pytest.mark.parametrize("dtype",
                          [torch.float32, torch.float16, torch.bfloat16])

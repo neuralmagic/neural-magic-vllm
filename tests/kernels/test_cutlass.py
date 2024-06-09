@@ -11,8 +11,8 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm import _custom_ops as ops
 
 if should_skip_test_group(group_name="TEST_KERNELS"):
-    pytest.mark.skip("TEST_KERNELS=0, skipping kernel group",
-                     allow_module_level=True)
+    pytest.skip("TEST_KERNELS=0, skipping kernel group",
+                allow_module_level=True)
 
 CUDA_DEVICES = [
     f"cuda:{i}" for i in range(1 if torch.cuda.device_count() == 1 else 2)

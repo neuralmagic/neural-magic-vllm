@@ -13,8 +13,8 @@ from vllm.model_executor.layers.fused_moe import fused_moe
 from vllm.model_executor.models.mixtral import MixtralMoE
 
 if should_skip_test_group(group_name="TEST_KERNELS"):
-    pytest.mark.skip("TEST_KERNELS=0, skipping kernel group",
-                     allow_module_level=True)
+    pytest.skip("TEST_KERNELS=0, skipping kernel group",
+                allow_module_level=True)
 
 
 def torch_moe(a, w1, w2, score, topk):
