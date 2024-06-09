@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import torch
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.model_executor.layers.rejection_sampler import RejectionSampler
 from vllm.sequence import ExecuteModelRequest
 from vllm.spec_decode.metrics import AsyncMetricsCollector
@@ -11,6 +12,10 @@ from vllm.spec_decode.spec_decode_worker import SpecDecodeWorker
 from vllm.spec_decode.top1_proposer import Top1Proposer
 
 from .utils import create_batch, mock_worker
+
+if should_skip_test_group(group_name="TEST_SPEC_DECODE"):
+    pytest.skip("TEST_SPEC_DECODE=0, skipping spec decode group",
+                allow_module_level=True)
 
 
 @pytest.mark.parametrize('queue_size', [4])
