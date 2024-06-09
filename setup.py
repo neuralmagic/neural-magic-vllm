@@ -412,7 +412,8 @@ if not _is_neuron():
 _sparsity_deps = ["nm-magic-wand-nightly"]
 nm_release_type = os.getenv(NM_RELEASE_TYPE)
 if nm_release_type == 'RELEASE':
-    # gate magic-wand version in nm-vllm for release; for nightly, we always install the latest
+    # Gate magic-wand version in nm-vllm for release;
+    # For nightly, we always install the latest
     magic_wand_version_dep = "0.2.2"
     _sparsity_deps = [f"nm-magic-wand~={magic_wand_version_dep}"]
 

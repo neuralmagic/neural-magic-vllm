@@ -92,8 +92,8 @@ def cutlass_int8_gemm_helper(m: int,
 #   automation system yet.
 @pytest.mark.skipif(capability < 90,
                     reason="FP8 cutlass is not supported on this GPU "
-                           "type because we need CUDA 12.4 + we do "
-                           "not have this in automation yet.")
+                    "type because we need CUDA 12.4 + we do "
+                    "not have this in automation yet.")
 def test_cutlass_fp8_gemm(m: int, n: int, k: int, per_act_token: bool,
                           per_out_ch: bool):
     cutlass_fp8_gemm_helper(m, n, k, per_act_token, per_out_ch)
@@ -126,8 +126,8 @@ def test_cutlass_int8_gemm_output_dtype(per_act_token: bool, per_out_ch: bool,
 #   automation system yet.
 @pytest.mark.skipif(capability < 90,
                     reason="FP8 cutlass is not supported on this GPU "
-                           "type because we need CUDA 12.4 + we do "
-                           "not have this in automation yet.")
+                    "type because we need CUDA 12.4 + we do "
+                    "not have this in automation yet.")
 def test_cutlass_fp8_gemm_output_dtype(per_act_token: bool, per_out_ch: bool,
                                        out_dtype: Type[torch.dtype]):
     cutlass_fp8_gemm_helper(512, 512, 512, per_act_token, per_out_ch,
@@ -142,8 +142,8 @@ def test_cutlass_fp8_gemm_output_dtype(per_act_token: bool, per_out_ch: bool,
 #   automation system yet.
 @pytest.mark.skipif(capability < 90,
                     reason="FP8 cutlass is not supported on this GPU "
-                           "type because we need CUDA 12.4 + we do "
-                           "not have this in automation yet.")
+                    "type because we need CUDA 12.4 + we do "
+                    "not have this in automation yet.")
 def test_cutlass_fp8_gemm_devices(per_act_token: bool, per_out_ch: bool,
                                   device: str):
     cutlass_fp8_gemm_helper(512, 512, 512, per_act_token, per_out_ch,
@@ -171,8 +171,8 @@ def test_cutlass_int8_gemm_devices(per_act_token: bool, per_out_ch: bool,
 #   automation system yet.
 @pytest.mark.skipif(capability < 90,
                     reason="FP8 cutlass is not supported on this GPU "
-                           "type because we need CUDA 12.4 + we do "
-                           "not have this in automation yet.")
+                    "type because we need CUDA 12.4 + we do "
+                    "not have this in automation yet.")
 def test_cutlass_fp8_gemm_m_sweep(per_act_token: bool, per_out_ch: bool):
     for nk in range(32, 128, 32):
         for m in range(1, 128):
