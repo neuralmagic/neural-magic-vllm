@@ -87,8 +87,13 @@ def cutlass_int8_gemm_helper(m: int,
 @pytest.mark.parametrize("k", [128, 496, 1024])
 @pytest.mark.parametrize("per_act_token", [True, False])
 @pytest.mark.parametrize("per_out_ch", [True, False])
-@pytest.mark.skipif(capability < 89,
-                    reason="FP8 is not supported on this GPU type.")
+# UPSTREAM SYNC: This is currently 90, because we need CUDA 12.4
+#   to use the cutlass fp8 kernels + we do not have this in our
+#   automation system yet.
+@pytest.mark.skipif(capability < 90,
+                    reason="FP8 cutlass is not supported on this GPU "
+                           "type because we need CUDA 12.4 + we do "
+                           "not have this in automation yet.")
 def test_cutlass_fp8_gemm(m: int, n: int, k: int, per_act_token: bool,
                           per_out_ch: bool):
     cutlass_fp8_gemm_helper(m, n, k, per_act_token, per_out_ch)
@@ -116,8 +121,13 @@ def test_cutlass_int8_gemm_output_dtype(per_act_token: bool, per_out_ch: bool,
 @pytest.mark.parametrize("per_act_token", [True, False])
 @pytest.mark.parametrize("per_out_ch", [True, False])
 @pytest.mark.parametrize("out_dtype", [torch.bfloat16, torch.float16])
-@pytest.mark.skipif(capability < 89,
-                    reason="FP8 is not supported on this GPU type.")
+# UPSTREAM SYNC: This is currently 90, because we need CUDA 12.4
+#   to use the cutlass fp8 kernels + we do not have this in our
+#   automation system yet.
+@pytest.mark.skipif(capability < 90,
+                    reason="FP8 cutlass is not supported on this GPU "
+                           "type because we need CUDA 12.4 + we do "
+                           "not have this in automation yet.")
 def test_cutlass_fp8_gemm_output_dtype(per_act_token: bool, per_out_ch: bool,
                                        out_dtype: Type[torch.dtype]):
     cutlass_fp8_gemm_helper(512, 512, 512, per_act_token, per_out_ch,
@@ -127,8 +137,13 @@ def test_cutlass_fp8_gemm_output_dtype(per_act_token: bool, per_out_ch: bool,
 @pytest.mark.parametrize("per_act_token", [True, False])
 @pytest.mark.parametrize("per_out_ch", [True, False])
 @pytest.mark.parametrize("device", CUDA_DEVICES)
-@pytest.mark.skipif(capability < 89,
-                    reason="FP8 is not supported on this GPU type.")
+# UPSTREAM SYNC: This is currently 90, because we need CUDA 12.4
+#   to use the cutlass fp8 kernels + we do not have this in our
+#   automation system yet.
+@pytest.mark.skipif(capability < 90,
+                    reason="FP8 cutlass is not supported on this GPU "
+                           "type because we need CUDA 12.4 + we do "
+                           "not have this in automation yet.")
 def test_cutlass_fp8_gemm_devices(per_act_token: bool, per_out_ch: bool,
                                   device: str):
     cutlass_fp8_gemm_helper(512, 512, 512, per_act_token, per_out_ch,
@@ -151,8 +166,13 @@ def test_cutlass_int8_gemm_devices(per_act_token: bool, per_out_ch: bool,
 # kernel must handle any M thrown at it.
 @pytest.mark.parametrize("per_act_token", [True, False])
 @pytest.mark.parametrize("per_out_ch", [True, False])
-@pytest.mark.skipif(capability < 89,
-                    reason="FP8 is not supported on this GPU type.")
+# UPSTREAM SYNC: This is currently 90, because we need CUDA 12.4
+#   to use the cutlass fp8 kernels + we do not have this in our
+#   automation system yet.
+@pytest.mark.skipif(capability < 90,
+                    reason="FP8 cutlass is not supported on this GPU "
+                           "type because we need CUDA 12.4 + we do "
+                           "not have this in automation yet.")
 def test_cutlass_fp8_gemm_m_sweep(per_act_token: bool, per_out_ch: bool):
     for nk in range(32, 128, 32):
         for m in range(1, 128):
