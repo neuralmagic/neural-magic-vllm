@@ -86,7 +86,7 @@ def test_can_deserialize_s3(vllm_runner):
 # UPSTREAM SYNC: breaks NM automation.
 @pytest.mark.skip(
     "This test requires libsodium23 to be installed. "
-    "It is not installed in our test instances on GCP, " 
+    "It is not installed in our test instances on GCP, "
     "we need to skip this for now."
 )
 @pytest.mark.skipif(not is_curl_installed(), reason="cURL is not installed")
