@@ -1,5 +1,11 @@
+import pytest
+
 import vllm
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.lora.request import LoRARequest
+
+if should_skip_test_group(group_name="TEST_LORA"):
+    pytest.skip("TEST_LORA=0, skipping kernel group", allow_module_level=True)
 
 MODEL_PATH = "THUDM/chatglm3-6b"
 

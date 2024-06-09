@@ -13,7 +13,6 @@ if should_skip_test_group(group_name="TEST_KERNELS"):
     pytest.skip("TEST_KERNELS=0, skipping kernel group",
                 allow_module_level=True)
 
-
 DTYPES = [torch.half, torch.bfloat16, torch.float]
 NUM_TOKENS = [7, 83, 2048]  # Arbitrary values for testing
 D = [512, 4096, 5120, 13824]  # Arbitrary values for testing

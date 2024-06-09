@@ -12,7 +12,7 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 
 if should_skip_test_group(group_name="TEST_LM_EVAL"):
     pytest.skip("TEST_LM_EVAL is set to 0, skipping group",
-                     allow_module_level=True)
+                allow_module_level=True)
 
 if TYPE_CHECKING:
     import lm_eval as lm_eval_t

@@ -4,6 +4,10 @@ import pytest
 import torch
 
 import vllm.lora.punica as punica
+from tests.nm_utils.utils_skip import should_skip_test_group
+
+if should_skip_test_group(group_name="TEST_LORA"):
+    pytest.skip("TEST_LORA=0, skipping kernel group", allow_module_level=True)
 
 
 def assert_close(a, b):

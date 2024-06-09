@@ -1,11 +1,15 @@
 import pytest
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.lora.request import LoRARequest
 from vllm.transformers_utils.tokenizer import get_lora_tokenizer
 from vllm.transformers_utils.tokenizer_group import get_tokenizer_group
 
 from ..conftest import get_tokenizer_pool_config
+
+if should_skip_test_group(group_name="TEST_LORA"):
+    pytest.skip("TEST_LORA=0, skipping kernel group", allow_module_level=True)
 
 
 @pytest.mark.asyncio
