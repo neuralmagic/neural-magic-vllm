@@ -147,7 +147,7 @@ class HfRunner:
         self,
         model_name: str,
         dtype: str = "half",
-        access_token: Optional[str] = None,
+        **kwargs,
     ) -> None:
         assert dtype in _STR_DTYPE_TO_TORCH_DTYPE
         torch_dtype = _STR_DTYPE_TO_TORCH_DTYPE[dtype]
@@ -166,7 +166,7 @@ class HfRunner:
                 model_name,
                 torch_dtype=torch_dtype,
                 trust_remote_code=True,
-                token=access_token,
+                **kwargs,
             ).cuda()
 
         self.tokenizer = AutoTokenizer.from_pretrained(

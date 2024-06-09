@@ -21,7 +21,12 @@ import pytest
 import torch
 
 from tests.models.utils import check_logprobs_close
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
+
+if should_skip_test_group(group_name="TEST_ALL_MODELS"):
+    pytest.skip("TEST_ALL_MODELS=0, skipping kernel group",
+                allow_module_level=True)
 
 capability = torch.cuda.get_device_capability()
 capability = capability[0] * 10 + capability[1]

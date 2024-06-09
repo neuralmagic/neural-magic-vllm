@@ -10,7 +10,7 @@ import ray
 import requests
 import torch
 
-from tests.nm_utils.logging import log_banner
+# from tests.nm_utils.logging import log_banner
 
 MAX_SERVER_START_WAIT = 15 * 60  # time (seconds) to wait for server to start
 
@@ -31,13 +31,13 @@ class ServerRunner:
             *args,
         ]
 
-        if logger:
-            log_banner(
-                logger,
-                "server startup command",
-                shlex.join(self.startup_command),
-                logging.DEBUG,
-            )
+        # if logger:
+        #     log_banner(
+        #         logger,
+        #         "server startup command",
+        #         shlex.join(self.startup_command),
+        #         logging.DEBUG,
+        #     )
 
         self.proc = subprocess.Popen(
             [
@@ -95,8 +95,8 @@ class ServerContext:
     def __enter__(self):
         """Executes the server process and waits for it to become ready."""
         ray.init(ignore_reinit_error=True)
-        log_banner(self._logger, "server startup command args",
-                   shlex.join(self._args))
+        # log_banner(self._logger, "server startup command args",
+        #            shlex.join(self._args))
 
         try:
             self.server_runner = ServerRunner.remote(self._args,

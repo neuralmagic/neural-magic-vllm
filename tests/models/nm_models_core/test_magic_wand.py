@@ -22,7 +22,7 @@ MODEL_FORMAT_PAIRS = [
 @pytest.mark.parametrize("dtype", ["half"])
 @pytest.mark.parametrize("max_tokens", [32])
 @pytest.mark.parametrize("num_logprobs", [5])
-def test_models(
+def test_correctness(
     vllm_runner,
     example_prompts,
     model_format_pairs,
@@ -55,3 +55,48 @@ def test_models(
         name_0="dense",
         name_1="sparse",
     )
+
+
+MODEL_FORMAT_EXTRABLOCKS = [
+    ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned50", "sparse_w16a16", 1500),
+    ("nm-testing/OpenHermes-2.5-Mistral-7B-pruned2.4",
+     "semi_structured_sparse_w16a16", 1500),
+]
+
+
+@pytest.mark.parametrize("model_format_extrablocks", MODEL_FORMAT_EXTRABLOCKS)
+@pytest.mark.parametrize("dtype", ["half"])
+def test_memory_consumption(
+    vllm_runner,
+    model_format_extrablocks,
+    dtype: str,
+) -> None:
+    model_name, sparsity, num_extra_blocks = model_format_extrablocks
+    dense_model = vllm_runner(model_name=model_name,
+                              enforce_eager=True,
+                              sparsity=None,
+                              dtype=dtype,
+                              max_model_len=1024)
+    dense_gpu_alloc = (
+        dense_model.model.llm_engine.scheduler.block_manager.gpu_allocator)
+    dense_num_kv_blocks = dense_gpu_alloc.num_blocks
+
+    del dense_model
+
+    sparse_model = vllm_runner(
+        model_name=model_name,
+        enforce_eager=True,
+        sparsity=sparsity,
+        dtype=dtype,
+        max_model_len=1024,
+    )
+    sparse_gpu_alloc = (
+        sparse_model.model.llm_engine.scheduler.block_manager.gpu_allocator)
+    sparse_num_kv_blocks = sparse_gpu_alloc.num_blocks
+
+    del sparse_model
+
+    assert sparse_num_kv_blocks > dense_num_kv_blocks + num_extra_blocks, (
+        f"Test{model_name}: Sparse model KV cache size {sparse_num_kv_blocks} "
+        f"not bigger than dense model KV cache size {dense_num_kv_blocks} + "
+        f"expected num_extra_blocks {num_extra_blocks}")
