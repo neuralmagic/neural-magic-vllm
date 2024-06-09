@@ -23,7 +23,7 @@ from vllm.model_executor.model_loader.tensorizer import (TensorizerConfig,
 # yapf conflicts with isort for this docstring
 
 
-if should_skip_test_group(group_name="TEST_TENSORIZER"):
+if should_skip_test_group(group_name="TEST_TENSORIZER_LOADER"):
     pytest.skip("TEST_TENSORIZER=0, skipping tensorizer group",
                 allow_module_level=True)
 

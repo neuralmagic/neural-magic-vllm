@@ -12,8 +12,8 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm import SamplingParams
 from vllm.model_executor.utils import set_random_seed
 
-if should_skip_test_group(group_name="TEST_SAMPLER"):
-    pytest.skip("TEST_SAMPLER=0, skipping sampler group",
+if should_skip_test_group(group_name="TEST_SAMPLERS"):
+    pytest.skip("TEST_SAMPLERS=0, skipping sampler group",
                 allow_module_level=True)
 
 MODEL = "facebook/opt-125m"
