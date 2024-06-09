@@ -1,5 +1,6 @@
 import pytest
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.core.block.utils import (STR_NOT_IMPL_ENC_DEC_PREFIX_CACHE,
                                    STR_NOT_IMPL_ENC_DEC_SWA)
 from vllm.core.block_manager_v2 import BlockSpaceManagerV2
@@ -8,6 +9,10 @@ from vllm.sequence import Logprob, SequenceStatus
 from vllm.utils import chunk_list
 
 from ..utils import create_seq_group, create_seq_group_encoder_decoder
+
+if should_skip_test_group(group_name="TEST_CORE"):
+    pytest.skip("TEST_CORE=0, skipping core test group",
+                allow_module_level=True)
 
 
 @pytest.mark.parametrize("block_size", [16])

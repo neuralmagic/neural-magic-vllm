@@ -14,6 +14,7 @@ def should_skip_accuracy_test_group():
 
 def should_skip_async_engine_test_group():
     TEST_ASYNC_ENGINE = os.getenv("TEST_ASYNC_ENGINE", "0")
+    print(TEST_ASYNC_ENGINE)
     return TEST_ASYNC_ENGINE != "1"
 
 
@@ -109,7 +110,7 @@ def should_skip_worker_test_group():
 
 MAP = {
     "TEST_ACCURACY": should_skip_accuracy_test_group,
-    "TEST_ASYNC_ENGINE": should_skip_accuracy_test_group,
+    "TEST_ASYNC_ENGINE": should_skip_async_engine_test_group,
     "TEST_BASIC_CORRECTNESS": should_skip_basic_correctness_test_group,
     "TEST_CORE": should_skip_core_test_group,
     "TEST_DISTRIBUTED": should_skip_distributed_test_group,
