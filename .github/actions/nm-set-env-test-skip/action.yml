@@ -2,7 +2,7 @@ name: set test skip env vars
 description: 'sets env variables for test skipping. See tests/utils_skip.py'
 inputs:
   test_skip_env_vars:
-    description: 'List of env vars controlling which tests to run.'
+    description: 'file with list of env vars controlling which tests to run.'
     required: true
 
 runs:
