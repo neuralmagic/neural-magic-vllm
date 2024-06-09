@@ -6,9 +6,7 @@ tests/kernels/test_pos_encoding.py
 tests/kernels/test_activation.py
 tests/kernels/test_moe.py
 tests/kernels/test_layernorm.py
-tests/kernels/test_attention.py
 tests/kernels/test_rand.py
-tests/kernels/test_cache.py
 tests/kernels/test_sampler.py
 tests/kernels/test_cutlass.py
 tests/core/test_block_manager.py
