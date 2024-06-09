@@ -1,7 +1,3 @@
-# flake8: noqa
-# UPSTREAM SYNC: noqa is required for passing ruff run on nm-automation
-# This file has been modified by Neural Magic
-
 import json
 import os
 import sys
