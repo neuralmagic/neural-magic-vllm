@@ -21,6 +21,7 @@ pytest-forked
 pytest-asyncio
 pytest-rerunfailures
 pytest-shard
+pytest-xdist # required for parallel kernel tests
 
 # testing utils
 awscli
