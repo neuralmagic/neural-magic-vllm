@@ -21,15 +21,3 @@
       value: 0.688
   limit: 250
   num_fewshot: 5
-
-# ./nm-run-lm-eval-gsm-hf-baseline -m kaitchup/Meta-Llama-3-8B-gptq-8bit -b 32 -d cuda -l 250 -f 5
-- model_name: "kaitchup/Meta-Llama-3-8B-gptq-8bit"
-  tasks:
-  - name: "gsm8k"
-    metrics:
-    - name: "exact_match,strict-match"
-      value: 0.72
-    - name: "exact_match,flexible-extract"
-      value: 0.72
-  limit: 250
-  num_fewshot: 5
