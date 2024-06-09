@@ -1,7 +1,3 @@
-# flake8: noqa
-# UPSTREAM SYNC: noqa is required for passing ruff.
-# This file has been modified by Neural Magic
-
 import datetime
 import importlib.util
 import io
@@ -98,7 +94,6 @@ class cmake_build_ext(build_ext):
             # when it is set, we reduce `num_jobs` to avoid
             # overloading the system.
             nvcc_threads = envs.NVCC_THREADS
-            print(f"NVCC THREADS {nvcc_threads}")
             if nvcc_threads is not None:
                 nvcc_threads = int(nvcc_threads)
                 logger.info(
