@@ -30,7 +30,7 @@ def max_model_length_from_model_id(model: str,
     config = get_config(model, trust_remote_code=trust_remote_code)
     return _get_and_verify_max_len(config,
                                    max_model_len=None,
-                                   disable_sliding_window=False, 
+                                   disable_sliding_window=False,
                                    sliding_window_len=None)
 
 
