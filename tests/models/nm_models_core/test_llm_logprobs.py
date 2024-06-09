@@ -19,6 +19,7 @@ MODELS = [
     "Qwen/Qwen2-7B-Instruct",
 ]
 
+
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("max_tokens", [32])
 @pytest.mark.parametrize("num_logprobs", [5])
@@ -36,8 +37,7 @@ def test_models(
 
     del hf_model
 
-    vllm_model = vllm_runner_nm(model,                        
-                                max_model_len=MODEL_MAX_LEN)
+    vllm_model = vllm_runner_nm(model, max_model_len=MODEL_MAX_LEN)
     vllm_outputs = vllm_model.generate_greedy_logprobs(example_prompts,
                                                        max_tokens,
                                                        num_logprobs)

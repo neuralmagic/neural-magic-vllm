@@ -1,9 +1,9 @@
 import asyncio
-from typing import Dict, List, Type
-
-import time
 import gc
 import os
+import time
+from typing import Dict, List, Type
+
 import openai
 import pytest
 import torch
@@ -20,7 +20,7 @@ from tests.nm_utils.server import ServerContext
 os.environ["TOKENIZERS_PARALLELISM"] = "True"
 
 NUM_SAMPLES_TO_RUN = 20
-NUM_CHAT_TURNS = 3      # << Should be an odd number.
+NUM_CHAT_TURNS = 3  # << Should be an odd number.
 REQUEST_RATE = 2.5
 GPU_COUNT = torch.cuda.device_count()
 device_capability = torch.cuda.get_device_capability()
@@ -30,6 +30,7 @@ MODELS = [
     # Llama (8B param variant)
     "meta-llama/Meta-Llama-3-8B-Instruct",
 ]
+
 
 @pytest.fixture(scope="session")
 def client():
@@ -93,15 +94,15 @@ def test_models_on_server(
     :param tensor_parallel_size: passed to the vllm Server launch
     """
     logger = make_logger("vllm_test")
-    
+
     # Check that we have enough GPUs to run the test.
-    if tensor_parallel_size > 1 and GPU_COUNT < tensor_parallel_size:
+    if tensor_parallel_size > 1 and tensor_parallel_size > GPU_COUNT:
         pytest.skip(f"gpu count {GPU_COUNT} is insufficient for "
                     f"tensor_parallel_size = {tensor_parallel_size}")
 
     # Load dataset.
     logger.info("Loading dataset and converting to chat format.")
-    ds = load_dataset("nm-testing/qa-chat-prompts", 
+    ds = load_dataset("nm-testing/qa-chat-prompts",
                       split="train_sft").select(range(NUM_SAMPLES_TO_RUN))
     messages_list = [row["messages"][:NUM_CHAT_TURNS] for row in ds]
     tokenizer = AutoTokenizer.from_pretrained(model)
@@ -114,17 +115,17 @@ def test_models_on_server(
     #   -----
     #   prompt = tokenizer.apply_chat_template(message)
     #   -----
-    #   prompt = tokenizer.apply_chat_template( 
+    #   prompt = tokenizer.apply_chat_template(
     #       message, tokenize=False)                << adds bos
     #   input_ids = tokenizer(prompt).input_ids     << also adds bos
     #   -----
     input_ids_lst = [
-        tokenizer.apply_chat_template(
-            messages, return_tensors="pt",
-            add_generation_prompt=True).to("cuda")
+        tokenizer.apply_chat_template(messages,
+                                      return_tensors="pt",
+                                      add_generation_prompt=True).to("cuda")
         for messages in messages_list
     ]
-    
+
     logger.info("Generating chat responses from HF transformers.")
     hf_model = hf_runner_nm(model)
     hf_outputs = hf_model.generate_greedy_logprobs_nm_use_tokens(
@@ -151,7 +152,8 @@ def test_models_on_server(
     with ServerContext(api_server_args, logger=logger) as _:
         chats = []
         for messages in messages_list:
-            chats.append(my_chat(client, model, messages, max_tokens, num_logprobs))
+            chats.append(
+                my_chat(client, model, messages, max_tokens, num_logprobs))
         # Gather results.
         results = asyncio_event_loop.run_until_complete(asyncio.gather(*chats))
 

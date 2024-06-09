@@ -484,9 +484,9 @@ class HfRunnerNM(HfRunner):
             output = self.model.generate(
                 input_ids,
                 do_sample=False,
-                temperature=None,           # Explicitly set to avoid warning
-                top_p=None,                 # Explicitly set to avoid warning
-                top_k=None,                 # Explicitly set to avoid warning
+                temperature=None,  # Explicitly set to avoid warning
+                top_p=None,  # Explicitly set to avoid warning
+                top_k=None,  # Explicitly set to avoid warning
                 max_new_tokens=max_tokens,
                 output_hidden_states=True,
                 return_dict_in_generate=True,
