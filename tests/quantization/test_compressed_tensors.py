@@ -3,10 +3,16 @@
 Run `pytest tests/quantization/test_compressed_tensors.py`.
 """
 
+import pytest
 import torch
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.model_executor.layers.quantization.compressed_tensors.compressed_tensors import (  # noqa: E501
     CompressedTensorsLinearMethod, CompressedTensorsW8A8StaticTensor)
+
+if should_skip_test_group(group_name="TEST_QUANTIZATION"):
+    pytest.skip("TEST_QUANTIZATION=0, skipping quantization test group",
+                allow_module_level=True)
 
 
 def test_compressed_tensors_w8a8_static_setup(vllm_runner):

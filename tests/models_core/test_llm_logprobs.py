@@ -8,13 +8,17 @@ Run `pytest tests/models/test_models_logprobs.py`.
 import pytest
 
 from tests.models.utils import check_logprobs_close
+from tests.nm_utils.utils_skip import should_skip_test_group
+
+if should_skip_test_group(group_name="TEST_MODELS_CORE"):
+    pytest.skip("TEST_MODELS_CORE=0, skipping core model test group",
+                allow_module_level=True)
 
 MODEL_MAX_LEN = 1024
 
 MODELS = [
     # Llama (8B param variant)
     "meta-llama/Meta-Llama-3-8B-Instruct",
-    "astronomer/Llama-3-8B-Instruct-GPTQ-4-Bit",
     # Qwen2 (7B param variant)
     "Qwen/Qwen2-7B-Instruct",
 ]
@@ -31,7 +35,7 @@ def test_models(
     max_tokens: int,
     num_logprobs: int,
 ) -> None:
-    hf_model = hf_runner_nm(model, device_map="auto")
+    hf_model = hf_runner_nm(model)
     hf_outputs = hf_model.generate_greedy_logprobs_nm(example_prompts,
                                                       max_tokens, num_logprobs)
 

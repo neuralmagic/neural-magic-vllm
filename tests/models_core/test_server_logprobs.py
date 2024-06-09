@@ -15,6 +15,11 @@ from tests.conftest import HfRunnerNM
 from tests.models.compare_utils import check_logprobs_close
 from tests.nm_utils.logging import make_logger
 from tests.nm_utils.server import ServerContext
+from tests.nm_utils.utils_skip import should_skip_test_group
+
+if should_skip_test_group(group_name="TEST_MODELS_CORE"):
+    pytest.skip("TEST_MODELS_CORE=0, skipping core model test group",
+                allow_module_level=True)
 
 # Silence warning.
 os.environ["TOKENIZERS_PARALLELISM"] = "True"

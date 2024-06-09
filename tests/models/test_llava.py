@@ -10,8 +10,8 @@ from transformers import AutoTokenizer
 from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.config import VisionLanguageConfig
 
-if should_skip_test_group(group_name="TEST_ALL_MODELS"):
-    pytest.skip("TEST_ALL_MODELS=0, skipping non core model group",
+if should_skip_test_group(group_name="TEST_MODELS"):
+    pytest.skip("TEST_ALL_MODELS=0, skipping model test group",
                 allow_module_level=True)
 
 model_and_vl_config = [

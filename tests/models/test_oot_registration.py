@@ -6,8 +6,8 @@ from vllm import LLM, ModelRegistry, SamplingParams
 from vllm.model_executor.models.opt import OPTForCausalLM
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 
-if should_skip_test_group(group_name="TEST_ALL_MODELS"):
-    pytest.skip("TEST_ALL_MODELS=0, skipping non core model group",
+if should_skip_test_group(group_name="TEST_MODELS"):
+    pytest.skip("TEST_ALL_MODELS=0, skipping model test group",
                 allow_module_level=True)
 
 
