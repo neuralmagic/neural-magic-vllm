@@ -95,13 +95,6 @@ jobs:
                 hf_token: ${{ secrets.NM_HF_TOKEN }}
                 Gi_per_thread: ${{ inputs.Gi_per_thread }}
                 nvcc_threads: ${{ inputs.nvcc_threads }}
-            
-            # TEST: to remove
-            - name: setenv test skip
-              id: setenv_test_skip
-              uses: ./.github/actions/nm-set-env-test-skip
-              with:
-                test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/remote-push.txt
 
             - name: set python
               id: set_python
