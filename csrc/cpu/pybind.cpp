@@ -2,10 +2,19 @@
 #include "cuda_utils.h"
 #include "ops.h"
 #include <torch/extension.h>
+#include <git.h>
+
+std::string githash() { return std::string{git::CommitSHA1()}; }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   // vLLM custom ops
   pybind11::module ops = m.def_submodule("ops", "vLLM custom operators");
+
+  // githash
+  ops.def(
+    "githash",
+    &githash,
+    "nm-vllm git hash");
 
   // Attention ops
   ops.def(

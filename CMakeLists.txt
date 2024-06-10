@@ -217,7 +217,7 @@ define_gpu_extension_target(
   ARCHITECTURES ${VLLM_GPU_ARCHES}
   INCLUDE_DIRECTORIES ${CUTLASS_INCLUDE_DIR};${CUTLASS_TOOLS_UTIL_INCLUDE_DIR}
   WITH_SOABI
-  cmake_git_version_tracking)
+  LIBRARIES cmake_git_version_tracking)
 
 #
 # _moe_C extension
@@ -235,7 +235,7 @@ define_gpu_extension_target(
   COMPILE_FLAGS ${VLLM_GPU_FLAGS}
   ARCHITECTURES ${VLLM_GPU_ARCHES}
   WITH_SOABI
-  cmake_git_version_tracking)
+  LIBRARIES cmake_git_version_tracking)
 
 #
 # _punica_C extension
@@ -287,7 +287,7 @@ if (VLLM_PUNICA_GPU_ARCHES)
     COMPILE_FLAGS ${VLLM_PUNICA_GPU_FLAGS}
     ARCHITECTURES ${VLLM_PUNICA_GPU_ARCHES}
     WITH_SOABI
-    cmake_git_version_tracking)
+    LIBRARIES cmake_git_version_tracking)
 else()
   message(WARNING "Unable to create _punica_C target because none of the "
     "requested architectures (${VLLM_GPU_ARCHES}) are supported, i.e. >= 8.0")
