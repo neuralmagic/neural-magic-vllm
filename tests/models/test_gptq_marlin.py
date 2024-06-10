@@ -19,7 +19,7 @@ from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
 from vllm.model_executor.layers.rotary_embedding import _ROPE_DICT
 
 if should_skip_test_group(group_name="TEST_MODELS"):
-    pytest.skip("TEST_ALL_MODELS=0, skipping model test group",
+    pytest.skip("TEST_MODELS=0, skipping model test group",
                 allow_module_level=True)
 
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
