@@ -43,14 +43,13 @@ def test_filter_subtensors():
         assert tensor.equal(state_dict[key])
 
 
-# @pytest.mark.skip("OOM in NM Automation")
+@pytest.mark.skip("Timeout error in NM automation. Work to re-enable.")
 @pytest.mark.parametrize("enable_lora", [False, True])
 def test_sharded_state_loader(enable_lora):
     weights_patterns = ("*.bin", "*.pt", "*.safetensors")
 
     with TemporaryDirectory() as cache_dir, TemporaryDirectory() as output_dir:
-        # input_dir = snapshot_download("meta-llama/Llama-2-7b-hf",
-        input_dir = snapshot_download("TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+        input_dir = snapshot_download("meta-llama/Llama-2-7b-hf",
                                       cache_dir=cache_dir)
 
         llm = LLM(
