@@ -1,5 +1,3 @@
-# flake8: noqa
-# UPSTREAM SYNC: noqa is required for passing ruff run on nm-automation
 """Benchmark online serving throughput.
 
 On the server side, run one of the following commands:

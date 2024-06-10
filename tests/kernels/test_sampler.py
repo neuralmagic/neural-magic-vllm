@@ -47,6 +47,11 @@ def test_uniform_to_exponential():
     assert torch.all(torch.isfinite(torch.full_like(output, 1.0) / output))
 
 
+# UPSTREAM SYNC: breaks NM automation.
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("random_sampling", [True, False, "mixed"])
 @pytest.mark.parametrize("max_best_of", [1, 2, 3, 4, 5])
 @pytest.mark.parametrize("modify_greedy_probs", [True, False])
