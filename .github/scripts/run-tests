@@ -112,8 +112,8 @@ do
     # this is a bit messy and brittle, but certain tests
     # need to be run with specific options
     if [[ "${TEST}" == *"test_attention"* || "${TEST}" == *"test_cache"* ]]; then
-        # run 5 workers in parallel
-        CUDA_VISIBLE_DEVICES=0,1 pytest ${CC_PYTEST_FLAGS} -n 5 --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        # run 4 workers in parallel
+        CUDA_VISIBLE_DEVICES=0,1 pytest ${CC_PYTEST_FLAGS} -n 4 --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     elif [[ "${TEST}" == *"kernels"* || "${TEST}" == *"samplers"* || "${TEST}" == *"distributed"* ]]; then
         # limit to 2 gpu
         CUDA_VISIBLE_DEVICES=0,1 pytest ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
