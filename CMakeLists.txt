@@ -194,6 +194,7 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
     "csrc/custom_all_reduce.cu"
     "csrc/quantization/cutlass_w8a8/scaled_mm_entry.cu"
     "csrc/quantization/cutlass_w8a8/scaled_mm_c2x.cu"
+    "csrc/quantization/cutlass_w8a8/scaled_mm_c2x_transpose.cu"
     "csrc/quantization/cutlass_w8a8/scaled_mm_c3x.cu")
 
   #
