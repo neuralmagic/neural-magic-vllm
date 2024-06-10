@@ -76,12 +76,22 @@ def pytorch_fp8_impl_fast_accum(a: torch.tensor, b: torch.tensor,
 def cutlass_impl(a: torch.tensor, b: torch.tensor, scale_a: torch.tensor,
                  scale_b: torch.tensor,
                  out_dtype: torch.dtype) -> torch.tensor:
-    return ops.cutlass_scaled_mm_dq(a,
+    return ops.cutlass_scaled_mm(a,
                                     b,
                                     scale_a,
                                     scale_b,
                                     out_dtype=out_dtype)
 
+def cutlass_transpose_impl(a: torch.tensor,
+                           b: torch.tensor,
+                           scale_a: torch.tensor,
+                           scale_b: torch.tensor,
+                           out_dtype: torch.dtype) -> torch.tensor:
+    return ops.cutlass_scaled_mm_transpose(a,
+                                    b,
+                                    scale_a,
+                                    scale_b,
+                                    out_dtype=out_dtype)
 
 # bench
 def bench_fn(a: torch.tensor, b: torch.tensor, scale_a: torch.tensor,
@@ -111,8 +121,17 @@ def bench_int8(dtype: torch.dtype, m: int, k: int, n: int, label: str,
                sub_label: str) -> Iterable[TMeasurement]:
     assert dtype == torch.int8
     a, b = make_rand_tensors(torch.int8, m, n, k)
-    scale_a = torch.tensor(1.0, device="cuda", dtype=torch.float32)
-    scale_b = torch.tensor(1.0, device="cuda", dtype=torch.float32)
+    #scale_a = torch.tensor(1.0, device="cuda", dtype=torch.float32)
+    #scale_b = torch.tensor(1.0, device="cuda", dtype=torch.float32)
+    scale_a = (torch.randn(
+        (m, 1), device="cuda", dtype=torch.float32) / 10)
+    scale_b = (torch.randn(
+        (1, n), device="cuda", dtype=torch.float32) / 10)
+
+    ## Testing correctness first
+    cutlass_out = cutlass_impl(a, b, scale_a, scale_b, torch.bfloat16)
+    cutlass_transpose_out = cutlass_transpose_impl(a, b, scale_a, scale_b, torch.bfloat16)
+    torch.allclose(cutlass_out, cutlass_transpose_out)
 
     timers = []
     # pytorch impl
@@ -124,9 +143,15 @@ def bench_int8(dtype: torch.dtype, m: int, k: int, n: int, label: str,
 
     # cutlass impl
     timers.append(
-        bench_fn(a, b, scale_a.to(device="cpu"), scale_b.to(device="cpu"),
+        bench_fn(a, b, scale_a, scale_b,
                  torch.bfloat16, label, sub_label, cutlass_impl,
                  "cutlass_i8_i8_bf16_scaled_mm"))
+
+    # cutlass transpose impl
+    timers.append(
+        bench_fn(a, b, scale_a, scale_b,
+                 torch.bfloat16, label, sub_label, cutlass_transpose_impl,
+                 "cutlass_i8_i8_bf16_scaled_mm-transposed-gemm"))
 
     return timers
 

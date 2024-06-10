@@ -88,10 +88,11 @@ torch::Tensor gptq_marlin_repack(torch::Tensor& b_q_weight, torch::Tensor& perm,
                                  int64_t size_k, int64_t size_n,
                                  int64_t num_bits);
 
-void cutlass_gemm(torch::Tensor& out, torch::Tensor const& a,
-                  torch::Tensor const& b);
-
 void cutlass_scaled_mm(torch::Tensor& out, torch::Tensor const& a,
+                       torch::Tensor const& b, torch::Tensor const& a_scales,
+                       torch::Tensor const& b_scales);
+
+void cutlass_scaled_mm_transpose(torch::Tensor& out, torch::Tensor const& a,
                        torch::Tensor const& b, torch::Tensor const& a_scales,
                        torch::Tensor const& b_scales);
 
