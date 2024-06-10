@@ -14,7 +14,12 @@ from vllm.sampling_params import SamplingParams
 # UPSTREAM SYNC: use the current downstream.
 __version__ = "0.5.0"
 
+def githash():
+    import torch
+    return torch.ops.githash()
+
 __all__ = [
+    "githash",
     "LLM",
     "ModelRegistry",
     "SamplingParams",
