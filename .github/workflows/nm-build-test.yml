@@ -72,7 +72,7 @@ on:
         type: string
         default: ""
       lm_eval_timeout:
-        description: "time limit for lm_eval"
+        description: "time limit for lm_eval in minutes"
         type: string
         default: "60"
       lm_eval_configuration:
