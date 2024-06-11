@@ -9,7 +9,8 @@ from vllm.transformers_utils.tokenizer_group import get_tokenizer_group
 from ..conftest import get_tokenizer_pool_config
 
 if should_skip_test_group(group_name="TEST_LORA"):
-    pytest.skip("TEST_LORA=DISABLE, skipping lora test group", allow_module_level=True)
+    pytest.skip("TEST_LORA=DISABLE, skipping lora test group",
+                allow_module_level=True)
 
 
 @pytest.mark.asyncio
