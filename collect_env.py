@@ -22,6 +22,7 @@ except (ImportError, NameError, AttributeError, OSError):
 SystemEnv = namedtuple(
     'SystemEnv',
     [
+        'vllm_git_hash',
         'torch_version',
         'is_debug_build',
         'cuda_compiled_version',
@@ -136,6 +137,11 @@ def get_conda_packages(run_lambda, patterns=None):
     return "\n".join(line for line in out.splitlines()
                      if not line.startswith("#") and any(name in line
                                                          for name in patterns))
+
+
+def get_vllm_git_hash():
+    import vllm
+    return vllm.githash()
 
 
 def get_gcc_version(run_lambda):
@@ -536,6 +542,7 @@ def get_env_info():
     gpu_topo = get_gpu_topo(run_lambda)
 
     return SystemEnv(
+        vllm_git_hash=get_vllm_git_hash(),
         torch_version=version_str,
         is_debug_build=debug_mode_str,
         python_version='{} ({}-bit runtime)'.format(
@@ -583,6 +590,7 @@ Clang version: {clang_version}
 CMake version: {cmake_version}
 Libc version: {libc_version}
 
+vllm git hash: {vllm_git_hash}
 Python version: {python_version}
 Python platform: {python_platform}
 Is CUDA available: {is_cuda_available}
