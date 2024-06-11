@@ -121,10 +121,8 @@ struct ScaledEpilogueAzp
     : private ScaledEpilogue<ElementAcc, ElementD, EpilogueDescriptor> {
  private:
   using SUPER = ScaledEpilogue<ElementAcc, ElementD, EpilogueDescriptor>;
-  using Accum = typename SUPER::Accum;
   using ScaleA = typename SUPER::ScaleA;
   using ScaleB = typename SUPER::ScaleB;
-  using Compute0 = typename SUPER::Compute0;
   using EVTCompute0 = typename SUPER::EVTCompute0;
 
   using Compute1 = cutlass::epilogue::fusion::Sm90Compute<

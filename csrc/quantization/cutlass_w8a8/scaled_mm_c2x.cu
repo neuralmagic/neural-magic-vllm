@@ -130,10 +130,8 @@ struct ScaledEpilogueAzp
     : private ScaledEpilogue<ElementD, OutputTileThreadMap> {
  private:
   using SUPER = ScaledEpilogue<ElementD, OutputTileThreadMap>;
-  using Accum = typename SUPER::Accum;
   using ScaleA = typename SUPER::ScaleA;
   using ScaleB = typename SUPER::ScaleB;
-  using Compute0 = typename SUPER::Compute0;
   using EVTCompute0 = typename SUPER::EVTCompute0;
 
   using Compute1 = cutlass::epilogue::threadblock::VisitorCompute<
