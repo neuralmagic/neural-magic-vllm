@@ -263,7 +263,9 @@ async def test_too_many_completion_logprobs(server, client: openai.AsyncOpenAI,
             prompt=[0, 0, 0, 0, 0],
             max_tokens=5,
             temperature=0.0,
-            logprobs=6,
+            # vLLM has higher default max_logprobs (20 instead of 5) to support
+            # both Completion API and Chat Completion API
+            logprobs=21,
         )
         ...
     with pytest.raises(
@@ -273,7 +275,9 @@ async def test_too_many_completion_logprobs(server, client: openai.AsyncOpenAI,
             prompt=[0, 0, 0, 0, 0],
             max_tokens=5,
             temperature=0.0,
-            logprobs=6,
+            # vLLM has higher default max_logprobs (20 instead of 5) to support
+            # both Completion API and Chat Completion API
+            logprobs=30,
             stream=True,
         )
         async for chunk in stream:
