@@ -79,18 +79,19 @@ class Cutlass2xGenerator(Generator):
 
     @staticmethod
     def generate_name(arg: Cutlass2xArgs):
-        return 'autogen_cutlass2x_scaled_mm_dq_sm{}_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}_{}_{}'.format(
+        return 'autogen_cutlass2x_scaled_mm_dq_sm{}_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}'.format(
                 arg.arch,
                 arg.tile_shape[0], arg.tile_shape[1], arg.tile_shape[2],
                 arg.warp_shape[0], arg.warp_shape[1], arg.warp_shape[2],
                 arg.instruction_shape[0], arg.instruction_shape[1], arg.instruction_shape[2],
                 Generator.swizzle_short_name(arg.thread_block_swizzle),
                 Generator.gemm_mode_short_name(arg.gemm_mode),
-                arg.main_loop_stages)
+                arg.main_loop_stages,
+                "T" if arg.transpose else "NT")
 
     @staticmethod
     def generate_filename(arg: Cutlass2xArgs):
-        f = '{}/autogen_cutlass_scaled_mm_dq_c2x_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}'.format(
+        f = '{}/autogen_cutlass_scaled_mm_dq_c2x_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}_{}'.format(
                 Cutlass2xGenerator.GENERATE_DIR,
                 arg.tile_shape[0], arg.tile_shape[1], arg.tile_shape[2],
                 arg.warp_shape[0], arg.warp_shape[1], arg.warp_shape[2],
@@ -98,6 +99,7 @@ class Cutlass2xGenerator(Generator):
                 Generator.swizzle_short_name(arg.thread_block_swizzle),
                 Generator.gemm_mode_short_name(arg.gemm_mode),
                 arg.main_loop_stages,
+                "T" if arg.transpose else "NT",
                 arg.arch)
         f = f + ".cu"
         return f
@@ -123,7 +125,9 @@ class Cutlass2xGenerator(Generator):
                 _main_loop_stages = arg.main_loop_stages,
                 _thread_block_swizzle = arg.thread_block_swizzle,
                 _gemm_mode = arg.gemm_mode,
-                _arch = arg.arch)
+                _arch = arg.arch,
+                _transpose = "_transpose" if arg.transpose else "",
+                _transpose_int = "1" if arg.transpose else "0")
 
         filename = Cutlass2xGenerator.generate_filename(arg)
     

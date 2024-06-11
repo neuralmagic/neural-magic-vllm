@@ -1,4 +1,9 @@
+
+#if {{ _transpose_int }}
+#include "../scaled_mm_c2x_transpose.cuh"
+#else
 #include "../scaled_mm_c2x.cuh"
+#endif
 
 void {{ _name }}(torch::Tensor& out, torch::Tensor const& a,
                             torch::Tensor const& b,
@@ -15,7 +20,7 @@ void {{ _name }}(torch::Tensor& out, torch::Tensor const& a,
   using InstructionShape = typename {{ _instruction_shape }};
   static constexpr int32_t MainLoopStages = {{ _main_loop_stages }}; 
  
-  cutlass_scaled_mm_i8<cutlass::arch::Sm{{ _arch }},
+  cutlass_scaled_mm_i8{{ _transpose }}<cutlass::arch::Sm{{ _arch }},
                     TileShape,
                     WarpShape,
                     InstructionShape,

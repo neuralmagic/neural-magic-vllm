@@ -18,6 +18,7 @@ class Cutlass2xArgs:
     thread_block_swizzle: str
     gemm_mode: str
     main_loop_stages: int
+    transpose: bool
 
     def with_tile_shape(self, ts):
         clone = copy.deepcopy(self)
@@ -42,6 +43,11 @@ class Cutlass2xArgs:
     def with_main_loop_stages(self, mls):
         clone = copy.deepcopy(self)
         clone.main_loop_stages = mls 
+        return clone
+
+    def with_transpose(self, do_transpose):
+        clone = copy.deepcopy(self)
+        clone.transpose = do_transpose  
         return clone
 
 @dataclass
@@ -90,11 +96,15 @@ class Cutlass3xArgs:
         clone.dtype_str = dtype_str 
         return clone
 
+DefaultCutlass2xArg = Cutlass2xArgs(80,
+                                    (128, 128, 64),
+                                    (64, 64, 64),
+                                    (16, 8, 32),
+                                    "cutlass::gemm::threadblock::ThreadblockSwizzleStreamK",
+                                    "cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel",
+                                    5,
+                                    False)
+
 Cutlass2xArgsList = [
-        Cutlass2xArgs(80,
-                      (128, 128, 64),
-                      (64, 64, 64),
-                      (16, 8, 32),
-                      "cutlass::gemm::threadblock::ThreadblockSwizzleStreamK",
-                      "cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel",
-                      5)]
+        DefaultCutlass2xArg,
+        DefaultCutlass2xArg.with_transpose(True)]
