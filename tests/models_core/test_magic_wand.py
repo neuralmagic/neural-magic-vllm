@@ -67,7 +67,7 @@ def test_magic_wand(
         f"Test{model_name}: Sparse model KV cache size {sparse_num_kv_blocks} "
         f"not bigger than dense model KV cache size {dense_num_kv_blocks} + "
         f"expected num_extra_blocks {num_extra_blocks}")
-    
+
     # Confirm the generations are similar.
     check_logprobs_close(
         outputs_0_lst=dense_outputs,
