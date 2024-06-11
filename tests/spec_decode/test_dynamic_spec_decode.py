@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
@@ -18,6 +19,9 @@ if should_skip_test_group(group_name="TEST_SPEC_DECODE"):
                 allow_module_level=True)
 
 
+@pytest.mark.parametrize('queue_size', [4])
+@pytest.mark.parametrize('batch_size', [1])
+@pytest.mark.parametrize('k', [1])
 @pytest.mark.parametrize('queue_size', [4])
 @pytest.mark.parametrize('batch_size', [1])
 @pytest.mark.parametrize('k', [1])
@@ -47,6 +51,12 @@ def test_disable_spec_tokens(queue_size: int, batch_size: int, k: int):
         num_lookahead_slots=k,
         running_queue_size=queue_size)
 
+    if queue_size > disable_by_batch_size:
+        with patch.object(worker,
+                          '_run_no_spec',
+                          side_effect=ValueError(exception_secret)), \
+            pytest.raises(ValueError, match=exception_secret):
+            worker.execute_model(execute_model_req=execute_model_req)
     if queue_size > disable_by_batch_size:
         with patch.object(worker,
                           '_run_no_spec',

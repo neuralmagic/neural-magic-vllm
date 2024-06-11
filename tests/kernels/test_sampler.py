@@ -35,6 +35,10 @@ def _uniform_to_exponential_kernel(input, output, n: tl.constexpr):
     tl.store(output + idx, y)
 
 
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 def test_uniform_to_exponential():
     """Test that we can convert uniform to exponential without div by 0."""
     input = torch.tensor([0.0, 1.0 - torch.finfo(torch.float32).eps],
@@ -131,6 +135,10 @@ def test_sample_decoding_only(random_sampling, max_best_of,
         assert sampled_logprobs is None
 
 
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("random_sampling", [True, False, "mixed"])
 @pytest.mark.parametrize("max_best_of", [1, 2, 3, 4, 5])
 @pytest.mark.parametrize("modify_greedy_probs", [True, False])
