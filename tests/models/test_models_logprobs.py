@@ -13,7 +13,6 @@ MODELS = [
     "meta-llama/Llama-2-7b-hf",
     "mistralai/Mistral-7B-v0.1",
     "Deci/DeciLM-7b",
-    
     "gpt2",
     "bigcode/tiny_starcoder_py",
     "EleutherAI/gpt-j-6b",
@@ -35,7 +34,7 @@ SKIPPED_MODELS_ACC = [
 
 SKIPPED_MODELS_CI = [
     "EleutherAI/gpt-j-6b",  # OOM on CPU RAM
-    "tiiuae/falcon-7b",     # Fails in vllm if trust_remote_code=True
+    "tiiuae/falcon-7b",  # Fails in vllm if trust_remote_code=True
 ]
 
 
