@@ -13,4 +13,3 @@ runs:
     env:
         ENV_VAR_FILE: ${{ inputs.test_skip_env_vars }}
     shell: bash
-  
