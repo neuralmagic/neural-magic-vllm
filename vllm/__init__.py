@@ -14,10 +14,6 @@ from vllm.sampling_params import SamplingParams
 # UPSTREAM SYNC: use the current downstream.
 __version__ = "0.5.0"
 
-def githash():
-    from torch.ops._C import ops
-    return ops.githash()
-
 __all__ = [
     "githash",
     "LLM",
@@ -34,3 +30,8 @@ __all__ = [
     "initialize_ray_cluster",
     "PoolingParams",
 ]
+
+
+def githash():
+    from torch.ops._C import ops
+    return ops.githash()
