@@ -151,7 +151,7 @@ jobs:
       needs: [BUILD]
       uses: ./.github/workflows/nm-lm-eval.yml
       with:
-        label: ${{ inputs.test_label_solo }}
+        label: ${{ inputs.lm_eval_label }}
         timeout: ${{ inputs.lm_eval_timeout }}
         gitref: ${{ inputs.gitref }}
         python: ${{ inputs.python }}
