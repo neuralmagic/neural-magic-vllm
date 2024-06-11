@@ -15,8 +15,8 @@ from vllm.sampling_params import SamplingParams
 __version__ = "0.5.0"
 
 def githash():
-    import torch
-    return torch.ops.githash()
+    from torch.ops._C import ops
+    return ops.githash()
 
 __all__ = [
     "githash",
