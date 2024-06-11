@@ -11,10 +11,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   pybind11::module ops = m.def_submodule("ops", "vLLM custom operators");
 
   // githash
-  ops.def(
-    "githash",
-    &githash,
-    "nm-vllm git hash");
+  ops.def("githash", &githash, "Show nm-vllm git hash.");
 
   // Attention ops
   ops.def(
