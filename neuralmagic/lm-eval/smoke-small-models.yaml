@@ -1,4 +1,4 @@
-# ./nm-run-lm-eval-gsm-hf-baseline -m meta-llama/Meta-Llama-3-8B-Instruct -b 32 -d cuda -l 250 -f 5
+# ./nm-run-lm-eval-gsm-hf-baseline.sh -m meta-llama/Meta-Llama-3-8B-Instruct -b 32 -d cuda -l 250 -f 5
 - model_name: "meta-llama/Meta-Llama-3-8B-Instruct"
   tasks:
   - name: "gsm8k"
@@ -10,7 +10,7 @@
   limit: 250
   num_fewshot: 5
 
-# ./nm-run-lm-eval-gsm-hf-baseline -m TechxGenus/Meta-Llama-3-8B-Instruct-GPTQ -b 32 -d cuda -l 250 -f 5
+# ./nm-run-lm-eval-gsm-hf-baseline.sh -m TechxGenus/Meta-Llama-3-8B-Instruct-GPTQ -b 32 -d cuda -l 250 -f 5
 - model_name: "TechxGenus/Meta-Llama-3-8B-Instruct-GPTQ"
   tasks:
   - name: "gsm8k"
