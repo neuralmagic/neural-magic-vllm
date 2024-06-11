@@ -139,10 +139,11 @@ def test_cutlass_fp8_gemm_devices(per_act_token: bool, per_out_ch: bool,
 
 @pytest.mark.parametrize("per_act_token", [True, False])
 @pytest.mark.parametrize("per_out_ch", [True, False])
+@pytest.mark.parametrize("azp", [True, False])
 @pytest.mark.parametrize("device", CUDA_DEVICES)
 def test_cutlass_int8_gemm_devices(per_act_token: bool, per_out_ch: bool,
-                                   device: str):
-    cutlass_int8_gemm_helper(512, 512, 512, per_act_token, per_out_ch, out_dtype=torch.bfloat16, device=device)
+                                   azp:bool, device: str):
+    cutlass_int8_gemm_helper(512, 512, 512, per_act_token, per_out_ch, azp, out_dtype=torch.bfloat16, device=device)
 
 
 # For the following two tests:
@@ -162,10 +163,11 @@ def test_cutlass_fp8_gemm_m_sweep(per_act_token: bool, per_out_ch: bool):
 
 @pytest.mark.parametrize("per_act_token", [True, False])
 @pytest.mark.parametrize("per_out_ch", [True, False])
-def test_cutlass_int8_gemm_m_sweep(per_act_token: bool, per_out_ch: bool):
+@pytest.mark.parametrize("azp", [True, False])
+def test_cutlass_int8_gemm_m_sweep(per_act_token: bool, per_out_ch: bool, azp: bool):
     for nk in range(32, 128, 32):
         for m in range(1, 128):
-            cutlass_int8_gemm_helper(m, nk, nk, per_act_token, per_out_ch)
+            cutlass_int8_gemm_helper(m, nk, nk, per_act_token, per_out_ch, azp)
 
 
 # Test working with a subset of A and B
