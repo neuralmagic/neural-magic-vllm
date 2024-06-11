@@ -11,7 +11,7 @@ from vllm.utils import chunk_list
 from ..utils import create_seq_group, create_seq_group_encoder_decoder
 
 if should_skip_test_group(group_name="TEST_CORE"):
-    pytest.skip("TEST_CORE=0, skipping core test group",
+    pytest.skip("TEST_CORE=DISABLE, skipping core test group",
                 allow_module_level=True)
 
 

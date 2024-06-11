@@ -6,7 +6,7 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.core.block.common import RefCounter
 
 if should_skip_test_group(group_name="TEST_CORE"):
-    pytest.skip("TEST_CORE=0, skipping core test group",
+    pytest.skip("TEST_CORE=DISABLE, skipping core test group",
                 allow_module_level=True)
 
 
