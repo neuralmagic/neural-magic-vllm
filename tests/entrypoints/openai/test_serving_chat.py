@@ -15,8 +15,6 @@ CHAT_TEMPLATE = "Dummy chat template for testing {}"
 
 pytestmark = pytest.mark.openai
 
-pytestmark = pytest.mark.openai
-
 
 @dataclass
 class MockModelConfig:

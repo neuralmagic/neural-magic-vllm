@@ -2,7 +2,6 @@ import sys
 import time
 
 import pytest
-import pytest
 import torch
 from openai import OpenAI, OpenAIError
 
