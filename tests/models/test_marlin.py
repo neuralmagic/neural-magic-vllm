@@ -23,8 +23,6 @@ import torch
 from tests.models.utils import check_logprobs_close
 from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
 
-from .utils import check_logprobs_close
-
 marlin_not_supported = True
 
 if torch.cuda.is_available():
