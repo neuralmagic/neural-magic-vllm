@@ -172,10 +172,12 @@ def bench_int8(dtype: torch.dtype, m: int, k: int, n: int, label: str,
                sub_label: str) -> Iterable[TMeasurement]:
     assert dtype == torch.int8
     a, b = make_rand_tensors(torch.int8, m, n, k)
-    scale_a = (torch.randn(
-        (m, 1), device="cuda", dtype=torch.float32) / 10)
-    scale_b = (torch.randn(
-        (1, n), device="cuda", dtype=torch.float32) / 10)
+    scale_a = torch.tensor(1.0, device="cuda", dtype = torch.float32)
+    scale_b = torch.tensor(1.0, device="cuda", dtype = torch.float32)
+    #scale_a = (torch.randn(
+    #    (m, 1), device="cuda", dtype=torch.float32) / 10)
+    #scale_b = (torch.randn(
+    #    (1, n), device="cuda", dtype=torch.float32) / 10)
 
     timers = []
     # pytorch impl

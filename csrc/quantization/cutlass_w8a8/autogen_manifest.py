@@ -108,3 +108,22 @@ DefaultCutlass2xArg = Cutlass2xArgs(80,
 Cutlass2xArgsList = [
         DefaultCutlass2xArg,
         DefaultCutlass2xArg.with_transpose(True)]
+
+def bad_2x_arg(arg):
+    bad_tile_shapes = [(16, 256, 64),
+                       (16, 256, 128)]
+    if arg.tile_shape in bad_tile_shapes:
+        return True
+    return False
+
+# M N K varying tile shapes
+tile_shapes_m = [16, 32, 64, 128, 256]
+tile_shapes_n = [32, 64, 128, 256]
+tile_shapes_k = [64, 128]
+tile_shapes = product(tile_shapes_m, tile_shapes_n, tile_shapes_k)
+DefaultWarpShape = (64, 64, 64)
+
+Cutlass2xArgsTileList = [
+        DefaultCutlass2xArg.with_transpose(True).with_tile_shape(ts).with_warp_shape(
+            min_tuples(ts, DefaultWarpShape)) for ts in tile_shapes]
+Cutlass2xArgsTileList = list(filter(lambda x: not bad_2x_arg(x) ,Cutlass2xArgsTileList))

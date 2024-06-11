@@ -7,7 +7,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from autogen_manifest import (Cutlass2xArgs,
                               Cutlass3xArgs)
-from autogen_manifest import Cutlass2xArgsList
+from autogen_manifest import (Cutlass2xArgsList,
+                              Cutlass2xArgsTileList)
 import os
 
 ## Utilities ####
@@ -290,7 +291,7 @@ class Cutlass3xGenerator(Generator):
         Generator.write_ops(pybind_fn_names, ops_fn_decls, Cutlass3xGenerator.OPS_MACRO, Cutlass3xGenerator.OPS_FILE)
 
 def generate_cutlass2x_kernels():
-    Cutlass2xGenerator.generate(Cutlass2xArgsList)
+    Cutlass2xGenerator.generate(Cutlass2xArgsTileList)
 
 def generate_cutlass3x_kernels():
     Cutlass3xGenerator.generate(Cutlass3xArgsList)
