@@ -7,6 +7,7 @@ try:
     import vllm._C
 except ImportError as e:
     from vllm.logger import init_logger
+
     logger = init_logger(__name__)
     logger.warning("Failed to import from vllm._C with %r", e)
 
@@ -205,6 +206,22 @@ def cutlass_scaled_mm(a: torch.Tensor, b: torch.Tensor, scale_a: torch.Tensor,
     return out
 
 
+# cutlass
+def cutlass_scaled_azp_mm(a: torch.Tensor, b: torch.Tensor, scale_a: torch.Tensor,
+                          scale_b: torch.Tensor, bias_azp: torch.Tensor,
+                          out_dtype: Type[torch.dtype]) -> torch.Tensor:
+    assert (b.shape[0] % 16 == 0 and b.shape[1] % 16 == 0)
+    assert (out_dtype is torch.bfloat16 or out_dtype is torch.float16)
+
+    m = a.shape[0]
+    n = b.shape[1]
+    out = torch.empty((m, n), dtype=out_dtype, device=a.device)
+
+    torch.ops._C.cutlass_scaled_azp_mm(out, a, b, scale_a, scale_b, bias_azp)
+
+    return out
+
+
 # aqlm
 def aqlm_gemm(input: torch.Tensor, codes: torch.Tensor,
               codebooks: torch.Tensor, scales: torch.Tensor,
@@ -280,8 +297,8 @@ def scaled_fp8_quant(
 
 # int8
 def scaled_int8_quant(
-        input: torch.Tensor,
-        scale: Optional[torch.Tensor] = None
+    input: torch.Tensor,
+    scale: Optional[torch.Tensor] = None
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Quantize the input tensor to int8 and return the quantized tensor and scale.

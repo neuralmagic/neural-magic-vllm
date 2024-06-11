@@ -352,4 +352,12 @@ void cutlass_scaled_mm_sm90(torch::Tensor& out, torch::Tensor const& a,
   }
 }
 
+void cutlass_scaled_azp_mm_sm90(torch::Tensor& out, torch::Tensor const& a,
+                            torch::Tensor const& b,
+                            torch::Tensor const& a_scales,
+                            torch::Tensor const& b_scales,
+                            torch::Tensor const& bias_azp) {
+    TORCH_CHECK(false, "sm90 does not support asymmetric zero point quantization yet");
+}
+
 #endif
