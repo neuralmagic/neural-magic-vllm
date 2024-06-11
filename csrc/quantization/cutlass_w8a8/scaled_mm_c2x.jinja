@@ -1,0 +1,25 @@
+#include "../scaled_mm_c2x.cuh"
+
+void {{ _name }}(torch::Tensor& out, torch::Tensor const& a,
+                            torch::Tensor const& b,
+                            torch::Tensor const& a_scales,
+                            torch::Tensor const& b_scales) {
+
+  TORCH_CHECK(a.dtype() == torch::kInt8);
+  TORCH_CHECK(b.dtype() == torch::kInt8);
+  TORCH_CHECK(a_scales.dtype() == torch::kFloat32);
+  TORCH_CHECK(b_scales.dtype() == torch::kFloat32);
+
+  using TileShape = typename {{ _tile_shape }};
+  using WarpShape = typename {{ _warp_shape }};
+  using InstructionShape = typename {{ _instruction_shape }};
+  static constexpr int32_t MainLoopStages = {{ _main_loop_stages }}; 
+ 
+  cutlass_scaled_mm_i8<cutlass::arch::Sm{{ _arch }},
+                    TileShape,
+                    WarpShape,
+                    InstructionShape,
+                    {{ _thread_block_swizzle }},
+                    {{ _gemm_mode }},
+                    MainLoopStages>(out, a, b, a_scales, b_scales);
+}

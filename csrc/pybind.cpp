@@ -2,10 +2,18 @@
 #include "cuda_utils.h"
 #include "ops.h"
 #include <torch/extension.h>
+#include "quantization/cutlass_w8a8/autogen_cutlass_ops.h"
+
+#ifndef AUTOGEN_CUTLASS_DEFS
+#define AUTOGEN_CUTLASS_DEFS
+#endif
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   // vLLM custom ops
   pybind11::module ops = m.def_submodule("ops", "vLLM custom operators");
+
+  // Defined in csrc/quantization/cutlass_w8a8/autogen_cutlass_ops.h
+  AUTOGEN_CUTLASS_DEFS
 
   // Attention ops
   ops.def("paged_attention_v1", &paged_attention_v1,

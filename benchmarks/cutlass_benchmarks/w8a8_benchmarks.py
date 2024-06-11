@@ -48,13 +48,15 @@ def make_rand_tensors(dtype: torch.dtype, m: int, n: int,
 
 def pytorch_i8_impl(a: torch.tensor, b: torch.tensor, scale_a: torch.tensor,
                     scale_b: torch.tensor,
-                    out_dtype: torch.dtype) -> torch.tensor:
+                    out_dtype: torch.dtype,
+                    impl_fn=None) -> torch.tensor:
     return torch.mm(a, b)
 
 
 def pytorch_fp8_impl(a: torch.tensor, b: torch.tensor, scale_a: torch.tensor,
                      scale_b: torch.tensor,
-                     out_dtype: torch.dtype) -> torch.tensor:
+                     out_dtype: torch.dtype,
+                     impl_fn=None) -> torch.tensor:
     return torch._scaled_mm(a,
                             b,
                             scale_a=scale_a,
@@ -64,7 +66,8 @@ def pytorch_fp8_impl(a: torch.tensor, b: torch.tensor, scale_a: torch.tensor,
 
 def pytorch_fp8_impl_fast_accum(a: torch.tensor, b: torch.tensor,
                                 scale_a: torch.tensor, scale_b: torch.tensor,
-                                out_dtype: torch.dtype) -> torch.tensor:
+                                out_dtype: torch.dtype,
+                                impl_fn=None) -> torch.tensor:
     return torch._scaled_mm(a,
                             b,
                             scale_a=scale_a,
@@ -75,7 +78,8 @@ def pytorch_fp8_impl_fast_accum(a: torch.tensor, b: torch.tensor,
 
 def cutlass_impl(a: torch.tensor, b: torch.tensor, scale_a: torch.tensor,
                  scale_b: torch.tensor,
-                 out_dtype: torch.dtype) -> torch.tensor:
+                 out_dtype: torch.dtype,
+                 impl_fn=None) -> torch.tensor:
     return ops.cutlass_scaled_mm(a,
                                     b,
                                     scale_a,
@@ -86,17 +90,30 @@ def cutlass_transpose_impl(a: torch.tensor,
                            b: torch.tensor,
                            scale_a: torch.tensor,
                            scale_b: torch.tensor,
-                           out_dtype: torch.dtype) -> torch.tensor:
+                           out_dtype: torch.dtype,
+                           impl_fn=None) -> torch.tensor:
     return ops.cutlass_scaled_mm_transpose(a,
                                     b,
                                     scale_a,
                                     scale_b,
                                     out_dtype=out_dtype)
 
+def cutlass_autogen_impl(a: torch.tensor,
+                         b: torch.tensor,
+                         scale_a: torch.tensor,
+                         scale_b: torch.tensor,
+                         out_dtype: torch.dtype,
+                         impl_fn=None) -> torch.tensor:
+    m = a.shape[0]
+    n = b.shape[1]
+    out = torch.zeros((m, n), dtype=out_dtype, device=a.device)
+    return impl_fn(out, a, b, scale_a, scale_b)
+
 # bench
 def bench_fn(a: torch.tensor, b: torch.tensor, scale_a: torch.tensor,
              scale_b: torch.tensor, out_dtype: torch.dtype, label: str,
-             sub_label: str, fn: Callable, description: str) -> TMeasurement:
+             sub_label: str, fn: Callable, description: str, impl_fn=None) \
+                     -> TMeasurement:
 
     min_run_time = 1
 
@@ -107,31 +124,58 @@ def bench_fn(a: torch.tensor, b: torch.tensor, scale_a: torch.tensor,
         "scale_b": scale_b,
         "out_dtype": out_dtype,
         "fn": fn,
+        "impl_fn": impl_fn,
     }
     return TBenchmark.Timer(
-        stmt="fn(a, b, scale_a, scale_b, out_dtype)",
+        stmt="fn(a, b, scale_a, scale_b, out_dtype, impl_fn)",
         globals=globals,
         label=label,
         sub_label=sub_label,
         description=description,
     ).blocked_autorange(min_run_time=min_run_time)
 
+def bench_autogen(a: torch.tensor, b: torch.tensor, scale_a: torch.tensor,
+        scale_b: torch.tensor, out_dtype: torch.dtype, label: str,
+        sub_label:str) -> Iterable[TMeasurement]:
+
+
+    from vllm._C import ops as autogen
+
+    impls = []
+    try:
+        impls = dir(autogen)
+        impls = list(filter(lambda x: x.startswith('autogen_cutlass'), impls))
+    except Exception as e:
+        print ("No cutlass autogen kernels found")
+
+    print (f"#impls !! {impls}")
+
+    working_impls = []
+    for impl in impls:
+        impl_fn = getattr(autogen, impl)
+        try:
+            cutlass_autogen_impl(a, b, scale_a, scale_b, out_dtype, impl_fn)
+            working_impls.append(impl)
+        except Exception as e:
+            print(f"Error: can't run cutlass autogen impl {impl}")
+            pass
+
+    timers = [] 
+    for impl in working_impls:
+        impl_fn = getattr(autogen, impl)
+        timers.append(bench_fn(a, b, scale_a, scale_b, out_dtype, label,
+            sub_label, cutlass_autogen_impl, impl, impl_fn))
+
+    return timers
 
 def bench_int8(dtype: torch.dtype, m: int, k: int, n: int, label: str,
                sub_label: str) -> Iterable[TMeasurement]:
     assert dtype == torch.int8
     a, b = make_rand_tensors(torch.int8, m, n, k)
-    #scale_a = torch.tensor(1.0, device="cuda", dtype=torch.float32)
-    #scale_b = torch.tensor(1.0, device="cuda", dtype=torch.float32)
     scale_a = (torch.randn(
         (m, 1), device="cuda", dtype=torch.float32) / 10)
     scale_b = (torch.randn(
         (1, n), device="cuda", dtype=torch.float32) / 10)
-
-    ## Testing correctness first
-    cutlass_out = cutlass_impl(a, b, scale_a, scale_b, torch.bfloat16)
-    cutlass_transpose_out = cutlass_transpose_impl(a, b, scale_a, scale_b, torch.bfloat16)
-    torch.allclose(cutlass_out, cutlass_transpose_out)
 
     timers = []
     # pytorch impl
@@ -153,8 +197,10 @@ def bench_int8(dtype: torch.dtype, m: int, k: int, n: int, label: str,
                  torch.bfloat16, label, sub_label, cutlass_transpose_impl,
                  "cutlass_i8_i8_bf16_scaled_mm-transposed-gemm"))
 
-    return timers
+    timers.extend(bench_autogen(a, b, scale_a, scale_b, torch.bfloat16,
+                  label, sub_label))
 
+    return timers
 
 def bench_fp8(dtype: torch.dtype, m: int, k: int, n: int, label: str,
               sub_label: str) -> Iterable[TMeasurement]:
