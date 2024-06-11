@@ -33,7 +33,7 @@ from vllm.config import LoRAConfig
 from vllm.distributed import (get_tensor_model_parallel_rank,
                               get_tensor_model_parallel_world_size,
                               tensor_model_parallel_all_reduce)
-from vllm.model_executor.layers.fused_moe import fused_moe
+from vllm.model_executor.layers.fused_moe import fused_moe, fused_marlin_moe
 from vllm.model_executor.layers.layernorm import RMSNorm
 from vllm.model_executor.layers.linear import (QKVParallelLinear,
                                                ReplicatedLinear,
@@ -219,12 +219,36 @@ class MixtralMoE(nn.Module):
             self.a2_scale = nn.Parameter(self.a2_scale.max(),
                                          requires_grad=False)
 
+    # def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+    #     num_tokens, hidden_size = hidden_states.shape
+    #     hidden_states = hidden_states.view(-1, self.hidden_size)
+    #     # router_logits: (num_tokens, n_experts)
+    #     router_logits, _ = self.gate(hidden_states)
+    #     final_hidden_states = fused_moe(hidden_states,
+    #                                     self.w13_weight,
+    #                                     self.w2_weight,
+    #                                     router_logits,
+    #                                     self.top_k,
+    #                                     renormalize=True,
+    #                                     inplace=True,
+    #                                     use_fp8=self.use_fp8,
+    #                                     w1_scale=self.w13_scale,
+    #                                     w2_scale=self.w2_scale,
+    #                                     a1_scale=self.a13_scale,
+    #                                     a2_scale=self.a2_scale)
+
+    #     if self.tp_size > 1:
+    #         final_hidden_states = tensor_model_parallel_all_reduce(
+    #             final_hidden_states)
+
+    #     return final_hidden_states.view(num_tokens, hidden_size)
+
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         num_tokens, hidden_size = hidden_states.shape
         hidden_states = hidden_states.view(-1, self.hidden_size)
         # router_logits: (num_tokens, n_experts)
         router_logits, _ = self.gate(hidden_states)
-        final_hidden_states = fused_moe(hidden_states,
+        final_hidden_states = fused_marlin_moe(hidden_states,
                                         self.w13_weight,
                                         self.w2_weight,
                                         router_logits,

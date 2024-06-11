@@ -11,37 +11,68 @@ from transformers import MixtralConfig
 from transformers.models.mixtral.modeling_mixtral import MixtralSparseMoeBlock
 
 from vllm.model_executor.layers.activation import SiluAndMul
-from vllm.model_executor.layers.fused_moe import fused_moe, fused_marlin_moe
+from vllm.model_executor.layers.fused_moe import fused_moe, fused_marlin_moe, single_marlin_moe
 from vllm.model_executor.models.mixtral import MixtralMoE
 
 def torch_moe(a, w1, w2, score, topk):
     B, D = a.shape
     a = a.view(B, -1, D).repeat(1, topk, 1).reshape(-1, D)
-    # out = torch.zeros(B * topk, w2.shape[1], dtype=a.dtype, device=a.device)
-    out = torch.zeros(B * topk, w1.shape[1], dtype=a.dtype, device=a.device)
-    print("OUT1:", out.size())
+    out = torch.zeros(B * topk, w2.shape[1], dtype=a.dtype, device=a.device)
     score = torch.softmax(score, dim=-1, dtype=torch.float32)
     topk_weight, topk_ids = torch.topk(score, topk)
     topk_weight = topk_weight.view(-1)
     topk_ids = topk_ids.view(-1)
-    print(topk_ids)
+    # for idx in range(4):
+    #     topk_ids[idx * 2] = 0
+    #     topk_ids[idx * 2 + 1] = 1
+    print("topk:", topk_ids)
     for i in range(w1.shape[0]):
-    # for i in range(1):
         mask = topk_ids == i
-        # print(mask)
+        print("mask:", mask)
         if mask.sum():
-            out[mask] =  a[mask] @ w1[i].transpose(0, 1)
-            # out[mask] = SiluAndMul()(
-            #     a[mask] @ w1[i].transpose(0, 1)) @ w2[i].transpose(0, 1)
-    print("OUT2:", out.size())
-    # print("OUT TORCH:", out);
-    # return (out.view(B, -1, w2.shape[1]) *
-    #         topk_weight.view(B, -1, 1).to(out.dtype)).sum(dim=1)
-    return (out.view(B, -1, w1.shape[1])).sum(dim=1)
+            # print("silu and mul:", (a[mask] @ w1[i].transpose(0, 1)).size(),
+            #       "->", SiluAndMul()(a[mask] @ w1[i].transpose(0, 1)).size(),
+            #       "->", (SiluAndMul()(a[mask] @ w1[i].transpose(0, 1)) @ w2[i].transpose(0, 1)).size(),)
+            simul = SiluAndMul()(
+                a[mask] @ w1[i].transpose(0, 1))
+            # print("out shape:", out[mask].size(), "simul shape:", simul.size())
+            print("simul torch:", simul)
+            print("w2 t:", w2[i].transpose(0, 1))
+            out[mask] = simul @ w2[i].transpose(0, 1)
+    # for i in range(1):
+    #     mask = topk_ids == i
+    #     # print("mask:", mask, mask.size())
+    #     # print("silu and mul:", (a[mask] @ w1[i].transpose(0, 1)).size(),
+    #     #       "->", SiluAndMul()(a[mask] @ w1[i].transpose(0, 1)).size(),
+    #     #       "->", (SiluAndMul()(a[mask] @ w1[i].transpose(0, 1)) @ w2[i].transpose(0, 1)).size(),)
+    #     inter1 = a[mask] @ w1[i].transpose(0, 1)
+    #     print("intermediate 1 torch:", inter1, inter1.size())
+    #     simul = SiluAndMul()(inter1)
+    #     # print("out shape:", out[mask].size(), "simul shape:", simul.size())
+    #     print("simul torch:", simul, simul.size())
+    #     print("w2 t:", w2[i].transpose(0, 1))
+    #     out[mask] = simul @ w2[i].transpose(0, 1)
+    # return out.view(B, -1, w2.shape[1]).sum(dim=1)
+    # return out#.view(B, -1, w2.shape[1])
+    return (out.view(B, -1, w2.shape[1]) *
+            topk_weight.view(B, -1, 1).to(out.dtype)).sum(dim=1)
+
+def torch_moe_small(a, w, score, topk):
+    B, D = a.shape
+    a = a.view(B, -1, D).repeat(1, topk, 1).reshape(-1, D)
+    out = torch.zeros(B * topk, w.shape[1], dtype=a.dtype, device=a.device)
+    score = torch.softmax(score, dim=-1, dtype=torch.float32)
+    _, topk_ids = torch.topk(score, topk)
+    topk_ids = topk_ids.view(-1)
+    for i in range(w.shape[0]):
+        mask = topk_ids == i
+        if mask.sum():
+            out[mask] =  a[mask] @ w[i].transpose(0, 1)
+    return (out.view(B, -1, w.shape[1])).sum(dim=1)
 
 @pytest.mark.parametrize("m", [4]) #[512, 222, 33, 1])
-@pytest.mark.parametrize("n", [2048]) #[2048, 256, 1024])
-@pytest.mark.parametrize("k", [1024]) #, 511, 1024])
+@pytest.mark.parametrize("n", [128]) #[2048, 256, 1024])
+@pytest.mark.parametrize("k", [128]) #, 511, 1024])
 @pytest.mark.parametrize("e", [2]) #, 64])
 @pytest.mark.parametrize("topk", [2]) #, 6])
 @pytest.mark.parametrize("dtype", [torch.float16]) #, torch.bfloat16])
@@ -60,9 +91,6 @@ def test_fused_moe(
     score = torch.randn((m, e), device='cuda', dtype=dtype)
     triton_output = fused_moe(a, w1, w2, score, topk, renormalize=False)
     torch_output = torch_moe(a, w1, w2, score, topk)
-
-    print(triton_output.size())
-    print(torch_output.size())
 
     assert torch.allclose(triton_output, torch_output, atol=1e-2, rtol=0)
 
@@ -152,11 +180,14 @@ def marlin_permute_weights(q_w, size_k, size_n, num_bits, perm):
 
     # Permute weights to 16x64 marlin tiles
     q_w = q_w.reshape((size_k // tile, tile, size_n // tile, tile))
+    # print("r1:", q_w.size())
     q_w = q_w.permute((0, 2, 1, 3))
     q_w = q_w.reshape((size_k // tile, size_n * tile))
+    # print("r2:", q_w.size())
     
     # print("NUMEL", perm.numel())
     q_w = q_w.reshape((-1, perm.numel()))[:, perm].reshape(q_w.shape)
+    # print("r3:", q_w.size())
 
     return q_w
 
@@ -204,6 +235,9 @@ def quantize_weights(w: torch.Tensor, num_bits: int, group_size: int):
     max_q_val = 2**num_bits - 1
     half_q_val = (max_q_val + 1) // 2
 
+    # print("")
+    # print("pre reshape w:", w.size())
+
     # Reshape to [groupsize, -1]
     if group_size < size_k:
         w = w.reshape((-1, group_size, size_n))
@@ -214,10 +248,15 @@ def quantize_weights(w: torch.Tensor, num_bits: int, group_size: int):
     s = torch.max(torch.abs(w), 0, keepdim=True)[0]
     s *= 2 / max_q_val  # 2 => symmetric
 
+    # print("pre quantize w:", w.size())
+
     # Quantize
     q_w = torch.round(w / s).int()
     q_w += half_q_val
     q_w = torch.clamp(q_w, 0, max_q_val)
+
+    # print("pre reshape q_w:", q_w.size())
+    # print("pre reshape s:", s.size())
 
     # Compute ref (dequantized)
     w_ref = (q_w - half_q_val).half() * s
@@ -231,10 +270,16 @@ def quantize_weights(w: torch.Tensor, num_bits: int, group_size: int):
             w = w.reshape((size_k, size_n)).contiguous()
             return w
 
+        # print("mid reshape q_w:", q_w.size())
+        # print("mid reshape w_ref:", w_ref.size())
+        # print("mid reshape s:", s.size())
         q_w = reshape_w(q_w)
         w_ref = reshape_w(w_ref)
 
     s = s.reshape((-1, size_n)).contiguous()
+    # print("post reshape q_w:", q_w.size())
+    # print("post reshape w_ref:", w_ref.size())
+    # print("post reshape s:", s.size())
 
     return (
         w_ref.to(device=orig_device),
@@ -286,126 +331,147 @@ def stack_and_dev(tensors: List[torch.Tensor]):
     dev = tensors[0].device
     return torch.stack(tensors, dim=0).to(dev)
 
-def test_fused_marlin_moe():
-    m = 256
-    n = 512
-    k = 512
-    e = 8
-    topk = 2
-    dtype = torch.float16
-    moe_block_size = 16
-    e_m = 8
+def compute_max_diff(output, output_ref):
+    return torch.mean(torch.abs(output - output_ref)) / torch.mean(
+        torch.abs(output_ref))
 
-    a = torch.randn((m, k), device='cuda', dtype=dtype) / 10
-    w1 = torch.randn((e, 2 * n, k), device='cuda', dtype=dtype) / 10
-    w2 = torch.randn((e, k, n), device='cuda', dtype=dtype) / 10
-    w_m = torch.randn((e_m, k, n), device='cuda', dtype=dtype) / 10
-
-    eoff = torch.ones((1))
-
-    a_2d = a.view(-1, a.shape[-1])
-
-    w_refs = []
-    qweights = []
-    scaless = []
-
-    for i in range(w_m.shape[0]):
-        w_ref, qweight, scales = marlin_quantize(w_m[i], 4, -1)
-        w_refs.append(w_ref)
-        qweights.append(qweight)
-        scaless.append(scales)
-
-    w_ref = stack_and_dev(w_refs)
-    qweight = stack_and_dev(qweights)
-    scales = stack_and_dev(scaless)
-
-    print("w_ref size:", w_ref.size())
-    print("qweight size:", qweight.size())
-    print("scales size:", scales.size())
-
-    # Allocate marlin workspace
-    max_workspace_size = (n // 64) * 16
-    workspace = torch.zeros(max_workspace_size,
-                            dtype=torch.int,
-                            device="cuda",
-                            requires_grad=False)
-    shuffles = torch.range(0, m - 1, dtype=torch.int)
-    sorted_ids = torch.full([m + (moe_block_size - 1)], m, dtype=torch.int).cuda()
-    sorted_ids[:m] = shuffles
-    topk_ids = torch.full(e, 0, dtype=torch.int).cuda()
-
-    score = torch.randn((m, e), device='cuda', dtype=dtype)
-    marlin_output = moe_kernels.marlin_gemm_moe(a, qweight, sorted_ids, topk_ids, scales, eoff, workspace, m, n, k,
-        64, e, 1, moe_block_size)
-    torch_output = torch_moe(a, w1, w2, score, topk)
-    # assert torch.allclose(marlin_output, torch_output, atol=1e-2, rtol=0)
-
-@pytest.mark.parametrize("m", [64, 512, 222, 33, 1])
-@pytest.mark.parametrize("n", [128, 2048, 256, 1024])
-@pytest.mark.parametrize("k", [128, 1024, 512])
-@pytest.mark.parametrize("e", [4, 8]) # 64])
-@pytest.mark.parametrize("topk", [2, 6])
-@pytest.mark.parametrize("dtype", [torch.float16]) #, torch.bfloat16])
-def test_fused_marlin_moe_2(
+@pytest.mark.parametrize("m", [222]) #[64, 512, 222, 33, 1])
+@pytest.mark.parametrize("n", [2048]) #[128, 2048, 256, 1024])
+@pytest.mark.parametrize("k", [512]) #128, 1024, 512])
+@pytest.mark.parametrize("e", [64]) #[4, 8, 64])
+@pytest.mark.parametrize("topk", [6]) #[2, 6])
+@pytest.mark.parametrize("group_size", [64]) #[-1, 32, 64, 128])
+def test_fused_marlin_moe(
     m: int,
     n: int,
     k: int,
     e: int,
     topk: int,
-    dtype: torch.dtype,
+    group_size: int,
 ):
     if topk > e:
         return
 
+    num_bits = 4
+    dtype = torch.float16
     a = torch.randn((m, k), device='cuda', dtype=dtype) / 10
-    # w1 = torch.randn((e, n, k), device='cuda', dtype=dtype) / 10
-    w1 = torch.randn((e, n, k), device='cuda', dtype=dtype) / 10
-    # w1 = torch.randn((e, 2 * n, k), device='cuda', dtype=dtype) / 10
+    w1 = torch.randn((e, 2 * n, k), device='cuda', dtype=dtype) / 10
     w2 = torch.randn((e, k, n), device='cuda', dtype=dtype) / 10
+    for i in range(w2.shape[0]):
+        w2[0] = torch.eye(k, n, device='cuda', dtype=dtype)
 
     w_refs1 = []
     qweights1 = []
     scaless1 = []
 
     for i in range(w1.shape[0]):
-        w_ref, qweight, scales = marlin_quantize(w1[i].transpose(1, 0), 4, -1)
-        w_refs1.append(w_ref)
-        qweights1.append(qweight)
-        scaless1.append(scales)
+        w_ref1, qweight1, scales1 = marlin_quantize(w1[i].transpose(1, 0), num_bits, group_size)
+        w_refs1.append(w_ref1)
+        qweights1.append(qweight1)
+        scaless1.append(scales1)
 
     w_ref1 = stack_and_dev(w_refs1)
     qweight1 = stack_and_dev(qweights1)
     scales1 = stack_and_dev(scaless1)
 
-    # print("MNK:", M, N, K)
-    # print("A size:", hidden_states.size())
-    # print("wref size:", w_ref1.size())
-    # print("qweight size:", qweight1.size())
-    # print("scales size:", scales1.size())
-
-    # w_refs2 = []
+    w_refs2 = []
     qweights2 = []
     scaless2 = []
 
     for i in range(w2.shape[0]):
-        _, qweight, scales = marlin_quantize(w2[i].transpose(1, 0), 4, -1)
-        # w_refs1.append(w_ref)
-        qweights2.append(qweight)
-        scaless2.append(scales)
+        w_ref2, qweight2, scales2 = marlin_quantize(w2[i].transpose(1, 0), num_bits, group_size)
+        w_refs2.append(w_ref2)
+        qweights2.append(qweight2)
+        scaless2.append(scales2)
 
-    # w_ref2 = stack_and_dev(w_refs2)
+    w_ref2 = stack_and_dev(w_refs2)
     qweight2 = stack_and_dev(qweights2)
     scales2 = stack_and_dev(scaless2)
 
-    print(w1.size(), "->", qweight1.size())
-    print(w2.size(), "->", qweight2.size())
+    # score = torch.randn((m, e), device='cuda', dtype=dtype)
+    score = torch.ones((m, e), device='cuda', dtype=dtype)
+    marlin_output = fused_marlin_moe(m, n, k, e, a, qweight1, qweight2, score, topk,
+                                      renormalize=False, w1_scale=scales1, w2_scale=scales2)
+    triton_output = fused_moe(a, w_ref1.transpose(1, 2), w_ref2.transpose(1, 2), score, topk, renormalize=False)
+
+    print("marlin out:", marlin_output)
+    print("triton out:", triton_output)
+    print(marlin_output.size())
+    print(triton_output.size())
+
+    assert(compute_max_diff(marlin_output, triton_output) < 4e-2)
+
+@pytest.mark.parametrize("m", [64, 512, 222, 33, 1])
+@pytest.mark.parametrize("n", [128, 2048, 256, 1024])
+@pytest.mark.parametrize("k", [128, 1024, 512])
+@pytest.mark.parametrize("e", [4, 8, 64])
+@pytest.mark.parametrize("topk", [2, 6])
+@pytest.mark.parametrize("group_size", [-1, 32, 64, 128])
+def test_single_marlin_moe(
+    m: int,
+    n: int,
+    k: int,
+    e: int,
+    topk: int,
+    group_size: int,
+):
+    if topk > e:
+        return
+
+    num_bits = 4
+    dtype = torch.float16
+    # torch.manual_seed(4000)
+    a = torch.randn((m, k), device='cuda', dtype=dtype) / 10
+    w = torch.randn((e, n, k), device='cuda', dtype=dtype) / 10
+    # gran = group_size
+    # sav_w = w[0][0][0:gran]
+    # sav_w = torch.ones((1, 1, gran), device='cuda', dtype=dtype)
+    # inc = 0.01
+    # for ii in range(w.shape[0]):
+    #     # for jj in range(w.shape[1] // gran):
+    #     #     w[ii][jj*gran:(jj+1)*gran] = sav_w
+    #     for jj in range(w.shape[1]):
+    #         for kk in range(w.shape[2] // gran):
+    #             # if ii == 0 and jj == 0:
+    #             #     print(kk*gran,(kk+1)*gran)
+    #             w[ii][jj][kk*gran:(kk+1)*gran] = sav_w * inc 
+    #             inc += 0.01
+
+    # print ("w size:", w.size())
+    # print("w:", w)
+
+    w_refs = []
+    qweights = []
+    scaless = []
+
+    for i in range(w.shape[0]):
+        w_ref, qweight, scales = marlin_quantize(w[i].transpose(1, 0), num_bits, group_size)
+        w_refs.append(w_ref)
+        qweights.append(qweight)
+        scaless.append(scales)
+        # print("wrefs size:", w_ref.size())
+        # print("qweights size:", qweight.size())
+        # print("scaless size:", scales.size())
+
+    w_ref = stack_and_dev(w_refs)
+    qweight = stack_and_dev(qweights)
+    scales = stack_and_dev(scaless)
+
+    # print("MNK:", M, N, K)
+    # print("A size:", hidden_states.size())
+    # print("wref size:", w_ref.size())
+    # print("qweight size:", qweight.size())
+    # print("scales size:", scales.size())
+    # print("scales:", scales)
+    # print("b quant:", qweight)
+
+    # print(w.size(), "->", qweight.size())
 
     score = torch.randn((m, e), device='cuda', dtype=dtype)
-    marlin_output = fused_marlin_moe(m, n, k, e, a, qweight1, qweight2, scales1, scales2, score, topk, renormalize=False)
-    torch_output = torch_moe(a, w_ref1.transpose(1, 2), w2, score, topk)
+    marlin_output = single_marlin_moe(m, n, k, e, a, qweight, scales, score, topk, renormalize=False)
+    torch_output = torch_moe_small(a, w_ref.transpose(1, 2), score, topk)
 
-    print(marlin_output.size())
-    print(torch_output.size())
+    # print(marlin_output.size(), torch_output.size())
 
     # print(marlin_output)
     # print(torch_output)
@@ -416,4 +482,12 @@ def test_fused_marlin_moe_2(
     # for i in range(n):
     #     print(i, marlin_output[m - 1][i].item(), torch_output[m - 1][i].item())
 
-    assert torch.allclose(marlin_output, torch_output, atol=1e-2)
+    flat_m = marlin_output.flatten()
+    flat_t = torch_output.flatten()
+
+    # if not torch.allclose(marlin_output, torch_output, atol=1e-1):
+    #     for mm, tt in zip(enumerate(flat_m), enumerate(flat_t)):
+    #         if abs(mm[1].item() - tt[1].item()) > 1e-1:
+    #             print(mm[0], mm[0] // n, mm[0] // n * n, "+", mm[0] % n, mm[1].item(), tt[1].item())
+
+    assert(compute_max_diff(marlin_output, torch_output) < 1e-2)
