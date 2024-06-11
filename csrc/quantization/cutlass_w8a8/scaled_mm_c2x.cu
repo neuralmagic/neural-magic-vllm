@@ -159,13 +159,13 @@ struct cutlass_2x_gemm {
   // clang-format off
   using RowMajor = typename cutlass::layout::RowMajor;
   using ColumnMajor = typename cutlass::layout::ColumnMajor;
-  using KernelType = 
+  using KernelType =
     ArchGuard<typename cutlass::gemm::kernel::DefaultGemmWithVisitor<
-      ElementAB, RowMajor, cutlass::ComplexTransform::kNone, 16, 
-      ElementAB, ColumnMajor, cutlass::ComplexTransform::kNone, 16, 
+      ElementAB, RowMajor, cutlass::ComplexTransform::kNone, 16,
+      ElementAB, ColumnMajor, cutlass::ComplexTransform::kNone, 16,
       float, cutlass::layout::RowMajor, 4,
-      ElementAcc, float, cutlass::arch::OpClassTensorOp, 
-      Arch, 
+      ElementAcc, float, cutlass::arch::OpClassTensorOp,
+      Arch,
       TileShape, WarpShape, InstructionShape,
       EVTD,
       cutlass::gemm::threadblock::ThreadblockSwizzleStreamK,
