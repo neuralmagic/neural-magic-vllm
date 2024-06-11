@@ -11,7 +11,7 @@ from vllm.executor.multiproc_worker_utils import (ProcessWorkerWrapper,
                                                   ResultHandler, WorkerMonitor)
 
 if should_skip_test_group(group_name="TEST_ENGINE"):
-    pytest.skip("TEST_ENGINE=0, skipping distributed test group",
+    pytest.skip("TEST_ENGINE=DISABLE, skipping engine test group",
                 allow_module_level=True)
 
 

@@ -8,7 +8,7 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 from tests.utils import ServerRunner
 
 if should_skip_test_group(group_name="TEST_ASYNC_ENGINE"):
-    pytest.skip("TEST_ASYNC_ENGINE=0, skipping async engine test group",
+    pytest.skip("TEST_ASYNC_ENGINE=DISABLE, skipping async engine test group",
                 allow_module_level=True)
 
 # any model with a chat template should work here

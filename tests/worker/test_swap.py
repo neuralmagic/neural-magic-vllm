@@ -8,7 +8,7 @@ from vllm.utils import get_distributed_init_method, get_ip, get_open_port
 from vllm.worker.worker import Worker
 
 if should_skip_test_group(group_name="TEST_WORKER"):
-    pytest.skip("TEST_WORKER=0, skipping worker test group",
+    pytest.skip("TEST_WORKER=DISABLE, skipping worker test group",
                 allow_module_level=True)
 
 

@@ -9,7 +9,7 @@ from vllm.core.block_manager_v1 import CachedBlockAllocator
 from vllm.utils import Device
 
 if should_skip_test_group(group_name="TEST_PREFIX_CACHING"):
-    pytest.skip("TEST_PREFIX_CACHING=0, skipping prefix caching test group",
+    pytest.skip("TEST_PREFIX_CACHING=DISABLE, skipping prefix caching test group",
                 allow_module_level=True)
 
 

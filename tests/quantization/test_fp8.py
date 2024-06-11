@@ -10,7 +10,7 @@ from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
 from vllm.model_executor.layers.quantization.fp8 import Fp8LinearMethod
 
 if should_skip_test_group(group_name="TEST_QUANTIZATION"):
-    pytest.skip("TEST_QUANTIZATION=0, skipping quantization test group",
+    pytest.skip("TEST_QUANTIZATION=DISABLE, skipping quantization test group",
                 allow_module_level=True)
 
 capability = torch.cuda.get_device_capability()

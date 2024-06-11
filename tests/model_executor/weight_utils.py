@@ -10,7 +10,7 @@ from vllm.model_executor.model_loader.weight_utils import (
     download_weights_from_hf, enable_hf_transfer)
 
 if should_skip_test_group(group_name="TEST_MODEL_EXECUTOR"):
-    pytest.skip("TEST_MODEL_EXECUTOR=0, skipping model executor test group",
+    pytest.skip("TEST_MODEL_EXECUTOR=DISABLE, skipping model executor test group",
                 allow_module_level=True)
 
 

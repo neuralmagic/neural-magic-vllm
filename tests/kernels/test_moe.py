@@ -13,7 +13,7 @@ from vllm.model_executor.layers.fused_moe import fused_moe
 from vllm.model_executor.models.mixtral import MixtralMoE
 
 if should_skip_test_group(group_name="TEST_KERNELS"):
-    pytest.skip("TEST_KERNELS=0, skipping kernel group",
+    pytest.skip("TEST_KERNELS=DISABLE, skipping kernels test group",
                 allow_module_level=True)
 
 

@@ -18,7 +18,7 @@ from tests.utils import ServerRunner
 from vllm.transformers_utils.tokenizer import get_tokenizer
 
 if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
-    pytest.skip("TEST_ENTRYPOINTS=0, skipping entrypoints group",
+    pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
                 allow_module_level=True)
 
 # any model with a chat template should work here

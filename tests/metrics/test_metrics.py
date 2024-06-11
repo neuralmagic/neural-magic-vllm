@@ -10,7 +10,7 @@ from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.sampling_params import SamplingParams
 
 if should_skip_test_group(group_name="TEST_METRICS"):
-    pytest.skip("TEST_METRICS=0, skipping metrics test group",
+    pytest.skip("TEST_METRICS=DISABLE, skipping metrics test group",
                 allow_module_level=True)
 
 MODELS = [

@@ -16,7 +16,7 @@ from .utils import (assert_logprobs_dict_allclose, create_batch,
                     patch_execute_model_with_seeds, zero_kv_cache)
 
 if should_skip_test_group(group_name="TEST_SPEC_DECODE"):
-    pytest.skip("TEST_SPEC_DECODE=0, skipping spec decode group",
+    pytest.skip("TEST_SPEC_DECODE=DISABLE, skipping spec decode group",
                 allow_module_level=True)
 
 

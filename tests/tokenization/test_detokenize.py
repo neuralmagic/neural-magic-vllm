@@ -10,7 +10,7 @@ from vllm.transformers_utils.detokenizer import (Detokenizer,
 from vllm.transformers_utils.tokenizer_group import get_tokenizer_group
 
 if should_skip_test_group(group_name="TEST_TOKENIZATION"):
-    pytest.skip("TEST_TOKENIZATION=0, skipping tokenization test group",
+    pytest.skip("TEST_TOKENIZATION=DISABLE, skipping tokenization test group",
                 allow_module_level=True)
 
 TRUTH = [

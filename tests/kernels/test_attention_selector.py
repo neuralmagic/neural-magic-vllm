@@ -8,7 +8,7 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.attention.selector import which_attn_to_use
 
 if should_skip_test_group(group_name="TEST_KERNELS"):
-    pytest.skip("TEST_KERNELS=0, skipping kernel group",
+    pytest.skip("TEST_KERNELS=DISABLE, skipping kernels test group",
                 allow_module_level=True)
 
 

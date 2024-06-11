@@ -17,7 +17,7 @@ from vllm.utils import Counter
 from ...core.utils import create_seq_group
 
 if should_skip_test_group(group_name="TEST_ENGINE"):
-    pytest.skip("TEST_ENGINE=0, skipping distributed test group",
+    pytest.skip("TEST_ENGINE=DISABLE, skipping engine test group",
                 allow_module_level=True)
 
 

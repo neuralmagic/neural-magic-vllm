@@ -7,7 +7,7 @@ from vllm import SamplingParams
 from ..conftest import VllmRunner
 
 if should_skip_test_group(group_name="TEST_SAMPLERS"):
-    pytest.skip("TEST_SAMPLERS=0, skipping sampler group",
+    pytest.skip("TEST_SAMPLERS=DISABLE, skipping sampler test group",
                 allow_module_level=True)
 
 MODELS = ["facebook/opt-125m"]

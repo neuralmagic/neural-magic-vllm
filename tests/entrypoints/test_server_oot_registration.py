@@ -12,7 +12,7 @@ from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.utils import get_open_port
 
 if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
-    pytest.skip("TEST_ENTRYPOINTS=0, skipping entrypoints group",
+    pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
                 allow_module_level=True)
 
 pytestmark = pytest.mark.openai

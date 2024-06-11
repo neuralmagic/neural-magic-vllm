@@ -16,7 +16,7 @@ from vllm.distributed import (broadcast_tensor_dict,
                               tensor_model_parallel_all_reduce)
 
 if should_skip_test_group(group_name="TEST_DISTRIBUTED"):
-    pytest.skip("TEST_DISTRIBUTED=0, skipping distributed test group",
+    pytest.skip("TEST_DISTRIBUTED=DISABLE, skipping distributed test group",
                 allow_module_level=True)
 
 

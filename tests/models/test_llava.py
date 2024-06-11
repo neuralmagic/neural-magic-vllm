@@ -11,7 +11,7 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.config import VisionLanguageConfig
 
 if should_skip_test_group(group_name="TEST_MODELS"):
-    pytest.skip("TEST_MODELS=0, skipping model test group",
+    pytest.skip("TEST_MODELS=DISABLE, skipping model test group",
                 allow_module_level=True)
 
 model_and_vl_config = [

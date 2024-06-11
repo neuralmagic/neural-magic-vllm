@@ -7,7 +7,7 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm import LLM, EmbeddingRequestOutput, PoolingParams
 
 if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
-    pytest.skip("TEST_ENTRYPOINTS=0, skipping entrypoints group",
+    pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
                 allow_module_level=True)
 
 from ..conftest import cleanup

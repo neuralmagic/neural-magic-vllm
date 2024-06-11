@@ -11,7 +11,7 @@ from tests.models.utils import check_logprobs_close
 from tests.nm_utils.utils_skip import should_skip_test_group
 
 if should_skip_test_group(group_name="TEST_MODELS_CORE"):
-    pytest.skip("TEST_MODELS_CORE=0, skipping core model test group",
+    pytest.skip("TEST_MODELS_CORE=DISABLE, skipping core model test group",
                 allow_module_level=True)
 
 MODEL_MAX_LEN = 1024

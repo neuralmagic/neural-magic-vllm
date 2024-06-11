@@ -24,7 +24,7 @@ import torch
 from tests.nm_utils.utils_skip import should_skip_test_group
 
 if should_skip_test_group(group_name="TEST_DISTRIBUTED"):
-    pytest.skip("TEST_DISTRIBUTED=0, skipping distributed test group",
+    pytest.skip("TEST_DISTRIBUTED=DISABLE, skipping distributed test group",
                 allow_module_level=True)
 
 MODELS = [

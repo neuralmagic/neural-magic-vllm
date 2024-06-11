@@ -7,7 +7,7 @@ from vllm.spec_decode.batch_expansion import BatchExpansionTop1Scorer
 from .utils import create_seq_group_metadata_from_prompts, mock_worker
 
 if should_skip_test_group(group_name="TEST_SPEC_DECODE"):
-    pytest.skip("TEST_SPEC_DECODE=0, skipping spec decode group",
+    pytest.skip("TEST_SPEC_DECODE=DISABLE, skipping spec decode group",
                 allow_module_level=True)
 
 

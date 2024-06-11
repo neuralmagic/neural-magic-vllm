@@ -39,7 +39,7 @@ from vllm.model_executor.utils import set_random_seed
 from .utils import DummyLoRAManager
 
 if should_skip_test_group(group_name="TEST_LORA"):
-    pytest.skip("TEST_LORA=0, skipping kernel group", allow_module_level=True)
+    pytest.skip("TEST_LORA=DISABLE, skipping lora test group", allow_module_level=True)
 
 TOLERANCES = {
     torch.float16: (5e-3, 5e-3),

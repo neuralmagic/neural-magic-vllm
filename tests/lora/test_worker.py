@@ -13,7 +13,7 @@ from vllm.lora.request import LoRARequest
 from vllm.worker.worker import Worker
 
 if should_skip_test_group(group_name="TEST_LORA"):
-    pytest.skip("TEST_LORA=0, skipping kernel group", allow_module_level=True)
+    pytest.skip("TEST_LORA=DISABLE, skipping lora test group", allow_module_level=True)
 
 
 @patch.dict(os.environ, {"RANK": "0"})

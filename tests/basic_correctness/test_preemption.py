@@ -15,7 +15,7 @@ from vllm.core.scheduler import (ARTIFICIAL_PREEMPTION_MAX_CNT,
 
 if should_skip_test_group(group_name="TEST_BASIC_CORRECTNESS"):
     pytest.skip(
-        "TEST_BASIC_CORRECTNESS=0, skipping basic correctness test group",
+        "TEST_BASIC_CORRECTNESS=DISABLE, skipping basic correctness test group",
         allow_module_level=True)
 
 MODELS = [

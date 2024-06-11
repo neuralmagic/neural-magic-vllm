@@ -24,7 +24,7 @@ from vllm.model_executor.model_loader.tensorizer import (TensorizerConfig,
 
 
 if should_skip_test_group(group_name="TEST_TENSORIZER_LOADER"):
-    pytest.skip("TEST_TENSORIZER=0, skipping tensorizer group",
+    pytest.skip("TEST_TENSORIZER=DISABLE, skipping tensorizer group",
                 allow_module_level=True)
 
 prompts = [

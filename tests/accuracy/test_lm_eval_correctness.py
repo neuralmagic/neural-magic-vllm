@@ -11,7 +11,7 @@ from tests.nm_utils.server import ServerContext
 from tests.nm_utils.utils_skip import should_skip_test_group
 
 if should_skip_test_group(group_name="TEST_ACCURACY"):
-    pytest.skip("TEST_ACCURACY=0, skipping accuracy test group",
+    pytest.skip("TEST_ACCURACY=DISABLE, skipping accuracy test group",
                 allow_module_level=True)
 
 if TYPE_CHECKING:

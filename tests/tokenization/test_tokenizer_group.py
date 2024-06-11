@@ -15,7 +15,7 @@ from vllm.transformers_utils.tokenizer_group.tokenizer_group import (
 from ..conftest import get_tokenizer_pool_config
 
 if should_skip_test_group(group_name="TEST_TOKENIZATION"):
-    pytest.skip("TEST_TOKENIZATION=0, skipping tokenization test group",
+    pytest.skip("TEST_TOKENIZATION=DISABLE, skipping tokenization test group",
                 allow_module_level=True)
 
 

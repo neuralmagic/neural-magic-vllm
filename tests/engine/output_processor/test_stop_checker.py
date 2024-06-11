@@ -9,7 +9,7 @@ from vllm.sampling_params import SamplingParams
 from vllm.sequence import Logprob, Sequence, SequenceStatus
 
 if should_skip_test_group(group_name="TEST_ENGINE"):
-    pytest.skip("TEST_ENGINE=0, skipping distributed test group",
+    pytest.skip("TEST_ENGINE=DISABLE, skipping engine test group",
                 allow_module_level=True)
 
 

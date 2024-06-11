@@ -9,7 +9,7 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 from .conftest import run_greedy_equality_correctness_test
 
 if should_skip_test_group(group_name="TEST_SPEC_DECODE"):
-    pytest.skip("TEST_SPEC_DECODE=0, skipping spec decode group",
+    pytest.skip("TEST_SPEC_DECODE=DISABLE, skipping spec decode group",
                 allow_module_level=True)
 
 

@@ -12,7 +12,7 @@ from vllm.model_executor.guided_decoding.outlines_logits_processors import (
     JSONLogitsProcessor, RegexLogitsProcessor)
 
 if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
-    pytest.skip("TEST_ENTRYPOINTS=0, skipping entrypoints group",
+    pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
                 allow_module_level=True)
 
 TEST_SCHEMA = {

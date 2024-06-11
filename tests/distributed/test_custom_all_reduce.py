@@ -15,7 +15,7 @@ from vllm.distributed.parallel_state import (get_tensor_model_parallel_group,
                                              get_tp_ca_communicator)
 
 if should_skip_test_group(group_name="TEST_DISTRIBUTED"):
-    pytest.skip("TEST_DISTRIBUTED=0, skipping distributed test group",
+    pytest.skip("TEST_DISTRIBUTED=DISABLE, skipping distributed test group",
                 allow_module_level=True)
 
 random.seed(42)

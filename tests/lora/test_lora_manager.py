@@ -20,7 +20,7 @@ from vllm.lora.worker_manager import (LRUCacheWorkerLoRAManager,
 from vllm.model_executor.layers.linear import RowParallelLinear
 
 if should_skip_test_group(group_name="TEST_LORA"):
-    pytest.skip("TEST_LORA=0, skipping kernel group", allow_module_level=True)
+    pytest.skip("TEST_LORA=DISABLE, skipping lora test group", allow_module_level=True)
 
 EMBEDDING_MODULES = {
     "embed_tokens": "input_embeddings",
