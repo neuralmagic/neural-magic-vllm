@@ -45,11 +45,11 @@ jobs:
               id: setenv
               uses: ./.github/actions/nm-set-env/
 
-            - name: download assets
-              id: download_whl
-              uses: actions/download-artifact@v4
-              with:
-                  path: assets
+            # - name: download assets
+            #   id: download_whl
+            #   uses: actions/download-artifact@v4
+            #   with:
+            #       path: assets
 
             # GCP
             - name: 'Authenticate to Google Cloud'
@@ -65,8 +65,15 @@ jobs:
               with:
                   version: '>= 473.0.0'
 
-            - name: cp assets
-              id: cp-assets
-              uses: ./.github/actions/nm-cp-assets/
-              with:
-                  python: ${{ inputs.python }}
+            - name: take a look
+              run: |
+                gcloud --version
+                gcloud auth list
+                echo "neuralmagic/nm-vllm calling" > proof-of-life
+                gcloud storage cp gs://neuralmagic-public-pypi/proof-of-life
+
+            # - name: cp assets
+            #   id: cp-assets
+            #   uses: ./.github/actions/nm-cp-assets/
+            #   with:
+            #       python: ${{ inputs.python }}

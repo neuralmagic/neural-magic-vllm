@@ -103,66 +103,66 @@ jobs:
                 python: ${{ inputs.python }}
                 venv: ${{ env.VENV_BASE }}
 
-            - name: create testmo run
-              id: create_testmo_run
-              uses: ./.github/actions/nm-testmo-run-create/
-              if: success() || failure()
-              with:
-                testmo_url: https://neuralmagic.testmo.net
-                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-                source: 'build-test'
+            # - name: create testmo run
+            #   id: create_testmo_run
+            #   uses: ./.github/actions/nm-testmo-run-create/
+            #   if: success() || failure()
+            #   with:
+            #     testmo_url: https://neuralmagic.testmo.net
+            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+            #     source: 'build-test'
 
-            - name: build
-              id: build
-              uses: ./.github/actions/nm-build-vllm/
-              with:
-                python: ${{ inputs.python }}
-                venv: ${{ env.VENV_BASE }}
-                pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
+            # - name: build
+            #   id: build
+            #   uses: ./.github/actions/nm-build-vllm/
+            #   with:
+            #     python: ${{ inputs.python }}
+            #     venv: ${{ env.VENV_BASE }}
+            #     pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
 
-            - name: upload whl
-              uses: actions/upload-artifact@v4
-              if: success() || failure()
-              with:
-                name: ${{ steps.build.outputs.whl }}
-                path: dist/${{ steps.build.outputs.whl }}
-                retention-days: 15
+            # - name: upload whl
+            #   uses: actions/upload-artifact@v4
+            #   if: success() || failure()
+            #   with:
+            #     name: ${{ steps.build.outputs.whl }}
+            #     path: dist/${{ steps.build.outputs.whl }}
+            #     retention-days: 15
 
-            - name: upload tar.gz
-              uses: actions/upload-artifact@v4
-              if: success() || failure()
-              with:
-                name: ${{ inputs.python }}-${{ steps.build.outputs.tarfile }}
-                path: dist/${{ steps.build.outputs.tarfile }}
-                retention-days: 5
+            # - name: upload tar.gz
+            #   uses: actions/upload-artifact@v4
+            #   if: success() || failure()
+            #   with:
+            #     name: ${{ inputs.python }}-${{ steps.build.outputs.tarfile }}
+            #     path: dist/${{ steps.build.outputs.tarfile }}
+            #     retention-days: 5
 
-            - name: summary
-              uses: ./.github/actions/nm-summary-build/
-              if: success() || failure()
-              with:
-                label: ${{ inputs.build_label }}
-                gitref: ${{ inputs.gitref }}
-                testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
-                python: ${{ steps.set_python.outputs.version }}
-                build_status: ${{ steps.build.outputs.build_status }}
-                whl_status: ${{ steps.build.outputs.whl_status }}
+            # - name: summary
+            #   uses: ./.github/actions/nm-summary-build/
+            #   if: success() || failure()
+            #   with:
+            #     label: ${{ inputs.build_label }}
+            #     gitref: ${{ inputs.gitref }}
+            #     testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
+            #     python: ${{ steps.set_python.outputs.version }}
+            #     build_status: ${{ steps.build.outputs.build_status }}
+            #     whl_status: ${{ steps.build.outputs.whl_status }}
 
-            - name: run status
-              id: run_status
-              if: success() || failure()
-              env:
-                BUILD_STATUS: ${{ steps.build.outputs.build_status }}
-                WHL_STATUS: ${{ steps.build.outputs.whl_status }}
-              run: |
-                echo "build status: ${BUILD_STATUS}"
-                echo "build status: ${WHL_STATUS}"
-                if [ -z "${BUILD_STATUS}" ] || [ "${BUILD_STATUS}" -ne "0" ]; then exit 1; fi
-                if [ -z "${WHL_STATUS}" ] || [ "${WHL_STATUS}" -ne "0" ]; then exit 1; fi
+            # - name: run status
+            #   id: run_status
+            #   if: success() || failure()
+            #   env:
+            #     BUILD_STATUS: ${{ steps.build.outputs.build_status }}
+            #     WHL_STATUS: ${{ steps.build.outputs.whl_status }}
+            #   run: |
+            #     echo "build status: ${BUILD_STATUS}"
+            #     echo "build status: ${WHL_STATUS}"
+            #     if [ -z "${BUILD_STATUS}" ] || [ "${BUILD_STATUS}" -ne "0" ]; then exit 1; fi
+            #     if [ -z "${WHL_STATUS}" ] || [ "${WHL_STATUS}" -ne "0" ]; then exit 1; fi
 
-            - name: complete testmo run
-              uses: ./.github/actions/nm-testmo-run-complete/
-              if: success() || failure()
-              with:
-                testmo_url: https://neuralmagic.testmo.net
-                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-                testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
+            # - name: complete testmo run
+            #   uses: ./.github/actions/nm-testmo-run-complete/
+            #   if: success() || failure()
+            #   with:
+            #     testmo_url: https://neuralmagic.testmo.net
+            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+            #     testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}

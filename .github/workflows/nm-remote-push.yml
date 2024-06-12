@@ -5,6 +5,7 @@ on:
   push:
     branches-ignore:
       - main
+      - only-whl
 
 concurrency:
   group: ${{ github.head_ref || github.ref_name }}
