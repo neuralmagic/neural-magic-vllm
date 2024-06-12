@@ -85,6 +85,7 @@ class LlamaMLP(nn.Module):
                              "Only silu is supported for now.")
         self.act_fn = SiluAndMul()
 
+    #@torch.compile(backend=make_backend(backend='inductor'))
     @torch.compile(backend=make_backend(backend=None))
     def forward(self, x):
         gate_up, _ = self.gate_up_proj(x)
@@ -159,7 +160,6 @@ class LlamaAttention(nn.Module):
                               cache_config=cache_config,
                               quant_config=quant_config)
 
-    #@torch.compile(backend=make_backend(backend=None))
     def forward(
         self,
         positions: torch.Tensor,
@@ -291,6 +291,10 @@ class LlamaModel(nn.Module):
         return self.embed_tokens(input_ids)
 
     #@torch.compile(backend='cudagraphs')
+    #@torch.compile(backend=make_backend(backend=None))
+    #@torch.compile(backend=make_backend(backend='inductor'))
+    #@torch.compile(backend='inductor')
+    #@torch.compile
     def forward(
         self,
         input_ids: Optional[torch.Tensor],
@@ -401,6 +405,10 @@ class LlamaForCausalLM(nn.Module, SupportsLoRA):
         self.sampler = Sampler()
 
     #@torch.compile(backend='cudagraphs')
+    #@torch.compile(backend=make_backend(backend=None))
+    #@torch.compile(backend=make_backend(backend='inductor'))
+    #@torch.compile(backend='inductor')
+    #@torch.compile
     def forward(
         self,
         input_ids: torch.Tensor,

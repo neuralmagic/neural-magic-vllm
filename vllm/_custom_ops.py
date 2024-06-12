@@ -229,8 +229,8 @@ def cutlass_scaled_mm(a: torch.Tensor,
     assert (b.shape[0] % 16 == 0 and b.shape[1] % 16 == 0)
     assert (out_dtype is torch.bfloat16 or out_dtype is torch.float16)
 
-    m = a.shape[0]
-    n = b.shape[1]
+    m = a.size(0)
+    n = b.size(1)
     out = torch.empty((m, n), dtype=out_dtype, device=a.device)
 
     torch.ops._C.cutlass_scaled_mm(out, a, b, scale_a, scale_b, bias)
@@ -319,6 +319,8 @@ def scaled_fp8_quant(
         torch.ops._C.static_scaled_fp8_quant(output, input, scale)
     return output, scale
 
+#torch.fx.wrap(torch.ops._C.static_scaled_int8_quant)
+torch.fx.wrap('_C.static_scaled_int8_quant')
 
 # int8
 def scaled_int8_quant(
