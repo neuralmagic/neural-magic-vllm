@@ -595,7 +595,6 @@ Clang version: {clang_version}
 CMake version: {cmake_version}
 Libc version: {libc_version}
 
-vllm git hash: {vllm_git_hash}
 Python version: {python_version}
 Python platform: {python_platform}
 Is CUDA available: {is_cuda_available}
@@ -620,6 +619,7 @@ env_info_fmt += """
 ROCM Version: {rocm_version}
 Neuron SDK Version: {neuron_sdk_version}
 vLLM Version: {vllm_version}
+vLLM Git Hash: {vllm_git_hash}
 vLLM Build Flags:
 {vllm_build_flags}
 GPU Topology:
