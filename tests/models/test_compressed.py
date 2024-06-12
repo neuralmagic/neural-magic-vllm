@@ -7,6 +7,7 @@ Run `pytest tests/models/test_compressed.py`.
 """
 
 import pytest
+import gc
 
 from tests.models.utils import check_logprobs_close
 
@@ -39,6 +40,8 @@ def test_models(
     sparse_outputs = sparse_model.generate_greedy_logprobs(
         example_prompts, max_tokens, num_logprobs)
     del sparse_model
+
+    gc.collect()
 
     dense_model = vllm_runner(model_name=model_name,
                               sparsity=None,
