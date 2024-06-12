@@ -468,13 +468,13 @@ def fused_moe(
                             compute_type=compute_type,
                             use_fp8=use_fp8)
 
-    # print("intermediate 1 marlin:", intermediate_cache1, intermediate_cache1.size(), intermediate_cache1.view(-1, 2 * N).size())
+    # print("intermediate 1 triton:", intermediate_cache1, intermediate_cache1.size(), intermediate_cache1.view(-1, 2 * N).size())
 
     # print("intermediate 1 view:", intermediate_cache1.view(-1, N))
 
     ops.silu_and_mul(intermediate_cache2, intermediate_cache1.view(-1, N))
 
-    print("simul triton:", intermediate_cache2)
+    # print("simul triton:", intermediate_cache2)
 
     # ops.silu_and_mul(intermediate_cache2, intermediate_cache1.view(-1, N))
 
@@ -813,16 +813,21 @@ def fused_marlin_moe(
 
     ops.silu_and_mul(intermediate_cache2, intermediate_cache1.view(-1, 2 * N))
 
-    print("simul marlin:", intermediate_cache2)
+    # print("simul marlin:", intermediate_cache2)
 
     # intermediate_cache2 = intermediate_cache2.view(M, -1, N).sum(dim=1)
 
     # print("intermediate op:", intermediate_cache2.size(), w2.size())
+
     intermediate_cache3 = moe_kernels.marlin_gemm_moe(intermediate_cache2, w2,
         sorted_token_ids, topk_weights, w2_scale, expert_offsets_np, workspace,
         M, K, N, num_tokens_post_padded, E, topk, block_size_m, False, True)
 
-    # print("inter3 marlin:", intermediate_cache3.size())
+    # intermediate_cache3 = torch.zeros((M, topk, K),
+    #                                   device=hidden_states.device,
+    #                                   dtype=hidden_states.dtype)
+
+    # print("inter3 marlin:", intermediate_cache3)
 
     # print("")
     # print("M:", M, ", N:", N, ", K:", K, ", E:", E)
