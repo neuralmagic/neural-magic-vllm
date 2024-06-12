@@ -70,7 +70,7 @@ jobs:
                 gcloud --version
                 gcloud auth list
                 echo "neuralmagic/nm-vllm calling" > proof-of-life
-                gcloud storage cp gs://neuralmagic-public-pypi/proof-of-life
+                gcloud storage cp proof-of-life gs://neuralmagic-public-pypi/proof-of-life
 
             # - name: cp assets
             #   id: cp-assets
