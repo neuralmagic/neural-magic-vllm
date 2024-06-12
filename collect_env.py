@@ -15,6 +15,8 @@ from collections import namedtuple
 try:
     import torch
     TORCH_AVAILABLE = True
+    installed_path = os.path.dirname(torch.__file__)
+    sys.path.insert(0, os.path.dirname(installed_path))
 except (ImportError, NameError, AttributeError, OSError):
     TORCH_AVAILABLE = False
 
@@ -140,8 +142,11 @@ def get_conda_packages(run_lambda, patterns=None):
 
 
 def get_vllm_git_hash():
-    import vllm
-    return vllm.githash()
+    try:
+        import vllm
+        return vllm.githash()
+    except ImportError:
+        return 'N/A'
 
 
 def get_gcc_version(run_lambda):
