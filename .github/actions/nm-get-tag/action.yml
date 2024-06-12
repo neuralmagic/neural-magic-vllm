@@ -10,7 +10,7 @@ runs:
   steps:
   - run: |
       tag=nightly
-      if [[ "${build_type}" = "RELEASE" ]]; then
+      if [[ "${{ inputs.build_type }}" = "RELEASE" ]]; then
           tag=latest
       fi
       echo "tag=${tag}" >> $GITHUB_OUTPUT
