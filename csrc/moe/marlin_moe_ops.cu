@@ -480,7 +480,7 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
       for (int i = 0; i < a_sh_wr_iters; i++) {
         int a_idx = a_gl_rd_delta_i * i + a_gl_rd + a_gl_rd_delta_o * a_off;
         int row = a_idx / a_gl_stride;
-        int sorted_row = sorted_ids[row] / (replicate_input ? topk : 1);
+        int sorted_row = replicate_input ? sorted_ids[row] / topk : sorted_ids[row];
         int new_idx = sorted_row * a_gl_stride + a_idx % a_gl_stride;
         // if (threadIdx.x < 8 && blockIdx.x == 80) {
         //     // int mcols = replicate_input ? 1 : topk;
@@ -490,7 +490,7 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
         //     // printf("row: %d -> %d, sh: %d -> %d ? %d // %d, %d, %d\n", row, sorted_row, i,
         //     //     a_sh_wr_trans[i], a_sh_wr_pred[i], tot_m * (replicate_input ? 1 : topk), a_sh_wr_iters, stages * a_sh_stage);
         //   }
-        if (sorted_row < tot_m * (replicate_input ? 1 : topk)) {
+        if (sorted_row < tot_m * (replicate_input ? 1 : topk) && new_idx < a_gl_stride * tot_m * (replicate_input ? 1 : topk)) {
           cp_async4_pred(&sh_a_stage[a_sh_wr_trans[i]],
                         &A[new_idx],
                         a_sh_wr_pred[i]);

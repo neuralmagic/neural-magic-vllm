@@ -6,6 +6,7 @@ Run `pytest tests/kernels/test_moe.py`.
 import pytest
 import torch
 import numpy
+import random
 from typing import List
 from transformers import MixtralConfig
 from transformers.models.mixtral.modeling_mixtral import MixtralSparseMoeBlock
@@ -355,6 +356,7 @@ def test_fused_marlin_moe(
     topk: int,
     group_size: int,
 ):
+    random.seed(4000)
     torch.manual_seed(4000)
     if topk > e:
         return
