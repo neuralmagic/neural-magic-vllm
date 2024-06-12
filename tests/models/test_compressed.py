@@ -6,8 +6,9 @@ sparse models are in the top N selections of same model running dense.
 Run `pytest tests/models/test_compressed.py`.
 """
 
-import pytest
 import gc
+
+import pytest
 
 from tests.models.utils import check_logprobs_close
 
