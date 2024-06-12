@@ -70,7 +70,7 @@ RUN apt-get update -y && \
 RUN ldconfig /usr/local/cuda-12.4/compat/
 
 # install nm-vllm wheel first, so that torch etc will be installed
-ARG build_type="nightly"
+ARG build_type="NIGHTLY"
 ARG build_version="latest"
 ENV INSTALL_TYPE=${build_type}
 ENV INSTALL_VERSION=${build_version}
@@ -78,7 +78,7 @@ ENV INSTALL_VERSION=${build_version}
 # use nm pypi for now for testing
 RUN --mount=type=bind,from=build \
     --mount=type=cache,target=/root/.cache/pip \
-    if [ "${INSTALL_TYPE}" = "nightly" ]; then \
+    if [ "${INSTALL_TYPE}" = "NIGHTLY" ]; then \
         if [ "${INSTALL_VERSION}" = "latest" ]; then \
             pip install nm-vllm-nightly[sparse] --extra-index-url https://pypi.neuralmagic.com/simple; \
         else \
