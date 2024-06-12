@@ -34,24 +34,24 @@ runs:
       # TODO: adjust when we need a proper release. use nightly now.
       pip3 install -r requirements-cuda.txt -r requirements-build.txt
       # build
-      SUCCESS=0
-      pip3 install -e . || SUCCESS=$?
-      echo "build_status=${SUCCESS}" >> "$GITHUB_OUTPUT"
-      if [ ${SUCCESS} -ne 0 ]; then
-        exit 1
-      fi
+      # SUCCESS=0
+      # pip3 install -e . || SUCCESS=$?
+      # echo "build_status=${SUCCESS}" >> "$GITHUB_OUTPUT"
+      # if [ ${SUCCESS} -ne 0 ]; then
+      #  exit 1
+      # fi
       # strip binaries
-      if [ ! $(command -v strip) ]; then
-          sudo apt install -y binutils
-      fi
-      if [ ! $(command -v file) ]; then
-          sudo apt install -y file
-      fi
-      for eachso in $(find . -type f -name '*.so')
-      do
-          strip $eachso
-          file $eachso
-      done
+      # if [ ! $(command -v strip) ]; then
+      #    sudo apt install -y binutils
+      # fi
+      # if [ ! $(command -v file) ]; then
+      #     sudo apt install -y file
+      # fi
+      # for eachso in $(find . -type f -name '*.so')
+      # do
+      #    strip $eachso
+      #    file $eachso
+      # done
       # whl
       SUCCESS=0
       pip3 wheel --no-deps -w dist . || SUCCESS=$?
