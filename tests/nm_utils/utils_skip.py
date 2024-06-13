@@ -1,6 +1,6 @@
 """Checks environment variables to skip various test groups.
 The functions here are imported by each test file.
-The .github/actions/nm-test-skipping-env-setup sets these 
+The .github/actions/nm-test-skipping-env-setup sets these
     variables in the testing automation.
 """
 
@@ -73,7 +73,7 @@ def should_skip_models_core_test_group():
 
 
 def should_skip_prefix_caching_test_group():
-    TEST_PREFIX_CACHING = os.getenv("TEST_PREFIX_CACHING", "0")
+    TEST_PREFIX_CACHING = os.getenv("TEST_PREFIX_CACHING", "ENABLE")
     return TEST_PREFIX_CACHING == "DISABLE"
 
 
