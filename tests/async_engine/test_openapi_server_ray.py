@@ -5,7 +5,7 @@ import pytest
 import ray
 
 from tests.nm_utils.utils_skip import should_skip_test_group
-from tests.utils import ServerRunner
+from tests.utils import VLLM_PATH, RemoteOpenAIServer
 
 if should_skip_test_group(group_name="TEST_ASYNC_ENGINE"):
     pytest.skip("TEST_ASYNC_ENGINE=DISABLE, skipping async engine test group",
@@ -16,9 +16,15 @@ MODEL_NAME = "facebook/opt-125m"
 
 
 @pytest.fixture(scope="module")
-def server():
-    ray.init()
-    server_runner = ServerRunner.remote([
+def ray_ctx():
+    ray.init(runtime_env={"working_dir": VLLM_PATH})
+    yield
+    ray.shutdown()
+
+
+@pytest.fixture(scope="module")
+def server(ray_ctx):
+    return RemoteOpenAIServer([
         "--model",
         MODEL_NAME,
         # use half precision for speed and memory savings in CI environment
@@ -29,22 +35,15 @@ def server():
         "--enforce-eager",
         "--engine-use-ray"
     ])
-    ray.get(server_runner.ready.remote())
-    yield server_runner
-    ray.shutdown()
 
 
 @pytest.fixture(scope="module")
-def client():
-    client = openai.AsyncOpenAI(
-        base_url="http://localhost:8000/v1",
-        api_key="token-abc123",
-    )
-    yield client
+def client(server):
+    return server.get_async_client()
 
 
 @pytest.mark.asyncio
-async def test_check_models(server, client: openai.AsyncOpenAI):
+async def test_check_models(client: openai.AsyncOpenAI):
     models = await client.models.list()
     models = models.data
     served_model = models[0]
@@ -53,7 +52,7 @@ async def test_check_models(server, client: openai.AsyncOpenAI):
 
 
 @pytest.mark.asyncio
-async def test_single_completion(server, client: openai.AsyncOpenAI):
+async def test_single_completion(client: openai.AsyncOpenAI):
     completion = await client.completions.create(model=MODEL_NAME,
                                                  prompt="Hello, my name is",
                                                  max_tokens=5,
@@ -77,7 +76,7 @@ async def test_single_completion(server, client: openai.AsyncOpenAI):
 
 
 @pytest.mark.asyncio
-async def test_single_chat_session(server, client: openai.AsyncOpenAI):
+async def test_single_chat_session(client: openai.AsyncOpenAI):
     messages = [{
         "role": "system",
         "content": "you are a helpful assistant"
