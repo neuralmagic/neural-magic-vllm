@@ -329,7 +329,7 @@ def get_nm_vllm_package_name() -> str:
 
 
 def get_vllm_version() -> str:
-    version = find_version(get_path("vllm", "__init__.py"))
+    version = find_version(get_path("vllm", "version.py"))
 
     nm_release_type = os.getenv(NM_RELEASE_TYPE)
     if nm_release_type != 'RELEASE':

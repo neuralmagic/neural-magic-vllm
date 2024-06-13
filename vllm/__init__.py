@@ -12,10 +12,10 @@ from vllm.outputs import (CompletionOutput, EmbeddingOutput,
 from vllm.pooling_params import PoolingParams
 from vllm.sampling_params import SamplingParams
 
-# UPSTREAM SYNC: use the current downstream.
-__version__ = "0.5.0"
+from .version import __version__
 
 __all__ = [
+    "__version__",
     "LLM",
     "ModelRegistry",
     "PromptStrictInputs",
