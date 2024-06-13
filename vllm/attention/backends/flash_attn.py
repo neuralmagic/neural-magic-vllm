@@ -410,7 +410,7 @@ class FlashAttentionImpl(AttentionImpl):
                 # normal attention
                 # When block_tables are not filled, it means q and k are the
                 # prompt, and they have the same length.
-                out = flash_attn_varlen_func(
+                out = torch.ops.flash_attn_varlen_func(
                     q=query,
                     k=key,
                     v=value,
@@ -429,7 +429,7 @@ class FlashAttentionImpl(AttentionImpl):
                 # prefix-enabled attention
                 assert prefill_meta.seq_lens is not None
                 max_seq_len = max(prefill_meta.seq_lens)
-                output[:num_prefill_tokens] = flash_attn_varlen_func(
+                output[:num_prefill_tokens] = torch.ops.flash_attn_varlen_func(
                     q=query,
                     k=key_cache,
                     v=value_cache,
@@ -445,7 +445,7 @@ class FlashAttentionImpl(AttentionImpl):
 
         if decode_meta := attn_metadata.decode_metadata:
             # Decoding run.
-            output[num_prefill_tokens:] = flash_attn_with_kvcache(
+            output[num_prefill_tokens:] = torch.ops.flash_attn_with_kvcache(
                 decode_query.unsqueeze(1),
                 key_cache,
                 value_cache,

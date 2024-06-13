@@ -160,6 +160,7 @@ class LlamaAttention(nn.Module):
                               cache_config=cache_config,
                               quant_config=quant_config)
 
+    # FEED FORWARD
     def forward(
         self,
         positions: torch.Tensor,
@@ -221,6 +222,7 @@ class LlamaDecoderLayer(nn.Module):
         self.post_attention_layernorm = RMSNorm(config.hidden_size,
                                                 eps=config.rms_norm_eps)
 
+    #@torch.compile(backend=make_backend(backend=None), fullgraph=True)
     def forward(
         self,
         positions: torch.Tensor,
@@ -404,11 +406,6 @@ class LlamaForCausalLM(nn.Module, SupportsLoRA):
                                                 config.vocab_size, logit_scale)
         self.sampler = Sampler()
 
-    #@torch.compile(backend='cudagraphs')
-    #@torch.compile(backend=make_backend(backend='inductor'))
-    #@torch.compile(backend='inductor')
-    #@torch.compile
-    @torch.compile(backend=make_backend(backend=None), fullgraph=True)
     def forward(
         self,
         input_ids: torch.Tensor,
