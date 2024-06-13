@@ -42,8 +42,8 @@ jobs:
           - name: Checkout code
             uses: actions/checkout@v4
             with:
-              ref: ${{ inputs.gitref }}
               fetch-depth: 0
+              ref: ${{ inputs.gitref }}
               submodules: recursive
 
           - name: Set up nvidia-container-toolkit
@@ -60,8 +60,8 @@ jobs:
             id: build
             uses: ./.github/actions/nm-build-docker/
             with:
-              docker_tag: ${{ inputs.docker_tag }}
               additional_tag: ${{ steps.extratag.outputs.tag }}
+              docker_tag: ${{ inputs.docker_tag }}
               build_type: ${{ inputs.build_type }}
               build_version: ${{ inputs.build_version }}
 

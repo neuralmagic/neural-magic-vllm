@@ -1,12 +1,12 @@
 name: Build docker image
 description: 'build docker image for nm-vllm'
 inputs:
-  docker_tag:
-    description: "tag to be used for the docker image"
-    type: string
-    required: true
   additional_tag:
     description: "additional tag for the docker image"
+    type: string
+    required: true
+  docker_tag:
+    description: "tag to be used for the docker image"
     type: string
     required: true
   build_type:
