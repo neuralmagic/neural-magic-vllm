@@ -8,7 +8,8 @@ inputs:
 runs:
   using: composite
   steps:
-  - run: |
+  - id: extratag
+    run: |
       tag=nightly
       if [[ "${{ inputs.build_type }}" = "RELEASE" ]]; then
           tag=latest
