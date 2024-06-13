@@ -21,6 +21,7 @@ runs:
   using: composite
   steps:
   - run: |
+      echo "additional_tag=${{ inputs.additional_tag }}"
       # clean up
       docker stop $(docker ps -a -q) || echo 'no container to stop'
       docker rm $(docker ps -a -q) || echo 'no container to remove'
