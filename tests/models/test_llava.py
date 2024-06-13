@@ -42,42 +42,6 @@ def iter_llava_configs(model_name: str):
                                         image_processor_revision=None))
 
 
-from ..conftest import IMAGE_FILES
-
-pytestmark = pytest.mark.llava
-
-# The image token is placed before "user" on purpose so that the test can pass
-HF_IMAGE_PROMPTS = [
-    "<image>\nUSER: What's the content of the image?\nASSISTANT:",
-    "<image>\nUSER: What is the season?\nASSISTANT:",
-]
-
-assert len(HF_IMAGE_PROMPTS) == len(IMAGE_FILES)
-
-
-def iter_llava_configs(model_name: str):
-    image_hw_to_feature_size = {
-        (336, 336): 576,
-    }
-
-    for (h, w), f in image_hw_to_feature_size.items():
-        for input_type, input_shape in [
-            (VisionLanguageConfig.ImageInputType.PIXEL_VALUES, (1, 3, h, w)),
-            (VisionLanguageConfig.ImageInputType.IMAGE_FEATURES, (1, f, 1024)),
-        ]:
-            yield (model_name,
-                   VisionLanguageConfig(image_input_type=input_type,
-                                        image_feature_size=f,
-                                        image_token_id=32000,
-                                        image_input_shape=input_shape,
-                                        image_processor=model_name,
-                                        image_processor_revision=None))
-
-
-if should_skip_test_group(group_name="TEST_MODELS"):
-    pytest.skip("TEST_MODELS=DISABLE, skipping model test group",
-                allow_module_level=True)
-
 model_and_vl_config = [
     *iter_llava_configs("llava-hf/llava-1.5-7b-hf"),
 ]

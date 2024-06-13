@@ -1,9 +1,9 @@
 import pytest
 import torch
 
-from tests.nm_utils.utils_skip import should_skip_test_group
 # ruff: noqa: F401
 import vllm._C
+from tests.nm_utils.utils_skip import should_skip_test_group
 
 if should_skip_test_group(group_name="TEST_KERNELS"):
     pytest.skip("TEST_KERNELS=DISABLE, skipping kernels test group",

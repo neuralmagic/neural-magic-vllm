@@ -12,7 +12,6 @@ from vllm.model_executor.layers.quantization.compressed_tensors.compressed_tenso
     CompressedTensorsLinearMethod, CompressedTensorsW8A8DynamicToken,
     CompressedTensorsW8A8StaticTensor)
 
-
 if should_skip_test_group(group_name="TEST_QUANTIZATION"):
     pytest.skip("TEST_QUANTIZATION=DISABLE, skipping quantization test group",
                 allow_module_level=True)
