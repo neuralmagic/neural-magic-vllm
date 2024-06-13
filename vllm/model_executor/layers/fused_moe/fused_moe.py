@@ -776,7 +776,7 @@ def fused_marlin_moe(
 
     # sorted_token_ids[0:M] = torch.range(0, M - 1) * 2
 
-    print("sorted_token_ids", sorted_token_ids)
+    # print("sorted_token_ids", sorted_token_ids)
 
     max_workspace_size = (N // 64) * 16
     workspace = torch.zeros(max_workspace_size,
@@ -817,7 +817,7 @@ def fused_marlin_moe(
 
     # intermediate_cache2 = intermediate_cache2.view(M, -1, N).sum(dim=1)
 
-    print("intermediate op:", intermediate_cache2.size(), w2.size(), M, N, K, topk)
+    # print("intermediate op:", intermediate_cache2.size(), w2.size(), M, N, K, topk)
 
     intermediate_cache3 = moe_kernels.marlin_gemm_moe(intermediate_cache2, w2,
         sorted_token_ids, topk_weights, w2_scale, expert_offsets_np, workspace,
