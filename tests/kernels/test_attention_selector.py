@@ -1,9 +1,10 @@
-import os
 from unittest.mock import patch
 
 import pytest
 import torch
 
+from tests.kernels.utils import (STR_FLASH_ATTN_VAL, STR_INVALID_VAL,
+                                 override_backend_env_variable)
 from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.attention.selector import which_attn_to_use
 
@@ -15,12 +16,12 @@ if should_skip_test_group(group_name="TEST_KERNELS"):
 @pytest.mark.parametrize(
     "name", ["TORCH_SDPA", "ROCM_FLASH", "XFORMERS", "FLASHINFER"])
 @pytest.mark.parametrize("device", ["cpu", "hip", "cuda"])
-def test_env(name: str, device: str):
+def test_env(name: str, device: str, monkeypatch):
     """Test that the attention selector can be set via environment variable.
     Note that we do not test FlashAttn because it is the default backend.
     """
-    name_backup = os.environ.get("VLLM_ATTENTION_BACKEND", None)
-    os.environ["VLLM_ATTENTION_BACKEND"] = name
+
+    override_backend_env_variable(monkeypatch, name)
 
     if device == "cpu":
         with patch("vllm.attention.selector.is_cpu", return_value=True):
@@ -37,14 +38,11 @@ def test_env(name: str, device: str):
                                     torch.float16, 16)
         assert backend.name == name
 
-    if name_backup is not None:
-        os.environ["VLLM_ATTENTION_BACKEND"] = name_backup
 
-
-def test_flash_attn():
+def test_flash_attn(monkeypatch):
     """Test FlashAttn validation."""
-    name_backup = os.environ.get("VLLM_ATTENTION_BACKEND", None)
-    os.environ["VLLM_ATTENTION_BACKEND"] = "FLASH_ATTN"
+
+    override_backend_env_variable(monkeypatch, STR_FLASH_ATTN_VAL)
 
     # Unsupported CUDA arch
     with patch("torch.cuda.get_device_capability", return_value=[7, 5]):
@@ -76,14 +74,9 @@ def test_flash_attn():
     backend = which_attn_to_use(8, 17, 8, None, torch.float16, None, 16)
     assert backend.name != "FLASH_ATTN"
 
-    if name_backup is not None:
-        os.environ["VLLM_ATTENTION_BACKEND"] = name_backup
 
-
-def test_invalid_env():
+def test_invalid_env(monkeypatch):
     """Throw an exception if the backend name is invalid."""
-    name_backup = os.environ.get("VLLM_ATTENTION_BACKEND", None)
-    os.environ["VLLM_ATTENTION_BACKEND"] = "INVALID"
+    override_backend_env_variable(monkeypatch, STR_INVALID_VAL)
     with pytest.raises(ValueError):
         which_attn_to_use(8, 16, 8, None, torch.float16, None, 16)
-    os.environ["VLLM_ATTENTION_BACKEND"] = name_backup

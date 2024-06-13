@@ -37,5 +37,5 @@ auto-gptq   # required for hf gptq baselines
 # Benchmarking
 aiohttp
 
-# Multimodal
-pillow
+# quantization
+bitsandbytes==0.42.0
