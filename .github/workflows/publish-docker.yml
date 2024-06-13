@@ -50,7 +50,7 @@ jobs:
             uses: ./.github/actions/nm-setup-nvidia-container-toolkit/
 
           - name: Get image additional tag
-            id: tag
+            id: extratag
             uses: ./.github/actions/nm-get-tag/
             with:
               build_type: ${{ inputs.build_type }}
@@ -60,7 +60,7 @@ jobs:
             uses: ./.github/actions/nm-build-docker/
             with:
               docker_tag: ${{ inputs.docker_tag }}
-              additional_tag: ${{ steps.tag.outputs.tag }}
+              additional_tag: ${{ steps.extratag.outputs.tag }}
               build_type: ${{ inputs.build_type }}
               build_version: ${{ inputs.build_version }}
 
@@ -80,4 +80,4 @@ jobs:
               context: .
               target: vllm-openai
               push: true
-              tags: ghcr.io/neuralmagic/nm-vllm-openai:${{ steps.tag.outputs.tag }}
+              tags: ghcr.io/neuralmagic/nm-vllm-openai:${{ steps.extratag.outputs.tag }}
