@@ -9,8 +9,8 @@
 # prepare basic build environment
 FROM nvidia/cuda:12.4.1-devel-ubuntu22.04 AS dev
 
-RUN apt-get update -y && \
-    apt-get install -y python3-pip git
+RUN apt-get update -y \
+    && apt-get install -y python3-pip git curl sudo
 
 # Workaround for https://github.com/openai/triton/issues/2507 and
 # https://github.com/pytorch/pytorch/issues/107960 -- hopefully
