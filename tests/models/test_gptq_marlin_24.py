@@ -9,12 +9,10 @@ Run `pytest tests/models/test_marlin_24.py`.
 from dataclasses import dataclass
 
 import pytest
-import torch
 
 from tests.models.utils import check_logprobs_close
 from tests.nm_utils.utils_skip import should_skip_test_group
 from tests.quantization.utils import is_quant_method_supported
-from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
 
 if should_skip_test_group(group_name="TEST_MODELS"):
     pytest.skip("TEST_MODELS=DISABLE, skipping model test group",
@@ -45,7 +43,7 @@ model_pairs = [
 
 
 @pytest.mark.flaky(reruns=2)
-@pytest.mark.skipif(marlin_not_supported,
+@pytest.mark.skipif(not is_quant_method_supported("gptq_marlin_24"),
                     reason="Marlin24 is not supported on this GPU type.")
 @pytest.mark.parametrize("model_pair", model_pairs)
 @pytest.mark.parametrize("dtype", ["half"])

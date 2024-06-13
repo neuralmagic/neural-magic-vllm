@@ -4,7 +4,6 @@ Run `pytest tests/models/test_aqlm.py`.
 """
 
 import pytest
-import torch
 
 from tests.nm_utils.utils_skip import should_skip_test_group
 from tests.quantization.utils import is_quant_method_supported
@@ -64,7 +63,7 @@ ground_truth_generations = [
 ]
 
 
-@pytest.mark.skipif(aqlm_not_supported,
+@pytest.mark.skipif(not is_quant_method_supported("aqlm"),
                     reason="AQLM is not supported on this GPU type.")
 @pytest.mark.parametrize("model", ["ISTA-DASLab/Llama-2-7b-AQLM-2Bit-1x16-hf"])
 @pytest.mark.parametrize("dtype", ["half"])
