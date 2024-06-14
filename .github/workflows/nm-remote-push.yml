@@ -5,6 +5,7 @@ on:
   push:
     branches-ignore:
       - main
+      - h100-testing
 
 concurrency:
   group: ${{ github.head_ref || github.ref_name }}
