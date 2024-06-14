@@ -1,5 +1,4 @@
 import asyncio
-from os import getenv
 from typing import Dict, List, Type
 
 import openai
@@ -119,7 +118,6 @@ def test_models_on_server(
         pytest.skip("insufficient system GPU device capability "
                     f"({capability}) for this model")
 
-    hf_token = getenv("HF_TOKEN", None)
     logger.info("loading chat prompts for testing.")
     ds = load_dataset("nm-testing/qa-chat-prompts", split="train_sft")
     ds = ds.select(range(20))
@@ -135,7 +133,7 @@ def test_models_on_server(
     ]
 
     logger.info("generating chat responses from HuggingFace runner.")
-    hf_model = hf_runner_nm(model, access_token=hf_token)
+    hf_model = hf_runner_nm(model)
     hf_outputs = hf_model.generate_greedy_logprobs_nm_use_tokens(
         chat_prompts, max_tokens, num_logprobs, ignore_special_tokens=True)
 
