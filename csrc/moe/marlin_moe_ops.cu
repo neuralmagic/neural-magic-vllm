@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include <torch/all.h>
+
 #include <ATen/cuda/CUDAContext.h>
 #include <c10/cuda/CUDAGuard.h>
 #include <cuda.h>
@@ -22,11 +24,11 @@
 #include <cuda_runtime.h>
 
 #include <iostream>
-#include <torch/extension.h>
+// #include <torch/extension.h>
 
 template <typename T> inline std::string str(T x) { return std::to_string(x); }
 
-namespace marlin {
+namespace marlin_moe {
 
 constexpr int ceildiv(int a, int b) { return (a + b - 1) / b; }
 
@@ -1262,10 +1264,10 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
   }
 }
 
-} // namespace marlin
+} // namespace marlin_moe
 
 torch::Tensor marlin_gemm_moe(torch::Tensor& a, torch::Tensor& b_q_weights, torch::Tensor& sorted_ids, torch::Tensor& topk_weights,
-                        torch::Tensor& b_scales, int* expert_offsets, torch::Tensor& workspace, int64_t size_m, int64_t size_n, int64_t size_k,
+                        torch::Tensor& b_scales, torch::Tensor& expert_offsets, torch::Tensor& workspace, int64_t size_m, int64_t size_n, int64_t size_k,
                         int64_t num_tokens_post_padded, int64_t num_experts, int64_t topk, int64_t moe_block_size, bool replicate_input, bool apply_weights)
 {
   int max_par = 4;
@@ -1301,12 +1303,16 @@ torch::Tensor marlin_gemm_moe(torch::Tensor& a, torch::Tensor& b_q_weights, torc
     group_size = -1;
   }
 
-  marlin::marlin_mm_moe_f16i4(a.data_ptr(), b_q_weights.data_ptr(), c.data_ptr(),
-                sorted_ids.data_ptr(), topk_weights.data_ptr(), b_scales.data_ptr(),
-                expert_offsets, size_m, size_n, size_k,
-                workspace.data_ptr(), num_groups, group_size,
-                num_tokens_post_padded, num_experts, topk, moe_block_size,
-                dev, at::cuda::getCurrentCUDAStream(dev), thread_k, thread_n, sms,
-                max_par, replicate_input, apply_weights);
+  int* eoff_f = (int*)(expert_offsets.data_ptr());
+
+  printf("offf: %d\n", eoff_f[0]);
+
+  // marlin_moe::marlin_mm_moe_f16i4(a.data_ptr(), b_q_weights.data_ptr(), c.data_ptr(),
+  //               sorted_ids.data_ptr(), topk_weights.data_ptr(), b_scales.data_ptr(),
+  //               expert_offsets.data_ptr(), size_m, size_n, size_k,
+  //               workspace.data_ptr(), num_groups, group_size,
+  //               num_tokens_post_padded, num_experts, topk, moe_block_size,
+  //               dev, at::cuda::getCurrentCUDAStream(dev), thread_k, thread_n, sms,
+  //               max_par, replicate_input, apply_weights);
   return c;
 }

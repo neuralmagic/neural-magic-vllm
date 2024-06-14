@@ -574,39 +574,32 @@ def single_marlin_moe(
     #     torch.float32, torch.float16, torch.bfloat16
     # ]
 
-    if is_hip():
-        # The MoE kernels are not yet supported on ROCm.
-        routing_weights = torch.softmax(gating_output,
-                                        dim=-1,
-                                        dtype=torch.float32)
-        topk_weights, topk_ids = torch.topk(routing_weights, topk, dim=-1)
-    else:
-        import vllm._moe_C as moe_kernels
+    import vllm._moe_C as moe_kernels
 
-        topk_weights = torch.empty(M,
-                                   topk,
-                                   dtype=torch.float32,
-                                   device=hidden_states.device)
-        topk_ids = torch.empty(M,
-                               topk,
-                               dtype=torch.int32,
-                               device=hidden_states.device)
-        token_expert_indicies = torch.empty(M,
-                                            topk,
-                                            dtype=torch.int32,
-                                            device=hidden_states.device)
+    topk_weights = torch.empty(M,
+                                topk,
+                                dtype=torch.float32,
+                                device=hidden_states.device)
+    topk_ids = torch.empty(M,
+                            topk,
+                            dtype=torch.int32,
+                            device=hidden_states.device)
+    token_expert_indicies = torch.empty(M,
+                                        topk,
+                                        dtype=torch.int32,
+                                        device=hidden_states.device)
 
-        moe_kernels.topk_softmax(
-            topk_weights,
-            topk_ids,
-            token_expert_indicies,
-            gating_output.float(),  # TODO(woosuk): Optimize this.
-        )
-        del token_expert_indicies  # Not used. Will be used in the future.
+    moe_kernels.topk_softmax(
+        topk_weights,
+        topk_ids,
+        token_expert_indicies,
+        gating_output.float(),  # TODO(woosuk): Optimize this.
+    )
+    del token_expert_indicies  # Not used. Will be used in the future.
     if renormalize:
         topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
 
-    if override_config:
+    if override_config :
         config = override_config
     else:
         # print("K before:", K)
@@ -663,7 +656,7 @@ def single_marlin_moe(
 
     # print("K:", K)
     intermediate_cache = moe_kernels.marlin_gemm_moe(hidden_states, w,
-        sorted_token_ids, topk_weights, scales, expert_offsets_np, workspace,
+        sorted_token_ids, topk_weights, scales, torch.from_numpy(expert_offsets_np), workspace,
         M, N, K, num_tokens_post_padded, E, topk, block_size_m, True, False)
 
     return torch.sum(intermediate_cache.view(*intermediate_cache.shape),
@@ -728,34 +721,27 @@ def fused_marlin_moe(
     # M, _ = hidden_states.shape
     # E, N, _ = w1.shape
 
-    if is_hip():
-        # The MoE kernels are not yet supported on ROCm.
-        routing_weights = torch.softmax(gating_output,
-                                        dim=-1,
-                                        dtype=torch.float32)
-        topk_weights, topk_ids = torch.topk(routing_weights, topk, dim=-1)
-    else:
-        import vllm._moe_C as moe_kernels
+    import vllm._moe_C as moe_kernels
 
-        topk_weights = torch.empty(M,
-                                   topk,
-                                   dtype=torch.float32,
-                                   device=hidden_states.device)
-        topk_ids = torch.empty(M,
-                               topk,
-                               dtype=torch.int32,
-                               device=hidden_states.device)
-        token_expert_indicies = torch.empty(M,
-                                            topk,
-                                            dtype=torch.int32,
-                                            device=hidden_states.device)
-        moe_kernels.topk_softmax(
-            topk_weights,
-            topk_ids,
-            token_expert_indicies,
-            gating_output.float(),  # TODO(woosuk): Optimize this.
-        )
-        del token_expert_indicies  # Not used. Will be used in the future.
+    topk_weights = torch.empty(M,
+                                topk,
+                                dtype=torch.float32,
+                                device=hidden_states.device)
+    topk_ids = torch.empty(M,
+                            topk,
+                            dtype=torch.int32,
+                            device=hidden_states.device)
+    token_expert_indicies = torch.empty(M,
+                                        topk,
+                                        dtype=torch.int32,
+                                        device=hidden_states.device)
+    moe_kernels.topk_softmax(
+        topk_weights,
+        topk_ids,
+        token_expert_indicies,
+        gating_output.float(),  # TODO(woosuk): Optimize this.
+    )
+    del token_expert_indicies  # Not used. Will be used in the future.
     if renormalize:
         topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
 
@@ -821,7 +807,7 @@ def fused_marlin_moe(
     #                                   dtype=hidden_states.dtype)
 
     intermediate_cache1 = moe_kernels.marlin_gemm_moe(hidden_states, w1,
-        sorted_token_ids, topk_ids, w1_scale, expert_offsets_np, workspace,
+        sorted_token_ids, topk_ids, w1_scale, torch.from_numpy(expert_offsets_np), workspace,
         M, 2 * N, K, num_tokens_post_padded, E, topk, block_size_m, True, False)
 
     # print("intermediate 1 marlin:", intermediate_cache1, intermediate_cache1.size(),
@@ -838,7 +824,7 @@ def fused_marlin_moe(
     print("intermediate op:", intermediate_cache2.size(), w2.size(), M, N, K, topk)
 
     intermediate_cache3 = moe_kernels.marlin_gemm_moe(intermediate_cache2, w2,
-        sorted_token_ids, topk_weights, w2_scale, expert_offsets_np, workspace,
+        sorted_token_ids, topk_weights, w2_scale, torch.from_numpy(expert_offsets_np), workspace,
         M, K, N, num_tokens_post_padded, E, topk, block_size_m, False, True)
 
     # intermediate_cache3 = torch.zeros((M, topk, K),
