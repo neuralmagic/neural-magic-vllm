@@ -143,7 +143,9 @@ jobs:
 
             - name: install whl inside test env
               run: |
-                source /home/runner/.bashrc
+                eval "$(pyenv init --path)"
+                eval "$(pyenv init -)"
+                eval "$(pyenv virtualenv-init -)"
                 pyenv local 3.10.12
                 pyenv virtualenv NM-VLLM-CALLING
                 pyenv activate NM-VLLM-CALLING
