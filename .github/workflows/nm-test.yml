@@ -147,7 +147,7 @@ jobs:
                 eval "$(pyenv init -)"
                 eval "$(pyenv virtualenv-init -)"
                 pyenv local 3.10.12
-                # pyenv virtualenv NM-VLLM-CALLING
+                pyenv virtualenv NM-VLLM-CALLING || echo "venv already present"
                 pyenv activate NM-VLLM-CALLING
                 pip3 install --extra-index-url https://pypi.neuralmagic.com/simple nm-vllm-nightly
 
