@@ -4,10 +4,22 @@ import torch
 from torch.nn.parameter import Parameter
 
 from vllm import _custom_ops as ops
+from vllm.logger import init_logger
 from vllm.model_executor.layers.linear import LinearBase, LinearMethodBase
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig)
 from vllm.model_executor.utils import set_weight_attrs
+
+logger = init_logger(__name__)
+
+GPTQ_MARLIN_24_TILE = 16
+GPTQ_MARLIN_24_MIN_THREAD_N = 128
+GPTQ_MARLIN_24_MIN_THREAD_K = 128
+GPTQ_MARLIN_24_MAX_PARALLEL = 64
+
+GPTQ_MARLIN_24_SUPPORTED_NUM_BITS = [4, 8]
+GPTQ_MARLIN_24_SUPPORTED_GROUP_SIZES = [-1, 128]
+GPTQ_MARLIN_24_SUPPORTED_SYM = [True]
 
 
 class GPTQMarlin24Config(QuantizationConfig):
@@ -22,15 +34,17 @@ class GPTQMarlin24Config(QuantizationConfig):
         self.weight_bits = weight_bits
         self.group_size = group_size
 
-        if self.weight_bits != 4 and self.weight_bits != 8:
-            raise ValueError("weight_bits must be 4 or 8. Got = {}".format(
-                self.weight_bits))
-
-        if self.group_size != 128 and self.group_size != -1:
+        # Verify
+        if self.weight_bits not in GPTQ_MARLIN_24_SUPPORTED_NUM_BITS:
             raise ValueError(
-                "Currently, only group size 128 and -1 (channelwise) "
-                "is supported for Marlin24, but got group_size of "
-                f"{self.group_size}")
+                f"Marlin_24 does not support weight_bits = {self.weight_bits}. "
+                f"Only weight_bits = {GPTQ_MARLIN_24_SUPPORTED_NUM_BITS} "
+                "are supported.")
+        if self.group_size not in GPTQ_MARLIN_24_SUPPORTED_GROUP_SIZES:
+            raise ValueError(
+                f"Marlin_24 does not support group_size = {self.group_size}. "
+                f"Only group_sizes = {GPTQ_MARLIN_24_SUPPORTED_GROUP_SIZES} "
+                "are supported.")
 
         # 4 Bits packed into 32 bit datatype.
         self.pack_factor = 32 // self.weight_bits
@@ -39,14 +53,14 @@ class GPTQMarlin24Config(QuantizationConfig):
         self.tile_size = 16
 
         # Min out_features dim
-        self.min_n_threads = 128
+        self.min_n_threads = GPTQ_MARLIN_24_MIN_THREAD_N
 
         # Min in_features dim
-        self.min_k_threads = 128
+        self.min_k_threads = GPTQ_MARLIN_24_MIN_THREAD_K
 
         # Max parallel problems to solve at once (improves large
         # batch performance)
-        self.max_parallel = 16
+        self.max_parallel = GPTQ_MARLIN_24_MAX_PARALLEL
 
         # Permutation length used by the marlin kernels.
         self.perm_len = 1024
@@ -78,6 +92,23 @@ class GPTQMarlin24Config(QuantizationConfig):
         group_size = cls.get_from_keys(config, ["group_size"])
         return cls(weight_bits, group_size)
 
+    @classmethod
+    def override_quantization_method(cls, hf_quant_cfg,
+                                     user_quant) -> Optional[str]:
+        is_marlin_24_format = (
+            hf_quant_cfg.get("checkpoint_format") == "marlin_24")
+
+        is_valid_user_quant = (user_quant is None or user_quant == "gptq"
+                               or user_quant == "gptq_marlin_24")
+
+        if is_marlin_24_format and is_valid_user_quant:
+            msg = ("The model is serialized in {} format. "
+                   "Using {} kernel.".format(cls.get_name(), cls.get_name()))
+            logger.info(msg)
+            return cls.get_name()
+
+        return None
+
     def get_quant_method(
             self,
             layer: torch.nn.Module) -> Optional["GPTQMarlin24LinearMethod"]:
@@ -91,6 +122,7 @@ class GPTQMarlin24Config(QuantizationConfig):
 
 class GPTQMarlin24LinearMethod(LinearMethodBase):
     """Linear method for Marlin24.
+
     Args:
         quant_config: The Marlin24 quantization config.
     """

@@ -4,7 +4,7 @@ import json
 import subprocess
 import time
 from pathlib import Path
-from typing import NamedTuple, Optional
+from typing import List, NamedTuple, Optional
 
 import requests
 
@@ -37,7 +37,7 @@ def get_tensor_parallel_size(config: NamedTuple) -> int:
     return tensor_parallel_size
 
 
-def is_server_running(host: str, port: int, timeout=600) -> bool:
+def is_server_running(host: str, port: int, timeout=900) -> bool:
 
     def try_connection() -> bool:
         try:
@@ -62,7 +62,7 @@ def run_benchmark_serving_script(config: NamedTuple,
                                  ) -> None:
     assert config.script_name == 'benchmark_serving'
 
-    def run_bench(server_cmd: str, bench_cmd: list[str], model: str) -> None:
+    def run_bench(server_cmd: str, bench_cmd: List[str], model: str) -> None:
         try:
             # start server
             server_process = subprocess.Popen("exec " + server_cmd, shell=True)

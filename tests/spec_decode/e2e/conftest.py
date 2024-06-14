@@ -6,20 +6,26 @@ from typing import Dict, List, Optional, Tuple, Union
 import pytest
 import ray
 import torch
-from pynvml import (nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo,
-                    nvmlInit)
 
-from tests.conftest import cleanup
+from vllm.utils import is_hip
+
+if (not is_hip()):
+    from pynvml import (nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo,
+                        nvmlInit)
+
 from vllm import LLM
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.lora.request import LoRARequest
 from vllm.model_executor.utils import set_random_seed
+from vllm.multimodal import MultiModalData
 from vllm.outputs import RequestOutput
 from vllm.sampling_params import SamplingParams
-from vllm.sequence import Logprob, MultiModalData
+from vllm.sequence import Logprob
 from vllm.usage.usage_lib import UsageContext
 from vllm.utils import Counter, random_uuid
+
+from ...conftest import cleanup
 
 
 class AsyncLLM:
@@ -55,7 +61,7 @@ class AsyncLLM:
     ) -> None:
         if "disable_log_stats" not in kwargs:
             kwargs["disable_log_stats"] = True
-        self.engine_args = AsyncEngineArgs(
+        engine_args = AsyncEngineArgs(
             model=model,
             tokenizer=tokenizer,
             tokenizer_mode=tokenizer_mode,
@@ -71,11 +77,17 @@ class AsyncLLM:
             swap_space=swap_space,
             enforce_eager=enforce_eager,
             max_seq_len_to_capture=max_seq_len_to_capture,
+            # For now use ray for the distributed back-end, since
+            # we rely on the use of engine_use_ray=True to avoid
+            # reinitializing CUDA in the same process (driver worker)
             engine_use_ray=True,
+            distributed_executor_backend="ray",
             disable_custom_all_reduce=disable_custom_all_reduce,
             **kwargs,
         )
         self.request_counter = Counter()
+        self.llm_engine = AsyncLLMEngine.from_engine_args(
+            engine_args, usage_context=UsageContext.LLM_CLASS)
 
     def generate(
         self,
@@ -87,9 +99,6 @@ class AsyncLLM:
         lora_request: Optional[LoRARequest] = None,
         multi_modal_data: Optional[MultiModalData] = None,
     ) -> List[RequestOutput]:
-
-        llm_engine = AsyncLLMEngine.from_engine_args(
-            self.engine_args, usage_context=UsageContext.LLM_CLASS)
 
         if prompts is None:
             raise ValueError("prompts must be provided.")
@@ -111,8 +120,8 @@ class AsyncLLM:
 
         async def get_output(prompt, sampling_param) -> str:
             request_id = random_uuid()
-            results_generator = llm_engine.generate(prompt, sampling_param,
-                                                    request_id)
+            results_generator = self.llm_engine.generate(
+                prompt, sampling_param, request_id)
             final_output = None
             async for request_output in results_generator:
                 final_output = request_output
@@ -185,12 +194,25 @@ def create_llm_generator(baseline_or_test, request, common_llm_kwargs,
     return generator_outer
 
 
+def maybe_assert_ngram_worker(llm):
+    # Verify the proposer worker is ngram if ngram is specified.
+    if (not isinstance(llm, AsyncLLM)
+            and llm.llm_engine.speculative_config is not None
+            and llm.llm_engine.speculative_config.ngram_prompt_lookup_max > 0):
+        from vllm.spec_decode.ngram_worker import NGramWorker
+        assert isinstance(
+            llm.llm_engine.model_executor.driver_worker.proposer_worker,
+            NGramWorker)
+
+
 def get_output_from_llm_generator(
         llm_generator, prompts,
         sampling_params) -> Tuple[List[str], List[List[int]]]:
     tokens = []
     token_ids = []
     for llm in llm_generator():
+        maybe_assert_ngram_worker(llm)
+
         outputs = llm.generate(prompts, sampling_params, use_tqdm=True)
         token_ids = [output.outputs[0].token_ids for output in outputs]
         tokens = [output.outputs[0].text for output in outputs]

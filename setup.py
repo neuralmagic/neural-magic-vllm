@@ -1,7 +1,4 @@
-# flake8: noqa
-# UPSTREAM SYNC: noqa is required for passing ruff.
-# This file has been modified by Neural Magic
-
+import datetime
 import importlib.util
 import io
 import logging
@@ -64,7 +61,7 @@ def remove_prefix(text, prefix):
 class CMakeExtension(Extension):
 
     def __init__(self, name: str, cmake_lists_dir: str = '.', **kwa) -> None:
-        super().__init__(name, sources=[], **kwa)
+        super().__init__(name, sources=[], py_limited_api=True, **kwa)
         self.cmake_lists_dir = os.path.abspath(cmake_lists_dir)
 
 
@@ -191,19 +188,22 @@ class cmake_build_ext(build_ext):
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
 
+        targets = []
         # Build all the extensions
         for ext in self.extensions:
             self.configure(ext)
+            targets.append(remove_prefix(ext.name, "vllm."))
 
-            ext_target_name = remove_prefix(ext.name, "vllm.")
-            num_jobs, _ = self.compute_num_jobs()
+        num_jobs, _ = self.compute_num_jobs()
 
-            build_args = [
-                '--build', '.', '--target', ext_target_name, '-j',
-                str(num_jobs)
-            ]
+        build_args = [
+            "--build",
+            ".",
+            f"-j={num_jobs}",
+            *[f"--target={name}" for name in targets],
+        ]
 
-            subprocess.check_call(['cmake', *build_args], cwd=self.build_temp)
+        subprocess.check_call(["cmake", *build_args], cwd=self.build_temp)
 
 
 def _is_cuda() -> bool:
@@ -223,7 +223,7 @@ def _is_neuron() -> bool:
         subprocess.run(["neuron-ls"], capture_output=True, check=True)
     except (FileNotFoundError, PermissionError, subprocess.CalledProcessError):
         torch_neuronx_installed = False
-    return torch_neuronx_installed or envs.VLLM_BUILD_WITH_NEURON
+    return torch_neuronx_installed or VLLM_TARGET_DEVICE == "neuron"
 
 
 def _is_cpu() -> bool:
@@ -306,8 +306,27 @@ def find_version(filepath: str) -> str:
         raise RuntimeError("Unable to find version string.")
 
 
+# Neuralmagic packaging ENV's
+NM_RELEASE_TYPE = 'NM_RELEASE_TYPE'
+
+
+def get_nm_vllm_package_name() -> str:
+    nm_release_type = os.getenv(NM_RELEASE_TYPE)
+    package_name = None
+    if nm_release_type == 'RELEASE':
+        package_name = 'nm-vllm'
+    else:
+        package_name = 'nm-vllm-nightly'
+    return package_name
+
+
 def get_vllm_version() -> str:
     version = find_version(get_path("vllm", "__init__.py"))
+
+    nm_release_type = os.getenv(NM_RELEASE_TYPE)
+    if nm_release_type != 'RELEASE':
+        date = datetime.date.today().strftime("%Y%m%d")
+        version += f'.{date}'
 
     if _is_cuda():
         cuda_version = str(get_nvcc_cuda_version())
@@ -359,14 +378,15 @@ def get_requirements() -> List[str]:
 
     if _is_cuda():
         requirements = _read_requirements("requirements-cuda.txt")
-        cuda_major = torch.version.cuda.split(".")[0]
+        cuda_major, cuda_minor = torch.version.cuda.split(".")
         modified_requirements = []
         for req in requirements:
-            if "vllm-nccl-cu12" in req:
-                modified_requirements.append(
-                    req.replace("vllm-nccl-cu12", f"vllm-nccl-cu{cuda_major}"))
-            else:
-                modified_requirements.append(req)
+            if ("vllm-flash-attn" in req
+                    and not (cuda_major == "12" and cuda_minor == "1")):
+                # vllm-flash-attn is built only for CUDA 12.1.
+                # Skip for other versions.
+                continue
+            modified_requirements.append(req)
         requirements = modified_requirements
     elif _is_hip():
         requirements = _read_requirements("requirements-rocm.txt")
@@ -382,17 +402,23 @@ def get_requirements() -> List[str]:
 
 ext_modules = []
 
-if _is_cuda():
+if _is_cuda() or _is_hip():
     ext_modules.append(CMakeExtension(name="vllm._moe_C"))
-
-    if _install_punica():
-        ext_modules.append(CMakeExtension(name="vllm._punica_C"))
 
 if not _is_neuron():
     ext_modules.append(CMakeExtension(name="vllm._C"))
 
+    if _install_punica():
+        ext_modules.append(CMakeExtension(name="vllm._punica_C"))
+
 # UPSTREAM SYNC: needed for sparsity
 _sparsity_deps = ["nm-magic-wand-nightly"]
+nm_release_type = os.getenv(NM_RELEASE_TYPE)
+if nm_release_type == 'RELEASE':
+    # Gate magic-wand version in nm-vllm for release;
+    # For nightly, we always install the latest
+    magic_wand_version_dep = "0.2.2"
+    _sparsity_deps = [f"nm-magic-wand~={magic_wand_version_dep}"]
 
 package_data = {
     "vllm": ["py.typed", "model_executor/layers/fused_moe/configs/*.json"]
@@ -402,7 +428,7 @@ if envs.VLLM_USE_PRECOMPILED:
     package_data["vllm"].append("*.so")
 
 setup(
-    name="nm-vllm",
+    name=get_nm_vllm_package_name(),
     version=get_vllm_version(),
     author="vLLM Team, Neural Magic",
     author_email="support@neuralmagic.com",
@@ -429,14 +455,15 @@ setup(
                    'licenses/LICENSE.fastertransformer',
                    'licenses/LICENSE.gptq', 'licenses/LICENSE.marlin',
                    'licenses/LICENSE.punica', 'licenses/LICENSE.squeezellm',
-                   'licenses/LICENSE.tensorrtllm', 'licenses/LICENSE.vllm'),
+                   'licenses/LICENSE.tensorrtllm', 'licenses/LICENSE.vllm',
+                   'NOTICE'),
     packages=find_packages(exclude=("benchmarks", "csrc", "docs", "examples",
                                     "tests*")),
     python_requires=">=3.8",
     install_requires=get_requirements(),
     ext_modules=ext_modules,
     extras_require={
-        "tensorizer": ["tensorizer==2.9.0"],
+        "tensorizer": ["tensorizer>=2.9.0"],
         # UPSTREAM SYNC: required for sparsity
         "sparse": _sparsity_deps,
         "sparsity": _sparsity_deps,

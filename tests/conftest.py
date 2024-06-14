@@ -2,44 +2,50 @@ import contextlib
 import gc
 import logging
 import os
-from typing import List, Optional, Tuple
+import subprocess
+import sys
+from typing import Any, Dict, List, Optional, Tuple, TypeVar
 
 import pytest
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from PIL import Image
-from transformers import (AutoModelForCausalLM, AutoProcessor,
-                          LlavaForConditionalGeneration)
+from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
+                          AutoProcessor, AutoTokenizer, BatchEncoding)
 
-from tests.utils.logging import make_logger
+from tests.nm_utils.logging import make_logger
 from vllm import LLM, SamplingParams
 from vllm.config import TokenizerPoolConfig, VisionLanguageConfig
 from vllm.distributed import destroy_model_parallel
-from vllm.sequence import MultiModalData
-from vllm.transformers_utils.tokenizer import get_tokenizer
+from vllm.inputs import TextPrompt
+from vllm.logger import init_logger
+from vllm.multimodal import MultiModalData
+from vllm.multimodal.image import ImageFeatureData, ImagePixelData
+from vllm.sequence import SampleLogprobs
+from vllm.utils import is_cpu
+
+logger = init_logger(__name__)
 
 _TEST_DIR = os.path.dirname(__file__)
 _TEST_PROMPTS = [os.path.join(_TEST_DIR, "prompts", "example.txt")]
 _LONG_PROMPTS = [os.path.join(_TEST_DIR, "prompts", "summary.txt")]
 
 # Multi modal related
-_PIXEL_VALUES_FILES = [
+# You can use `.buildkite/download-images.sh` to download the assets
+PIXEL_VALUES_FILES = [
     os.path.join(_TEST_DIR, "images", filename) for filename in
     ["stop_sign_pixel_values.pt", "cherry_blossom_pixel_values.pt"]
 ]
-_IMAGE_FEATURES_FILES = [
+IMAGE_FEATURES_FILES = [
     os.path.join(_TEST_DIR, "images", filename) for filename in
     ["stop_sign_image_features.pt", "cherry_blossom_image_features.pt"]
 ]
-_IMAGE_FILES = [
+IMAGE_FILES = [
     os.path.join(_TEST_DIR, "images", filename)
     for filename in ["stop_sign.jpg", "cherry_blossom.jpg"]
 ]
-_IMAGE_PROMPTS = [
-    "<image>\nUSER: What's the content of the image?\nASSISTANT:",
-    "<image>\nUSER: What is the season?\nASSISTANT:"
-]
-assert len(_PIXEL_VALUES_FILES) == len(_IMAGE_FEATURES_FILES) == len(
-    _IMAGE_FILES) == len(_IMAGE_PROMPTS)
+assert len(PIXEL_VALUES_FILES) == len(IMAGE_FEATURES_FILES) == len(IMAGE_FILES)
 
 
 def _read_prompts(filename: str) -> List[str]:
@@ -53,7 +59,8 @@ def cleanup():
     with contextlib.suppress(AssertionError):
         torch.distributed.destroy_process_group()
     gc.collect()
-    torch.cuda.empty_cache()
+    if not is_cpu():
+        torch.cuda.empty_cache()
 
 
 @pytest.fixture()
@@ -77,36 +84,28 @@ def cleanup_fixture(should_do_global_cleanup_after_test: bool):
 
 
 @pytest.fixture(scope="session")
-def hf_image_prompts() -> List[str]:
-    return _IMAGE_PROMPTS
-
-
-@pytest.fixture(scope="session")
 def hf_images() -> List[Image.Image]:
-    return [Image.open(filename) for filename in _IMAGE_FILES]
+    return [Image.open(filename) for filename in IMAGE_FILES]
 
 
 @pytest.fixture()
-def vllm_images(request) -> "torch.Tensor":
+def vllm_images(request) -> List[MultiModalData]:
     vision_language_config = request.getfixturevalue("model_and_config")[1]
-    all_images = []
     if vision_language_config.image_input_type == (
             VisionLanguageConfig.ImageInputType.IMAGE_FEATURES):
-        filenames = _IMAGE_FEATURES_FILES
+        return [
+            ImageFeatureData(torch.load(filename))
+            for filename in IMAGE_FEATURES_FILES
+        ]
     else:
-        filenames = _PIXEL_VALUES_FILES
-    for filename in filenames:
-        all_images.append(torch.load(filename))
-    return torch.concat(all_images, dim=0)
+        return [
+            ImagePixelData(Image.open(filename)) for filename in IMAGE_FILES
+        ]
 
 
 @pytest.fixture()
-def vllm_image_prompts(request) -> List[str]:
-    vision_language_config = request.getfixturevalue("model_and_config")[1]
-    return [
-        "<image>" * (vision_language_config.image_feature_size - 1) + p
-        for p in _IMAGE_PROMPTS
-    ]
+def vllm_image_tensors(request) -> List[torch.Tensor]:
+    return [torch.load(filename) for filename in PIXEL_VALUES_FILES]
 
 
 @pytest.fixture
@@ -131,72 +130,95 @@ _STR_DTYPE_TO_TORCH_DTYPE = {
     "float": torch.float,
 }
 
-_VISION_LANGUAGE_MODELS = {
-    "llava-hf/llava-1.5-7b-hf": LlavaForConditionalGeneration,
-}
+_T = TypeVar("_T", nn.Module, torch.Tensor, BatchEncoding)
 
 
 class HfRunner:
 
+    def wrap_device(self, input: _T) -> _T:
+        if not is_cpu():
+            return input.to("cuda")
+        else:
+            return input.to("cpu")
+
     def __init__(
         self,
         model_name: str,
-        tokenizer_name: Optional[str] = None,
         dtype: str = "half",
+        *,
+        is_embedding_model: bool = False,
+        is_vision_model: bool = False,
     ) -> None:
         assert dtype in _STR_DTYPE_TO_TORCH_DTYPE
         torch_dtype = _STR_DTYPE_TO_TORCH_DTYPE[dtype]
+
         self.model_name = model_name
-        if model_name not in _VISION_LANGUAGE_MODELS:
-            self.model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                torch_dtype=torch_dtype,
-                trust_remote_code=True,
-            ).cuda()
-            self.processor = None
+
+        if is_embedding_model:
+            # Lazy init required for AMD CI
+            from sentence_transformers import SentenceTransformer
+            self.model = self.wrap_device(
+                SentenceTransformer(
+                    model_name,
+                    device="cpu",
+                ).to(dtype=torch_dtype))
         else:
-            self.model = _VISION_LANGUAGE_MODELS[model_name].from_pretrained(
-                model_name,
-                torch_dtype=torch_dtype,
-                trust_remote_code=True,
-            ).cuda()
+            if is_vision_model:
+                auto_cls = AutoModelForVision2Seq
+            else:
+                auto_cls = AutoModelForCausalLM
+
+            self.model = self.wrap_device(
+                auto_cls.from_pretrained(
+                    model_name,
+                    torch_dtype=torch_dtype,
+                    trust_remote_code=True,
+                ))
+
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_name,
+            torch_dtype=torch_dtype,
+            trust_remote_code=True,
+        )
+
+        try:
             self.processor = AutoProcessor.from_pretrained(
                 model_name,
                 torch_dtype=torch_dtype,
+                trust_remote_code=True,
             )
-        if tokenizer_name is None:
-            tokenizer_name = model_name
-        self.tokenizer = get_tokenizer(tokenizer_name, trust_remote_code=True)
+        except Exception:
+            logger.warning(
+                "Unable to auto-load processor from HuggingFace for "
+                "model %s. Using tokenizer instead.", model_name)
+            self.processor = self.tokenizer
 
     def generate(
         self,
         prompts: List[str],
         images: Optional[List[Image.Image]] = None,
         **kwargs,
-    ) -> List[Tuple[List[int], str]]:
-        outputs: List[Tuple[List[int], str]] = []
+    ) -> List[Tuple[List[List[int]], List[str]]]:
         if images:
             assert len(prompts) == len(images)
+
+        outputs: List[Tuple[List[List[int]], List[str]]] = []
         for i, prompt in enumerate(prompts):
-            if self.model_name not in _VISION_LANGUAGE_MODELS:
-                input_ids = self.tokenizer(prompt,
-                                           return_tensors="pt").input_ids
-                inputs = {"input_ids": input_ids.cuda()}
-            else:
-                image = images[i] if images else None
-                inputs = self.processor(text=prompt,
-                                        images=image,
-                                        return_tensors="pt")
-                inputs = {
-                    key: value.cuda() if value is not None else None
-                    for key, value in inputs.items()
-                }
+            processor_kwargs: Dict[str, Any] = {
+                "text": prompt,
+                "return_tensors": "pt",
+            }
+            if images is not None and images[i] is not None:
+                processor_kwargs["images"] = images[i]
+
+            inputs = self.processor(**processor_kwargs)
+
             output_ids = self.model.generate(
-                **inputs,
+                **self.wrap_device(inputs),
                 use_cache=True,
                 **kwargs,
             )
-            output_str = self.tokenizer.batch_decode(
+            output_str = self.processor.batch_decode(
                 output_ids,
                 skip_special_tokens=True,
                 clean_up_tokenization_spaces=False,
@@ -209,23 +231,22 @@ class HfRunner:
         self,
         prompts: List[str],
         max_tokens: int,
-        images: Optional["torch.Tensor"] = None,
+        images: Optional[List[Image.Image]] = None,
     ) -> List[Tuple[List[int], str]]:
         outputs = self.generate(prompts,
                                 do_sample=False,
                                 max_new_tokens=max_tokens,
                                 images=images)
-        for i in range(len(outputs)):
-            output_ids, output_str = outputs[i]
-            outputs[i] = (output_ids[0], output_str[0])
-        return outputs
+
+        return [(output_ids[0], output_str[0])
+                for output_ids, output_str in outputs]
 
     def generate_beam_search(
         self,
         prompts: List[str],
         beam_width: int,
         max_tokens: int,
-    ) -> List[Tuple[List[int], str]]:
+    ) -> List[Tuple[List[List[int]], List[str]]]:
         outputs = self.generate(prompts,
                                 do_sample=False,
                                 max_new_tokens=max_tokens,
@@ -250,7 +271,7 @@ class HfRunner:
         for prompt in prompts:
             input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids
             output = self.model.generate(
-                input_ids.cuda(),
+                self.wrap_device(input_ids),
                 use_cache=True,
                 do_sample=False,
                 max_new_tokens=max_tokens,
@@ -267,14 +288,78 @@ class HfRunner:
                 if self.model.get_output_embeddings().bias is not None:
                     logits += self.model.get_output_embeddings(
                     ).bias.unsqueeze(0)
-                logprobs = torch.nn.functional.log_softmax(logits,
-                                                           dim=-1,
-                                                           dtype=torch.float32)
+                logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
                 seq_logprobs.append(logprobs)
             all_logprobs.append(seq_logprobs)
         return all_logprobs
 
-    def __del__(self):
+    def generate_greedy_logprobs_limit(
+        self,
+        prompts: List[str],
+        max_tokens: int,
+        num_logprobs: int,
+    ) -> List[Tuple[List[int], str, List[Dict[int, float]]]]:
+        all_logprobs: List[List[Dict[int, float]]] = []
+        all_output_ids: List[List[int]] = []
+        all_output_strs: List[str] = []
+
+        for prompt in prompts:
+            input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids
+            output = self.model.generate(
+                self.wrap_device(input_ids),
+                use_cache=True,
+                do_sample=False,
+                max_new_tokens=max_tokens,
+                output_hidden_states=True,
+                return_dict_in_generate=True,
+            )
+
+            seq_logprobs: List[torch.Tensor] = []
+            for _, hidden_states in enumerate(output.hidden_states):
+                last_hidden_states = hidden_states[-1][0]
+                logits = torch.matmul(
+                    last_hidden_states,
+                    self.model.get_output_embeddings().weight.t(),
+                )
+                if getattr(self.model.get_output_embeddings(), "bias",
+                           None) is not None:
+                    logits += self.model.get_output_embeddings(
+                    ).bias.unsqueeze(0)
+                logprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
+                seq_logprobs.append(logprobs)
+
+            # convert to dict
+            seq_logprobs_lst: List[Dict[int, float]] = []
+            for tok_idx, tok_logprobs in enumerate(seq_logprobs):
+                # drop prompt logprobs
+                if tok_idx == 0:
+                    tok_logprobs = tok_logprobs[-1, :].reshape(1, -1)
+                topk = tok_logprobs.topk(num_logprobs)
+
+                tok_logprobs_dct = {}
+                for token_id, logprob in zip(topk.indices[0], topk.values[0]):
+                    tok_logprobs_dct[token_id.item()] = logprob.item()
+
+                seq_logprobs_lst.append(tok_logprobs_dct)
+
+            all_logprobs.append(seq_logprobs_lst)
+            seq_ids = output.sequences[0]
+            output_len = seq_ids.shape[0] - input_ids.shape[1]
+            output_ids = seq_ids[-output_len:]
+            all_output_ids.append(output_ids.tolist())
+            all_output_strs.append(self.tokenizer.decode(output_ids))
+
+        outputs = zip(all_output_ids, all_output_strs, all_logprobs)
+        return [(output_ids, output_str, output_logprobs)
+                for output_ids, output_str, output_logprobs in outputs]
+
+    def encode(self, prompts: List[str]) -> List[List[torch.Tensor]]:
+        return self.model.encode(prompts)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
         del self.model
         cleanup()
 
@@ -287,12 +372,31 @@ def hf_runner():
 # UPSTREAM SYNC: needed for nm-automation
 class HfRunnerNM(HfRunner):
 
+    def _logprobs_from_generated_hidden_states(self, output):
+        """
+        generates a list of logprobs from the output of self.model.generate()
+        """
+        seq_logprobs = []
+        for _, hidden_states in enumerate(output.hidden_states):
+            last_hidden_states = hidden_states[-1][0]
+            logits = torch.matmul(
+                last_hidden_states,
+                self.model.get_output_embeddings().weight.t(),
+            )
+            if self.model.get_output_embeddings().bias is not None:
+                logits += self.model.get_output_embeddings().bias.unsqueeze(0)
+            logprobs = torch.nn.functional.log_softmax(logits,
+                                                       dim=-1,
+                                                       dtype=torch.float32)
+            seq_logprobs.append(logprobs)
+        return seq_logprobs
+
     def generate_greedy_logprobs_nm(
         self,
         prompts: List[str],
         max_tokens: int,
         num_logprobs: int,
-    ) -> List[Tuple[List[int], str]]:
+    ) -> List[Tuple[List[int], str, List[Dict]]]:
         all_logprobs = []
         all_output_ids = []
         all_output_strs = []
@@ -308,20 +412,7 @@ class HfRunnerNM(HfRunner):
                 return_dict_in_generate=True,
             )
 
-            seq_logprobs = []
-            for _, hidden_states in enumerate(output.hidden_states):
-                last_hidden_states = hidden_states[-1][0]
-                logits = torch.matmul(
-                    last_hidden_states,
-                    self.model.get_output_embeddings().weight.t(),
-                )
-                if self.model.get_output_embeddings().bias is not None:
-                    logits += self.model.get_output_embeddings(
-                    ).bias.unsqueeze(0)
-                logprobs = torch.nn.functional.log_softmax(logits,
-                                                           dim=-1,
-                                                           dtype=torch.float32)
-                seq_logprobs.append(logprobs)
+            seq_logprobs = self._logprobs_from_generated_hidden_states(output)
 
             # convert to dict
             seq_logprobs_lst = []
@@ -348,6 +439,107 @@ class HfRunnerNM(HfRunner):
         return [(output_ids, output_str, output_logprobs)
                 for output_ids, output_str, output_logprobs in outputs]
 
+    SPECIAL_TOKENS = ["<|im_start|>", "<|im_end|>", "�", "</s>"]
+
+    def _decode_token_by_position_index(
+            self,
+            token_index: int,
+            token_ids: List[int],
+            clean_up_tokenization_spaces: bool = True,
+            ignore_special_tokens: bool = False) -> str:
+        """
+        helper function to calculate a token string at the specified index
+        based on the previous tokens.
+
+        :param token_index: position in the list of token ids where you would
+            like the token string
+        :param token_ids: the list of token ids
+        :param clean_up_tokenization_spaces: option to pass to
+            `tokenizer.decode()`
+        :param ignore_special_tokens: converts hard coded special tokens to
+            an empty string
+        """
+        lookback = 4
+        prior_str = self.tokenizer.decode(
+            token_ids[token_index - lookback:token_index - 1],
+            clean_up_tokenization_spaces=clean_up_tokenization_spaces)
+        current_str = self.tokenizer.decode(
+            token_ids[token_index - lookback:token_index],
+            clean_up_tokenization_spaces=clean_up_tokenization_spaces)
+        token = current_str[-(len(current_str) - len(prior_str)):]
+        if ignore_special_tokens and token in self.SPECIAL_TOKENS:
+            token = ""
+        return token
+
+    def generate_greedy_logprobs_nm_use_tokens(
+        self,
+        prompts: List[str],
+        max_tokens: int,
+        topk_logprobs_count: int,
+        ignore_special_tokens: bool = False
+    ) -> List[Tuple[List[int], str, List[Dict]]]:
+        all_logprobs = []
+        all_output_tokens = []
+        all_output_strs = []
+
+        for prompt in prompts:
+            input_ids = self.tokenizer(prompt, return_tensors="pt").input_ids
+            output = self.model.generate(
+                input_ids.cuda(),
+                use_cache=True,
+                do_sample=False,
+                max_new_tokens=max_tokens,
+                output_hidden_states=True,
+                return_dict_in_generate=True,
+            )
+
+            seq_logprobs = self._logprobs_from_generated_hidden_states(output)
+
+            # convert sequence of logprobs to a dict keyed on the selected token
+            seq_ids = output.sequences[0]
+            input_len = input_ids.shape[1]
+            seq_logprobs_lst = list()
+            output_tokens = list()
+
+            for tok_idx, tok_logprobs in enumerate(seq_logprobs):
+                # drop prompt logprobs
+                if tok_idx == 0:
+                    tok_logprobs = tok_logprobs[-1, :].reshape(1, -1)
+                topk = tok_logprobs.topk(topk_logprobs_count)
+
+                tok_logprobs_dct = {}
+                # add 1 to the index here to be in sync with the skipped prompt
+                # in the logprobs
+                indexed_seq = seq_ids[:input_len + tok_idx + 1].tolist()
+                token_str = self._decode_token_by_position_index(
+                    input_len + tok_idx + 1,
+                    indexed_seq,
+                    clean_up_tokenization_spaces=False,
+                    ignore_special_tokens=True)
+                output_tokens.append(token_str)
+                for alt_token_id, logprob in zip(topk.indices[0],
+                                                 topk.values[0]):
+                    # replace the token_str at the tok_idx with alt_token_id.
+                    indexed_seq[-1] = alt_token_id
+                    # then run decode again
+                    logprob_str = self._decode_token_by_position_index(
+                        input_len + tok_idx + 1,
+                        indexed_seq,
+                        clean_up_tokenization_spaces=False,
+                        ignore_special_tokens=True)
+                    tok_logprobs_dct[logprob_str] = logprob.item()
+
+                seq_logprobs_lst.append(tok_logprobs_dct)
+
+            all_logprobs.append(seq_logprobs_lst)
+
+            all_output_tokens.append(output_tokens)
+            all_output_strs.append("".join(output_tokens))
+
+        outputs = zip(all_output_tokens, all_output_strs, all_logprobs)
+        return [(output_ids, output_str, output_logprobs)
+                for output_ids, output_str, output_logprobs in outputs]
+
     def __del__(self):
         del self.model
         cleanup()
@@ -366,13 +558,13 @@ class VllmRunner:
         tokenizer_name: Optional[str] = None,
         # Use smaller max model length, otherwise bigger model cannot run due
         # to kv cache size limit.
-        max_model_len=1024,
+        max_model_len: int = 1024,
         dtype: str = "half",
         disable_log_stats: bool = True,
         tensor_parallel_size: int = 1,
         block_size: int = 16,
         enable_chunked_prefill: bool = False,
-        swap_space=4,
+        swap_space: int = 4,
         **kwargs,
     ) -> None:
         self.model = LLM(
@@ -393,22 +585,25 @@ class VllmRunner:
         self,
         prompts: List[str],
         sampling_params: SamplingParams,
-        images: Optional["torch.Tensor"] = None,
-    ) -> List[Tuple[List[int], str]]:
+        images: Optional[List[MultiModalData]] = None,
+    ) -> List[Tuple[List[List[int]], List[str]]]:
         if images is not None:
-            assert len(prompts) == images.shape[0]
-        req_outputs = self.model.generate(
-            prompts,
-            sampling_params=sampling_params,
-            multi_modal_data=MultiModalData(type=MultiModalData.Type.IMAGE,
-                                            data=images)
-            if images is not None else None)
-        outputs = []
+            assert len(prompts) == len(images)
+
+        inputs = [TextPrompt(prompt=prompt) for prompt in prompts]
+        if images is not None:
+            for i, image in enumerate(images):
+                inputs[i]["multi_modal_data"] = image
+
+        req_outputs = self.model.generate(inputs,
+                                          sampling_params=sampling_params)
+
+        outputs: List[Tuple[List[List[int]], List[str]]] = []
         for req_output in req_outputs:
             prompt_str = req_output.prompt
             prompt_ids = req_output.prompt_token_ids
-            req_sample_output_ids = []
-            req_sample_output_strs = []
+            req_sample_output_ids: List[List[int]] = []
+            req_sample_output_strs: List[str] = []
             for sample in req_output.outputs:
                 output_str = sample.text
                 output_ids = sample.token_ids
@@ -421,12 +616,12 @@ class VllmRunner:
         self,
         prompts: List[str],
         sampling_params: SamplingParams,
-    ) -> List[Tuple[List[int], str]]:
+    ) -> List[Tuple[List[int], str, Optional[SampleLogprobs]]]:
         assert sampling_params.logprobs is not None
 
         req_outputs = self.model.generate(prompts,
                                           sampling_params=sampling_params)
-        outputs = []
+        outputs: List[Tuple[List[int], str, Optional[SampleLogprobs]]] = []
         for req_output in req_outputs:
             for sample in req_output.outputs:
                 output_str = sample.text
@@ -439,7 +634,7 @@ class VllmRunner:
         self,
         prompts: List[str],
         max_tokens: int,
-        images: Optional[torch.Tensor] = None,
+        images: Optional[List[MultiModalData]] = None,
     ) -> List[Tuple[List[int], str]]:
         greedy_params = SamplingParams(temperature=0.0, max_tokens=max_tokens)
         outputs = self.generate(prompts, greedy_params, images=images)
@@ -451,7 +646,7 @@ class VllmRunner:
         prompts: List[str],
         max_tokens: int,
         num_logprobs: int,
-    ) -> List[Tuple[List[int], str]]:
+    ) -> List[Tuple[List[int], str, Optional[SampleLogprobs]]]:
         greedy_logprobs_params = SamplingParams(temperature=0.0,
                                                 max_tokens=max_tokens,
                                                 logprobs=num_logprobs)
@@ -465,7 +660,7 @@ class VllmRunner:
         prompts: List[str],
         beam_width: int,
         max_tokens: int,
-    ) -> List[Tuple[List[int], str]]:
+    ) -> List[Tuple[List[List[int]], List[str]]]:
         beam_search_params = SamplingParams(n=beam_width,
                                             use_beam_search=True,
                                             temperature=0.0,
@@ -473,7 +668,18 @@ class VllmRunner:
         outputs = self.generate(prompts, beam_search_params)
         return outputs
 
-    def __del__(self):
+    def encode(self, prompts: List[str]) -> List[List[float]]:
+        req_outputs = self.model.encode(prompts)
+        outputs = []
+        for req_output in req_outputs:
+            embedding = req_output.outputs.embedding
+            outputs.append(embedding)
+        return outputs
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
         del self.model
         cleanup()
 
@@ -485,28 +691,6 @@ def vllm_runner():
 
 # UPSTREAM SYNC: needed for nm-automation
 class VllmRunnerNm(VllmRunner):
-
-    def __init__(
-        self,
-        model_name: str,
-        sparsity: Optional[str] = None,
-        tokenizer_name: Optional[str] = None,
-        dtype: str = "half",
-        disable_log_stats: bool = True,
-        tensor_parallel_size: int = 1,
-        max_model_len: Optional[int] = None,
-    ) -> None:
-        self.model = LLM(
-            model=model_name,
-            sparsity=sparsity,
-            tokenizer=tokenizer_name,
-            trust_remote_code=True,
-            dtype=dtype,
-            swap_space=0,
-            disable_log_stats=disable_log_stats,
-            tensor_parallel_size=tensor_parallel_size,
-            max_model_len=max_model_len,
-        )
 
     def generate_w_logprobs(
         self,
@@ -558,6 +742,41 @@ def get_tokenizer_pool_config(tokenizer_group_type):
                                    pool_type="ray",
                                    extra_config={})
     raise ValueError(f"Unknown tokenizer_group_type: {tokenizer_group_type}")
+
+
+@pytest.fixture()
+def temporary_enable_log_propagate():
+    import logging
+    logger = logging.getLogger("vllm")
+    logger.propagate = True
+    yield
+    logger.propagate = False
+
+
+@pytest.fixture()
+def caplog_vllm(temporary_enable_log_propagate, caplog):
+    # To capture vllm log, we should enable propagate=True temporarily
+    # because caplog depends on logs propagated to the root logger.
+    yield caplog
+
+
+@pytest.fixture(scope="session")
+def num_gpus_available():
+    """Get number of GPUs without initializing the CUDA context
+    in current process."""
+
+    try:
+        out = subprocess.run([
+            sys.executable, "-c",
+            "import torch; print(torch.cuda.device_count())"
+        ],
+                             capture_output=True,
+                             check=True,
+                             text=True)
+    except subprocess.CalledProcessError as e:
+        logger.warning("Failed to get number of GPUs.", exc_info=e)
+        return 0
+    return int(out.stdout.strip())
 
 
 @pytest.fixture(scope="session")

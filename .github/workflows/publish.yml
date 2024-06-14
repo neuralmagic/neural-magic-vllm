@@ -4,9 +4,7 @@
 name: Create Release
 
 on:
-  push:
-    tags:
-      - v*
+  workflow_dispatch:
 
 # Needed to create release and upload assets
 permissions:
@@ -58,6 +56,9 @@ jobs:
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          create-symlink: true
+          key: ${{ github.job }}-${{ matrix.python-version }}-${{ matrix.cuda-version }}
 
       - name: Set up Linux Env
         if: ${{ runner.os == 'Linux' }}

@@ -71,12 +71,17 @@ def torch_moe_small(a, w, score, topk):
             out[mask] =  a[mask] @ w[i].transpose(0, 1)
     return (out.view(B, -1, w.shape[1])).sum(dim=1)
 
-@pytest.mark.parametrize("m", [4]) #[512, 222, 33, 1])
-@pytest.mark.parametrize("n", [128]) #[2048, 256, 1024])
-@pytest.mark.parametrize("k", [128]) #, 511, 1024])
-@pytest.mark.parametrize("e", [2]) #, 64])
-@pytest.mark.parametrize("topk", [2]) #, 6])
-@pytest.mark.parametrize("dtype", [torch.float16]) #, torch.bfloat16])
+# UPSTREAM SYNC: breaks NM automation.
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
+@pytest.mark.parametrize("m", [512, 222, 33, 1])
+@pytest.mark.parametrize("n", [2048, 256, 1024])
+@pytest.mark.parametrize("k", [128, 511, 1024])
+@pytest.mark.parametrize("e", [8, 64])
+@pytest.mark.parametrize("topk", [2, 6])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
 def test_fused_moe(
     m: int,
     n: int,
@@ -96,6 +101,11 @@ def test_fused_moe(
     assert torch.allclose(triton_output, torch_output, atol=1e-2, rtol=0)
 
 
+# UPSTREAM SYNC: breaks NM automation.
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("dtype",
                          [torch.float32, torch.float16, torch.bfloat16])
 @torch.inference_mode()
@@ -336,6 +346,11 @@ def compute_max_diff(output, output_ref):
     return torch.mean(torch.abs(output - output_ref)) / torch.mean(
         torch.abs(output_ref))
 
+# UPSTREAM SYNC: breaks NM automation.
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 # @pytest.mark.parametrize("m", [64]) #[64, 512, 222, 33, 1])
 # @pytest.mark.parametrize("n", [256]) #[128, 2048, 256, 1024])
 # @pytest.mark.parametrize("k", [128, 1024]) #[128, 1024, 512])
@@ -412,6 +427,11 @@ def test_fused_marlin_moe(
     # assert(compute_max_diff(marlin_output, triton_output) < 100)
     assert(compute_max_diff(marlin_output, triton_output) < 4e-2)
 
+# UPSTREAM SYNC: breaks NM automation.
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("m", [64, 512, 222, 33, 1])
 @pytest.mark.parametrize("n", [128, 2048, 256, 1024])
 @pytest.mark.parametrize("k", [128, 1024, 512])

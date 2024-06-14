@@ -8,16 +8,16 @@
 [vLLM](https://github.com/vllm-project/vllm) is a fast and easy-to-use library for LLM inference that Neural Magic regularly contributes upstream improvements to. This fork, `nm-vllm` is our opinionated focus on incorporating the latest LLM optimizations like quantization and sparsity for enhanced performance.
 
 ## Installation
-The [nm-vllm PyPi package](https://pypi.org/project/nm-vllm/) includes pre-compiled binaries for CUDA (version 12.1) kernels, streamlining the setup process. For other PyTorch or CUDA versions, please compile the package from source.
+The [nm-vllm PyPi package](https://pypi.neuralmagic.com/simple/nm-vllm/index.html) includes pre-compiled binaries for CUDA (version 12.1) kernels, streamlining the setup process. For other PyTorch or CUDA versions, please compile the package from source.
 
 Install it using pip:
 ```bash
-pip install nm-vllm
+pip install nm-vllm --extra-index-url https://pypi.neuralmagic.com/simple
 ```
 
 For utilizing weight-sparsity kernels, such as through `sparsity="sparse_w16a16"`, you can extend the installation with the `sparsity` extras:
 ```bash
-pip install nm-vllm[sparse]
+pip install nm-vllm[sparse] --extra-index-url https://pypi.neuralmagic.com/simple
 ```
 
 You can also build and install `nm-vllm` from source (this will take ~10 minutes):
