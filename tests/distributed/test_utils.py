@@ -12,7 +12,7 @@ if should_skip_test_group(group_name="TEST_DISTRIBUTED"):
 
 
 @ray.remote
-class _CUDADeviceCountStatelessTestActor():
+class _CUDADeviceCountStatelessTestActor:
 
     def get_count(self):
         return cuda_device_count_stateless()
@@ -28,7 +28,8 @@ def test_cuda_device_count_stateless():
     """Test that cuda_device_count_stateless changes return value if
     CUDA_VISIBLE_DEVICES is changed."""
 
-    actor = _CUDADeviceCountStatelessTestActor.options(num_gpus=2).remote()
+    actor = _CUDADeviceCountStatelessTestActor.options(  # type: ignore
+        num_gpus=2).remote()
     assert sorted(ray.get(
         actor.get_cuda_visible_devices.remote()).split(",")) == ["0", "1"]
     assert ray.get(actor.get_count.remote()) == 2

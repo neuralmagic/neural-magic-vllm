@@ -1,3 +1,5 @@
+from typing import List
+
 import pytest
 
 from tests.nm_utils.utils_skip import should_skip_test_group
@@ -33,7 +35,7 @@ def test_allocate_naive(block_size: int, sequence_len: int):
     token_ids = list(range(sequence_len))
     num_blocks_per_alloc = len(list(chunk_list(token_ids, block_size)))
 
-    block_tables = []
+    block_tables: List[BlockTable] = []
     for i in range(5):
         assert allocator.get_num_free_blocks(
             device=Device.GPU) == num_gpu_blocks - i * num_blocks_per_alloc
@@ -78,7 +80,7 @@ def test_allocate_prefix_caching(block_size: int, sequence_len: int):
     num_immutable_blocks_per_alloc = len(
         chunked_tokens) - num_mutable_blocks_per_alloc
 
-    block_tables = []
+    block_tables: List[BlockTable] = []
     for alloc_i in range(1, 6):
 
         block_tables.append(
@@ -273,7 +275,7 @@ def test_append_token_ids_correct_content(block_size: int, sequence_len: int,
     )
     block_table.allocate(token_ids=token_ids, device=Device.GPU)
 
-    appended_so_far = []
+    appended_so_far: List[int] = []
     for append in chunk_list(token_ids_to_append, append_size):
         block_table.append_token_ids(append)
         appended_so_far.extend(append)
