@@ -1,1 +1,2 @@
-__version__ = "0.5.0.post1"
+# UPSTREAM SYNC: take downstream
+__version__ = "0.5.0"
