@@ -18,7 +18,6 @@ Run `pytest tests/models/test_marlin.py`.
 from dataclasses import dataclass
 
 import pytest
-import torch
 
 from tests.models.utils import check_logprobs_close
 from tests.nm_utils.utils_skip import should_skip_test_group

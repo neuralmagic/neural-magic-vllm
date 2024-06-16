@@ -9,10 +9,6 @@ from transformers import AutoTokenizer
 
 from tests.nm_utils.utils_skip import should_skip_test_group
 from tests.quantization.utils import is_quant_method_supported
-
-from tests.nm_utils.utils_skip import should_skip_test_group
-from tests.quantization.utils import is_quant_method_supported
-
 from vllm import LLM, SamplingParams
 
 if should_skip_test_group(group_name="TEST_MODELS"):

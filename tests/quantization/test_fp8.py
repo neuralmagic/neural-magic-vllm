@@ -5,6 +5,7 @@ Run `pytest tests/quantization/test_fp8.py --forked`.
 import pytest
 import torch
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from tests.quantization.utils import is_quant_method_supported
 from vllm._custom_ops import scaled_fp8_quant
 from vllm.model_executor.layers.quantization.fp8 import Fp8LinearMethod
@@ -12,6 +13,7 @@ from vllm.model_executor.layers.quantization.fp8 import Fp8LinearMethod
 if should_skip_test_group(group_name="TEST_QUANTIZATION"):
     pytest.skip("TEST_QUANTIZATION=DISABLE, skipping quantization test group",
                 allow_module_level=True)
+
 
 @pytest.mark.skipif(not is_quant_method_supported("fp8"),
                     reason="FP8 is not supported on this GPU type.")

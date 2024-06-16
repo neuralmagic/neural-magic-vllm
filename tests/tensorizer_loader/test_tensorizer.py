@@ -11,7 +11,6 @@ import torch
 from tensorizer import EncryptionParams
 
 from tests.nm_utils.utils_skip import should_skip_test_group
-from tests.utils import ServerRunner
 from vllm import SamplingParams
 from vllm.engine.arg_utils import EngineArgs
 # yapf: disable
