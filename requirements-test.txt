@@ -11,9 +11,11 @@ awscli
 einops # required for MPT
 httpx
 peft
-requests
+requests==2.31  # required for python 3.8 testing
 ray
 sentence-transformers # required for embedding
+optimum     # required for hf gptq baselines
+auto-gptq   # required for hf gptq baselines
 
 # Benchmarking
 aiohttp
