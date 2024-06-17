@@ -50,7 +50,7 @@ jobs:
             python: 3.10.12
             gitref: ${{ github.ref }}
 
-            test_label_solo: gcp-k8s-l4-solo-gcc
+            test_label_solo: gcp-k8s-l4-solo
             test_label_multi: ignore
             test_timeout: 480
             test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/smoke.txt
