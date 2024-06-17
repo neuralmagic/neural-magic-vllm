@@ -204,7 +204,6 @@ def moe_align_block_size(
         by block_size for proper block matrix operations.
     """
     max_num_tokens_padded = topk_ids.numel() + num_experts * (block_size - 1)
-    # print(max_num_tokens_padded, "=", topk_ids.numel(), "+", num_experts, "*", (block_size - 1))
     sorted_ids = torch.empty((max_num_tokens_padded, ),
                              dtype=torch.int32,
                              device=topk_ids.device)
@@ -218,9 +217,7 @@ def moe_align_block_size(
                                       device=topk_ids.device)
     ops.moe_align_block_size(topk_ids, num_experts, block_size, sorted_ids,
                              expert_ids, num_tokens_post_pad)
-    # print("tokens pad:", max_num_tokens_padded, num_tokens_post_pad)
     return sorted_ids, expert_ids, num_tokens_post_pad
-
 
 def invoke_fused_moe_kernel(A: torch.Tensor, B: torch.Tensor, C: torch.Tensor,
                             A_scale: Optional[torch.Tensor],
@@ -385,8 +382,8 @@ def fused_experts(hidden_states: torch.Tensor,
     assert hidden_states.shape[1] == w1.shape[2], "Hidden size mismatch"
     assert topk_weights.shape == topk_ids.shape, "topk shape mismatch"
     assert hidden_states.is_contiguous(), "Hidden_states must be contiguous"
-    assert w1.is_contiguous(), "Expert weights1 must be contiguous"
-    assert w2.is_contiguous(), "Expert weights2 must be contiguous"
+    # assert w1.is_contiguous(), "Expert weights1 must be contiguous"
+    # assert w2.is_contiguous(), "Expert weights2 must be contiguous"
     assert hidden_states.dtype in [
         torch.float32, torch.float16, torch.bfloat16
     ]
@@ -655,7 +652,7 @@ def single_marlin_moe(
     # torch.set_printoptions(profile="default")
 
     # print("K:", K)
-    intermediate_cache = torch.ops._C.marlin_gemm_moe(hidden_states, w,
+    intermediate_cache = torch.ops._moe_C.marlin_gemm_moe(hidden_states, w,
         sorted_token_ids, topk_weights, scales, torch.from_numpy(expert_offsets_np), workspace,
         M, N, K, num_tokens_post_padded, E, topk, block_size_m, True, False)
 
@@ -806,7 +803,7 @@ def fused_marlin_moe(
     #                                   device=hidden_states.device,
     #                                   dtype=hidden_states.dtype)
 
-    intermediate_cache1 = torch.ops._C.marlin_gemm_moe(hidden_states, w1,
+    intermediate_cache1 = torch.ops._moe_C.marlin_gemm_moe(hidden_states, w1,
         sorted_token_ids, topk_ids, w1_scale, torch.from_numpy(expert_offsets_np), workspace,
         M, 2 * N, K, num_tokens_post_padded, E, topk, block_size_m, True, False)
 
@@ -823,7 +820,7 @@ def fused_marlin_moe(
 
     print("intermediate op:", intermediate_cache2.size(), w2.size(), M, N, K, topk)
 
-    intermediate_cache3 = torch.ops._C.marlin_gemm_moe(intermediate_cache2, w2,
+    intermediate_cache3 = torch.ops._moe_C.marlin_gemm_moe(intermediate_cache2, w2,
         sorted_token_ids, topk_weights, w2_scale, torch.from_numpy(expert_offsets_np), workspace,
         M, K, N, num_tokens_post_padded, E, topk, block_size_m, False, True)
 
