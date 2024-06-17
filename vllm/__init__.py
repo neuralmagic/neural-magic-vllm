@@ -37,5 +37,5 @@ __all__ = [
 
 
 def githash():
-    from vllm._C import ops as vllm_ops
-    return vllm_ops.githash()
+    import torch
+    return torch.ops._C.githash()
