@@ -345,16 +345,16 @@ def compute_max_diff(output, output_ref):
         torch.abs(output_ref))
 
 # UPSTREAM SYNC: breaks NM automation.
-# @pytest.mark.skip("C compiler not installed in NM automation. "
-#                   "This codepath follows a triton pathway, which "
-#                   "JITs using clang or gcc. Since neither are installed "
-#                   "in our test instances, we need to skip this for now.")
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 # @pytest.mark.parametrize("m", [64]) #[64, 512, 222, 33, 1])
 # @pytest.mark.parametrize("n", [256]) #[128, 2048, 256, 1024])
-# @pytest.mark.parametrize("k", [128, 1024]) #[128, 1024, 512])
-# @pytest.mark.parametrize("e", [4, 8]) #[4, 8, 64])
-# @pytest.mark.parametrize("topk", [2, 6])
-# @pytest.mark.parametrize("group_size", [32, 128]) #[-1, 32, 64, 128])
+# @pytest.mark.parametrize("k", [128]) #[128, 1024, 512])
+# @pytest.mark.parametrize("e", [4]) #[4, 8, 64])
+# @pytest.mark.parametrize("topk", [2])
+# @pytest.mark.parametrize("group_size", [-1]) #[-1, 32, 64, 128])
 @pytest.mark.parametrize("m", [64, 512, 222, 33, 1])
 @pytest.mark.parametrize("n", [128, 2048, 256, 1024])
 @pytest.mark.parametrize("k", [128, 1024, 512])
@@ -411,13 +411,14 @@ def test_fused_marlin_moe(
     score = torch.randn((m, e), device='cuda', dtype=dtype)
     # score = torch.ones((m, e), device='cuda', dtype=dtype)
     triton_output = fused_moe(a, w_ref1.transpose(1, 2), w_ref2.transpose(1, 2), score, topk, renormalize=False)
+    # triton_output = fused_moe(a, w1, w2, score, topk, renormalize=False)
     marlin_output = fused_marlin_moe(m, n, k, e, a, qweight1, qweight2, score, topk,
                                     renormalize=False, w1_scale=scales1, w2_scale=scales2)
 
     # print("marlin out:", marlin_output)
     # print("triton out:", triton_output)
-    print(marlin_output.size())
-    print(triton_output.size())
+    # print(marlin_output.size())
+    # print(triton_output.size())
 
     # print(compute_max_diff(marlin_output, triton_output))
     # assert(True)

@@ -439,7 +439,11 @@ def fused_experts(hidden_states: torch.Tensor,
                             compute_type=compute_type,
                             use_fp8=use_fp8)
 
+    # print("intermediate 1 triton: ", intermediate_cache1)
+
     ops.silu_and_mul(intermediate_cache2, intermediate_cache1.view(-1, N))
+
+    # print("simul triton: ", intermediate_cache2)
 
     invoke_fused_moe_kernel(intermediate_cache2,
                             w2,
@@ -456,6 +460,8 @@ def fused_experts(hidden_states: torch.Tensor,
                             config,
                             compute_type=compute_type,
                             use_fp8=use_fp8)
+
+    # print("inter3 triton:", intermediate_cache3)
 
     if inplace:
         return torch.sum(intermediate_cache3.view(*intermediate_cache3.shape),
@@ -777,7 +783,7 @@ def fused_marlin_moe(
 
     # sorted_token_ids[0:M] = torch.range(0, M - 1) * 2
 
-    print("sorted_token_ids", sorted_token_ids)
+    # print("sorted_token_ids", sorted_token_ids)
 
     max_workspace_size = (N // 64) * 16
     workspace = torch.zeros(max_workspace_size,
@@ -818,7 +824,7 @@ def fused_marlin_moe(
 
     # intermediate_cache2 = intermediate_cache2.view(M, -1, N).sum(dim=1)
 
-    print("intermediate op:", intermediate_cache2.size(), w2.size(), M, N, K, topk)
+    # print("intermediate op:", intermediate_cache2.size(), w2.size(), M, N, K, topk)
 
     intermediate_cache3 = torch.ops._moe_C.marlin_gemm_moe(intermediate_cache2, w2,
         sorted_token_ids, topk_weights, w2_scale, torch.from_numpy(expert_offsets_np), workspace,
@@ -828,7 +834,9 @@ def fused_marlin_moe(
     #                                   device=hidden_states.device,
     #                                   dtype=hidden_states.dtype)
 
+    # torch.set_printoptions(profile="full")
     # print("inter3 marlin:", intermediate_cache3)
+    # torch.set_printoptions(profile="default")
 
     # print("")
     # print("M:", M, ", N:", N, ", K:", K, ", E:", E)

@@ -955,7 +955,7 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
         write_result();
       slice_row = 0;
       slice_col_par++;
-      
+
       slice_col++;
       init_slice();
       if (slice_iters) {
@@ -1141,7 +1141,7 @@ thread_config_t determine_thread_config(int prob_m, int prob_n, int prob_k) {
   __CALL_IF_MOE(4, N_BLOCKS, K_BLOCKS, 8, NUM_THREADS)
 
 void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids, void* topk_weights, void* s,
-                     int* expert_offsets, int prob_m, int prob_n, int prob_k,
+                     void* expert_offsets, int prob_m, int prob_n, int prob_k,
                      void* workspace, int num_groups, int group_size,
                      int num_tokens_post_padded, int num_experts, int topk, int moe_block_size,
                      int dev, cudaStream_t stream, int thread_k, int thread_n, int sms, int max_par,
@@ -1199,13 +1199,15 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
 
   int tot_m = prob_m;
 
+  long* expert_offsets_ptr = (long*)expert_offsets;
+
   // printf("run loop for %d %d %d and topk: %d\n", prob_m, prob_n, prob_k, topk);
 
   for (int expert_idx = 0; expert_idx < num_experts; ++expert_idx) {
     const int4* A_ptr     = (const int4*)A;
     const int4* B_ptr     = (const int4*)B + (prob_n * prob_k / 32) * expert_idx;
     int4*       C_ptr     = (int4*)C;
-    int*        sorted_ids_ptr  = (int*)sorted_ids + expert_offsets[expert_idx];
+    int*        sorted_ids_ptr  = (int*)sorted_ids + expert_offsets_ptr[expert_idx];
     float*      topk_weights_ptr = (float*)topk_weights;
     const int4* s_ptr     = (const int4*)s + (((group_size == -1 || group_size == 0) ? 1 : prob_k / group_size) * prob_n / 8) * expert_idx;
 
@@ -1219,7 +1221,7 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
 
     int* locks = (int*)workspace;
 
-    int tot_its        = expert_offsets[expert_idx + 1] - expert_offsets[expert_idx]; //prob_m;
+    int tot_its        = expert_offsets_ptr[expert_idx + 1] - expert_offsets_ptr[expert_idx]; //prob_m;
     if (tot_its == 0) {
       continue;
     }
@@ -1277,44 +1279,44 @@ torch::Tensor marlin_gemm_moe(torch::Tensor& a, torch::Tensor& b_q_weights, torc
   int dev = a.get_device();
 
   auto          options = torch::TensorOptions().dtype(a.dtype()).device(a.device());
-  torch::Tensor c       = torch::empty({size_m, topk, size_n}, options); 
+  torch::Tensor c       = torch::empty({size_m, topk, size_n}, options);
 
-  // // thread_k: `k` size of a thread_tile in `weights` (can usually be left as auto -1)
-  // int thread_k = -1;
-  // // thread_n: `n` size of a thread_tile in `weights` (can usually be left as auto -1)
-  // int thread_n = -1;
-  // // sms: number of SMs to use for the kernel (can usually be left as auto -1)
-  // int sms = -1;
+  // thread_k: `k` size of a thread_tile in `weights` (can usually be left as auto -1)
+  int thread_k = -1;
+  // thread_n: `n` size of a thread_tile in `weights` (can usually be left as auto -1)
+  int thread_n = -1;
+  // sms: number of SMs to use for the kernel (can usually be left as auto -1)
+  int sms = -1;
 
-  // // Detect groupsize and act_order
-  // int  num_groups    = -1;
-  // int  group_size    = -1;
+  // Detect groupsize and act_order
+  int  num_groups    = -1;
+  int  group_size    = -1;
 
-  // int b_rank = b_scales.sizes().size();
-  // TORCH_CHECK(b_rank == 3, "b_scales rank = ", b_rank, " is not 3");
-  // TORCH_CHECK(b_scales.size(2) == size_n, "b_scales dim 2 = ", b_scales.size(2),
-  //             " is not size_n = ", size_n);
-  // num_groups = b_scales.size(1);
-  // // printf("NUM GROUPS: %d\n", num_groups);
+  int b_rank = b_scales.sizes().size();
+  TORCH_CHECK(b_rank == 3, "b_scales rank = ", b_rank, " is not 3");
+  TORCH_CHECK(b_scales.size(2) == size_n, "b_scales dim 2 = ", b_scales.size(2),
+              " is not size_n = ", size_n);
+  num_groups = b_scales.size(1);
+  // printf("NUM GROUPS: %d\n", num_groups);
 
-  // if (num_groups > 1) {
-  //   TORCH_CHECK(size_k % num_groups == 0, "size_k = ", size_k,
-  //               ", is not divisible by b_scales.size(0) = ", b_scales.size(0));
-  //   group_size = size_k / num_groups;
-  // } else {
-  //   group_size = -1;
-  // }
+  if (num_groups > 1) {
+    TORCH_CHECK(size_k % num_groups == 0, "size_k = ", size_k,
+                ", is not divisible by b_scales.size(0) = ", b_scales.size(0));
+    group_size = size_k / num_groups;
+  } else {
+    group_size = -1;
+  }
 
-  // int* eoff_f = (int*)(expert_offsets.data_ptr());
+  long* eoff_f = (long*)(expert_offsets.data_ptr());
 
-  // printf("offf: %d\n", eoff_f[0]);
+  // printf("offf: %ld %ld %ld\n", eoff_f[0], eoff_f[1], eoff_f[2]);
 
-  // marlin_moe::marlin_mm_moe_f16i4(a.data_ptr(), b_q_weights.data_ptr(), c.data_ptr(),
-  //               sorted_ids.data_ptr(), topk_weights.data_ptr(), b_scales.data_ptr(),
-  //               expert_offsets.data_ptr(), size_m, size_n, size_k,
-  //               workspace.data_ptr(), num_groups, group_size,
-  //               num_tokens_post_padded, num_experts, topk, moe_block_size,
-  //               dev, at::cuda::getCurrentCUDAStream(dev), thread_k, thread_n, sms,
-  //               max_par, replicate_input, apply_weights);
+  marlin_moe::marlin_mm_moe_f16i4(a.data_ptr(), b_q_weights.data_ptr(), c.data_ptr(),
+                sorted_ids.data_ptr(), topk_weights.data_ptr(), b_scales.data_ptr(),
+                expert_offsets.data_ptr(), size_m, size_n, size_k,
+                workspace.data_ptr(), num_groups, group_size,
+                num_tokens_post_padded, num_experts, topk, moe_block_size,
+                dev, at::cuda::getCurrentCUDAStream(dev), thread_k, thread_n, sms,
+                max_par, replicate_input, apply_weights);
   return c;
 }
