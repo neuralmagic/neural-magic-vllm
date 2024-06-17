@@ -141,14 +141,22 @@ jobs:
             #     python: ${{ inputs.python }}
             #     venv:
 
-            - name: install whl inside test env
+            # - name: install whl inside test env
+            #   run: |
+            #     eval "$(pyenv init --path)"
+            #     eval "$(pyenv init -)"
+            #     eval "$(pyenv virtualenv-init -)"
+            #     pyenv local 3.10.12
+            #     pyenv virtualenv NM-VLLM-CALLING || echo "venv already present"
+            #     pyenv activate NM-VLLM-CALLING
+            #     pip3 install --extra-index-url https://pypi.neuralmagic.com/simple nm-vllm-nightly
+
+            - name: set up python cache
               run: |
-                eval "$(pyenv init --path)"
-                eval "$(pyenv init -)"
-                eval "$(pyenv virtualenv-init -)"
-                pyenv local 3.10.12
-                pyenv virtualenv NM-VLLM-CALLING || echo "venv already present"
-                pyenv activate NM-VLLM-CALLING
+                echo "PIP_CACHE_DIR=/python-cache" >> $GITHUB_ENV
+
+            - name: use GHA action python
+              run: |
                 pip3 install --extra-index-url https://pypi.neuralmagic.com/simple nm-vllm-nightly
 
             - name: run buildkite script
