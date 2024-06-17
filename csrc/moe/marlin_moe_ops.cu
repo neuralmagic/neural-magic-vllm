@@ -23,6 +23,8 @@
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 
+#include "marlin_moe_ops.h"
+
 #include <iostream>
 // #include <torch/extension.h>
 
@@ -1277,35 +1279,35 @@ torch::Tensor marlin_gemm_moe(torch::Tensor& a, torch::Tensor& b_q_weights, torc
   auto          options = torch::TensorOptions().dtype(a.dtype()).device(a.device());
   torch::Tensor c       = torch::empty({size_m, topk, size_n}, options); 
 
-  // thread_k: `k` size of a thread_tile in `weights` (can usually be left as auto -1)
-  int thread_k = -1;
-  // thread_n: `n` size of a thread_tile in `weights` (can usually be left as auto -1)
-  int thread_n = -1;
-  // sms: number of SMs to use for the kernel (can usually be left as auto -1)
-  int sms = -1;
+  // // thread_k: `k` size of a thread_tile in `weights` (can usually be left as auto -1)
+  // int thread_k = -1;
+  // // thread_n: `n` size of a thread_tile in `weights` (can usually be left as auto -1)
+  // int thread_n = -1;
+  // // sms: number of SMs to use for the kernel (can usually be left as auto -1)
+  // int sms = -1;
 
-  // Detect groupsize and act_order
-  int  num_groups    = -1;
-  int  group_size    = -1;
+  // // Detect groupsize and act_order
+  // int  num_groups    = -1;
+  // int  group_size    = -1;
 
-  int b_rank = b_scales.sizes().size();
-  TORCH_CHECK(b_rank == 3, "b_scales rank = ", b_rank, " is not 3");
-  TORCH_CHECK(b_scales.size(2) == size_n, "b_scales dim 2 = ", b_scales.size(2),
-              " is not size_n = ", size_n);
-  num_groups = b_scales.size(1);
-  // printf("NUM GROUPS: %d\n", num_groups);
+  // int b_rank = b_scales.sizes().size();
+  // TORCH_CHECK(b_rank == 3, "b_scales rank = ", b_rank, " is not 3");
+  // TORCH_CHECK(b_scales.size(2) == size_n, "b_scales dim 2 = ", b_scales.size(2),
+  //             " is not size_n = ", size_n);
+  // num_groups = b_scales.size(1);
+  // // printf("NUM GROUPS: %d\n", num_groups);
 
-  if (num_groups > 1) {
-    TORCH_CHECK(size_k % num_groups == 0, "size_k = ", size_k,
-                ", is not divisible by b_scales.size(0) = ", b_scales.size(0));
-    group_size = size_k / num_groups;
-  } else {
-    group_size = -1;
-  }
+  // if (num_groups > 1) {
+  //   TORCH_CHECK(size_k % num_groups == 0, "size_k = ", size_k,
+  //               ", is not divisible by b_scales.size(0) = ", b_scales.size(0));
+  //   group_size = size_k / num_groups;
+  // } else {
+  //   group_size = -1;
+  // }
 
-  int* eoff_f = (int*)(expert_offsets.data_ptr());
+  // int* eoff_f = (int*)(expert_offsets.data_ptr());
 
-  printf("offf: %d\n", eoff_f[0]);
+  // printf("offf: %d\n", eoff_f[0]);
 
   // marlin_moe::marlin_mm_moe_f16i4(a.data_ptr(), b_q_weights.data_ptr(), c.data_ptr(),
   //               sorted_ids.data_ptr(), topk_weights.data_ptr(), b_scales.data_ptr(),

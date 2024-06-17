@@ -574,7 +574,7 @@ def single_marlin_moe(
     #     torch.float32, torch.float16, torch.bfloat16
     # ]
 
-    import vllm._moe_C as moe_kernels
+    # import vllm._moe_C as moe_kernels
 
     topk_weights = torch.empty(M,
                                 topk,
@@ -589,7 +589,7 @@ def single_marlin_moe(
                                         dtype=torch.int32,
                                         device=hidden_states.device)
 
-    moe_kernels.topk_softmax(
+    ops.topk_softmax(
         topk_weights,
         topk_ids,
         token_expert_indicies,
@@ -655,7 +655,7 @@ def single_marlin_moe(
     # torch.set_printoptions(profile="default")
 
     # print("K:", K)
-    intermediate_cache = moe_kernels.marlin_gemm_moe(hidden_states, w,
+    intermediate_cache = torch.ops._C.marlin_gemm_moe(hidden_states, w,
         sorted_token_ids, topk_weights, scales, torch.from_numpy(expert_offsets_np), workspace,
         M, N, K, num_tokens_post_padded, E, topk, block_size_m, True, False)
 
@@ -721,7 +721,7 @@ def fused_marlin_moe(
     # M, _ = hidden_states.shape
     # E, N, _ = w1.shape
 
-    import vllm._moe_C as moe_kernels
+    # import vllm._moe_C as moe_kernels
 
     topk_weights = torch.empty(M,
                                 topk,
@@ -735,7 +735,7 @@ def fused_marlin_moe(
                                         topk,
                                         dtype=torch.int32,
                                         device=hidden_states.device)
-    moe_kernels.topk_softmax(
+    ops.topk_softmax(
         topk_weights,
         topk_ids,
         token_expert_indicies,
@@ -806,7 +806,7 @@ def fused_marlin_moe(
     #                                   device=hidden_states.device,
     #                                   dtype=hidden_states.dtype)
 
-    intermediate_cache1 = moe_kernels.marlin_gemm_moe(hidden_states, w1,
+    intermediate_cache1 = torch.ops._C.marlin_gemm_moe(hidden_states, w1,
         sorted_token_ids, topk_ids, w1_scale, torch.from_numpy(expert_offsets_np), workspace,
         M, 2 * N, K, num_tokens_post_padded, E, topk, block_size_m, True, False)
 
@@ -823,7 +823,7 @@ def fused_marlin_moe(
 
     print("intermediate op:", intermediate_cache2.size(), w2.size(), M, N, K, topk)
 
-    intermediate_cache3 = moe_kernels.marlin_gemm_moe(intermediate_cache2, w2,
+    intermediate_cache3 = torch.ops._C.marlin_gemm_moe(intermediate_cache2, w2,
         sorted_token_ids, topk_weights, w2_scale, torch.from_numpy(expert_offsets_np), workspace,
         M, K, N, num_tokens_post_padded, E, topk, block_size_m, False, True)
 

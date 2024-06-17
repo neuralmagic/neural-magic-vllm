@@ -287,6 +287,8 @@ class MixtralMoE(nn.Module):
 
         return final_hidden_states.view(num_tokens, hidden_size)
 
+
+
 class MixtralAttention(nn.Module):
 
     def __init__(

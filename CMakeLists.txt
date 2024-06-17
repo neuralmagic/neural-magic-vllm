@@ -158,7 +158,8 @@ set(VLLM_EXT_SRC
   "csrc/quantization/fp8/common.cu"
   "csrc/cuda_utils_kernels.cu"
   "csrc/moe_align_block_size_kernels.cu"
-  "csrc/torch_bindings.cpp")
+  "csrc/torch_bindings.cpp"
+  )
 
 if(VLLM_GPU_LANG STREQUAL "CUDA")
   include(FetchContent)
@@ -175,7 +176,6 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
     "csrc/quantization/aqlm/gemm_kernels.cu"
     "csrc/quantization/awq/gemm_kernels.cu"
     "csrc/quantization/marlin/dense/marlin_cuda_kernel.cu"
-    "csrc/moe/marlin_moe_ops.cu"
     "csrc/quantization/marlin/sparse/marlin_24_cuda_kernel.cu"
     "csrc/quantization/gptq_marlin/gptq_marlin.cu"
     "csrc/quantization/gptq_marlin/gptq_marlin_repack.cu"
@@ -214,9 +214,10 @@ define_gpu_extension_target(
 #
 
 set(VLLM_MOE_EXT_SRC
+  "csrc/moe/topk_softmax_kernels.cu"
+  "csrc/moe/marlin_moe_ops.cu"
   "csrc/moe/torch_bindings.cpp"
-  "csrc/moe/moe_ops.cpp"
-  "csrc/moe/topk_softmax_kernels.cu")
+  )
 
 define_gpu_extension_target(
   _moe_C

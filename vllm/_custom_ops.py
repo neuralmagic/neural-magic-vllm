@@ -10,8 +10,8 @@ except ImportError as e:
     logger = init_logger(__name__)
     logger.warning("Failed to import from vllm._C with %r", e)
 
-with contextlib.suppress(ImportError):
-    import vllm._moe_C
+# with contextlib.suppress(ImportError):
+from vllm._moe_C import topk_softmax
 
 with contextlib.suppress(ImportError):
     # ruff: noqa: F401
@@ -313,7 +313,7 @@ def moe_align_block_size(topk_ids: torch.Tensor, num_experts: int,
                          block_size: int, sorted_token_ids: torch.Tensor,
                          experts_ids: torch.Tensor,
                          num_tokens_post_pad: torch.Tensor) -> None:
-    torch.ops._C.moe_align_block_size(topk_ids, num_experts, block_size,
+    torch.m._C.moe_align_block_size(topk_ids, num_experts, block_size,
                                       sorted_token_ids, experts_ids,
                                       num_tokens_post_pad)
 

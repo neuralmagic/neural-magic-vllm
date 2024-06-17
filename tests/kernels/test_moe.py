@@ -336,8 +336,6 @@ def marlin_quantize(
 
 """ END MARLIN PREP FUNCTIONS """
 
-import vllm._moe_C as moe_kernels
-
 def stack_and_dev(tensors: List[torch.Tensor]):
     dev = tensors[0].device
     return torch.stack(tensors, dim=0).to(dev)
@@ -347,10 +345,10 @@ def compute_max_diff(output, output_ref):
         torch.abs(output_ref))
 
 # UPSTREAM SYNC: breaks NM automation.
-@pytest.mark.skip("C compiler not installed in NM automation. "
-                  "This codepath follows a triton pathway, which "
-                  "JITs using clang or gcc. Since neither are installed "
-                  "in our test instances, we need to skip this for now.")
+# @pytest.mark.skip("C compiler not installed in NM automation. "
+#                   "This codepath follows a triton pathway, which "
+#                   "JITs using clang or gcc. Since neither are installed "
+#                   "in our test instances, we need to skip this for now.")
 # @pytest.mark.parametrize("m", [64]) #[64, 512, 222, 33, 1])
 # @pytest.mark.parametrize("n", [256]) #[128, 2048, 256, 1024])
 # @pytest.mark.parametrize("k", [128, 1024]) #[128, 1024, 512])
