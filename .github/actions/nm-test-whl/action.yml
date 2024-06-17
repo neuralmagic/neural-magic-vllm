@@ -19,10 +19,10 @@ runs:
   steps:
     - id: test_whl
       run: |
-        eval "$(pyenv init --path)"
-        eval "$(pyenv init -)"
-        eval "$(pyenv virtualenv-init -)"
-        pyenv activate NM-VLLM-CALLING
+        # eval "$(pyenv init --path)"
+        # eval "$(pyenv init -)"
+        # eval "$(pyenv virtualenv-init -)"
+        # pyenv activate NM-VLLM-CALLING
         pip install coverage
         pip install pytest-cov
         pip install pytest-xdist
