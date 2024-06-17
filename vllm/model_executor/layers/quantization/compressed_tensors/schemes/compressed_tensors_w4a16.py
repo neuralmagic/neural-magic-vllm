@@ -10,6 +10,8 @@ from vllm.model_executor.layers.quantization.gptq_marlin import (
     GPTQ_MARLIN_MAX_PARALLEL, GPTQ_MARLIN_MIN_THREAD_N, GPTQMarlinState,
     marlin_permute_scales)
 from vllm.model_executor.utils import set_weight_attrs
+import numpy as np 
+import math
 
 __all__ = ["CompressedTensorsW4A16"]
 
@@ -50,6 +52,7 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
             weight_scale_dim = 1
             scales_and_zp_size = input_size_per_partition // group_size
 
+        """
         weight = Parameter(
             torch.empty(
                 output_size_per_partition,
@@ -66,9 +69,24 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
                 "packed_dim": 1,
                 "pack_factor": pack_factor
             })
-        set_weight_attrs(weight, {"weight_loader": weight_loader})
+        """
+        weight = Parameter(
+            torch.empty(
+                output_size_per_partition, 
+                input_size_per_partition,
+                dtype=torch.int8
+            ),
+            requires_grad=False,
+        )
+        set_weight_attrs(
+            weight, {
+                "input_dim": 1,
+                "output_dim": 0,
+            }
+        )
 
-        layer.register_parameter("weight_packed", weight)
+        set_weight_attrs(weight, {"weight_loader": weight_loader})
+        layer.register_parameter("weight", weight)
 
         weight_scale = Parameter(
             torch.empty(
@@ -122,6 +140,24 @@ class CompressedTensorsW4A16(CompressedTensorsScheme):
 
         if layer.marlin_state == GPTQMarlinState.REPACK:
             layer.marlin_state = GPTQMarlinState.READY
+
+            if self.num_bits == 8:
+                weight_packed = (layer.weight-128).to(torch.uint8)
+                bits = np.unpackbits(weight_packed.cpu().numpy(), axis=-1, bitorder="little") 
+                pack_depth = 32
+                padding = (
+                    math.ceil(bits.shape[1] / pack_depth) * pack_depth - bits.shape[1]
+                )
+
+                padded_bits = np.pad(
+                    bits, pad_width=[(0, 0), (0, padding)], constant_values=0
+                )
+
+                compressed = np.packbits(padded_bits, axis=-1, bitorder="little")
+                compressed = np.ascontiguousarray(compressed).view(np.int32)
+                layer.weight_packed = torch.from_numpy(compressed).cuda()
+
+                print(layer.weight_packed.shape, layer.weight_packed.dtype)
 
             # Newly generated tensors need to replace existing tensors that are
             # already registered as parameters by vLLM (and won't be freed)

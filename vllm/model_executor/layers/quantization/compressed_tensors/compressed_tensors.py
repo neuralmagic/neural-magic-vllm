@@ -110,18 +110,19 @@ class CompressedTensorsConfig(QuantizationConfig):
     def _get_schema(self, weight_quant: BaseModel,
                     input_quant: BaseModel) -> "CompressedTensorsScheme":
 
-        if self._is_w4a16(weight_quant, input_quant):
-            return CompressedTensorsW4A16(num_bits=weight_quant.num_bits,
-                                          strategy=weight_quant.strategy,
-                                          group_size=weight_quant.group_size)
+        #if self._is_w4a16(weight_quant, input_quant):
+        return CompressedTensorsW4A16(num_bits=weight_quant.num_bits,
+                                        strategy=weight_quant.strategy,
+                                        group_size=weight_quant.group_size)
 
+        """
         if self._is_static_tensor_w8a8(weight_quant, input_quant):
             return CompressedTensorsW8A8StaticTensor()
 
         if self._is_dynamic_token_w8a8(weight_quant, input_quant):
             return CompressedTensorsW8A8DynamicToken(
                 strategy=weight_quant.strategy)
-
+        """
         raise NotImplementedError("Scheme not supported.")
 
     def get_scheme(self, layer: torch.nn.Module) -> "CompressedTensorsScheme":
