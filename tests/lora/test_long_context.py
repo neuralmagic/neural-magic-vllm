@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 import vllm
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm import SamplingParams
 from vllm.lora.layers import LinearScalingRotaryEmbeddingWithLora
 from vllm.lora.request import LoRARequest
@@ -12,6 +13,10 @@ from vllm.model_executor.layers.rotary_embedding import (
     LinearScalingRotaryEmbedding)
 
 from .data.long_context_test_data import prompts_and_responses
+
+if should_skip_test_group(group_name="TEST_LORA"):
+    pytest.skip("TEST_LORA=DISABLE, skipping lora test group",
+                allow_module_level=True)
 
 context_len_to_scaling_factor = {
     "16k": 4,
@@ -86,40 +91,37 @@ def generate(
 
 
 def batched_generate(
-    llm,
+    llm: vllm.LLM,
     inputs: List[Tuple[str, SamplingParams, Optional[LoRARequest]]],
 ):
     for input in inputs:
         prompt, sampling_param, lora_req = input
-        requests_data = llm._validate_and_prepare_requests(
+        # Add requests to the engine and run the engine
+        llm._validate_and_add_requests(
             prompt,
             sampling_param,
             lora_request=lora_req,
         )
 
-        # Add requests to the engine and run the engine
-        for request_data in requests_data:
-            llm._add_request(**request_data)
     outputs = llm._run_engine(use_tqdm=True)
     return [outputs[i].outputs[0].text.strip() for i in range(len(outputs))]
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def lora_llm(long_context_infos):
     scaling_factors = [
         context_len_to_scaling_factor[info["context_length"]]
         for info in long_context_infos.values()
     ]
 
-    llm = vllm.LLM(
-        "meta-llama/Llama-2-13b-chat-hf",
-        enable_lora=True,
-        max_num_seqs=16,
-        max_loras=2,
-        long_lora_scaling_factors=tuple(scaling_factors),
-        max_num_batched_tokens=4096 * 8,
-        tensor_parallel_size=4,
-    )
+    llm = vllm.LLM("meta-llama/Llama-2-13b-chat-hf",
+                   enable_lora=True,
+                   max_num_seqs=16,
+                   max_loras=2,
+                   long_lora_scaling_factors=tuple(scaling_factors),
+                   max_num_batched_tokens=4096 * 8,
+                   tensor_parallel_size=4,
+                   distributed_executor_backend="mp")
     yield llm
     del llm
 
@@ -156,6 +158,7 @@ def test_rotary_emb_replaced(dist_init):
     assert rotary_emb_count == 32
 
 
+@pytest.mark.skip_global_cleanup
 @pytest.mark.skip(reason="Too many GPUs for NM Automation")
 def test_batched_rope_kernel(lora_llm, long_context_infos):
     """We test the batched kernel by comparing the results of batched an
@@ -191,6 +194,7 @@ def test_batched_rope_kernel(lora_llm, long_context_infos):
             f"same:\n{batched}\n{non_batched}")
 
 
+@pytest.mark.skip_global_cleanup
 @pytest.mark.skip(reason="Too many GPUs for NM Automation")
 def test_self_consistency(lora_llm, long_context_infos):
     """We test consistency of the batched kernel by permuting batched
@@ -231,6 +235,7 @@ def test_self_consistency(lora_llm, long_context_infos):
                 f"\n{permutated_batched_results[permutation[i]]}")
 
 
+@pytest.mark.skip_global_cleanup
 @pytest.mark.skip(reason="Too many GPUs for NM Automation")
 def test_quality(lora_llm, long_context_infos):
     """We test the quality of the answers given by the LoRA model by
@@ -262,6 +267,7 @@ def test_quality(lora_llm, long_context_infos):
     assert np.mean(scores) > 0.5
 
 
+@pytest.mark.skip_global_cleanup
 @pytest.mark.skip(reason="Too many GPUs for NM Automation")
 def test_max_len(lora_llm, long_context_infos):
     """Test that we raise an ValueError when the input of a given LoRA

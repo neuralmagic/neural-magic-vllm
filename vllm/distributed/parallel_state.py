@@ -3,6 +3,8 @@
 # https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/core/parallel_state.py
 # Copyright (c) 2022, NVIDIA CORPORATION. All rights reserved.
 """Tensor and pipeline parallel groups."""
+import contextlib
+from multiprocessing import resource_tracker, shared_memory
 from typing import List, Optional
 
 import torch
@@ -22,6 +24,8 @@ _TP_PYNCCL_COMMUNICATOR = None
 _TP_CA_COMMUNICATOR = None
 # Pipeline model parallel group that the current rank belongs to.
 _PP_DEVICE_GROUP: Optional[ProcessGroup] = None
+_PP_CPU_GROUP: Optional[ProcessGroup] = None
+_PP_PYNCCL_COMMUNICATOR = None
 
 # when people blindly call `torch.distributed.all_reduce` etc,
 # it will use this group. It is initialized with the `backend`
@@ -53,6 +57,11 @@ _LOCAL_RANK = -1
 def set_custom_all_reduce(enable: bool):
     global _ENABLE_CUSTOM_ALL_REDUCE
     _ENABLE_CUSTOM_ALL_REDUCE = enable
+
+
+def get_pp_pynccl_communicator():
+    global _PP_PYNCCL_COMMUNICATOR
+    return _PP_PYNCCL_COMMUNICATOR
 
 
 def get_tp_pynccl_communicator():
@@ -180,10 +189,11 @@ def initialize_model_parallel(
             _TP_CPU_GROUP = cpu_group
 
     from vllm.distributed.device_communicators.pynccl import PyNcclCommunicator
-    _TP_PYNCCL_COMMUNICATOR = PyNcclCommunicator(
-        group=_TP_CPU_GROUP,
-        device=_LOCAL_RANK,
-    )
+    if tensor_model_parallel_size > 1:
+        _TP_PYNCCL_COMMUNICATOR = PyNcclCommunicator(
+            group=_TP_CPU_GROUP,
+            device=_LOCAL_RANK,
+        )
 
     # Initialize a custom fast all-reduce implementation.
     if _ENABLE_CUSTOM_ALL_REDUCE:
@@ -195,16 +205,25 @@ def initialize_model_parallel(
         )
 
     # Build the pipeline model-parallel groups.
-    global _PP_DEVICE_GROUP
+    global _PP_DEVICE_GROUP, _PP_CPU_GROUP
+    global _PP_PYNCCL_COMMUNICATOR
     global _PP_GLOBAL_RANKS
     assert _PP_DEVICE_GROUP is None, (
         "pipeline model parallel group is already initialized")
     for i in range(num_pipeline_model_parallel_groups):
         ranks = list(range(i, world_size, num_pipeline_model_parallel_groups))
         group = torch.distributed.new_group(ranks, backend=backend)
+        cpu_group = torch.distributed.new_group(ranks, backend="gloo")
         if rank in ranks:
             _PP_DEVICE_GROUP = group
+            _PP_CPU_GROUP = cpu_group
             _PP_GLOBAL_RANKS = ranks
+
+    if pipeline_model_parallel_size > 1:
+        _PP_PYNCCL_COMMUNICATOR = PyNcclCommunicator(
+            group=_PP_CPU_GROUP,
+            device=_LOCAL_RANK,
+        )
 
 
 def ensure_model_parallel_initialized(
@@ -265,6 +284,13 @@ def get_pipeline_model_parallel_group():
     assert _PP_DEVICE_GROUP is not None, (
         "pipeline model parallel group is not initialized")
     return _PP_DEVICE_GROUP
+
+
+def get_pipeline_model_parallel_cpu_group():
+    """Get the pipeline model parallel cpu group the caller rank belongs to."""
+    assert _PP_CPU_GROUP is not None, (
+        "pipeline model parallel cpu group is not initialized")
+    return _PP_CPU_GROUP
 
 
 def get_tensor_model_parallel_world_size():
@@ -352,3 +378,68 @@ def destroy_model_parallel():
     _PP_DEVICE_GROUP = None
     global _PP_GLOBAL_RANKS
     _PP_GLOBAL_RANKS = None
+
+
+def is_in_the_same_node(pg: ProcessGroup):
+    """
+    This is a collective operation that checks if all processes in the group
+    are in the same node. It tests if all processes are attached to the same
+    memory system (shared access to shared memory).
+    """
+    assert torch.distributed.get_backend(
+        pg) != torch.distributed.Backend.NCCL, (
+            "is_in_the_same_node should be tested with a non-NCCL group.")
+    # local rank inside the group
+    rank = torch.distributed.get_rank(group=pg)
+    world_size = torch.distributed.get_world_size(group=pg)
+
+    # local tensor in each process to store the result
+    is_in_the_same_node = torch.tensor([0] * world_size, dtype=torch.int32)
+
+    # global ranks of the processes in the group
+    ranks = torch.distributed.get_process_group_ranks(pg)
+
+    magic_message = b"magic_message"
+    shm = None
+
+    try:
+        with contextlib.suppress(OSError):
+            if rank == 0:
+                # create a shared memory segment
+                shm = shared_memory.SharedMemory(create=True, size=128)
+                shm.buf[:len(magic_message)] = magic_message
+                torch.distributed.broadcast_object_list([shm.name],
+                                                        src=ranks[0],
+                                                        group=pg)
+                is_in_the_same_node[0] = 1
+            else:
+                # try to open the shared memory segment
+                recv = [None]
+                torch.distributed.broadcast_object_list(recv,
+                                                        src=ranks[0],
+                                                        group=pg)
+                name = recv[0]
+                shm = shared_memory.SharedMemory(name=name)
+                if shm.buf[:len(magic_message)] == magic_message:
+                    is_in_the_same_node[rank] = 1
+    except Exception as e:
+        logger.error("Error ignored in is_in_the_same_node: %s", e)
+    finally:
+        if shm:
+            shm.close()
+
+    torch.distributed.barrier(group=pg)
+
+    # clean up the shared memory segment
+    with contextlib.suppress(OSError):
+        if rank == 0:
+            if shm:
+                shm.unlink()
+        else:
+            if shm:
+                # fix to https://stackoverflow.com/q/62748654/9191338
+                resource_tracker.unregister(
+                    shm._name, "shared_memory")  # type: ignore[attr-defined]
+    torch.distributed.all_reduce(is_in_the_same_node, group=pg)
+
+    return is_in_the_same_node.sum().item() == world_size

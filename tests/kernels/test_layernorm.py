@@ -1,7 +1,12 @@
 import pytest
 import torch
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.model_executor.layers.layernorm import RMSNorm
+
+if should_skip_test_group(group_name="TEST_KERNELS"):
+    pytest.skip("TEST_KERNELS=DISABLE, skipping kernels test group",
+                allow_module_level=True)
 
 DTYPES = [torch.half, torch.bfloat16, torch.float]
 NUM_TOKENS = [7, 83, 4096]  # Arbitrary values for testing
@@ -42,7 +47,7 @@ def test_rms_norm(
 
     # NOTE(woosuk): The reference implementation should be executed first
     # because the custom kernel is in-place.
-    ref_out = layer._forward(x, residual)
+    ref_out = layer.forward_native(x, residual)
     out = layer(x, residual)
     # NOTE(woosuk): LayerNorm operators (including RMS) typically have larger
     # numerical errors than other operators because they involve reductions.

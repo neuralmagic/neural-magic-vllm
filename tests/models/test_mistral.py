@@ -4,10 +4,17 @@ Run `pytest tests/models/test_mistral.py`.
 """
 import pytest
 
+from tests.nm_utils.utils_skip import should_skip_test_group
+
 from .utils import check_logprobs_close
+
+if should_skip_test_group(group_name="TEST_MODELS"):
+    pytest.skip("TEST_MODELS=DISABLE, skipping model test group",
+                allow_module_level=True)
 
 MODELS = [
     "mistralai/Mistral-7B-Instruct-v0.1",
+    "mistralai/Mistral-7B-Instruct-v0.3",
 ]
 
 
@@ -27,16 +34,13 @@ def test_models(
     num_logprobs: int,
 ) -> None:
     # TODO(sang): Sliding window should be tested separately.
-    hf_model = hf_runner(model, dtype=dtype)
-    hf_outputs = hf_model.generate_greedy_logprobs_limit(
-        example_prompts, max_tokens, num_logprobs)
-    del hf_model
+    with hf_runner(model, dtype=dtype) as hf_model:
+        hf_outputs = hf_model.generate_greedy_logprobs_limit(
+            example_prompts, max_tokens, num_logprobs)
 
-    vllm_model = vllm_runner(model, dtype=dtype)
-    vllm_outputs = vllm_model.generate_greedy_logprobs(example_prompts,
-                                                       max_tokens,
-                                                       num_logprobs)
-    del vllm_model
+    with vllm_runner(model, dtype=dtype) as vllm_model:
+        vllm_outputs = vllm_model.generate_greedy_logprobs(
+            example_prompts, max_tokens, num_logprobs)
     check_logprobs_close(
         outputs_0_lst=hf_outputs,
         outputs_1_lst=vllm_outputs,

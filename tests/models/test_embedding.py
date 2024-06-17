@@ -6,6 +6,12 @@ import pytest
 import torch
 import torch.nn.functional as F
 
+from tests.nm_utils.utils_skip import should_skip_test_group
+
+if should_skip_test_group(group_name="TEST_MODELS"):
+    pytest.skip("TEST_MODELS=DISABLE, skipping model test group",
+                allow_module_level=True)
+
 MODELS = [
     "intfloat/e5-mistral-7b-instruct",
 ]
@@ -28,13 +34,11 @@ def test_models(
     model: str,
     dtype: str,
 ) -> None:
-    hf_model = hf_runner(model, dtype=dtype)
-    hf_outputs = hf_model.encode(example_prompts)
-    del hf_model
+    with hf_runner(model, dtype=dtype, is_embedding_model=True) as hf_model:
+        hf_outputs = hf_model.encode(example_prompts)
 
-    vllm_model = vllm_runner(model, dtype=dtype)
-    vllm_outputs = vllm_model.encode(example_prompts)
-    del vllm_model
+    with vllm_runner(model, dtype=dtype) as vllm_model:
+        vllm_outputs = vllm_model.encode(example_prompts)
 
     similarities = compare_embeddings(hf_outputs, vllm_outputs)
     all_similarities = torch.stack(similarities)

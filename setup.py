@@ -1,7 +1,3 @@
-# flake8: noqa
-# UPSTREAM SYNC: noqa is required for passing ruff.
-# This file has been modified by Neural Magic
-
 import datetime
 import importlib.util
 import io
@@ -65,7 +61,7 @@ def remove_prefix(text, prefix):
 class CMakeExtension(Extension):
 
     def __init__(self, name: str, cmake_lists_dir: str = '.', **kwa) -> None:
-        super().__init__(name, sources=[], **kwa)
+        super().__init__(name, sources=[], py_limited_api=True, **kwa)
         self.cmake_lists_dir = os.path.abspath(cmake_lists_dir)
 
 
@@ -98,7 +94,6 @@ class cmake_build_ext(build_ext):
             # when it is set, we reduce `num_jobs` to avoid
             # overloading the system.
             nvcc_threads = envs.NVCC_THREADS
-            print(f"NVCC THREADS {nvcc_threads}")
             if nvcc_threads is not None:
                 nvcc_threads = int(nvcc_threads)
                 logger.info(
@@ -193,19 +188,22 @@ class cmake_build_ext(build_ext):
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
 
+        targets = []
         # Build all the extensions
         for ext in self.extensions:
             self.configure(ext)
+            targets.append(remove_prefix(ext.name, "vllm."))
 
-            ext_target_name = remove_prefix(ext.name, "vllm.")
-            num_jobs, _ = self.compute_num_jobs()
+        num_jobs, _ = self.compute_num_jobs()
 
-            build_args = [
-                '--build', '.', '--target', ext_target_name, '-j',
-                str(num_jobs)
-            ]
+        build_args = [
+            "--build",
+            ".",
+            f"-j={num_jobs}",
+            *[f"--target={name}" for name in targets],
+        ]
 
-            subprocess.check_call(['cmake', *build_args], cwd=self.build_temp)
+        subprocess.check_call(["cmake", *build_args], cwd=self.build_temp)
 
 
 def _is_cuda() -> bool:
@@ -225,7 +223,7 @@ def _is_neuron() -> bool:
         subprocess.run(["neuron-ls"], capture_output=True, check=True)
     except (FileNotFoundError, PermissionError, subprocess.CalledProcessError):
         torch_neuronx_installed = False
-    return torch_neuronx_installed or envs.VLLM_BUILD_WITH_NEURON
+    return torch_neuronx_installed or VLLM_TARGET_DEVICE == "neuron"
 
 
 def _is_cpu() -> bool:
@@ -383,11 +381,8 @@ def get_requirements() -> List[str]:
         cuda_major, cuda_minor = torch.version.cuda.split(".")
         modified_requirements = []
         for req in requirements:
-            if "vllm-nccl-cu12" in req:
-                req = req.replace("vllm-nccl-cu12",
-                                  f"vllm-nccl-cu{cuda_major}")
-            elif ("vllm-flash-attn" in req
-                  and not (cuda_major == "12" and cuda_minor == "1")):
+            if ("vllm-flash-attn" in req
+                    and not (cuda_major == "12" and cuda_minor == "1")):
                 # vllm-flash-attn is built only for CUDA 12.1.
                 # Skip for other versions.
                 continue
@@ -407,7 +402,7 @@ def get_requirements() -> List[str]:
 
 ext_modules = []
 
-if _is_cuda():
+if _is_cuda() or _is_hip():
     ext_modules.append(CMakeExtension(name="vllm._moe_C"))
 
 if not _is_neuron():
@@ -420,7 +415,8 @@ if not _is_neuron():
 _sparsity_deps = ["nm-magic-wand-nightly"]
 nm_release_type = os.getenv(NM_RELEASE_TYPE)
 if nm_release_type == 'RELEASE':
-    # gate magic-wand version in nm-vllm for release; for nightly, we always install the latest
+    # Gate magic-wand version in nm-vllm for release;
+    # For nightly, we always install the latest
     magic_wand_version_dep = "0.2.2"
     _sparsity_deps = [f"nm-magic-wand~={magic_wand_version_dep}"]
 

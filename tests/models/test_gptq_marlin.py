@@ -14,17 +14,25 @@ import pytest
 import torch
 
 from tests.models.utils import check_logprobs_close
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
 from vllm.model_executor.layers.rotary_embedding import _ROPE_DICT
+
+if should_skip_test_group(group_name="TEST_MODELS"):
+    pytest.skip("TEST_MODELS=DISABLE, skipping model test group",
+                allow_module_level=True)
 
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 
 MAX_MODEL_LEN = 1024
 
-capability = torch.cuda.get_device_capability()
-capability = capability[0] * 10 + capability[1]
-gptq_marlin_not_supported = (
-    capability < QUANTIZATION_METHODS["gptq_marlin"].get_min_capability())
+gptq_marlin_not_supported = True
+
+if torch.cuda.is_available():
+    capability = torch.cuda.get_device_capability()
+    capability = capability[0] * 10 + capability[1]
+    gptq_marlin_not_supported = (
+        capability < QUANTIZATION_METHODS["gptq_marlin"].get_min_capability())
 
 MODELS = [
     # act_order==False, group_size=channelwise
@@ -66,32 +74,29 @@ def test_models(
     model_name, revision = model
 
     # Run marlin.
-    gptq_marlin_model = vllm_runner(model_name=model_name,
-                                    revision=revision,
-                                    dtype=dtype,
-                                    quantization="marlin",
-                                    max_model_len=MAX_MODEL_LEN,
-                                    tensor_parallel_size=1)
+    with vllm_runner(model_name=model_name,
+                     revision=revision,
+                     dtype=dtype,
+                     quantization="marlin",
+                     max_model_len=MAX_MODEL_LEN,
+                     tensor_parallel_size=1) as gptq_marlin_model:
 
-    gptq_marlin_outputs = gptq_marlin_model.generate_greedy_logprobs(
-        example_prompts[:-1], max_tokens, num_logprobs)
-    del gptq_marlin_model
+        gptq_marlin_outputs = gptq_marlin_model.generate_greedy_logprobs(
+            example_prompts[:-1], max_tokens, num_logprobs)
     _ROPE_DICT.clear()  # clear rope cache to avoid rope dtype error
 
     # Run gptq.
     # The naive gptq kernel doesn't support bf16 yet.
     # Here we always compare fp16/bf16 gpt marlin kernel
     # to fp16 gptq kernel.
-    gptq_model = vllm_runner(model_name=model_name,
-                             revision=revision,
-                             dtype="half",
-                             quantization="gptq",
-                             max_model_len=MAX_MODEL_LEN,
-                             tensor_parallel_size=1)
-    gptq_outputs = gptq_model.generate_greedy_logprobs(example_prompts[:-1],
-                                                       max_tokens,
-                                                       num_logprobs)
-    del gptq_model
+    with vllm_runner(model_name=model_name,
+                     revision=revision,
+                     dtype="half",
+                     quantization="gptq",
+                     max_model_len=MAX_MODEL_LEN,
+                     tensor_parallel_size=1) as gptq_model:
+        gptq_outputs = gptq_model.generate_greedy_logprobs(
+            example_prompts[:-1], max_tokens, num_logprobs)
 
     check_logprobs_close(
         outputs_0_lst=gptq_outputs,

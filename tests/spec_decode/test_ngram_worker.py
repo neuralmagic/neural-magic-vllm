@@ -1,10 +1,16 @@
+import pytest
 import torch
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.sequence import ExecuteModelRequest
 from vllm.spec_decode.ngram_worker import NGramWorker
 from vllm.spec_decode.top1_proposer import Top1Proposer
 
 from .utils import create_seq_group_metadata_from_prompts, create_worker
+
+if should_skip_test_group(group_name="TEST_SPEC_DECODE"):
+    pytest.skip("TEST_SPEC_DECODE=DISABLE, skipping spec decode group",
+                allow_module_level=True)
 
 
 def test_ngram_algo_correctness_for_single_no_match():
@@ -50,9 +56,10 @@ def test_ngram_algo_correctness_for_single_no_match():
         block_size,
         final_prompt_lens=final_prompt_lens)
 
-    proposals = proposer.get_proposals(execute_model_req=ExecuteModelRequest(
-        seq_group_metadata_list=seq_group_metadata_list,
-        num_lookahead_slots=proposal_len), )
+    proposals = proposer.get_spec_proposals(
+        execute_model_req=ExecuteModelRequest(
+            seq_group_metadata_list=seq_group_metadata_list,
+            num_lookahead_slots=proposal_len), )
 
     assert torch.is_tensor(proposals.proposal_token_ids)
     assert torch.is_tensor(proposals.proposal_probs)
@@ -117,9 +124,10 @@ def test_ngram_algo_correctness_for_batches_not_match_all():
         block_size,
         final_prompt_lens=final_prompt_lens)
 
-    proposals = proposer.get_proposals(execute_model_req=ExecuteModelRequest(
-        seq_group_metadata_list=seq_group_metadata_list,
-        num_lookahead_slots=proposal_len), )
+    proposals = proposer.get_spec_proposals(
+        execute_model_req=ExecuteModelRequest(
+            seq_group_metadata_list=seq_group_metadata_list,
+            num_lookahead_slots=proposal_len), )
 
     assert torch.is_tensor(proposals.proposal_token_ids)
     assert torch.is_tensor(proposals.proposal_probs)
@@ -188,9 +196,10 @@ def test_ngram_algo_correctness_for_batches_match_all():
         block_size,
         final_prompt_lens=final_prompt_lens)
 
-    proposals = proposer.get_proposals(execute_model_req=ExecuteModelRequest(
-        seq_group_metadata_list=seq_group_metadata_list,
-        num_lookahead_slots=proposal_len), )
+    proposals = proposer.get_spec_proposals(
+        execute_model_req=ExecuteModelRequest(
+            seq_group_metadata_list=seq_group_metadata_list,
+            num_lookahead_slots=proposal_len), )
 
     assert torch.is_tensor(proposals.proposal_token_ids)
     assert torch.is_tensor(proposals.proposal_probs)

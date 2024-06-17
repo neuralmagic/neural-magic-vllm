@@ -5,6 +5,7 @@ tomli==2.0.1
 ruff==0.1.5
 codespell==2.2.6
 isort==5.13.2
+clang-format==18.1.5
 
 # type checking
 mypy==1.9.0
@@ -30,9 +31,11 @@ peft
 requests==2.31
 ray
 sentence-transformers # required for embedding
+optimum     # required for hf gptq baselines
+auto-gptq   # required for hf gptq baselines
 
 # Benchmarking
 aiohttp
 
-# Multimodal
-pillow
+# quantization
+bitsandbytes==0.42.0

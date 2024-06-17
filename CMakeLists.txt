@@ -8,7 +8,6 @@ message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "Target device: ${VLLM_TARGET_DEVICE}")
 
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/utils.cmake)
-include(${CMAKE_CURRENT_LIST_DIR}/cmake/dep.cmake)
 
 #
 # Supported python versions.  These versions will be searched in order, the
@@ -66,19 +65,6 @@ endif()
 # etc.
 #
 find_package(Torch REQUIRED)
-
-#
-# Normally `torch.utils.cpp_extension.CUDAExtension` would add
-# `libtorch_python.so` for linking against an extension. Torch's cmake
-# configuration does not include this library (presumably since the cmake
-# config is used for standalone C++ binaries that link against torch).
-# The `libtorch_python.so` library defines some of the glue code between
-# torch/python via pybind and is required by VLLM extensions for this
-# reason. So, add it by manually with `find_library` using torch's
-# installed library path.
-#
-find_library(torch_python_LIBRARY torch_python PATHS
-  "${TORCH_INSTALL_PREFIX}/lib")
 
 #
 # Forward the non-CUDA device extensions to external CMake scripts.
@@ -168,16 +154,17 @@ set(VLLM_EXT_SRC
   "csrc/layernorm_kernels.cu"
   "csrc/quantization/squeezellm/quant_cuda_kernel.cu"
   "csrc/quantization/gptq/q_gemm.cu"
+  "csrc/quantization/compressed_tensors/int8_quant_kernels.cu"
   "csrc/quantization/fp8/common.cu"
   "csrc/cuda_utils_kernels.cu"
   "csrc/moe_align_block_size_kernels.cu"
-  "csrc/pybind.cpp")
+  "csrc/torch_bindings.cpp")
 
 if(VLLM_GPU_LANG STREQUAL "CUDA")
   include(FetchContent)
   SET(CUTLASS_ENABLE_HEADERS_ONLY=ON)
   FetchContent_Declare(
-        cutlass 
+        cutlass
         GIT_REPOSITORY https://github.com/nvidia/cutlass.git
         # CUTLASS 3.5.0
         GIT_TAG 7d49e6c7e2f8896c47f586706e67e1fb215529dc
@@ -200,11 +187,13 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
   # The CUTLASS kernels for Hopper require sm90a to be enabled.
   # This is done via the below gencode option, BUT that creates kernels for both sm90 and sm90a.
   # That adds an extra 17MB to compiled binary, so instead we selectively enable it.
-  set_source_files_properties(
-      "csrc/quantization/cutlass_w8a8/scaled_mm_dq_c3x.cu"
-      PROPERTIES
-      COMPILE_FLAGS
-      "-gencode arch=compute_90a,code=sm_90a")
+  if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER 12.0)
+    set_source_files_properties(
+          "csrc/quantization/cutlass_w8a8/scaled_mm_dq_c3x.cu"
+          PROPERTIES
+          COMPILE_FLAGS
+          "-gencode arch=compute_90a,code=sm_90a")
+  endif()
 
 endif()
 
@@ -216,6 +205,7 @@ define_gpu_extension_target(
   COMPILE_FLAGS ${VLLM_GPU_FLAGS}
   ARCHITECTURES ${VLLM_GPU_ARCHES}
   INCLUDE_DIRECTORIES ${CUTLASS_INCLUDE_DIR};${CUTLASS_TOOLS_UTIL_INCLUDE_DIR}
+  USE_SABI 3
   WITH_SOABI
   LIBRARIES cmake_git_version_tracking)
 
@@ -224,7 +214,7 @@ define_gpu_extension_target(
 #
 
 set(VLLM_MOE_EXT_SRC
-  "csrc/moe/moe_ops.cpp"
+  "csrc/moe/torch_bindings.cpp"
   "csrc/moe/topk_softmax_kernels.cu")
 
 define_gpu_extension_target(
@@ -234,6 +224,7 @@ define_gpu_extension_target(
   SOURCES ${VLLM_MOE_EXT_SRC}
   COMPILE_FLAGS ${VLLM_GPU_FLAGS}
   ARCHITECTURES ${VLLM_GPU_ARCHES}
+  USE_SABI 3
   WITH_SOABI
   LIBRARIES cmake_git_version_tracking)
 
@@ -249,7 +240,7 @@ set(VLLM_PUNICA_EXT_SRC
   "csrc/punica/bgmv/bgmv_fp32_bf16_bf16.cu"
   "csrc/punica/bgmv/bgmv_fp32_fp16_fp16.cu"
   "csrc/punica/punica_ops.cu"
-  "csrc/punica/punica_pybind.cpp")
+  "csrc/punica/torch_bindings.cpp")
 
 #
 # Copy GPU compilation flags+update for punica
@@ -286,6 +277,7 @@ if (VLLM_PUNICA_GPU_ARCHES)
     SOURCES ${VLLM_PUNICA_EXT_SRC}
     COMPILE_FLAGS ${VLLM_PUNICA_GPU_FLAGS}
     ARCHITECTURES ${VLLM_PUNICA_GPU_ARCHES}
+    USE_SABI 3
     WITH_SOABI
     LIBRARIES cmake_git_version_tracking)
 else()
@@ -312,6 +304,9 @@ if(VLLM_GPU_LANG STREQUAL "CUDA" OR VLLM_GPU_LANG STREQUAL "HIP")
   message(STATUS "Enabling C extension.")
   add_dependencies(default _C)
 
+  message(STATUS "Enabling moe extension.")
+  add_dependencies(default _moe_C)
+
   # Enable punica if -DVLLM_INSTALL_PUNICA_KERNELS=ON or
   # VLLM_INSTALL_PUNICA_KERNELS is set in the environment and
   # there are supported target arches.
@@ -320,9 +315,4 @@ if(VLLM_GPU_LANG STREQUAL "CUDA" OR VLLM_GPU_LANG STREQUAL "HIP")
     message(STATUS "Enabling punica extension.")
     add_dependencies(default _punica_C)
   endif()
-endif()
-
-if(VLLM_GPU_LANG STREQUAL "CUDA")
-  message(STATUS "Enabling moe extension.")
-  add_dependencies(default _moe_C)
 endif()

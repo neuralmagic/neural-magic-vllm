@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 import torch
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.model_executor.utils import set_random_seed
 from vllm.sequence import ExecuteModelRequest, SamplerOutput
 from vllm.spec_decode.multi_step_worker import MultiStepWorker
@@ -13,6 +14,10 @@ from vllm.worker.worker import Worker
 from .utils import (assert_logprobs_dict_allclose, create_batch,
                     create_seq_group_metadata_from_prompts, create_worker,
                     patch_execute_model_with_seeds, zero_kv_cache)
+
+if should_skip_test_group(group_name="TEST_SPEC_DECODE"):
+    pytest.skip("TEST_SPEC_DECODE=DISABLE, skipping spec decode group",
+                allow_module_level=True)
 
 
 @pytest.mark.parametrize('num_steps', list(range(1, 17)))
@@ -307,9 +312,10 @@ def test_draft_proposals_full_speculation_len():
 
     seq_group_metadata_list, _, _ = create_batch(batch_size, k)
 
-    proposals = proposer.get_proposals(execute_model_req=ExecuteModelRequest(
-        seq_group_metadata_list=seq_group_metadata_list,
-        num_lookahead_slots=k), )
+    proposals = proposer.get_spec_proposals(
+        execute_model_req=ExecuteModelRequest(
+            seq_group_metadata_list=seq_group_metadata_list,
+            num_lookahead_slots=k), )
 
     assert torch.is_tensor(proposals.proposal_token_ids)
     assert torch.is_tensor(proposals.proposal_probs)
@@ -344,9 +350,10 @@ def test_draft_proposals_no_speculations():
                                                  k,
                                                  prompt_len=prompt_len)
 
-    proposals = proposer.get_proposals(execute_model_req=ExecuteModelRequest(
-        seq_group_metadata_list=seq_group_metadata_list,
-        num_lookahead_slots=k), )
+    proposals = proposer.get_spec_proposals(
+        execute_model_req=ExecuteModelRequest(
+            seq_group_metadata_list=seq_group_metadata_list,
+            num_lookahead_slots=k), )
 
     assert torch.is_tensor(proposals.proposal_token_ids)
     assert torch.is_tensor(proposals.proposal_probs)
@@ -415,9 +422,10 @@ def test_draft_proposals_mixed_k():
         prev_output_token_len=prev_output_token_len,
     )
 
-    proposals = proposer.get_proposals(execute_model_req=ExecuteModelRequest(
-        seq_group_metadata_list=seq_group_metadata_list,
-        num_lookahead_slots=k), )
+    proposals = proposer.get_spec_proposals(
+        execute_model_req=ExecuteModelRequest(
+            seq_group_metadata_list=seq_group_metadata_list,
+            num_lookahead_slots=k), )
 
     assert torch.is_tensor(proposals.proposal_token_ids)
     assert torch.is_tensor(proposals.proposal_probs)

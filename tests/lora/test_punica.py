@@ -4,6 +4,11 @@ import pytest
 import torch
 
 import vllm.lora.punica as punica
+from tests.nm_utils.utils_skip import should_skip_test_group
+
+if should_skip_test_group(group_name="TEST_LORA"):
+    pytest.skip("TEST_LORA=DISABLE, skipping lora test group",
+                allow_module_level=True)
 
 
 def assert_close(a, b):
@@ -58,6 +63,7 @@ H1 = H2 = [
     2560,
     2752,
     3072,
+    3328,
     3456,
     3584,
     4096,
@@ -66,6 +72,7 @@ H1 = H2 = [
     5504,
     5632,
     6144,
+    6400,
     6848,
     6912,
     7168,

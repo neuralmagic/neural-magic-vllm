@@ -3,7 +3,12 @@ from dataclasses import dataclass
 
 import pytest
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.engine.async_llm_engine import AsyncLLMEngine
+
+if should_skip_test_group(group_name="TEST_ASYNC_ENGINE"):
+    pytest.skip("TEST_ASYNC_ENGINE=DISABLE, skipping async engine test group",
+                allow_module_level=True)
 
 
 @dataclass
@@ -25,7 +30,7 @@ class MockEngine:
         return [RequestOutput(
             request_id=self.request_id)] if self.request_id else []
 
-    async def encode_request_async(self, *args, **kwargs):
+    async def process_model_inputs_async(self, *args, **kwargs):
         pass
 
     def generate(self, request_id):

@@ -6,12 +6,20 @@ Run `pytest tests/models/test_aqlm.py`.
 import pytest
 import torch
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
 
-capability = torch.cuda.get_device_capability()
-capability = capability[0] * 10 + capability[1]
-aqlm_not_supported = (capability <
-                      QUANTIZATION_METHODS["aqlm"].get_min_capability())
+if should_skip_test_group(group_name="TEST_MODELS"):
+    pytest.skip("TEST_MODELS=DISABLE, skipping model test group",
+                allow_module_level=True)
+
+aqlm_not_supported = True
+
+if torch.cuda.is_available():
+    capability = torch.cuda.get_device_capability()
+    capability = capability[0] * 10 + capability[1]
+    aqlm_not_supported = (capability <
+                          QUANTIZATION_METHODS["aqlm"].get_min_capability())
 
 # In this test we hardcode prompts and generations for the model so we don't
 # need to require the AQLM package as a dependency
@@ -79,10 +87,9 @@ def test_models(
     num_logprobs: int,
 ) -> None:
 
-    vllm_model = vllm_runner(model, dtype=dtype)
-    vllm_outputs = vllm_model.generate_greedy_logprobs(example_prompts,
-                                                       max_tokens,
-                                                       num_logprobs)
+    with vllm_runner(model, dtype=dtype) as vllm_model:
+        vllm_outputs = vllm_model.generate_greedy_logprobs(
+            example_prompts, max_tokens, num_logprobs)
 
     # loop through the prompts to compare against the ground truth generations
     for prompt_idx in range(len(example_prompts)):

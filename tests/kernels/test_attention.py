@@ -6,10 +6,15 @@ import torch
 from xformers import ops as xops
 from xformers.ops.fmha.attn_bias import BlockDiagonalCausalMask
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm import _custom_ops as ops
 from vllm.utils import get_max_shared_memory_bytes, is_hip
 
 from .allclose_default import get_default_atol, get_default_rtol
+
+if should_skip_test_group(group_name="TEST_KERNELS"):
+    pytest.skip("TEST_KERNELS=DISABLE, skipping kernels test group",
+                allow_module_level=True)
 
 FLOAT32_BYTES = torch.finfo(torch.float).bits // 8
 # This will change depending on the compute capability.
@@ -28,7 +33,7 @@ NUM_HEADS = [(40, 40), (64, 8)]  # Arbitrary values for testing
 
 # FlashAttention forward only supports head dimension at most 128
 # https://github.com/ROCmSoftwarePlatform/flash-attention/blob/3d2b6f5d037782cc2c906909a46fb7e2e1b48b25/csrc/flash_attn_rocm/flash_api.cpp#L62
-HEAD_SIZES = [64, 80, 96, 112, 128, 256
+HEAD_SIZES = [64, 80, 96, 112, 128, 192, 256
               ] if not is_hip() else [64, 80, 96, 112, 128]
 
 BLOCK_SIZES = [16, 32]

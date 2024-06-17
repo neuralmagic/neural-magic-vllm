@@ -7,8 +7,13 @@ import torch
 from xformers import ops as xops
 from xformers.ops.fmha.attn_bias import BlockDiagonalCausalFromBottomRightMask
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.attention.backends.xformers import _make_alibi_bias
 from vllm.attention.ops.prefix_prefill import context_attention_fwd
+
+if should_skip_test_group(group_name="TEST_KERNELS"):
+    pytest.skip("TEST_KERNELS=DISABLE, skipping kernels test group",
+                allow_module_level=True)
 
 NUM_HEADS = [64]
 NUM_QUERIES_PER_KV = [1, 8, 64]
@@ -20,6 +25,11 @@ CUDA_DEVICES = [
 SLIDING_WINDOW = [0, 16, 64, 128, 256, 512, 2048]
 
 
+# UPSTREAM SYNC: breaks NM automation.
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("num_heads", NUM_HEADS)
 @pytest.mark.parametrize("num_queries_per_kv", NUM_QUERIES_PER_KV)
 @pytest.mark.parametrize("head_size", HEAD_SIZES)
@@ -215,6 +225,10 @@ def test_contexted_kv_attention(
     assert torch.allclose(output_ref, output, atol=1e-6, rtol=0)
 
 
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("num_heads", NUM_HEADS)
 @pytest.mark.parametrize("num_queries_per_kv", NUM_QUERIES_PER_KV)
 @pytest.mark.parametrize("head_size", HEAD_SIZES)

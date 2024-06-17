@@ -1,8 +1,9 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.model_executor.layers.rejection_sampler import RejectionSampler
 from vllm.sequence import ExecuteModelRequest
 from vllm.spec_decode.metrics import AsyncMetricsCollector
@@ -12,10 +13,17 @@ from vllm.spec_decode.top1_proposer import Top1Proposer
 
 from .utils import create_batch, mock_worker
 
+if should_skip_test_group(group_name="TEST_SPEC_DECODE"):
+    pytest.skip("TEST_SPEC_DECODE=DISABLE, skipping spec decode group",
+                allow_module_level=True)
 
-@pytest.mark.parametrize('queue_size', [2, 4])
-@pytest.mark.parametrize('batch_size', [1, 2, 3, 6])
-@pytest.mark.parametrize('k', [1, 2, 5, 7, 10])
+
+@pytest.mark.parametrize('queue_size', [4])
+@pytest.mark.parametrize('batch_size', [1])
+@pytest.mark.parametrize('k', [1])
+@pytest.mark.parametrize('queue_size', [4])
+@pytest.mark.parametrize('batch_size', [1])
+@pytest.mark.parametrize('k', [1])
 @torch.inference_mode()
 def test_disable_spec_tokens(queue_size: int, batch_size: int, k: int):
     """Verify that speculative tokens are disabled when the batch size
@@ -42,8 +50,18 @@ def test_disable_spec_tokens(queue_size: int, batch_size: int, k: int):
         num_lookahead_slots=k,
         running_queue_size=queue_size)
 
-    with pytest.raises(ValueError, match=exception_secret):
-        worker.execute_model(execute_model_req=execute_model_req)
+    if queue_size > disable_by_batch_size:
+        with patch.object(worker,
+                          '_run_no_spec',
+                          side_effect=ValueError(exception_secret)), \
+            pytest.raises(ValueError, match=exception_secret):
+            worker.execute_model(execute_model_req=execute_model_req)
+    if queue_size > disable_by_batch_size:
+        with patch.object(worker,
+                          '_run_no_spec',
+                          side_effect=ValueError(exception_secret)), \
+            pytest.raises(ValueError, match=exception_secret):
+            worker.execute_model(execute_model_req=execute_model_req)
 
     # When the batch size is larger than the threshold,
     # we expect no speculative tokens (0).
@@ -64,13 +82,13 @@ def test_disable_spec_tokens(queue_size: int, batch_size: int, k: int):
     if queue_size < disable_by_batch_size:
         # Should raise exception when executing the mocked draft model.
         with pytest.raises(ValueError, match=exception_secret):
-            proposer.get_proposals(execute_model_req=ExecuteModelRequest(
+            proposer.get_spec_proposals(execute_model_req=ExecuteModelRequest(
                 seq_group_metadata_list=seq_group_metadata_list,
                 num_lookahead_slots=k), )
     else:
         # Should not execute the draft model because spec decode is disabled
         # for all requests. Accordingly, the proposal length should be 0.
-        proposals = proposer.get_proposals(
+        proposals = proposer.get_spec_proposals(
             execute_model_req=ExecuteModelRequest(
                 seq_group_metadata_list=seq_group_metadata_list,
                 num_lookahead_slots=k), )

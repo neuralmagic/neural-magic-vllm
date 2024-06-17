@@ -5,11 +5,16 @@ import torch
 import triton
 import triton.language as tl
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.model_executor.layers.ops.sample import (
     MAX_TRITON_N_COLS, _uniform_to_exponential, get_num_triton_sampler_splits,
     sample)
 from vllm.model_executor.sampling_metadata import SamplingTensors
 from vllm.model_executor.utils import set_random_seed
+
+if should_skip_test_group(group_name="TEST_KERNELS"):
+    pytest.skip("TEST_KERNELS=DISABLE, skipping kernels test group",
+                allow_module_level=True)
 
 SINGLE_SPLIT_VOCAB_SIZE = 32000  # llama/mistral/mixtral vocab size
 MULTI_SPLIT_VOCAB_SIZE = MAX_TRITON_N_COLS + 100
@@ -30,6 +35,10 @@ def _uniform_to_exponential_kernel(input, output, n: tl.constexpr):
     tl.store(output + idx, y)
 
 
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 def test_uniform_to_exponential():
     """Test that we can convert uniform to exponential without div by 0."""
     input = torch.tensor([0.0, 1.0 - torch.finfo(torch.float32).eps],
@@ -42,6 +51,11 @@ def test_uniform_to_exponential():
     assert torch.all(torch.isfinite(torch.full_like(output, 1.0) / output))
 
 
+# UPSTREAM SYNC: breaks NM automation.
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("random_sampling", [True, False, "mixed"])
 @pytest.mark.parametrize("max_best_of", [1, 2, 3, 4, 5])
 @pytest.mark.parametrize("modify_greedy_probs", [True, False])
@@ -121,6 +135,10 @@ def test_sample_decoding_only(random_sampling, max_best_of,
         assert sampled_logprobs is None
 
 
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("random_sampling", [True, False, "mixed"])
 @pytest.mark.parametrize("max_best_of", [1, 2, 3, 4, 5])
 @pytest.mark.parametrize("modify_greedy_probs", [True, False])

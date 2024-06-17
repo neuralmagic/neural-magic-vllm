@@ -9,7 +9,12 @@ Run `pytest tests/engine/test_stop_reason.py`.
 import pytest
 import transformers
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm import SamplingParams
+
+if should_skip_test_group(group_name="TEST_ENGINE"):
+    pytest.skip("TEST_ENGINE=DISABLE, skipping engine test group",
+                allow_module_level=True)
 
 MODEL = "facebook/opt-350m"
 STOP_STR = "."
@@ -19,9 +24,8 @@ MAX_TOKENS = 1024
 
 @pytest.fixture
 def vllm_model(vllm_runner):
-    vllm_model = vllm_runner(MODEL)
-    yield vllm_model
-    del vllm_model
+    with vllm_runner(MODEL) as vllm_model:
+        yield vllm_model
 
 
 def test_stop_reason(vllm_model, example_prompts):

@@ -5,6 +5,7 @@ from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.engine.llm_engine import LLMEngine
 from vllm.entrypoints.llm import LLM
 from vllm.executor.ray_utils import initialize_ray_cluster
+from vllm.inputs import PromptStrictInputs, TextPrompt, TokensPrompt
 from vllm.model_executor.models import ModelRegistry
 from vllm.outputs import (CompletionOutput, EmbeddingOutput,
                           EmbeddingRequestOutput, RequestOutput)
@@ -18,6 +19,9 @@ __all__ = [
     "githash",
     "LLM",
     "ModelRegistry",
+    "PromptStrictInputs",
+    "TextPrompt",
+    "TokensPrompt",
     "SamplingParams",
     "RequestOutput",
     "CompletionOutput",

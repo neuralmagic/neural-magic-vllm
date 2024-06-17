@@ -8,8 +8,13 @@ from itertools import combinations
 
 import pytest
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm import SamplingParams
 from vllm.model_executor.utils import set_random_seed
+
+if should_skip_test_group(group_name="TEST_SAMPLERS"):
+    pytest.skip("TEST_SAMPLERS=DISABLE, skipping sampler test group",
+                allow_module_level=True)
 
 MODEL = "facebook/opt-125m"
 RANDOM_SEEDS = list(range(5))
@@ -17,9 +22,8 @@ RANDOM_SEEDS = list(range(5))
 
 @pytest.fixture
 def vllm_model(vllm_runner):
-    vllm_model = vllm_runner(MODEL, dtype="half")
-    yield vllm_model
-    del vllm_model
+    with vllm_runner(MODEL, dtype="half") as vllm_model:
+        yield vllm_model
 
 
 @pytest.mark.parametrize("seed", RANDOM_SEEDS)
@@ -57,11 +61,7 @@ def test_random_sample_with_seed(
                 sampling_params_seed_1,
                 sampling_params_seed_2,
         ):
-            llm._add_request(
-                prompt=prompt,
-                prompt_token_ids=None,
-                params=params,
-            )
+            llm._add_request(prompt, params=params)
 
     results = llm._run_engine(use_tqdm=False)
     all_outputs = [[out.token_ids for out in output.outputs]

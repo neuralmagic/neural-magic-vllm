@@ -8,6 +8,13 @@ Run `pytest tests/models/test_chunked_prefill.py`.
 """
 import pytest
 
+from tests.nm_utils.utils_skip import should_skip_test_group
+
+if should_skip_test_group(group_name="TEST_BASIC_CORRECTNESS"):
+    pytest.skip(
+        "TEST_BASIC_CORRECTNESS=DISABLE, skipping basic correctness test group",
+        allow_module_level=True)
+
 MODELS = [
     "facebook/opt-125m",
     "meta-llama/Llama-2-7b-hf",
@@ -43,21 +50,19 @@ def test_models(
         enable_chunked_prefill = True
         max_num_batched_tokens = chunked_prefill_token_size
 
-    hf_model = hf_runner(model, dtype=dtype)
-    hf_outputs = hf_model.generate_greedy(example_prompts, max_tokens)
-    del hf_model
+    with hf_runner(model, dtype=dtype) as hf_model:
+        hf_outputs = hf_model.generate_greedy(example_prompts, max_tokens)
 
-    vllm_model = vllm_runner(
-        model,
-        dtype=dtype,
-        max_num_batched_tokens=max_num_batched_tokens,
-        enable_chunked_prefill=enable_chunked_prefill,
-        tensor_parallel_size=tensor_parallel_size,
-        enforce_eager=enforce_eager,
-        max_num_seqs=max_num_seqs,
-    )
-    vllm_outputs = vllm_model.generate_greedy(example_prompts, max_tokens)
-    del vllm_model
+    with vllm_runner(
+            model,
+            dtype=dtype,
+            max_num_batched_tokens=max_num_batched_tokens,
+            enable_chunked_prefill=enable_chunked_prefill,
+            tensor_parallel_size=tensor_parallel_size,
+            enforce_eager=enforce_eager,
+            max_num_seqs=max_num_seqs,
+    ) as vllm_model:
+        vllm_outputs = vllm_model.generate_greedy(example_prompts, max_tokens)
 
     for i in range(len(example_prompts)):
         hf_output_ids, hf_output_str = hf_outputs[i]
