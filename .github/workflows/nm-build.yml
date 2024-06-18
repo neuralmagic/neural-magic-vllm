@@ -146,21 +146,21 @@ jobs:
                 gcloud storage cp dist/${{ steps.build.outputs.whl }} gs://neuralmagic-public-pypi/assets/${{ github.run_id }}/${{ steps.build.outputs.whl }}
                 gcloud storage cp dist/${{ steps.build.outputs.tarfile }} gs://neuralmagic-public-pypi/assets/${{ github.run_id }}/${{ steps.build.outputs.tarfile }}
 
-            # - name: upload whl
-            #   uses: actions/upload-artifact@v4
-            #   if: success() || failure()
-            #   with:
-            #     name: ${{ steps.build.outputs.whl }}
-            #     path: dist/${{ steps.build.outputs.whl }}
-            #     retention-days: 5
+            - name: upload whl
+              uses: actions/upload-artifact@v4
+              if: success() || failure()
+              with:
+                name: ${{ steps.build.outputs.whl }}
+                path: dist/${{ steps.build.outputs.whl }}
+                retention-days: 5
 
-            # - name: upload tar.gz
-            #   uses: actions/upload-artifact@v4
-            #   if: success() || failure()
-            #   with:
-            #     name: ${{ inputs.python }}-${{ steps.build.outputs.tarfile }}
-            #     path: dist/${{ steps.build.outputs.tarfile }}
-            #     retention-days: 5
+            - name: upload tar.gz
+              uses: actions/upload-artifact@v4
+              if: success() || failure()
+              with:
+                name: ${{ inputs.python }}-${{ steps.build.outputs.tarfile }}
+                path: dist/${{ steps.build.outputs.tarfile }}
+                retention-days: 5
 
             - name: summary
               uses: ./.github/actions/nm-summary-build/
