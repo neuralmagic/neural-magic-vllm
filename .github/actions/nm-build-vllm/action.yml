@@ -25,8 +25,7 @@ runs:
       COMMIT=${{ github.sha }}
       VENV="${{ inputs.venv }}-${COMMIT:0:7}"
       source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
-      # TODO: can we delete this ...
-      # pip3 install -r requirements-cuda.txt -r requirements-build.txt
+      pip3 install -r requirements-cuda.txt -r requirements-build.txt
       # whl
       SUCCESS=0
       python setup.py bdist_wheel --dist-dir=dist --py-limited-api=cp38 || SUCCESS=$?
