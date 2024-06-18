@@ -2,8 +2,10 @@ import openai
 import pytest
 import ray
 
-from ..utils import VLLM_PATH, RemoteOpenAIServer
 from tests.nm_utils.utils_skip import should_skip_test_group
+
+from ..utils import VLLM_PATH, RemoteOpenAIServer
+
 if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
     pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
                 allow_module_level=True)

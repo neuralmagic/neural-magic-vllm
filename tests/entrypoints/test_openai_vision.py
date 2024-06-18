@@ -6,11 +6,11 @@ import pytest
 import pytest_asyncio
 import ray
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.multimodal.utils import ImageFetchAiohttp, encode_image_base64
 
 from ..utils import VLLM_PATH, RemoteOpenAIServer
 
-from tests.nm_utils.utils_skip import should_skip_test_group
 if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
     pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
                 allow_module_level=True)
