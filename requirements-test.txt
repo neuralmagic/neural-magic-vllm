@@ -16,6 +16,7 @@ ray
 sentence-transformers # required for embedding
 optimum     # required for hf gptq baselines
 auto-gptq   # required for hf gptq baselines
+torchvision # required for the image processor of phi3v
 
 # Benchmarking
 aiohttp
