@@ -109,6 +109,10 @@ do
     LOCAL_SUCCESS=0
     RESULT_XML=$(echo ${TEST} | sed -e "s/${TEST_DIR}/${RESULTS_DIR}/" | sed -e "s/.py/.xml/")
 
+    # report which test is being run
+    # (in CI, if a test hangs, this logs *which* test is running *before* it hangs)
+    echo "RUNNING TEST: ${TEST}"
+
     # this is a bit messy and brittle, but certain tests
     # need to be run with specific options
     if [[ "${TEST}" == *"kernels"* || "${TEST}" == *"samplers"* ]]; then
