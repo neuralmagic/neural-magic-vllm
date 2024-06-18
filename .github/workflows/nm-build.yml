@@ -146,8 +146,6 @@ jobs:
                 gcloud storage cp dist/${{ steps.build.outputs.whl }} gs://neuralmagic-public-pypi/assets/${{ github.run_id }}/${{ steps.build.outputs.whl }}
                 gcloud storage cp dist/${{ steps.build.outputs.tarfile }} gs://neuralmagic-public-pypi/assets/${{ github.run_id }}/${{ steps.build.outputs.tarfile }}
 
-            # put these up in GitHub in-case of emergency
-            # they are not used by downstream workflows
             - name: upload whl
               uses: actions/upload-artifact@v4
               if: success() || failure()
