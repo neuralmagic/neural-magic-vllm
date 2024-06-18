@@ -72,6 +72,10 @@ def vllm_to_hf_output(vllm_output: Tuple[List[int], str],
     return hf_input_ids, hf_output_str
 
 
+@pytest.mark.skip(
+    "Failing in NM Automation due to writing to file without "
+    "permissions."
+)
 @pytest.mark.xfail(
     reason="Inconsistent image processor being used due to lack "
     "of support for dynamic image token replacement")
