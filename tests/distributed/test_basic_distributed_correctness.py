@@ -34,7 +34,7 @@ DISTRIBUTED_EXECUTOR_BACKEND = "DISTRIBUTED_EXECUTOR_BACKEND"
 VLLM_ATTENTION_BACKEND = "VLLM_ATTENTION_BACKEND"
 
 
-@pytest.mark.skip("Upsteam test that compares 'golden' results from fp16 "
+@pytest.mark.skip("Upstream test that compares 'golden' results from fp16 "
                   "model with TP, which is an invalid test strategy due to "
                   "numerical precision on GPU.")
 @pytest.mark.skipif(torch.cuda.device_count() < 2,
