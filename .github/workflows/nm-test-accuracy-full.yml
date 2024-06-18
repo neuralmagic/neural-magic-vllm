@@ -94,7 +94,7 @@ jobs:
           nvcc_threads: ${{ inputs.nvcc_threads }}
 
       - name: caches
-        id: hf_cache
+        id: caches
         uses: ./.github/actions/nm-caches/
 
       - name: download whl

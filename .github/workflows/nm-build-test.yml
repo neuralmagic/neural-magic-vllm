@@ -17,7 +17,7 @@ on:
         type: string
         default: gcp-k8s-build
       build_timeout:
-        description: "time limit for build in minutes "
+        description: "time limit for build in minutes"
         type: string
         default: "120"
       Gi_per_thread:
@@ -29,16 +29,12 @@ on:
         type: string
         default: "8"
       # test related parameters
-      test_label_solo:
-        description: "requested runner label (specifies instance)"
-        type: string
-        required: true
-      test_label_multi:
-        description: "requested runner label (specifies instance)"
+      test_labels:
+        description: "requested runner labels in stringified JSON"
         type: string
         required: true
       test_timeout:
-        description: "time limit for test run in minutes "
+        description: "time limit for test run in minutes"
         type: string
         required: true
       gitref:
@@ -81,18 +77,36 @@ jobs:
             python: ${{ inputs.python }}
         secrets: inherit
 
-    TEST-SOLO:
+    TEST:
         needs: [BUILD]
         if: success()
+        strategy:
+            matrix:
+                test_label: ${{ fromJson(inputs.test_labels) }}
         uses: ./.github/workflows/nm-test.yml
         with:
-            test_label: ${{ inputs.test_label_solo }}
+            test_label: ${{ matrix.test_label }}
             timeout: ${{ inputs.test_timeout }}
             gitref: ${{ github.ref }}
             python: ${{ inputs.python }}
-            whl: ${{ needs.BUILD.outputs.whl }}
+            whl: ${{ needs.BUILD.output.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
         secrets: inherit
+
+        # needs: [BUILD]
+        # if: success()
+        # strategy:
+        #     matrix:
+        #         test_label: ${{ fromJson(inputs.test_labels) }}
+        #     uses: ./.github/workflows/nm-test.yml
+        #     with:
+        #         test_labels: ${{ matrix.test_label }}
+        #         timeout: ${{ inputs.test_timeout }}
+        #         gitref: ${{ github.ref }}
+        #         python: ${{ inputs.python }}
+        #         whl: ${{ needs.BUILD.outputs.whl }}
+        #         test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+        #     secrets: inherit
 
     # TODO: re-enable
     # TEST-MULTI:
@@ -108,42 +122,42 @@ jobs:
     #         test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
     #     secrets: inherit
 
-    UPLOAD:
-        needs: [TEST-SOLO]
-        if: contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category)
-        uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
-        with:
-            label: ${{ inputs.build_label }}
-            timeout: ${{ inputs.build_timeout }}
-            gitref: ${{ github.ref }}
-            python: ${{ inputs.python }}
-        secrets: inherit
+    # UPLOAD:
+    #     needs: [TEST]
+    #     if: contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category)
+    #     uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
+    #     with:
+    #         label: ${{ inputs.build_label }}
+    #         timeout: ${{ inputs.build_timeout }}
+    #         gitref: ${{ github.ref }}
+    #         python: ${{ inputs.python }}
+    #     secrets: inherit
 
-    BENCHMARK:
-        needs: [BUILD]
-        if: success()
-        uses: ./.github/workflows/nm-benchmark.yml
-        with:
-            label: ${{ inputs.benchmark_label }}
-            benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
-            timeout: ${{ inputs.benchmark_timeout }}
-            gitref: ${{ github.ref }}
-            python: ${{ inputs.python }}
-            whl: ${{ needs.BUILD.outputs.whl }}
-            # Always push if it is a scheduled job
-            push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
-        secrets: inherit
+    # BENCHMARK:
+    #     needs: [BUILD]
+    #     if: success()
+    #     uses: ./.github/workflows/nm-benchmark.yml
+    #     with:
+    #         label: ${{ inputs.benchmark_label }}
+    #         benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
+    #         timeout: ${{ inputs.benchmark_timeout }}
+    #         gitref: ${{ github.ref }}
+    #         python: ${{ inputs.python }}
+    #         whl: ${{ needs.BUILD.outputs.whl }}
+    #         # Always push if it is a scheduled job
+    #         push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
+    #     secrets: inherit
 
-    TEST-ACCURACY-FULL:
-      needs: [BUILD]
-      if: ${{ inputs.wf_category == 'WEEKLY' || inputs.wf_category == 'RELEASE' }}
-      uses: ./.github/workflows/nm-test-accuracy-full.yml
-      with:
-        label: ${{ inputs.test_label_multi }}
-        timeout: ${{ inputs.benchmark_timeout }}
-        gitref: ${{ inputs.gitref }}
-        Gi_per_thread: ${{ inputs.Gi_per_thread }}
-        nvcc_threads: ${{ inputs.nvcc_threads }}
-        python: ${{ inputs.python }}
-        whl: ${{ needs.BUILD.outputs.whl }}
-      secrets: inherit
+    # TEST-ACCURACY-FULL:
+    #   needs: [BUILD]
+    #   if: ${{ inputs.wf_category == 'WEEKLY' || inputs.wf_category == 'RELEASE' }}
+    #   uses: ./.github/workflows/nm-test-accuracy-full.yml
+    #   with:
+    #     label: ${{ inputs.test_label_multi }}
+    #     timeout: ${{ inputs.benchmark_timeout }}
+    #     gitref: ${{ inputs.gitref }}
+    #     Gi_per_thread: ${{ inputs.Gi_per_thread }}
+    #     nvcc_threads: ${{ inputs.nvcc_threads }}
+    #     python: ${{ inputs.python }}
+    #     whl: ${{ needs.BUILD.outputs.whl }}
+    #   secrets: inherit

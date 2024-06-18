@@ -110,7 +110,7 @@ jobs:
           nvcc_threads: 0
 
       - name: caches
-        id: hf_cache
+        id: caches
         uses: ./.github/actions/nm-caches/
 
       - name: download whl
