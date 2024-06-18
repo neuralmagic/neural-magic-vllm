@@ -1,4 +1,4 @@
-name: set up cache
+name: set up caches
 description: 'set up HF and Python caches'
 runs:
   using: composite
