@@ -81,6 +81,7 @@ jobs:
         needs: [BUILD]
         if: success()
         strategy:
+            fail-fast: false
             matrix:
                 test_label: ${{ fromJson(inputs.test_labels) }}
         uses: ./.github/workflows/nm-test.yml

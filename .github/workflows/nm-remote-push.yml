@@ -18,7 +18,7 @@ jobs:
             python: 3.10.12
             gitref: ${{ github.ref }}
 
-            test_labels: "['gcp-k8s-l4-solo', 'gcp-k8s-l4-duo']"
+            test_labels: "['gcp-k8s-l4-solo', 'gcp-k8s-l4-duo', 'gcp-k8s-t4-solo']"
             test_timeout: 480
             test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/smoke.txt
 
