@@ -107,7 +107,7 @@ jobs:
                 nvcc_threads: 0
 
             - name: install testmo
-              uses: ./.github/actions/nm-install-testmo/
+              uses: neuralmagic/nm-actions/actions/install-testmo@main
 
             - name: create testmo run
               id: create_testmo_run
