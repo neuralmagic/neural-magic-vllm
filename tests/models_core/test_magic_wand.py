@@ -6,6 +6,7 @@ sparse models are in the top N selections of same model running dense.
 Run `pytest tests/models/test_compressed.py`.
 """
 
+import gc
 import pytest
 
 from tests.models.utils import check_logprobs_close
@@ -47,6 +48,7 @@ def test_magic_wand(
     dense_outputs = dense_model.generate_greedy_logprobs(
         example_prompts, max_tokens, num_logprobs)
     del dense_model
+    gc.collect()
 
     sparse_model = vllm_runner(
         model_name=model_name,
