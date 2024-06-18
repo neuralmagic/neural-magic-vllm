@@ -28,5 +28,3 @@ git clone https://github.com/neuralmagic/nm-vllm.git
 cd nm-vllm
 pip install -e .[sparse] --extra-index-url https://pypi.neuralmagic.com/simple
 ```
-
-A
