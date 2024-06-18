@@ -1,13 +1,11 @@
-name: HF cache
-description: 'mount HF cache'
-inputs:
-  fs_cache:
-    description: '(deprecated) filesystem to use for HF cache'
-    required: true
+name: set up caches
+description: 'set up HF and python caches'
 runs:
   using: composite
   steps:
   - run: |
       sudo mkdir -m 777 -p ${HF_HOME}
       sudo chown -R $(whoami):$(whoami) ${HF_HOME}
+      sudo mkdir -m 777 -p ${PIP_CACHE_DIR}
+      sudo chown -R $(whoami):$(whoami) ${PIP_CACHE_DIR}
     shell: bash
