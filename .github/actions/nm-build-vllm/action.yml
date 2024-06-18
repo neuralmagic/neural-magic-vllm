@@ -30,9 +30,8 @@ runs:
       SUCCESS=0
       python setup.py bdist_wheel --dist-dir=dist --py-limited-api=cp38 || SUCCESS=$?
       echo "whl_status=${SUCCESS}" >> "$GITHUB_OUTPUT"
-      BASE=$(./.github/scripts/convert-version ${{ inputs.python }})
       ls -alh dist
-      WHL_FILEPATH=$(find dist -iname "*${BASE}*.whl")
+      WHL_FILEPATH=$(find dist -iname "nm_vllm*.whl")
       RENAME=$(echo ${WHL_FILEPATH} | sed -e 's/linux_x86_64/manylinux_2_17_x86_64/')
       mv ${WHL_FILEPATH} ${RENAME}
       WHL=$(basename ${RENAME})
