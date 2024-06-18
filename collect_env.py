@@ -148,7 +148,7 @@ def get_vllm_git_hash():
         import vllm
         return vllm.githash()
     except ImportError:
-        return 'None'
+        return None
 
 
 def get_gcc_version(run_lambda):
