@@ -7,6 +7,13 @@ on:
 
     workflow_dispatch:
         inputs:
+            wf_category:
+                description: "workflow category, default is NIGHTLY"
+                type: choice
+                options:
+                    - NIGHTLY
+                    - RELEASE
+                default: NIGHTLY
             push_benchmark_results_to_gh_pages:
                 description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI "
                 type: choice
@@ -17,75 +24,92 @@ on:
 
 jobs:
 
-    PYTHON-3-8:
+    ONE-WHL:
         uses: ./.github/workflows/nm-build-test.yml
         with:
-            wf_category: NIGHTLY
-            python: 3.8.17
-            gitref: ${{ github.ref }}
-
-            test_label_solo: gcp-k8s-l4-solo
-            test_label_multi: ignore
-            test_timeout: 480
-            test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
-
-            benchmark_label: gcp-k8s-l4-solo
-            benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
-            benchmark_timeout: 720
-            push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
-        secrets: inherit
-
-    PYTHON-3-9:
-        uses: ./.github/workflows/nm-build-test.yml
-        with:
-            wf_category: NIGHTLY
-            python: 3.9.17
-            gitref: ${{ github.ref }}
-
-            test_label_solo: gcp-k8s-l4-solo
-            test_label_multi: ignore
-            test_timeout: 480
-            test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
-
-            benchmark_label: gcp-k8s-l4-solo
-            benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
-            benchmark_timeout: 720
-            push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
-        secrets: inherit
-
-    PYTHON-3-10:
-        uses: ./.github/workflows/nm-build-test.yml
-        with:
-            wf_category: NIGHTLY
+            wf_category: ${{ inputs.wf_category || 'NIGHTLY' }}
             python: 3.10.12
             gitref: ${{ github.ref }}
 
-            test_label_solo: aws-avx2-32G-a10g-24G
-            test_label_multi: ignore
+            test_labels: "['gcp-k8s-l4-solo', 'gcp-k8s-l4-duo', 'gcp-k8s-t4-duo']"
             test_timeout: 480
             test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
 
             benchmark_label: gcp-k8s-l4-solo
             benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
-            benchmark_timeout: 720
+            benchmark_timeout: 480
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
         secrets: inherit
 
-    PYTHON-3-11:
-        uses: ./.github/workflows/nm-build-test.yml
-        with:
-            wf_category: NIGHTLY
-            python: 3.11.4
-            gitref: ${{ github.ref }}
+    # PYTHON-3-8:
+    #     uses: ./.github/workflows/nm-build-test.yml
+    #     with:
+    #         wf_category: NIGHTLY
+    #         python: 3.8.17
+    #         gitref: ${{ github.ref }}
 
-            test_label_solo: gcp-k8s-l4-solo
-            test_label_multi: ignore
-            test_timeout: 480
-            test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
+    #         test_label_solo: gcp-k8s-l4-solo
+    #         test_label_multi: ignore
+    #         test_timeout: 480
+    #         test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
+
+    #         benchmark_label: gcp-k8s-l4-solo
+    #         benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
+    #         benchmark_timeout: 720
+    #         push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
+    #     secrets: inherit
+
+    # PYTHON-3-9:
+    #     uses: ./.github/workflows/nm-build-test.yml
+    #     with:
+    #         wf_category: NIGHTLY
+    #         python: 3.9.17
+    #         gitref: ${{ github.ref }}
+
+    #         test_label_solo: gcp-k8s-l4-solo
+    #         test_label_multi: ignore
+    #         test_timeout: 480
+    #         test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
+
+    #         benchmark_label: gcp-k8s-l4-solo
+    #         benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
+    #         benchmark_timeout: 720
+    #         push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
+    #     secrets: inherit
+
+    # PYTHON-3-10:
+    #     uses: ./.github/workflows/nm-build-test.yml
+    #     with:
+    #         wf_category: NIGHTLY
+    #         python: 3.10.12
+    #         gitref: ${{ github.ref }}
+
+    #         test_label_solo: aws-avx2-32G-a10g-24G
+    #         test_label_multi: ignore
+    #         test_timeout: 480
+    #         test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
+
+    #         benchmark_label: gcp-k8s-l4-solo
+    #         benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
+    #         benchmark_timeout: 720
+    #         push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
+    #     secrets: inherit
+
+    # PYTHON-3-11:
+    #     uses: ./.github/workflows/nm-build-test.yml
+    #     with:
+    #         wf_category: NIGHTLY
+    #         python: 3.11.4
+    #         gitref: ${{ github.ref }}
+
+    #         test_label_solo: gcp-k8s-l4-solo
+    #         test_label_multi: ignore
+    #         test_timeout: 480
+    #         test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
 
 
-            benchmark_label: gcp-k8s-l4-solo
-            benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
-            benchmark_timeout: 720
-            push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
-        secrets: inherit
+    #         benchmark_label: gcp-k8s-l4-solo
+    #         benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
+    #         benchmark_timeout: 720
+    #         push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
+    #     secrets: inherit

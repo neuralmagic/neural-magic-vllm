@@ -13,74 +13,83 @@ on:
 
 jobs:
 
-  PYTHON-3-8:
-    uses: ./.github/workflows/nm-build-test.yml
-    with:
-      wf_category: 'RELEASE'
-      python: 3.8.17
-      gitref: ${{ github.ref }}
+  TO-DELETE:
 
-      test_label_solo: gcp-k8s-l4-solo
-      test_label_multi: ignore
-      test_timeout: 720
-      test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
+    runs-on: gcp-k8s-util
+    timeout-minutes: 10
 
-      benchmark_label: gcp-k8s-l4-solo
-      benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
-      benchmark_timeout: 720
-      push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
-    secrets: inherit
+    steps:
+        - run: |
+            secho "this is workflow is getting deleted"
 
-  PYTHON-3-9:
-    uses: ./.github/workflows/nm-build-test.yml
-    with:
-      wf_category: 'RELEASE'
-      python: 3.9.17
-      gitref: ${{ github.ref }}
+#   PYTHON-3-8:
+#     uses: ./.github/workflows/nm-build-test.yml
+#     with:
+#       wf_category: 'RELEASE'
+#       python: 3.8.17
+#       gitref: ${{ github.ref }}
 
-      test_label_solo: gcp-k8s-l4-solo
-      test_label_multi: ignore
-      test_timeout: 720
-      test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
+#       test_label_solo: gcp-k8s-l4-solo
+#       test_label_multi: ignore
+#       test_timeout: 720
+#       test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
 
-      benchmark_label: gcp-k8s-l4-solo
-      benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
-      benchmark_timeout: 720
-      push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
-    secrets: inherit
+#       benchmark_label: gcp-k8s-l4-solo
+#       benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
+#       benchmark_timeout: 720
+#       push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
+#     secrets: inherit
 
-  PYTHON-3-10:
-    uses: ./.github/workflows/nm-build-test.yml
-    with:
-      wf_category: 'RELEASE'
-      python: 3.10.12
-      gitref: ${{ github.ref }}
+#   PYTHON-3-9:
+#     uses: ./.github/workflows/nm-build-test.yml
+#     with:
+#       wf_category: 'RELEASE'
+#       python: 3.9.17
+#       gitref: ${{ github.ref }}
 
-      test_label_solo: gcp-k8s-l4-solo
-      test_label_multi: ignore
-      test_timeout: 720
-      test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
+#       test_label_solo: gcp-k8s-l4-solo
+#       test_label_multi: ignore
+#       test_timeout: 720
+#       test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
 
-      benchmark_label: gcp-k8s-l4-solo
-      benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
-      benchmark_timeout: 720
-      push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
-    secrets: inherit
+#       benchmark_label: gcp-k8s-l4-solo
+#       benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
+#       benchmark_timeout: 720
+#       push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
+#     secrets: inherit
 
-  PYTHON-3-11:
-    uses: ./.github/workflows/nm-build-test.yml
-    with:
-      wf_category: 'RELEASE'
-      python: 3.11.4
-      gitref: ${{ github.ref }}
+#   PYTHON-3-10:
+#     uses: ./.github/workflows/nm-build-test.yml
+#     with:
+#       wf_category: 'RELEASE'
+#       python: 3.10.12
+#       gitref: ${{ github.ref }}
 
-      test_label_solo: gcp-k8s-l4-solo
-      test_label_multi: ignore
-      test_timeout: 720
-      test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
+#       test_label_solo: gcp-k8s-l4-solo
+#       test_label_multi: ignore
+#       test_timeout: 720
+#       test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
 
-      benchmark_label: gcp-k8s-l4-solo
-      benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
-      benchmark_timeout: 720
-      push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
-    secrets: inherit
+#       benchmark_label: gcp-k8s-l4-solo
+#       benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
+#       benchmark_timeout: 720
+#       push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
+#     secrets: inherit
+
+#   PYTHON-3-11:
+#     uses: ./.github/workflows/nm-build-test.yml
+#     with:
+#       wf_category: 'RELEASE'
+#       python: 3.11.4
+#       gitref: ${{ github.ref }}
+
+#       test_label_solo: gcp-k8s-l4-solo
+#       test_label_multi: ignore
+#       test_timeout: 720
+#       test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
+
+#       benchmark_label: gcp-k8s-l4-solo
+#       benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
+#       benchmark_timeout: 720
+#       push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
+#     secrets: inherit
