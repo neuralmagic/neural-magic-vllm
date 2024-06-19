@@ -1,6 +1,7 @@
 import weakref
 
 import pytest
+import torch
 # downloading lora to test lora requests
 from huggingface_hub import snapshot_download
 
@@ -23,6 +24,11 @@ LORA_NAME = "typeof/zephyr-7b-beta-lora"
 pytestmark = pytest.mark.llm
 
 
+@pytest.mark.skipif(
+    torch.cuda.get_device_capability() < (8, 0),
+    reason=
+    "Bfloat16 is only supported on GPUs with compute capability of at least 8.0"
+)
 @pytest.fixture(scope="module")
 def llm():
     # pytest caches the fixture so we use weakref.proxy to
