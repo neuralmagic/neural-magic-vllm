@@ -3,6 +3,8 @@
 # an importing from test directory is having trouble.
 # So, we can have the should_skip_test_group logic here.
 
+import os
+
 import torch
 
 from vllm.distributed.parallel_state import is_in_the_same_node
