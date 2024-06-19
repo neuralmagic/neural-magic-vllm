@@ -8,7 +8,6 @@ usage() {
     echo "  -s    - src directory, i.e. location of package *.py files."
     echo "  -t    - test directory, i.e. location of *.py test files. (default 'tests/')"
     echo "  -r    - desired results base directory. xml results will mirror provided tests directory structure. (default 'test-results/')"
-    echo "  -f    - file with test skip list, e.g. ' neuralmagic/tests/skip-for-remote-push.txt'. (default is to run all found tests)"
     echo "  -h    - this list of options"
     echo
     echo "note: all paths are relative to 'nm-vllm' root"
@@ -34,9 +33,6 @@ while getopts "hs:t:r:f:" OPT; do
 	    ;;
     r)
         RESULTS_DIR="${OPTARG}"
-        ;;
-    f)
-        SKIP_LIST="${OPTARG}"
         ;;
     esac
 done
@@ -70,36 +66,6 @@ echo "found:"
 for FOUND in "${TESTS_FOUND[@]}"; do
     echo "${FOUND}"
 done
-
-# build the skip list from provided file
-declare -a TESTS_TO_EXCLUDE
-if [ -f "${SKIP_LIST}" ]; then
-    while IFS= read -r line
-    do
-        TESTS_TO_EXCLUDE+=("${line}")
-    done < "${SKIP_LIST}"
-fi
-
-echo "..."
-for EXCLUDE in "${TESTS_TO_EXCLUDE[@]}"; do
-    for JJ in "${!TESTS_FOUND[@]}"; do
-        if [[ ${TESTS_FOUND[$JJ]} = ${EXCLUDE} ]]; then
-            echo "excluding: ${EXCLUDE}"
-            unset 'TESTS_FOUND[$JJ]'
-        fi
-    done
-done
-
-echo "..."
-echo "planning to run:"
-for TEST in "${TESTS_FOUND[@]}"
-do
-    echo "${TEST}"
-done
-echo "..."
-
-# download required artifacts for testing
-# (cd ${TEST_DIR} && sudo bash ../.buildkite/download-images.sh)
 
 # run selected tests
 SUCCESS=0
