@@ -5,10 +5,15 @@ import torch
 # downloading lora to test lora requests
 from huggingface_hub import snapshot_download
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm import LLM
 from vllm.lora.request import LoRARequest
 
 from ..conftest import cleanup
+
+if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
+    pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
+                allow_module_level=True)
 
 MODEL_NAME = "HuggingFaceH4/zephyr-7b-beta"
 
@@ -24,11 +29,6 @@ LORA_NAME = "typeof/zephyr-7b-beta-lora"
 pytestmark = pytest.mark.llm
 
 
-@pytest.mark.skipif(
-    torch.cuda.get_device_capability() < (8, 0),
-    reason=
-    "Bfloat16 is only supported on GPUs with compute capability of at least 8.0"
-)
 @pytest.fixture(scope="module")
 def llm():
     # pytest caches the fixture so we use weakref.proxy to
@@ -55,6 +55,11 @@ def zephyr_lora_files():
     return snapshot_download(repo_id=LORA_NAME)
 
 
+@pytest.mark.skipif(
+    torch.cuda.get_device_capability() < (8, 0),
+    reason=
+    "Bfloat16 is only supported on GPUs with compute capability of at least 8.0"
+)
 @pytest.mark.skip_global_cleanup
 def test_multiple_lora_requests(llm: LLM, zephyr_lora_files):
     lora_request = [

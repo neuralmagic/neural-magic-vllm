@@ -84,6 +84,7 @@ jobs:
             fail-fast: false
             matrix:
                 test_label: ${{ fromJson(inputs.test_labels) }}
+        name: TEST-${{ matrix.test_label }}
         uses: ./.github/workflows/nm-test.yml
         with:
             test_label: ${{ matrix.test_label }}
