@@ -19,6 +19,7 @@ runs:
   steps:
     - id: test_whl
       run: |
+        sudo mkdir -m 777 -p /usr/local/apps
         sudo chown -R $(whoami):$(whoami) /usr/local/apps
         pip install coverage
         pip install pytest-cov
