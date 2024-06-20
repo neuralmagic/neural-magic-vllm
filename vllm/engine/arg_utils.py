@@ -13,7 +13,7 @@ from vllm.config import (CacheConfig, DecodingConfig, DeviceConfig,
                          SpeculativeConfig, TokenizerPoolConfig,
                          VisionLanguageConfig)
 from vllm.model_executor.layers.quantization import QUANTIZATION_METHODS
-from vllm.utils import str_to_int_tuple
+from vllm.utils import FlexibleArgumentParser, str_to_int_tuple
 
 
 def nullable_str(val: str):
@@ -114,7 +114,7 @@ class EngineArgs:
 
     @staticmethod
     def add_cli_args_for_vlm(
-            parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+            parser: FlexibleArgumentParser) -> FlexibleArgumentParser:
         parser.add_argument('--image-input-type',
                             type=nullable_str,
                             default=None,
@@ -160,8 +160,7 @@ class EngineArgs:
         return parser
 
     @staticmethod
-    def add_cli_args(
-            parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    def add_cli_args(parser: FlexibleArgumentParser) -> FlexibleArgumentParser:
         """Shared CLI arguments for vLLM engine."""
 
         # Model arguments
@@ -816,8 +815,8 @@ class AsyncEngineArgs(EngineArgs):
     max_log_len: Optional[int] = None
 
     @staticmethod
-    def add_cli_args(parser: argparse.ArgumentParser,
-                     async_args_only: bool = False) -> argparse.ArgumentParser:
+    def add_cli_args(parser: FlexibleArgumentParser,
+                     async_args_only: bool = False) -> FlexibleArgumentParser:
         if not async_args_only:
             parser = EngineArgs.add_cli_args(parser)
         parser.add_argument('--engine-use-ray',
@@ -838,13 +837,13 @@ class AsyncEngineArgs(EngineArgs):
 
 # These functions are used by sphinx to build the documentation
 def _engine_args_parser():
-    return EngineArgs.add_cli_args(argparse.ArgumentParser())
+    return EngineArgs.add_cli_args(FlexibleArgumentParser())
 
 
 def _async_engine_args_parser():
-    return AsyncEngineArgs.add_cli_args(argparse.ArgumentParser(),
+    return AsyncEngineArgs.add_cli_args(FlexibleArgumentParser(),
                                         async_args_only=True)
 
 
 def _vlm_engine_args_parser():
-    return EngineArgs.add_cli_args_for_vlm(argparse.ArgumentParser())
+    return EngineArgs.add_cli_args_for_vlm(FlexibleArgumentParser())
