@@ -11,6 +11,14 @@ if should_skip_test_group(group_name="TEST_ASYNC_ENGINE"):
     pytest.skip("TEST_ASYNC_ENGINE=DISABLE, skipping async engine test group",
                 allow_module_level=True)
 
+# TODO: @robertgshaw2
+# Remove this once we land the single whl - failing due to size of workspace
+# being moved into ray.
+if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
+    pytest.skip(
+        "TEST_ENTRYPOINTS=DISABLE, skipping entrypoints engine test group",
+        allow_module_level=True)
+
 # any model with a chat template should work here
 MODEL_NAME = "facebook/opt-125m"
 
