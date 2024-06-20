@@ -134,15 +134,13 @@ do
         echo "=== PASSED TEST: ${TEST} ==="
     # if a file does not run any tests, pytest reports exit code of 5
     # since we skip full modules in our skipping strategy, this is common
-    elif [[ $LOCAL_SUCCESS == 5 ]]; then,
-        echo "=== PASSED TEST: ${TEST} ==="
-    # otherewise, report failure
+    elif [[ $LOCAL_SUCCESS == 5 ]]; then
+        echo "=== SKIPPED TEST: ${TEST} ==="
+    # otherwise, report failure
     else
         echo "=== FAILED TEST: ${TEST} ==="
         SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
     fi
-
-    
 
 done
 
