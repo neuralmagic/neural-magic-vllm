@@ -91,7 +91,14 @@ do
         pytest ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     fi
 
-    SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
+    if [[ ${LOCAL_SUCCESS} == 0 ]]; then
+        echo "=== PASSED TEST: ${TEST} ==="
+    elif [[ ${LOCAL_SUCCESS} == 5 ]]; then
+        echo "=== SKIPPED TEST: ${TEST} ==="
+    else
+        echo "=== FAILED TEST: ${TEST} ==="
+        SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
+    fi
 
 done
 
