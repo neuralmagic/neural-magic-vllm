@@ -184,9 +184,12 @@ class ProcessWorkerWrapper:
     def terminate_worker(self):
         try:
             self._task_queue.put(_TERMINATE)
-        except ValueError:
-            self.process.kill()
-        self._task_queue.close()
+        except:
+            self.kill_worker()
+        # TODO: can we just kill the worker?
+        # except ValueError:
+        #     self.process.kill()
+        # self._task_queue.close()
 
     def kill_worker(self):
         self._task_queue.close()
