@@ -75,10 +75,12 @@ jobs:
         strategy:
             matrix:
                 # config_pair: ${{ fromJson(inputs.config_pairs) }}
-                config_pair: [['3.8.17','gcp-k8s-l4-solo'],['3.9.17','gcp-k8s-t4-duo']]
+                config_pair: [{'python':'3.8.17','label':'gcp-k8s-l4-solo'},{'python':'3.9.17','label':'gcp-k8s-t4-duo'}]
         steps:
             - run: |
                 echo "and then: ${{ matrix.config_pair }}"
+                echo "python: ${{ matrix.config_pair.*.python }}"
+                echo "label: ${{ matrix.config_pair.*.label }}"
 
     # BUILD:
     #     uses: ./.github/workflows/nm-build.yml
