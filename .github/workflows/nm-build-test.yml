@@ -74,8 +74,8 @@ jobs:
 
         strategy:
             matrix:
-                # config_pair: ${{ fromJson(inputs.config_pairs) }}
-                config_pair: [{'python':'3.8.17','label':'gcp-k8s-l4-solo'},{'python':'3.9.17','label':'gcp-k8s-t4-duo'}]
+                config_pair: ${{ fromJson(inputs.config_pairs) }}
+                # config_pair: [{'python':'3.8.17','label':'gcp-k8s-l4-solo'},{'python':'3.9.17','label':'gcp-k8s-t4-duo'}]
         steps:
             - run: |
                 echo "and then: ${{ matrix.config_pair }}"
