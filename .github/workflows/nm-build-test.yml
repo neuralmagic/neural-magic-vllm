@@ -29,12 +29,8 @@ on:
         type: string
         default: "8"
       # test related parameters
-      config_pairs:
+      test_configs:
         description: "python - label pairs"
-        type: string
-        required: true
-      test_labels:
-        description: "requested runner labels in stringified JSON"
         type: string
         required: true
       test_timeout:
@@ -43,10 +39,6 @@ on:
         required: true
       gitref:
         description: "git commit hash or branch name"
-        type: string
-        required: true
-      test_skip_env_vars:
-        description: 'file with list of env vars controlling which tests to run'
         type: string
         required: true
       # benchmark related parameters
@@ -63,54 +55,58 @@ on:
         type: string
         default: "720"
       push_benchmark_results_to_gh_pages:
-        description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI"
+        description: "when set to true, the workflow pushes all benchmarking results to gh-pages UI"
         type: string
         default: "false"
+      # lm accuracy
+      test_label_accuracy:
+        description: "label to run accuracy tests"
+        type: string
+        default: ""
 
 jobs:
 
-    JSON-GYM:
-        runs-on: gcp-k8s-util
+    BUILD:
+        uses: ./.github/workflows/nm-build.yml
+        with:
+            wf_category: ${{ inputs.wf_category }}
+            build_label: ${{ inputs.build_label }}
+            timeout: ${{ inputs.build_timeout }}
+            gitref: ${{ github.ref }}
+            Gi_per_thread: ${{ inputs.Gi_per_thread }}
+            nvcc_threads: ${{ inputs.nvcc_threads }}
+            python: ${{ inputs.python }}
+        secrets: inherit
 
-        strategy:
-            matrix:
-                config_pair: ${{ fromJson(inputs.config_pairs) }}
-                # config_pair: [{'python':'3.8.17','label':'gcp-k8s-l4-solo'},{'python':'3.9.17','label':'gcp-k8s-t4-duo'}]
-        steps:
-            - run: |
-                echo "and then: ${{ matrix.config_pair }}"
-                echo "python: ${{ matrix.config_pair.python }}"
-                echo "label: ${{ matrix.config_pair.label }}"
+    # JSON-GYM:
+    #     runs-on: gcp-k8s-util
 
-    # BUILD:
-    #     uses: ./.github/workflows/nm-build.yml
-    #     with:
-    #         wf_category: ${{ inputs.wf_category }}
-    #         build_label: ${{ inputs.build_label }}
-    #         timeout: ${{ inputs.build_timeout }}
-    #         gitref: ${{ github.ref }}
-    #         Gi_per_thread: ${{ inputs.Gi_per_thread }}
-    #         nvcc_threads: ${{ inputs.nvcc_threads }}
-    #         python: ${{ inputs.python }}
-    #     secrets: inherit
-
-    # TEST:
-    #     needs: [BUILD]
-    #     if: success()
     #     strategy:
-    #         fail-fast: false
     #         matrix:
-    #             test_label: ${{ fromJson(inputs.test_labels) }}
-    #     name: TEST-${{ matrix.test_label }}
-    #     uses: ./.github/workflows/nm-test.yml
-    #     with:
-    #         test_label: ${{ matrix.test_label }}
-    #         timeout: ${{ inputs.test_timeout }}
-    #         gitref: ${{ github.ref }}
-    #         python: ${{ inputs.python }}
-    #         whl: ${{ needs.BUILD.output.whl }}
-    #         test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-    #     secrets: inherit
+    #             config_pair: ${{ fromJson(inputs.config_pairs) }}
+    #             # config_pair: [{'python':'3.8.17','label':'gcp-k8s-l4-solo'},{'python':'3.9.17','label':'gcp-k8s-t4-duo'}]
+    #     steps:
+    #         - run: |
+    #             echo "and then: ${{ matrix.config_pair }}"
+    #             echo "python: ${{ matrix.config_pair.python }}"
+    #             echo "label: ${{ matrix.config_pair.label }}"
+
+    TEST:
+        needs: [BUILD]
+        if: success()
+        strategy:
+            fail-fast: false
+            matrix:
+                test_config: ${{ fromJson(inputs.test_configs) }}
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ matrix.test_config.label }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ matrix.test_config.python }}
+            whl: ${{ needs.BUILD.output.whl }}
+            test_skip_env_vars: ${{ matrix.test_config.test_skip_env_vars }}
+        secrets: inherit
 
         # needs: [BUILD]
         # if: success()
@@ -141,43 +137,43 @@ jobs:
     #         test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
     #     secrets: inherit
 
-    # # uploading is only available when using GCP autoscaling group
-    # UPLOAD:
-    #     needs: [TEST]
-    #     if: contains(fromJSON('["NIGHTLY", "RELEASE"]'), inputs.wf_category) && contains(fromJSON('["gcp"]'), inputs.build_label)
-    #     uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
-    #     with:
-    #         label: gcp-k8s-util
-    #         timeout: ${{ inputs.build_timeout }}
-    #         gitref: ${{ github.ref }}
-    #         python: ${{ inputs.python }}
-    #     secrets: inherit
+    # uploading is only available when using GCP autoscaling group
+    UPLOAD:
+        needs: [TEST]
+        if: success() && contains(fromJSON('["NIGHTLY", "RELEASE"]'), inputs.wf_category) && contains(fromJSON('["gcp"]'), inputs.build_label)
+        uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
+        with:
+            label: gcp-k8s-util
+            timeout: ${{ inputs.build_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+        secrets: inherit
 
-    # BENCHMARK:
-    #     needs: [BUILD]
-    #     if: success()
-    #     uses: ./.github/workflows/nm-benchmark.yml
-    #     with:
-    #         label: ${{ inputs.benchmark_label }}
-    #         benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
-    #         timeout: ${{ inputs.benchmark_timeout }}
-    #         gitref: ${{ github.ref }}
-    #         python: ${{ inputs.python }}
-    #         whl: ${{ needs.BUILD.outputs.whl }}
-    #         # Always push if it is a scheduled job
-    #         push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
-    #     secrets: inherit
+    BENCHMARK:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-benchmark.yml
+        with:
+            label: ${{ inputs.benchmark_label }}
+            benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
+            timeout: ${{ inputs.benchmark_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            # Always push if it is a scheduled job
+            push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
+        secrets: inherit
 
-    # TEST-ACCURACY-FULL:
-    #   needs: [BUILD]
-    #   if: ${{ inputs.wf_category == 'RELEASE' }}
-    #   uses: ./.github/workflows/nm-test-accuracy-full.yml
-    #   with:
-    #     label: ${{ inputs.test_label_multi }}
-    #     timeout: ${{ inputs.benchmark_timeout }}
-    #     gitref: ${{ inputs.gitref }}
-    #     Gi_per_thread: ${{ inputs.Gi_per_thread }}
-    #     nvcc_threads: ${{ inputs.nvcc_threads }}
-    #     python: ${{ inputs.python }}
-    #     whl: ${{ needs.BUILD.outputs.whl }}
-    #   secrets: inherit
+    TEST-ACCURACY-FULL:
+      needs: [BUILD]
+      if: ${{ inputs.wf_category == 'RELEASE' }}
+      uses: ./.github/workflows/nm-test-accuracy-full.yml
+      with:
+        label: ${{ inputs.test_label_accuracy }}
+        timeout: ${{ inputs.benchmark_timeout }}
+        gitref: ${{ inputs.gitref }}
+        Gi_per_thread: ${{ inputs.Gi_per_thread }}
+        nvcc_threads: ${{ inputs.nvcc_threads }}
+        python: ${{ inputs.python }}
+        whl: ${{ needs.BUILD.outputs.whl }}
+      secrets: inherit
