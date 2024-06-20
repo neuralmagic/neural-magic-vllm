@@ -113,7 +113,7 @@ jobs:
             gitref: ${{ github.ref }}
             python: ${{ matrix.test_config.python }}
             whl: ${{ needs.BUILD.output.whl }}
-            test_skip_env_vars: ${{ matrix.test_config.test_skip_env_vars }}
+            test_skip_env_vars: ${{ matrix.test_config.test }}
         secrets: inherit
 
         # needs: [BUILD]
