@@ -79,8 +79,8 @@ jobs:
         steps:
             - run: |
                 echo "and then: ${{ matrix.config_pair }}"
-                echo "python: ${{ matrix.config_pair.*.python }}"
-                echo "label: ${{ matrix.config_pair.*.label }}"
+                echo "python: ${{ matrix.config_pair.python }}"
+                echo "label: ${{ matrix.config_pair.label }}"
 
     # BUILD:
     #     uses: ./.github/workflows/nm-build.yml
