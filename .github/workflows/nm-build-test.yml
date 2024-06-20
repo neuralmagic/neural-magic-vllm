@@ -77,8 +77,7 @@ jobs:
                 config_pair: ${{ fromJson(inputs.config_pairs) }}
         steps:
             - run: |
-                echo "first: ${{ fromJson(matrix.config_pair)[0] }}"
-                echo "second: ${{ fromJson(matrix.config_pair)[1] }}"
+                echo "and then: ${{ fromJson(matrix.config_pair) }}"
 
     # BUILD:
     #     uses: ./.github/workflows/nm-build.yml
