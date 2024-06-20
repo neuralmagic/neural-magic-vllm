@@ -28,24 +28,24 @@ MODELS = [
 EXPECTED_STRS_MAP = {
     "nm-testing/Meta-Llama-3-8B-Instruct-FP8-KV": {
         "auto": [
-            'LLaMA is a high-throughput and memory-efficient inference and serving engine for Large Language Models (',
+            'A very specific and technical topic!\n\nvLLM (short for "vectorized Large Language Model")',
             'Here are the major milestones in the development of artificial intelligence (AI) from 1950 to ',
-            'Artificial intelligence (AI) and human intelligence (HI) process information in distinct ways, with both',
+            'Artificial intelligence (AI) and human intelligence (HI) differ significantly in how they process information.',
             'A neural network is a complex system modeled after the human brain, composed of interconnected nodes or "ne',
             'Zeta-5, a highly advanced robot designed for menial labor, whirred and beep',
             'The COVID-19 pandemic has had a profound impact on global economic structures and future business models. The',
             'The Mona Lisa, painted by Leonardo da Vinci in the early 16th century, is one of',
-            'Here are the translations:\n\n**Japanese:** (Haya aki no tori, nemuri no'
+            'Here are the translations:\n\n**Japanese:** (Haya tori, mushi o tsukamu'
         ],
         "fp8": [
-            'LLM (Large Language Model) is a type of artificial intelligence (AI) model that is trained',
+            'A very specific topic!\n\nvLLM (short for "vectorized Large Language Model") is a',
             'Here are the major milestones in the development of artificial intelligence (AI) from 1950 to ',
             'Artificial intelligence (AI) and human intelligence (HI) differ significantly in how they process information.',
-            'A neural network is a complex system made up of several basic components that work together to enable it to',
-            'Zeta-5, a highly advanced robot designed for menial labor, had never experienced anything like',
-            'The COVID-19 pandemic has had a profound impact on global economic structures and future business models. Here',
+            'A neural network is a complex system composed of multiple layers of interconnected nodes or "neurons," which',
+            'Zeta-5, a highly advanced robot designed for menial tasks, whirred and beep',
+            'The COVID-19 pandemic has had a profound impact on global economic structures and future business models. The',
             'The Mona Lisa, painted by Leonardo da Vinci in the early 16th century, is one of',
-            'Here are the translations:\n\n**Japanese:** (Haya kotori wa mushi o tsuk'
+            'Here are the translations:\n\n**Japanese:** (Haya tori, mushi o tsukamu'
         ]
     },
     "meta-llama/Meta-Llama-3-8B-Instruct": {
