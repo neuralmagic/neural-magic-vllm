@@ -1,3 +1,5 @@
+# This file has been modified by Neural Magic
+
 import dataclasses
 import gc
 import time
@@ -1379,10 +1381,13 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
 
         return [output]
 
+# NOTE: this is nn.Module so the profiler can properly capture/group
+#  kernels calls made within the graph
+class CUDAGraphRunner(nn.Module):
 
-class CUDAGraphRunner:
+    def __init__(self, model: nn.Module, backend_name:str):
+        super().__init__()
 
-    def __init__(self, model: nn.Module, backend_name: str):
         self.model = model
         self.backend_name = backend_name
 
@@ -1531,9 +1536,6 @@ class CUDAGraphRunner:
             return self.output_buffers["hidden_states"]
 
         return self.output_buffers
-
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
 
 
 def _get_graph_batch_size(batch_size: int) -> int:
