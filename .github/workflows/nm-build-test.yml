@@ -29,10 +29,18 @@ on:
         type: string
         default: "8"
       # test related parameters
+
+      # stringified Json array of maps
+      # each map has a "python", "gha label", "test skip env vars" e.g.
+      # [
+      #     {'python':'3.8.17','label':'gcp-k8s-l4-solo','test':'neuralmagic/tests/test_skip_env_vars/smoke.txt'},
+      #     ...
+      # ]
       test_configs:
-        description: "python - label pairs"
+        description: "python, label, skip envs"
         type: string
         required: true
+
       test_timeout:
         description: "time limit for test run in minutes"
         type: string

@@ -19,12 +19,6 @@ jobs:
             python: 3.10.12
             gitref: ${{ github.ref }}
 
-            # stringified Json array of maps
-            # each map has a "python", "gha label", "test skip env vars" e.g.
-            # [
-            #     {'python':'3.8.17','label':'gcp-k8s-l4-solo','test':'neuralmagic/tests/test_skip_env_vars/smoke.txt'},
-            #     ...
-            # ]
             test_configs: "[{'python':'3.8.17','label':'gcp-k8s-l4-solo','test':'neuralmagic/tests/test_skip_env_vars/smoke.txt'},
                             {'python':'3.9.17','label':'gcp-k8s-t4-duo','test':'neuralmagic/tests/test_skip_env_vars/smoke.txt'},
                             {'python':'3.10.12','label':'gcp-k8s-l4-duo','test':'neuralmagic/tests/test_skip_env_vars/smoke.txt'},
