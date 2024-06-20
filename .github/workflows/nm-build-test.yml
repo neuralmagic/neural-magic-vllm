@@ -1,5 +1,6 @@
 name: nm build-test
 on:
+
   # makes workflow reusable
   workflow_call:
     inputs:
@@ -11,6 +12,7 @@ on:
         description: "python version, e.g. 3.10.12"
         type: string
         required: true
+
       # build related parameters
       build_label:
         description: "requested runner label (specifies instance)"
@@ -28,6 +30,7 @@ on:
         description: "number of threads nvcc build threads"
         type: string
         default: "8"
+
       # test related parameters
 
       # stringified Json array of maps
@@ -49,6 +52,7 @@ on:
         description: "git commit hash or branch name"
         type: string
         required: true
+
       # benchmark related parameters
       benchmark_label:
         description: "requested benchmark label (specifies instance)"
@@ -66,6 +70,7 @@ on:
         description: "when set to true, the workflow pushes all benchmarking results to gh-pages UI"
         type: string
         default: "false"
+
       # lm accuracy
       test_label_accuracy:
         description: "label to run accuracy tests"
@@ -74,7 +79,18 @@ on:
 
 jobs:
 
+    JSON-GYM:
+        runs-on: gcp-k8s-util
+        steps:
+            - name: validate test configs
+              run: |
+                sudo apt-get install -y jq
+                TEST_CONFIGS=${{ inputs.test_configs }}
+                jq -re '""' <<< "${TEST_CONFIGS}"
+
     BUILD:
+        needs: [JSON-GYM]
+        if: success()
         uses: ./.github/workflows/nm-build.yml
         with:
             wf_category: ${{ inputs.wf_category }}
@@ -85,19 +101,6 @@ jobs:
             nvcc_threads: ${{ inputs.nvcc_threads }}
             python: ${{ inputs.python }}
         secrets: inherit
-
-    # JSON-GYM:
-    #     runs-on: gcp-k8s-util
-
-    #     strategy:
-    #         matrix:
-    #             config_pair: ${{ fromJson(inputs.config_pairs) }}
-    #             # config_pair: [{'python':'3.8.17','label':'gcp-k8s-l4-solo'},{'python':'3.9.17','label':'gcp-k8s-t4-duo'}]
-    #     steps:
-    #         - run: |
-    #             echo "and then: ${{ matrix.config_pair }}"
-    #             echo "python: ${{ matrix.config_pair.python }}"
-    #             echo "label: ${{ matrix.config_pair.label }}"
 
     TEST:
         needs: [BUILD]
