@@ -111,7 +111,7 @@ do
 
     # report which test is being run
     # (in CI, if a test hangs, this logs *which* test is running *before* it hangs)
-    echo "RUNNING TEST: ${TEST}"
+    echo "=== RUNNING TEST: ${TEST} ==="
 
     # this is a bit messy and brittle, but certain tests
     # need to be run with specific options
@@ -127,6 +127,13 @@ do
         VLLM_TEST_ENABLE_ARTIFICIAL_PREEMPT=1 pytest ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     else
         pytest ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+    fi
+
+    # report test that failed in case it is not captured in testmo (for easy searching in logs)
+    if [[ $LOCAL_SUCCESS == 1 ]]; then
+        echo "=== FAILED TEST: ${TEST} ==="
+    else
+        echo "=== PASSED TEST: ${TEST} ==="
     fi
 
     SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
