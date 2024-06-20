@@ -129,14 +129,20 @@ do
         pytest ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     fi
 
-    # report test that failed in case it is not captured in testmo (for easy searching in logs)
-    if [[ $LOCAL_SUCCESS == 1 ]]; then
-        echo "=== FAILED TEST: ${TEST} ==="
-    else
+    # if a file gets exit code 0, we are good
+    if [[ $LOCAL_SUCCESS == 0 ]]; then
         echo "=== PASSED TEST: ${TEST} ==="
+    # if a file does not run any tests, pytest reports exit code of 5
+    # since we skip full modules in our skipping strategy, this is common
+    elif [[ $LOCAL_SUCCESS == 5 ]]; then,
+        echo "=== PASSED TEST: ${TEST} ==="
+    # otherewise, report failure
+    else
+        echo "=== FAILED TEST: ${TEST} ==="
+        SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
     fi
 
-    SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
+    
 
 done
 
