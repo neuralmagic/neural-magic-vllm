@@ -390,6 +390,8 @@ def convert_fp8(output: torch.Tensor,
                 kv_dtype: str = "fp8") -> None:
     torch.ops._C_cache_ops.convert_fp8(output, input, scale, kv_dtype)
 
+def get_cuda_version() -> int:
+    return torch.ops._C_cuda_utils.get_cuda_version()
 
 def get_device_attribute(attribute: int, device: int) -> int:
     return torch.ops._C_cuda_utils.get_device_attribute(attribute, device)

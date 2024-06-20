@@ -231,6 +231,10 @@ TORCH_LIBRARY_EXPAND(CONCAT(TORCH_EXTENSION_NAME, _cache_ops), cache_ops) {
 
 TORCH_LIBRARY_EXPAND(CONCAT(TORCH_EXTENSION_NAME, _cuda_utils), cuda_utils) {
   // Cuda utils
+  
+  // Gets the Cuda version the library was compiled with
+  // returns -1 if not CUDA
+  cuda_utils.def("get_cuda_version", &get_cuda_version);
 
   // Gets the specified device attribute.
   cuda_utils.def("get_device_attribute", &get_device_attribute);
