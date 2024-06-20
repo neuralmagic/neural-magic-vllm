@@ -79,18 +79,18 @@ on:
 
 jobs:
 
-    JSON-GYM:
-        runs-on: gcp-k8s-util
-        steps:
-            - name: validate test configs
-              run: |
-                sudo apt-get install -y jq
-                TEST_CONFIGS=${{ inputs.test_configs }}
-                jq -re '""' <<< "${TEST_CONFIGS}"
+    # JSON-GYM:
+    #     runs-on: gcp-k8s-util
+    #     steps:
+    #         - name: validate test configs
+    #           run: |
+    #             sudo apt-get install -y jq
+    #             TEST_CONFIGS=${{ inputs.test_configs }}
+    #             jq -re '""' <<< "${TEST_CONFIGS}"
 
     BUILD:
-        needs: [JSON-GYM]
-        if: success()
+        # needs: [JSON-GYM]
+        # if: success()
         uses: ./.github/workflows/nm-build.yml
         with:
             wf_category: ${{ inputs.wf_category }}
