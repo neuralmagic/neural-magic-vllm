@@ -18,8 +18,8 @@ if TYPE_CHECKING:
     S3_ENDPOINT_URL: Optional[str] = None
     VLLM_CONFIG_ROOT: str = ""
     VLLM_USAGE_STATS_SERVER: str = "https://stats.vllm.ai"
-    VLLM_NO_USAGE_STATS: bool = False
-    VLLM_DO_NOT_TRACK: bool = False
+    VLLM_NO_USAGE_STATS: bool = True
+    VLLM_DO_NOT_TRACK: bool = True
     VLLM_USAGE_SOURCE: str = ""
     VLLM_CONFIGURE_LOGGING: int = 1
     VLLM_LOGGING_LEVEL: str = "INFO"
