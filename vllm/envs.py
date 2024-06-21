@@ -164,9 +164,7 @@ environment_variables: Dict[str, Callable[[], Any]] = {
     lambda: os.environ.get("VLLM_USAGE_STATS_SERVER", "https://stats.vllm.ai"),
     "VLLM_NO_USAGE_STATS":
     lambda: os.environ.get("VLLM_NO_USAGE_STATS", "0") == "1",
-    "VLLM_DO_NOT_TRACK":
-    lambda: (os.environ.get("VLLM_DO_NOT_TRACK", None) or os.environ.get(
-        "DO_NOT_TRACK", None) or "0") == "1",
+    "VLLM_DO_NOT_TRACK": True,
     "VLLM_USAGE_SOURCE":
     lambda: os.environ.get("VLLM_USAGE_SOURCE", "production"),
 
