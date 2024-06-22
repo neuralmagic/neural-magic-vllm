@@ -23,6 +23,10 @@ on:
         description: "whl to test (variable appears late binding so unusable outside 'download artifact')"
         type: string
         required: true
+      test_directory:
+        description: 'directory to test files'
+        type: string
+        required: true
       test_skip_env_vars:
         description: 'file containing tests env vars for test skipping'
         type: string
@@ -49,6 +53,10 @@ on:
         required: true
       whl:
         description: "whl to test (variable appears late binding so unusable outside 'download artifact')"
+        type: string
+        required: true
+      test_directory:
+        description: 'directory to test files'
         type: string
         required: true
       test_skip_env_vars:
@@ -142,7 +150,7 @@ jobs:
               id: test
               uses: ./.github/actions/nm-test-whl/
               with:
-                test_directory: tests
+                test_directory: ${{ inputs.test_directory }}
                 test_results: test-results
 
             - name: upload code coverage html
