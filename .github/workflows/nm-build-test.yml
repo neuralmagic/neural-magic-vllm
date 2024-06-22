@@ -230,22 +230,161 @@ jobs:
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
             test_directory: tests/metrics
+        secrets: inherit    
+
+    MODEL_EXECUTOR:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/model_executor
+        secrets: inherit
+     
+    MODELS:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/models
+        secrets: inherit 
+
+    MODELS_CORE:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/models_core
+        secrets: inherit
+
+    MULTIMODAL:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/multimodal
+        secrets: inherit
+
+    PREFIX-CACHING:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/prefix_caching
         secrets: inherit
     
-    MODELS_CORE:
-      needs: [BUILD]
-      if: success()
-      uses: ./.github/workflows/nm-test.yml
-      with:
-          test_label: ${{ inputs.test_label_solo }}
-          timeout: ${{ inputs.test_timeout }}
-          gitref: ${{ github.ref }}
-          python: ${{ inputs.python }}
-          whl: ${{ needs.BUILD.outputs.whl }}
-          test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-          test_directory: tests/models_core
-      secrets: inherit
+    QUANTIZATION:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/quantization
+        secrets: inherit
+  
+    SAMPLERS:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/samplers
+        secrets: inherit
+    
+    SPEC-DECODE:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/spec_decode
+        secrets: inherit
 
+    TENSORIZER:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/tensorizer_loader
+        secrets: inherit
+
+    TOKENIZATION:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/tokenization
+        secrets: inherit
+    
+    WORKER:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/worker
+        secrets: inherit
 
     # UPLOAD:
     #     needs: [TEST-SOLO]
