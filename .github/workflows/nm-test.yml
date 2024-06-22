@@ -157,7 +157,7 @@ jobs:
               uses: actions/upload-artifact@v4
               if: success() || failure()
               with:
-                name: cc-vllm-html-${{ inputs.test_label }}-${{ inputs.python }}
+                name: cc-vllm-html-${{ inputs.test_label }}-${{ inputs.python }}-${{ inputs.test_directory }}
                 path: cc-vllm-html
                 retention-days: 15
 

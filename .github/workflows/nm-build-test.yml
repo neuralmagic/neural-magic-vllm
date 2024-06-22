@@ -117,7 +117,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/async_engine
+            test_directory: async_engine
         secrets: inherit
     
     BASIC_CORRECTNESS:
@@ -131,7 +131,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/basic_correctness
+            test_directory: basic_correctness
         secrets: inherit
     
     CORE:
@@ -145,7 +145,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/core
+            test_directory: core
         secrets: inherit
 
     DISTRIBUTED:
@@ -159,7 +159,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/distributed
+            test_directory: distributed
         secrets: inherit
     
     ENGINE:
@@ -173,7 +173,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/engine
+            test_directory: engine
         secrets: inherit
 
     ENTRYPOINTS:
@@ -187,7 +187,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/entrypoints
+            test_directory: entrypoints
         secrets: inherit
   
     KERNELS:
@@ -201,7 +201,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/kernels
+            test_directory: kernels
         secrets: inherit
     
     LORA:
@@ -215,7 +215,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/lora
+            test_directory: lora
         secrets: inherit
     
     METRICS:
@@ -229,7 +229,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/metrics
+            test_directory: metrics
         secrets: inherit    
 
     MODEL_EXECUTOR:
@@ -243,7 +243,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/model_executor
+            test_directory: model_executor
         secrets: inherit
      
     MODELS:
@@ -257,7 +257,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/models
+            test_directory: models
         secrets: inherit 
 
     MODELS_CORE:
@@ -271,7 +271,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/models_core
+            test_directory: models_core
         secrets: inherit
 
     MULTIMODAL:
@@ -285,7 +285,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/multimodal
+            test_directory: multimodal
         secrets: inherit
 
     PREFIX-CACHING:
@@ -299,7 +299,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/prefix_caching
+            test_directory: prefix_caching
         secrets: inherit
     
     QUANTIZATION:
@@ -313,7 +313,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/quantization
+            test_directory: quantization
         secrets: inherit
   
     SAMPLERS:
@@ -327,7 +327,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/samplers
+            test_directory: samplers
         secrets: inherit
     
     SPEC-DECODE:
@@ -341,7 +341,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/spec_decode
+            test_directory: spec_decode
         secrets: inherit
 
     TENSORIZER:
@@ -355,7 +355,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/tensorizer_loader
+            test_directory: tensorizer_loader
         secrets: inherit
 
     TOKENIZATION:
@@ -369,7 +369,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/tokenization
+            test_directory: tokenization
         secrets: inherit
     
     WORKER:
@@ -383,7 +383,7 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: tests/worker
+            test_directory: worker
         secrets: inherit
 
     # UPLOAD:
