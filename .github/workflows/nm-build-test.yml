@@ -133,7 +133,105 @@ jobs:
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
             test_directory: tests/basic_correctness
         secrets: inherit
+    
+    CORE:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/core
+        secrets: inherit
 
+    DISTRIBUTED:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_multi }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/distributed
+        secrets: inherit
+    
+    ENGINE:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/engine
+        secrets: inherit
+
+    ENTRYPOINTS:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/entrypoints
+        secrets: inherit
+  
+    KERNELS:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/kernels
+        secrets: inherit
+    
+    LORA:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/lora
+        secrets: inherit
+    
+    METRICS:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tests/metrics
+        secrets: inherit
+    
     MODELS_CORE:
       needs: [BUILD]
       if: success()
