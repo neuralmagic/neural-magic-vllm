@@ -9,10 +9,18 @@ With vLLM, we cannot re-initialize an LLM engine in the same
 process when using TP due to cleanup issues. As a result, 
 we cannot use pytest. Launch with:
 
-TEST_DIST_MODEL=meta-llama/Meta-Llama-3-8B-Instruct DISTRIBUTED_EXECUTOR_BACKEND="ray" pytest -s tests/distributed/models_core/test_llm_logprobs.py
-TEST_DIST_MODEL=meta-llama/Meta-Llama-3-8B-Instruct DISTRIBUTED_EXECUTOR_BACKEND="mp" pytest -s tests/distributed/models_core/test_llm_logprobs.py
+
+
+TEST_DIST_MODEL=meta-llama/Meta-Llama-3-8B-Instruct \
+    DISTRIBUTED_EXECUTOR_BACKEND="ray" \
+    pytest -s tests/distributed/models_core/test_llm_logprobs.py
+
+TEST_DIST_MODEL=meta-llama/Meta-Llama-3-8B-Instruct \
+    DISTRIBUTED_EXECUTOR_BACKEND="mp" \
+    pytest -s tests/distributed/models_core/test_llm_logprobs.py
 """
 import os
+
 import pytest
 import torch
 
@@ -20,8 +28,9 @@ from tests.models.utils import check_logprobs_close
 from tests.nm_utils.utils_skip import should_skip_test_group
 
 if should_skip_test_group(group_name="TEST_DISTRIBUTED"):
-    pytest.skip("TEST_DISTRIBUTED=DISABLE, skipping distributed model test group",
-                allow_module_level=True)
+    pytest.skip(
+        "TEST_DISTRIBUTED=DISABLE, skipping distributed model test group",
+        allow_module_level=True)
 
 MAX_TOKENS = 32
 NUM_LOGPROBS = 5
@@ -31,6 +40,7 @@ NUM_DEVICES = torch.cuda.device_count()
 TEST_DIST_MODEL = "TEST_DIST_MODEL"
 DISTRIBUTED_EXECUTOR_BACKEND = "DISTRIBUTED_EXECUTOR_BACKEND"
 VLLM_ATTENTION_BACKEND = "VLLM_ATTENTION_BACKEND"
+
 
 @pytest.mark.skipif(NUM_DEVICES < 2,
                     reason="Need at least 2 GPUs to run the test.")
@@ -45,14 +55,14 @@ def test_models(
 
     hf_model = hf_runner_nm(model)
     hf_outputs = hf_model.generate_greedy_logprobs_nm(example_prompts,
-                                                      MAX_TOKENS,
-                                                      NUM_LOGPROBS)
+                                                      MAX_TOKENS, NUM_LOGPROBS)
 
     del hf_model
 
     enforce_eager = backend_by_env_var == "FLASHINFER"
 
-    vllm_model = vllm_runner_nm(model, 
+    vllm_model = vllm_runner_nm(
+        model,
         max_model_len=MODEL_MAX_LEN,
         enforce_eager=enforce_eager,
         distributed_executor_backend=distributed_executor_backend,
