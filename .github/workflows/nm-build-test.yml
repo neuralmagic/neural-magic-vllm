@@ -94,7 +94,7 @@ jobs:
             python: ${{ inputs.python }}
         secrets: inherit
 
-    LM-EVAL:
+    LM_EVAL:
         needs: [BUILD]
         uses: ./.github/workflows/nm-lm-eval.yml
         with:
@@ -291,7 +291,7 @@ jobs:
             test_directory: multimodal
         secrets: inherit
 
-    PREFIX-CACHING:
+    PREFIX_CACHING:
         needs: [BUILD]
         if: success()
         uses: ./.github/workflows/nm-test.yml
@@ -333,7 +333,7 @@ jobs:
             test_directory: samplers
         secrets: inherit
     
-    SPEC-DECODE:
+    SPEC_DECODE:
         needs: [BUILD]
         if: success()
         uses: ./.github/workflows/nm-test.yml
@@ -389,16 +389,17 @@ jobs:
             test_directory: worker
         secrets: inherit
 
-    # UPLOAD:
-    #     needs: [TEST-SOLO]
-    #     if: contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category)
-    #     uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
-    #     with:
-    #         label: ${{ inputs.build_label }}
-    #         timeout: ${{ inputs.build_timeout }}
-    #         gitref: ${{ github.ref }}
-    #         python: ${{ inputs.python }}
-    #     secrets: inherit
+    UPLOAD:
+        # TODO: add distributed once we re-enable
+        needs: [LM_EVAL, ASYNC_ENGINE, BASIC_CORRECTNESS, CORE, ENGINE, ENTRYPOINTS, KERNELS, LORA, METRICS, MODEL_EXECUTOR, MODELS, MODELS_CORE, MULTIMODAL, PREFIX_CACHING, QUANTIZATION, SAMPLERS, SPEC_DECODE, TENSORIZER, TOKENIZATION, WORKER]
+        if: contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category)
+        uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
+        with:
+            label: ${{ inputs.build_label }}
+            timeout: ${{ inputs.build_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+        secrets: inherit
 
     # BENCHMARK:
     #     needs: [BUILD]
