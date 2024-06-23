@@ -4,10 +4,10 @@ from dataclasses import dataclass
 import pytest
 import torch
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm import SamplingParams
 from vllm.engine.async_llm_engine import AsyncEngineArgs, AsyncLLMEngine
 
-from tests.nm_utils.utils_skip import should_skip_test_group
 from ..utils import wait_for_gpu_memory_to_clear
 
 if should_skip_test_group(group_name="TEST_ASYNC_ENGINE"):

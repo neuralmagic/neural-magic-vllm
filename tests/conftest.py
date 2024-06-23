@@ -1,6 +1,5 @@
 import contextlib
 import gc
-import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple, TypeVar
 
@@ -12,7 +11,6 @@ from PIL import Image
 from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
                           AutoProcessor, AutoTokenizer, BatchEncoding)
 
-from tests.nm_utils.logging import make_logger
 from vllm import LLM, SamplingParams
 from vllm.config import TokenizerPoolConfig, VisionLanguageConfig
 from vllm.distributed import (destroy_distributed_environment,
@@ -729,8 +727,3 @@ def num_gpus_available():
     in current process."""
 
     return cuda_device_count_stateless()
-
-
-@pytest.fixture(scope="session")
-def logger() -> logging.Logger:
-    return make_logger("vllm_test")

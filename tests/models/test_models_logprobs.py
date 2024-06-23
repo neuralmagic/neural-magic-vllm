@@ -69,9 +69,7 @@ def test_models(
 
     del hf_model
 
-    vllm_model = vllm_runner(model,
-                             dtype=dtype,
-                             max_model_len=MODEL_MAX_LEN)
+    vllm_model = vllm_runner(model, dtype=dtype, max_model_len=MODEL_MAX_LEN)
     vllm_outputs = vllm_model.generate_greedy_logprobs(example_prompts,
                                                        max_tokens,
                                                        num_logprobs)

@@ -7,8 +7,6 @@ import torch
 import torch.distributed as dist
 
 from tests.nm_utils.utils_skip import should_skip_test_group
-from tests.utils import (init_test_distributed_environment,
-                         multi_process_tensor_parallel)
 from vllm.distributed.communication_op import (  # noqa
     tensor_model_parallel_all_reduce)
 from vllm.distributed.parallel_state import (get_tensor_model_parallel_group,

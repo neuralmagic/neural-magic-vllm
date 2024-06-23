@@ -1,3 +1,5 @@
+# mypy: ignore-errors
+# TODO (robertgshaw2-neuralmagic): clean this up
 import logging
 import os
 import subprocess
