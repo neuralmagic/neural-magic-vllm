@@ -27,6 +27,7 @@ on:
         description: 'file containing tests configuration (see: nm-vllm/neuralmagic/lm-eval)'
         type: string
         required: true
+      
 
   # makes workflow manually callable
   workflow_dispatch:
@@ -55,6 +56,10 @@ on:
         description: 'file containing tests configuration (see: nm-vllm/neuralmagic/lm-eval)'
         type: string
         required: true
+      lm_eval_tensor_parallel_size:
+        description: "tensor parallel size for lm-eval-multi test"
+        type: string
+        default: "1"
 
 jobs:
   LM-EVAL:
@@ -117,3 +122,4 @@ jobs:
           python: ${{ inputs.python }}
           venv:
           lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
+          lm_eval_tensor_parallel_size: ${{ inputs.lm_eval_tensor_parallel_size }}
