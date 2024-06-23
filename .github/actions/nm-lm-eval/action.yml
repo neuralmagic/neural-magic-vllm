@@ -12,7 +12,7 @@ inputs:
     required: true
   lm_eval_tensor_parallel_size:
     description: 'tensor parallel size to run the test'
-    required: treu
+    required: true
 runs:
   using: composite
   steps:
