@@ -64,7 +64,7 @@ class RemoteOpenAIServer:
 
         def __del__(self):
             if hasattr(self, "proc"):
-                self.proc.kill()
+                self.proc.terminate()
 
     def __init__(self, cli_args: List[str], *, auto_port: bool = True) -> None:
         if auto_port:
