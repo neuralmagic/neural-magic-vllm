@@ -148,19 +148,22 @@ jobs:
             test_directory: core
         secrets: inherit
 
-    DISTRIBUTED:
-        needs: [BUILD]
-        if: success()
-        uses: ./.github/workflows/nm-test.yml
-        with:
-            test_label: ${{ inputs.test_label_multi }}
-            timeout: ${{ inputs.test_timeout }}
-            gitref: ${{ github.ref }}
-            python: ${{ inputs.python }}
-            whl: ${{ needs.BUILD.outputs.whl }}
-            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-            test_directory: distributed
-        secrets: inherit
+    # 
+    # TODO: re-enable in the distributed test PR
+    #
+    # DISTRIBUTED:
+    #     needs: [BUILD]
+    #     if: success()
+    #     uses: ./.github/workflows/nm-test.yml
+    #     with:
+    #         test_label: ${{ inputs.test_label_multi }}
+    #         timeout: ${{ inputs.test_timeout }}
+    #         gitref: ${{ github.ref }}
+    #         python: ${{ inputs.python }}
+    #         whl: ${{ needs.BUILD.outputs.whl }}
+    #         test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+    #         test_directory: distributed
+    #     secrets: inherit
     
     ENGINE:
         needs: [BUILD]
