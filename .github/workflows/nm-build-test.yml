@@ -67,7 +67,11 @@ on:
         type: string
         default: "false"
       # lm-eval related parameters
-      lm_eval_label:
+      lm_eval_label_solo:
+        description: "requested runner label (specifies instance)"
+        type: string
+        default: ""
+      lm_eval_label_multi:
         description: "requested runner label (specifies instance)"
         type: string
         default: ""
@@ -76,9 +80,13 @@ on:
         type: string
         default: "60"
       lm_eval_configuration:
-        description: "configuration for lm-eval test (see neuralmagic/lm-eval)"
+        description: "configuration for lm-eval test (see .github/lm-eval-configs)"
         type: string
         default: "" 
+      lm_eval_tensor_parallel_size:
+        description: "tensor parallel size for lm-eval-multi test"
+        type: string
+        default: "1"
 
 jobs:
 
@@ -151,10 +159,24 @@ jobs:
       needs: [BUILD]
       uses: ./.github/workflows/nm-lm-eval.yml
       with:
-        label: ${{ inputs.lm_eval_label }}
+        label: ${{ inputs.lm_eval_label_solo }}
         timeout: ${{ inputs.lm_eval_timeout }}
         gitref: ${{ inputs.gitref }}
         python: ${{ inputs.python }}
         whl: ${{ needs.BUILD.outputs.whl }}
         lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
+        tensor_parallel_size: 1
+      secrets: inherit
+    
+    LM-EVAL-MULTI:
+      needs: [BUILD]
+      uses: ./.github/workflows/nm-lm-eval.yml
+      with:
+        label: ${{ inputs.lm_eval_label_multi }}
+        timeout: ${{ inputs.lm_eval_timeout }}
+        gitref: ${{ inputs.gitref }}
+        python: ${{ inputs.python }}
+        whl: ${{ needs.BUILD.outputs.whl }}
+        lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
+        tensor_parallel_size: ${{ inputs.lm_eval_tensor_parallel_size }}
       secrets: inherit

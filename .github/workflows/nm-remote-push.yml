@@ -27,9 +27,11 @@ jobs:
             benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
             benchmark_timeout: 480
 
-            lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_configuration: ./neuralmagic/lm-eval/smoke-small-models.yaml
+            lm_eval_label_solo: gcp-k8s-l4-solo
+            lm_eval_label_mulit: gcp-k8s-l4-duo
+            lm_eval_configuration: ./.github/lm-eval-configs/smoke-small-models.yaml
             lm_eval_timeout: 60
+            
         secrets: inherit
 
     BUILD-TEST-3-9:
@@ -47,8 +49,9 @@ jobs:
             benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
             benchmark_timeout: 480
 
-            lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_configuration: ./neuralmagic/lm-eval/smoke-small-models.yaml
+            lm_eval_label_solo: gcp-k8s-l4-solo
+            lm_eval_label_mulit: gcp-k8s-l4-duo
+            lm_eval_configuration: ./.github/lm-eval-configs/smoke-small-models.yaml
             lm_eval_timeout: 60
         secrets: inherit
 
@@ -67,8 +70,9 @@ jobs:
             benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
             benchmark_timeout: 480
 
-            lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_configuration: ./neuralmagic/lm-eval/smoke-small-models.yaml
+            lm_eval_label_solo: gcp-k8s-l4-solo
+            lm_eval_label_mulit: gcp-k8s-l4-duo
+            lm_eval_configuration: ./.github/lm-eval-configs/smoke-small-models.yaml
             lm_eval_timeout: 60
         secrets: inherit
 
@@ -87,7 +91,8 @@ jobs:
             benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
             benchmark_timeout: 480
 
-            lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_configuration: ./neuralmagic/lm-eval/smoke-small-models.yaml
+            lm_eval_label_solo: gcp-k8s-l4-solo
+            lm_eval_label_mulit: gcp-k8s-l4-duo
+            lm_eval_configuration: ./.github/lm-eval-configs/smoke-small-models.yaml
             lm_eval_timeout: 60
         secrets: inherit

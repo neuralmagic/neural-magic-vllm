@@ -34,8 +34,9 @@ jobs:
             benchmark_timeout: 720
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
 
-            lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_configuration: ./neuralmagic/lm-eval/full-small-models.yaml
+            lm_eval_label_solo: gcp-k8s-l4-solo
+            lm_eval_label_mulit: gcp-k8s-l4-duo
+            lm_eval_configuration: ./.github/lm-eval-configs/full-small-models.yaml
             lm_eval_timeout: 60
         secrets: inherit
 
@@ -56,8 +57,9 @@ jobs:
             benchmark_timeout: 720
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
 
-            lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_configuration: ./neuralmagic/lm-eval/full-small-models.yaml
+            lm_eval_label_solo: gcp-k8s-l4-solo
+            lm_eval_label_mulit: gcp-k8s-l4-duo
+            lm_eval_configuration: ./.github/lm-eval-configs/full-small-models.yaml
             lm_eval_timeout: 60
         secrets: inherit
 
@@ -78,8 +80,9 @@ jobs:
             benchmark_timeout: 720
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
 
-            lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_configuration: ./neuralmagic/lm-eval/full-small-models.yaml
+            lm_eval_label_solo: gcp-k8s-l4-solo
+            lm_eval_label_mulit: gcp-k8s-l4-duo
+            lm_eval_configuration: ./.github/lm-eval-configs/full-small-models.yaml
             lm_eval_timeout: 60
         secrets: inherit
 
@@ -101,7 +104,8 @@ jobs:
             benchmark_timeout: 720
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
 
-            lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_configuration: ./neuralmagic/lm-eval/full-small-models.yaml
+            lm_eval_label_solo: gcp-k8s-l4-solo
+            lm_eval_label_mulit: gcp-k8s-l4-duo
+            lm_eval_configuration: ./.github/lm-eval-configs/full-small-models.yaml
             lm_eval_timeout: 60
         secrets: inherit
