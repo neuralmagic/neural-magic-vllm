@@ -17,6 +17,7 @@ jobs:
         with:
             python: 3.8.17
             gitref: ${{ github.ref }}
+            push_binaries_to_pypi: 'no'
 
             test_label_solo: gcp-k8s-l4-solo
             test_label_multi: ignore
@@ -37,6 +38,7 @@ jobs:
         with:
             python: 3.9.17
             gitref: ${{ github.ref }}
+            push_binaries_to_pypi: 'no'
 
             test_label_solo: gcp-k8s-l4-solo
             test_label_multi: ignore
@@ -57,6 +59,7 @@ jobs:
         with:
             python: 3.10.12
             gitref: ${{ github.ref }}
+            push_binaries_to_pypi: 'no'
 
             test_label_solo: gcp-k8s-l4-solo
             test_label_multi: ignore
@@ -77,6 +80,7 @@ jobs:
         with:
             python: 3.11.4
             gitref: ${{ github.ref }}
+            push_binaries_to_pypi: 'no'
 
             test_label_solo: gcp-k8s-l4-solo
             test_label_multi: ignore
