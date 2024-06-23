@@ -23,7 +23,6 @@ class RemoteOpenAIServer:
     DUMMY_API_KEY = "token-abc123"  # vLLM's OpenAI server does not need API key
     MAX_SERVER_START_WAIT_S = 600  # wait for server to start for 60 seconds
 
-    # UPSTREAM SYNC: control TP size used for tests
     @ray.remote(num_gpus=1)
     class _RemoteRunner:
 
@@ -65,8 +64,6 @@ class RemoteOpenAIServer:
 
         def __del__(self):
             if hasattr(self, "proc"):
-                for child in self.proc.children(recursive=True):
-                    child.kill()
                 self.proc.kill()
 
     def __init__(self, cli_args: List[str], *, auto_port: bool = True) -> None:
@@ -88,9 +85,6 @@ class RemoteOpenAIServer:
             wait_timeout=self.MAX_SERVER_START_WAIT_S)
 
         self._wait_until_ready()
-
-    def __del__(self):
-        del self._runner
 
     @property
     def url_root(self) -> str:
