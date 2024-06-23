@@ -18,17 +18,13 @@ from vllm.utils import get_open_port
 # Path to root of repository so that utilities can be imported by ray workers
 VLLM_PATH = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir))
 
-# UPSTREAM SYNC: control TP size used for tests
-NUM_GPUS = int(os.environ.get("LM_EVAL_TP_SIZE", 1))
-USE_SHELL = NUM_GPUS > 1
-
 
 class RemoteOpenAIServer:
     DUMMY_API_KEY = "token-abc123"  # vLLM's OpenAI server does not need API key
     MAX_SERVER_START_WAIT_S = 600  # wait for server to start for 60 seconds
 
     # UPSTREAM SYNC: control TP size used for tests
-    @ray.remote(num_gpus=NUM_GPUS)
+    @ray.remote(num_gpus=1)
     class _RemoteRunner:
 
         def __init__(self, cli_args: List[str], *, wait_url: str,

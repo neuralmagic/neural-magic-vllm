@@ -74,6 +74,9 @@ def test_lm_eval_correctness():
             "model": eval_config["model_name"],
             "max-model-len": 4096,
             "tensor-parallel-size": TP_SIZE,
+            # TODO: understand why default (mp) does not 
+            # shut down cleanly (it works, but not clean).
+            "distributed-executor-backend": "ray",
             "disable-log-requests": "",
         }
 
@@ -99,7 +102,12 @@ def test_lm_eval_correctness():
                 assert numpy.isclose(ground_truth, measured_value, rtol=RTOL)
 
     finally:
-        # Kill the server once complete (tear down GPU memory).
         assert server_process is not None
+        # Note: need a SIGTERM in multi-gpu context to make sure
+        # that vllm subprocesses tear down.
+        # Note: this is still not as clean as I would like.
         server_process.terminate()
+
+        # Make sure the server finishes tearing down.
+        time.sleep(10.)
     
