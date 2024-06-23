@@ -5,7 +5,7 @@ inputs:
     description: 'file containing tests to skip'
     required: true
   test_directory:
-    description: 'directory to test files'
+    description: 'directory to test files in nm-vllm/tests folder'
     required: true
   test_results:
     description: 'desired directory for test results'
@@ -25,7 +25,7 @@ runs:
         pip install -r requirements-dev.txt
         SUCCESS=0
         VLLM_SRC=$(python3 -c "import vllm; print(vllm.__path__[0])")
-        ./.github/scripts/run-tests -s ${VLLM_SRC} -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} -f ${{ inputs.test_skip_list }}|| SUCCESS=$?
+        ./.github/scripts/run-tests -s ${VLLM_SRC} -t tests/${{ inputs.test_directory }} -r ${{ inputs.test_results }} -f ${{ inputs.test_skip_list }}|| SUCCESS=$?
         pytest ./neuralmagic/tests/test_nm-vllm_licenses.py --junitxml=${{ inputs.test_results }}/test_nm-vllm_licenses.xml
         echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
         exit ${SUCCESS}

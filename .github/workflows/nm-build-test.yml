@@ -94,7 +94,19 @@ jobs:
             python: ${{ inputs.python }}
         secrets: inherit
 
-    TEST-SOLO:
+    LM_EVAL:
+        needs: [BUILD]
+        uses: ./.github/workflows/nm-lm-eval.yml
+        with:
+          label: ${{ inputs.test_label_solo }}
+          timeout: ${{ inputs.test_timeout }}
+          gitref: ${{ inputs.gitref }}
+          python: ${{ inputs.python }}
+          whl: ${{ needs.BUILD.outputs.whl }}
+          lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
+        secrets: inherit
+
+    ASYNC_ENGINE:
         needs: [BUILD]
         if: success()
         uses: ./.github/workflows/nm-test.yml
@@ -105,23 +117,281 @@ jobs:
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: async_engine
         secrets: inherit
-
-    TEST-MULTI:
+    
+    BASIC_CORRECTNESS:
         needs: [BUILD]
         if: success()
         uses: ./.github/workflows/nm-test.yml
         with:
-            test_label: ${{ inputs.test_label_multi }}
+            test_label: ${{ inputs.test_label_solo }}
             timeout: ${{ inputs.test_timeout }}
             gitref: ${{ github.ref }}
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
-            test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/distributed_smoke.txt
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: basic_correctness
+        secrets: inherit
+    
+    CORE:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: core
+        secrets: inherit
+
+    # 
+    # TODO: re-enable in the distributed test PR
+    #
+    # DISTRIBUTED:
+    #     needs: [BUILD]
+    #     if: success()
+    #     uses: ./.github/workflows/nm-test.yml
+    #     with:
+    #         test_label: ${{ inputs.test_label_multi }}
+    #         timeout: ${{ inputs.test_timeout }}
+    #         gitref: ${{ github.ref }}
+    #         python: ${{ inputs.python }}
+    #         whl: ${{ needs.BUILD.outputs.whl }}
+    #         test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+    #         test_directory: distributed
+    #     secrets: inherit
+    
+    ENGINE:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: engine
+        secrets: inherit
+
+    ENTRYPOINTS:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: entrypoints
+        secrets: inherit
+  
+    KERNELS:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: kernels
+        secrets: inherit
+    
+    LORA:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: lora
+        secrets: inherit
+    
+    METRICS:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: metrics
+        secrets: inherit    
+
+    MODEL_EXECUTOR:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: model_executor
+        secrets: inherit
+     
+    MODELS:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: models
+        secrets: inherit 
+
+    MODELS_CORE:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: models_core
+        secrets: inherit
+
+    MULTIMODAL:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: multimodal
+        secrets: inherit
+
+    PREFIX_CACHING:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: prefix_caching
+        secrets: inherit
+    
+    QUANTIZATION:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: quantization
+        secrets: inherit
+  
+    SAMPLERS:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: samplers
+        secrets: inherit
+    
+    SPEC_DECODE:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: spec_decode
+        secrets: inherit
+
+    TENSORIZER:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tensorizer_loader
+        secrets: inherit
+
+    TOKENIZATION:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: tokenization
+        secrets: inherit
+    
+    WORKER:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_solo }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: worker
         secrets: inherit
 
     UPLOAD:
-        needs: [TEST-SOLO]
+        # TODO: add distributed once we re-enable
+        needs: [LM_EVAL, ASYNC_ENGINE, BASIC_CORRECTNESS, CORE, ENGINE, ENTRYPOINTS, KERNELS, LORA, METRICS, MODEL_EXECUTOR, MODELS, MODELS_CORE, MULTIMODAL, PREFIX_CACHING, QUANTIZATION, SAMPLERS, SPEC_DECODE, TENSORIZER, TOKENIZATION, WORKER]
         if: contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category)
         uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
         with:
@@ -131,29 +401,17 @@ jobs:
             python: ${{ inputs.python }}
         secrets: inherit
 
-    BENCHMARK:
-        needs: [BUILD]
-        if: success()
-        uses: ./.github/workflows/nm-benchmark.yml
-        with:
-            label: ${{ inputs.benchmark_label }}
-            benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
-            timeout: ${{ inputs.benchmark_timeout }}
-            gitref: ${{ github.ref }}
-            python: ${{ inputs.python }}
-            whl: ${{ needs.BUILD.outputs.whl }}
-            # Always push if it is a scheduled job
-            push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
-        secrets: inherit
-
-    LM-EVAL-SOLO:
-      needs: [BUILD]
-      uses: ./.github/workflows/nm-lm-eval.yml
-      with:
-        label: ${{ inputs.lm_eval_label }}
-        timeout: ${{ inputs.lm_eval_timeout }}
-        gitref: ${{ inputs.gitref }}
-        python: ${{ inputs.python }}
-        whl: ${{ needs.BUILD.outputs.whl }}
-        lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
-      secrets: inherit
+    # BENCHMARK:
+    #     needs: [BUILD]
+    #     if: success()
+    #     uses: ./.github/workflows/nm-benchmark.yml
+    #     with:
+    #         label: ${{ inputs.benchmark_label }}
+    #         benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
+    #         timeout: ${{ inputs.benchmark_timeout }}
+    #         gitref: ${{ github.ref }}
+    #         python: ${{ inputs.python }}
+    #         whl: ${{ needs.BUILD.outputs.whl }}
+    #         # Always push if it is a scheduled job
+    #         push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
+    #     secrets: inherit
