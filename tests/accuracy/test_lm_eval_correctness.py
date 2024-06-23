@@ -1,12 +1,12 @@
+import os
+import subprocess
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import os
 import numpy
 import pytest
 import requests
-import subprocess
-import time
 import yaml
 
 from tests.nm_utils.utils_skip import should_skip_test_group
@@ -27,10 +27,12 @@ RTOL = 0.02
 TP_SIZE = os.environ.get("LM_EVAL_TP_SIZE", 1)
 TEST_DATA_FILE = os.environ.get("LM_EVAL_TEST_DATA_FILE", None)
 
+
 def wait_for_server(timeout=900) -> bool:
+
     def try_connection() -> bool:
         try:
-            r = requests.get(f"http://localhost:8000/health")
+            r = requests.get("http://localhost:8000/health")
             return r.status_code == 200
         except Exception as _:
             return False
@@ -50,8 +52,8 @@ def launch_lm_eval(eval_config):
     os.environ["OPENAI_API_KEY"] = "dummy"
     openai_args = ",".join([
         f"model={eval_config['model_name']}",
-        f"tokenizer_backend=huggingface",
-        f"base_url=http://localhost:8000/v1",
+        "tokenizer_backend=huggingface",
+        "base_url=http://localhost:8000/v1",
     ])
 
     results = lm_eval.simple_evaluate(
@@ -67,23 +69,24 @@ def launch_lm_eval(eval_config):
 
 
 def test_lm_eval_correctness():
-    eval_config = yaml.safe_load(Path(TEST_DATA_FILE).read_text(encoding="utf-8"))
+    eval_config = yaml.safe_load(
+        Path(TEST_DATA_FILE).read_text(encoding="utf-8"))
 
     # Setup server launch.
     server_args = {
-            "model": eval_config["model_name"],
-            "max-model-len": 4096,
-            "tensor-parallel-size": TP_SIZE,
-            # TODO: understand why default (mp) does not 
-            # shut down cleanly (it works, but not clean).
-            "distributed-executor-backend": "ray",
-            "disable-log-requests": "",
-        }
+        "model": eval_config["model_name"],
+        "max-model-len": 4096,
+        "tensor-parallel-size": TP_SIZE,
+        # TODO: understand why default (mp) does not
+        # shut down cleanly (it works, but not clean).
+        "distributed-executor-backend": "ray",
+        "disable-log-requests": "",
+    }
 
     server_cmd = "python3 -m vllm.entrypoints.openai.api_server " + \
                     " ".join([f"--{k} {v}"
                                 for k, v in server_args.items()])
-    
+
     try:
         # Launch server.
         server_process = subprocess.Popen("exec " + server_cmd, shell=True)
@@ -92,12 +95,14 @@ def test_lm_eval_correctness():
         # Launch eval requests.
         results = launch_lm_eval(eval_config)
 
-        # Confirm scores match ground truth.  
+        # Confirm scores match ground truth.
         for task in eval_config["tasks"]:
             for metric in task["metrics"]:
                 ground_truth = metric["value"]
-                measured_value = results["results"][task["name"]][metric["name"]]
-                print(f'{task["name"]} | {metric["name"]}: '
+                measured_value = results["results"][task["name"]][
+                    metric["name"]]
+                print(
+                    f'{task["name"]} | {metric["name"]}: '
                     f'ground_truth={ground_truth} | measured={measured_value}')
                 assert numpy.isclose(ground_truth, measured_value, rtol=RTOL)
 
@@ -110,4 +115,3 @@ def test_lm_eval_correctness():
 
         # Make sure the server finishes tearing down.
         time.sleep(10.)
-    
