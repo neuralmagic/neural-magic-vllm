@@ -24,12 +24,12 @@ jobs:
       python: 3.10.12
       gitref: ${{ github.ref }}
 
-      test_label_solo: aws-avx2-32G-a10g-24G
-      test_label_multi: aws-avx2-192G-4-a10g-96G
+      test_label_solo: gcp-k8s-l4-solo
+      test_label_multi: gcp-k8s-l4-duo
       test_timeout: 480
       test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
 
-      benchmark_label: aws-avx2-32G-a10g-24G
+      benchmark_label: gcp-k8s-l4-solo
       benchmark_config_list_file: ./.github/data/nm_benchmark_weekly_configs_list.txt
       benchmark_timeout: 720
       push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"

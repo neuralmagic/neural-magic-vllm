@@ -21,7 +21,7 @@ jobs:
       gitref: ${{ github.ref }}
 
       test_label_solo: gcp-k8s-l4-solo
-      test_label_multi: ignore
+      test_label_multi: gcp-k8s-l4-duo
       test_timeout: 720
       test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
 
@@ -43,7 +43,7 @@ jobs:
       gitref: ${{ github.ref }}
 
       test_label_solo: gcp-k8s-l4-solo
-      test_label_multi: ignore
+      test_label_multi: gcp-k8s-l4-duo
       test_timeout: 720
       test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
 
@@ -65,7 +65,7 @@ jobs:
       gitref: ${{ github.ref }}
 
       test_label_solo: gcp-k8s-l4-solo
-      test_label_multi: ignore
+      test_label_multi: gcp-k8s-l4-duo
       test_timeout: 720
       test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
 
@@ -87,7 +87,7 @@ jobs:
       gitref: ${{ github.ref }}
 
       test_label_solo: gcp-k8s-l4-solo
-      test_label_multi: ignore
+      test_label_multi: gcp-k8s-l4-duo
       test_timeout: 720
       test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
 

@@ -148,22 +148,19 @@ jobs:
             test_directory: core
         secrets: inherit
 
-    # 
-    # TODO: re-enable in the distributed test PR
-    #
-    # DISTRIBUTED:
-    #     needs: [BUILD]
-    #     if: success()
-    #     uses: ./.github/workflows/nm-test.yml
-    #     with:
-    #         test_label: ${{ inputs.test_label_multi }}
-    #         timeout: ${{ inputs.test_timeout }}
-    #         gitref: ${{ github.ref }}
-    #         python: ${{ inputs.python }}
-    #         whl: ${{ needs.BUILD.outputs.whl }}
-    #         test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-    #         test_directory: distributed
-    #     secrets: inherit
+    DISTRIBUTED:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-test.yml
+        with:
+            test_label: ${{ inputs.test_label_multi }}
+            timeout: ${{ inputs.test_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            test_directory: distributed
+        secrets: inherit
     
     ENGINE:
         needs: [BUILD]
@@ -390,8 +387,7 @@ jobs:
         secrets: inherit
 
     UPLOAD:
-        # TODO: add distributed once we re-enable
-        needs: [LM_EVAL, ASYNC_ENGINE, BASIC_CORRECTNESS, CORE, ENGINE, ENTRYPOINTS, KERNELS, LORA, METRICS, MODEL_EXECUTOR, MODELS, MODELS_CORE, MULTIMODAL, PREFIX_CACHING, QUANTIZATION, SAMPLERS, SPEC_DECODE, TENSORIZER, TOKENIZATION, WORKER]
+        needs: [LM_EVAL, ASYNC_ENGINE, BASIC_CORRECTNESS, CORE, DISTRIBUTED, ENGINE, ENTRYPOINTS, KERNELS, LORA, METRICS, MODEL_EXECUTOR, MODELS, MODELS_CORE, MULTIMODAL, PREFIX_CACHING, QUANTIZATION, SAMPLERS, SPEC_DECODE, TENSORIZER, TOKENIZATION, WORKER]
         if: contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category)
         uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
         with:
