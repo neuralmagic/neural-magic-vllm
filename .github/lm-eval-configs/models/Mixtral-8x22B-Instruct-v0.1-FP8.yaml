@@ -1,0 +1,11 @@
+# ./nm-run-lm-eval-gsm-hf-baseline.sh -m mistralai/Mixtral-8x22B-Instruct-v0.1 -b 32 -l 250 -f 5
+model_name: "mistralai/Mixtral-8x22B-Instruct-v0.1"
+tasks:
+- name: "gsm8k"
+  metrics:
+  - name: "exact_match,strict-match"
+    value: 0.840
+  - name: "exact_match,flexible-extract"
+    value: 0.844
+limit: 250
+num_fewshot: 5
