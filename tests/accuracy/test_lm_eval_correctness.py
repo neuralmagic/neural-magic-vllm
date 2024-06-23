@@ -108,9 +108,6 @@ def test_lm_eval_correctness():
 
     finally:
         assert server_process is not None
-        # Note: need a SIGTERM in multi-gpu context to make sure
-        # that vllm subprocesses tear down.
-        # Note: this is still not as clean as I would like.
         server_process.terminate()
 
         # Make sure the server finishes tearing down.
