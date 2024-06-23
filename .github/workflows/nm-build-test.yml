@@ -9,10 +9,7 @@ on:
         default: "REMOTE"
       push_binaries_to_pypi:
         description: "When set to true, built wheels and tar.gz will be pushed to neuralmagic pypi if all tests pass"
-        type: choice
-        options:
-          - 'yes'
-          - 'no'
+        type: string
         default: 'no'
       python:
         description: "python version, e.g. 3.10.12"

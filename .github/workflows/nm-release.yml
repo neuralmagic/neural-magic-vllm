@@ -12,10 +12,7 @@ on:
         default: 'false'
       push_binaries_to_pypi:
         description: "When set to yes, built wheels and tar.gz will be pushed to neuralmagic pypi if all tests pass"
-        type: choice
-        options:
-          - 'yes'
-          - 'no'
+        type: string
         default: 'no'
 
 jobs:
