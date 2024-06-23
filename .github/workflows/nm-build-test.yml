@@ -165,7 +165,7 @@ jobs:
         python: ${{ inputs.python }}
         whl: ${{ needs.BUILD.outputs.whl }}
         lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
-        tensor_parallel_size: 1
+        lm_eval_tensor_parallel_size: 1
       secrets: inherit
     
     LM-EVAL-MULTI:
@@ -178,5 +178,5 @@ jobs:
         python: ${{ inputs.python }}
         whl: ${{ needs.BUILD.outputs.whl }}
         lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
-        tensor_parallel_size: ${{ inputs.lm_eval_tensor_parallel_size }}
+        lm_eval_tensor_parallel_size: ${{ inputs.lm_eval_tensor_parallel_size }}
       secrets: inherit
