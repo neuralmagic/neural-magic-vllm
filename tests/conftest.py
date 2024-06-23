@@ -482,7 +482,7 @@ class HfRunnerNM(HfRunner):
         input_ids_lst: List[torch.Tensor],
         max_tokens: int,
         topk_logprobs_count: int,
-    ) -> List[Tuple[List[int], str, List[Dict]]]:
+    ) -> List[Tuple[List[str], str, List[Dict[str, Any]]]]:
         all_logprobs = []
         all_output_tokens = []
         all_output_strs = []
@@ -695,51 +695,6 @@ class VllmRunner:
 @pytest.fixture(scope="session")
 def vllm_runner():
     return VllmRunner
-
-
-# UPSTREAM SYNC: needed for nm-automation
-class VllmRunnerNm(VllmRunner):
-
-    def generate_w_logprobs(
-        self,
-        prompts: List[str],
-        sampling_params: SamplingParams,
-    ) -> List[Tuple[List[int], str]]:
-        assert sampling_params.logprobs is not None
-
-        req_outputs = self.model.generate(prompts,
-                                          sampling_params=sampling_params)
-        outputs = []
-        for req_output in req_outputs:
-            for sample in req_output.outputs:
-                output_str = sample.text
-                output_ids = sample.token_ids
-                output_logprobs = sample.logprobs
-            outputs.append((output_ids, output_str, output_logprobs))
-        return outputs
-
-    def generate_greedy_logprobs(
-        self,
-        prompts: List[str],
-        max_tokens: int,
-        num_logprobs: int,
-    ) -> List[Tuple[List[int], str]]:
-        greedy_logprobs_params = SamplingParams(temperature=0.0,
-                                                max_tokens=max_tokens,
-                                                logprobs=num_logprobs)
-        outputs = self.generate_w_logprobs(prompts, greedy_logprobs_params)
-
-        return [(output_ids, output_str, output_logprobs)
-                for output_ids, output_str, output_logprobs in outputs]
-
-    def __del__(self):
-        del self.model
-        cleanup()
-
-
-@pytest.fixture
-def vllm_runner_nm():
-    return VllmRunnerNm
 
 
 def get_tokenizer_pool_config(tokenizer_group_type):
