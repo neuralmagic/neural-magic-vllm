@@ -93,18 +93,18 @@ jobs:
 
     JSON-VAlIDATE:
         runs-on: gcp-k8s-util
+        strategy:
+            matrix:
+                test_config: ${{ fromJson(inputs.test_configs) }}
         steps:
-            - name: validate test configs
+            - name: validate test config
               run: |
-                sudo apt-get install -y jq
-                jq --version
-                TEST_CONFIGS="${{ toJson(inputs.test_configs) }}"
-                echo "test configs: ${TEST_CONFIGS}"
-                jq -re '""' <<< "${TEST_CONFIGS}"
-                echo $?
+                echo "python: ${{ matrix.test_config.python }}"
+                echo "label: ${{ matrix.test_config.label }}"
+                echo "tests: ${{ matrix.test_config.test }}"
 
     BUILD:
-        # needs: [JSON-VAlIDATE]
+        needs: [JSON-VAlIDATE]
         uses: ./.github/workflows/nm-build.yml
         with:
             wf_category: ${{ inputs.wf_category }}
