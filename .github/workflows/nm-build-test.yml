@@ -91,7 +91,7 @@ on:
 
 jobs:
 
-    JSON-VAlIDATE:
+    JSON-VALIDATE:
         runs-on: gcp-k8s-util
         strategy:
             matrix:
@@ -104,7 +104,7 @@ jobs:
                 echo "tests: ${{ matrix.test_config.test }}"
 
     BUILD:
-        needs: [JSON-VAlIDATE]
+        needs: [JSON-VALIDATE]
         uses: ./.github/workflows/nm-build.yml
         with:
             wf_category: ${{ inputs.wf_category }}
