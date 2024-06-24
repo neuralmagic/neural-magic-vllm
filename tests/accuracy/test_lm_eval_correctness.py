@@ -1,6 +1,5 @@
 # mypy: ignore-errors
 # TODO (robertgshaw2-neuralmagic): clean this up
-import logging
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, TypedDict
@@ -110,7 +109,8 @@ def test_lm_eval_correctness(
         for metric in task["metrics"]:
             ground_truth = metric["value"]
             measured_value = results["results"][task["name"]][metric["name"]]
-            print("%s %s:\nground_truth=%s measured_value=%s",
+            print(
+                "%s %s:\nground_truth=%s measured_value=%s",
                 task["name"],
                 metric["name"],
                 ground_truth,
