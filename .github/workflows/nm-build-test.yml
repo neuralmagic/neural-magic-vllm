@@ -91,16 +91,17 @@ on:
 
 jobs:
 
-    # JSON-VAlIDATE:
-    #     runs-on: gcp-k8s-util
-    #     steps:
-    #         - name: validate test configs
-    #           run: |
-    #             sudo apt-get install -y jq
-    #             jq --version
-    #             TEST_CONFIGS="${{ inputs.test_configs }}"
-    #             echo "test configs: ${TEST_CONFIGS}"
-    #             jq -re '""' <<< "${TEST_CONFIGS}"
+    JSON-VAlIDATE:
+        runs-on: gcp-k8s-util
+        steps:
+            - name: validate test configs
+              run: |
+                sudo apt-get install -y jq
+                jq --version
+                TEST_CONFIGS="${{ toJson(inputs.test_configs) }}"
+                echo "test configs: ${TEST_CONFIGS}"
+                jq -re '""' <<< "${TEST_CONFIGS}"
+                echo $?
 
     BUILD:
         # needs: [JSON-VAlIDATE]
