@@ -31,12 +31,12 @@ runs:
       COMMIT=${{ github.sha }}
       VENV="${{ inputs.venv }}-${COMMIT:0:7}"
 
-      # add githash `to version.py` and include in 'all' for `vllm/__init__.py`
-      echo "__githash__ = '$COMMIT'" >> vllm/version.py
-      # update import line
-      sed -i 's/import __version__/import __githash__, __version__/' vllm/__init__.py
-      # update "__all__" list
-      sed -i 's/"__version__",/"__githash__",\n    "__version__",/' vllm/__init__.py
+      # add git commit thash to `vllm/version.py`
+      echo "__commit__ = '$COMMIT'" >> vllm/version.py
+      # update import line in `vllm/__init__.py`
+      sed -i 's/import __version__/import __commit__, __version__/' vllm/__init__.py
+      # update "__all__" list in `vllm/__init__.py`
+      sed -i 's/"__version__",/"__commit__",\n    "__version__",/' vllm/__init__.py
 
       source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
       # TODO: adjust when we need a proper release. use nightly now.
