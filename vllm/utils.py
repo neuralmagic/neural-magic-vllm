@@ -197,7 +197,7 @@ def is_tpu() -> bool:
 @lru_cache(maxsize=None)
 def is_xpu() -> bool:
     from importlib.metadata import version
-    is_xpu_flag = "xpu" in version("vllm")
+    is_xpu_flag = "xpu" in version("nm-vllm")
     # vllm is not build with xpu
     if not is_xpu_flag:
         return False
