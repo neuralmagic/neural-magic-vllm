@@ -31,7 +31,7 @@ runs:
       COMMIT=${{ github.sha }}
       VENV="${{ inputs.venv }}-${COMMIT:0:7}"
 
-      # add git commit thash to `vllm/version.py`
+      # add git commit hash to `vllm/version.py`
       echo "__commit__ = '$COMMIT'" >> vllm/version.py
       # update import line in `vllm/__init__.py`
       sed -i 's/import __version__/import __commit__, __version__/' vllm/__init__.py
