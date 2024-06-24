@@ -14,6 +14,10 @@ on:
                     - 'true'
                     - 'false'
                 default: 'false'
+            push_binaries_to_pypi:
+                description: "When set to yes, built wheels and tar.gz will be pushed to neuralmagic pypi if all tests pass"
+                type: string
+                default: 'yes'
 
 jobs:
 
@@ -23,6 +27,7 @@ jobs:
             wf_category: NIGHTLY
             python: 3.8.17
             gitref: ${{ github.ref }}
+            push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
 
             test_label_solo: gcp-k8s-l4-solo
             test_label_multi: ignore
@@ -45,6 +50,7 @@ jobs:
             wf_category: NIGHTLY
             python: 3.9.17
             gitref: ${{ github.ref }}
+            push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
 
             test_label_solo: gcp-k8s-l4-solo
             test_label_multi: ignore
@@ -67,6 +73,7 @@ jobs:
             wf_category: NIGHTLY
             python: 3.10.12
             gitref: ${{ github.ref }}
+            push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
 
             test_label_solo: gcp-k8s-l4-solo
             test_label_multi: ignore
@@ -89,6 +96,7 @@ jobs:
             wf_category: NIGHTLY
             python: 3.11.4
             gitref: ${{ github.ref }}
+            push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
 
             test_label_solo: gcp-k8s-l4-solo
             test_label_multi: ignore
