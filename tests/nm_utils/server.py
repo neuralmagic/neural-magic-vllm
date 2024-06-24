@@ -1,6 +1,5 @@
 # mypy: ignore-errors
 # TODO (robertgshaw2-neuralmagic): clean this up
-import logging
 import os
 import subprocess
 import sys
@@ -18,9 +17,7 @@ MAX_SERVER_START_WAIT = 15 * 60  # time (seconds) to wait for server to start
 class ServerRunner:
 
     def __init__(self,
-                 args: List[str],
-                 *,
-                 logger: Optional[logging.Logger] = None):
+                 args: List[str]):
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
         self.startup_command = [
@@ -71,16 +68,13 @@ class ServerContext:
     Context manager for the lifecycle of a vLLM server, wrapping `ServerRunner`.
     """
 
-    def __init__(self, args: Dict[str, str], *,
-                 logger: logging.Logger) -> None:
+    def __init__(self, args: Dict[str, str]) -> None:
         """Initialize a vLLM server
 
-        :param args: dictionary of flags/values to pass to the server command
-        :param logger: logging.Logger instance to use for logging
+        :param args: dictionary of flags/values to pass to the server command  
         :param port: port the server is running on
         """
         self._args = self._args_to_list(args)
-        self._logger = logger
         self.server_runner = None
 
     def __enter__(self):
@@ -88,8 +82,7 @@ class ServerContext:
         ray.init(ignore_reinit_error=True)
 
         try:
-            self.server_runner = ServerRunner.remote(self._args,
-                                                     logger=self._logger)
+            self.server_runner = ServerRunner.remote(self._args,)
             ray.get(self.server_runner.ready.remote())
             return self.server_runner
         except Exception as e:
