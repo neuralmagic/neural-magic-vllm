@@ -101,7 +101,6 @@ jobs:
                 TEST_CONFIGS="${{ inputs.test_configs }}"
                 echo "test configs: ${TEST_CONFIGS}"
                 jq -re '""' <<< "${TEST_CONFIGS}"
-                exit 1
 
     BUILD:
         needs: [JSON-VAlIDATE]
