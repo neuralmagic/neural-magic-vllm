@@ -7,6 +7,10 @@ on:
         description: "categories: REMOTE, NIGHTLY, WEEKLY, RELEASE"
         type: string
         default: "REMOTE"
+      push_binaries_to_pypi:
+        description: "When set to true, built wheels and tar.gz will be pushed to neuralmagic pypi if all tests pass"
+        type: string
+        default: 'no'
       python:
         description: "python version, e.g. 3.10.12"
         type: string
@@ -392,7 +396,7 @@ jobs:
     UPLOAD:
         # TODO: add distributed once we re-enable
         needs: [LM_EVAL, ASYNC_ENGINE, BASIC_CORRECTNESS, CORE, ENGINE, ENTRYPOINTS, KERNELS, LORA, METRICS, MODEL_EXECUTOR, MODELS, MODELS_CORE, MULTIMODAL, PREFIX_CACHING, QUANTIZATION, SAMPLERS, SPEC_DECODE, TENSORIZER, TOKENIZATION, WORKER]
-        if: contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category)
+        if: ${{ contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category) && inputs.push_binaries_to_pypi == 'yes' }}
         uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
         with:
             label: ${{ inputs.build_label }}

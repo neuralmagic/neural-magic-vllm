@@ -23,6 +23,7 @@ jobs:
       wf_category: WEEKLY
       python: 3.10.12
       gitref: ${{ github.ref }}
+      push_binaries_to_pypi: 'no'
 
       test_label_solo: aws-avx2-32G-a10g-24G
       test_label_multi: aws-avx2-192G-4-a10g-96G
