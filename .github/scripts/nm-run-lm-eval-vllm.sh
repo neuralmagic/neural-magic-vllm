@@ -38,10 +38,10 @@ cat $CONFIG | while read MODEL_CONFIG
 do
     LOCAL_SUCCESS=0
     
-    echo "=== RUNNING MODEL: $MODEL_CONFIG =="
+    echo "=== RUNNING MODEL: $MODEL_CONFIG WITH TP_SIZE $TP_SIZE =="
     
     MODEL_CONFIG_PATH=$PWD/.github/lm-eval-configs/models/${MODEL_CONFIG}
-    LM_EVAL_TEST_DATA_FILE=$MODEL_CONFIG_PATH LM_EVAL_TP_SIZE=$TP_SIZE pytest -s tests/accuracy/test_lm_eval_correctness.py || LOCAL_SUCCESS=$?
+    LM_EVAL_TEST_DATA_FILE=$MODEL_CONFIG_PATH LM_EVAL_TP_SIZE=${TP_SIZE} pytest -s tests/accuracy/test_lm_eval_correctness.py || LOCAL_SUCCESS=$?
 
     if [[ $LOCAL_SUCCESS == 0 ]]; then
         echo "=== PASSED MODEL: ${MODEL_CONFIG} ==="
