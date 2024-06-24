@@ -91,15 +91,16 @@ on:
 
 jobs:
 
-    # TODO: ...
-    # JSON-GYM:
-    #     runs-on: gcp-k8s-util
-    #     steps:
-    #         - name: validate test configs
-    #           run: |
-    #             sudo apt-get install -y jq
-    #             TEST_CONFIGS=${{ inputs.test_configs }}
-    #             jq -re '""' <<< "${TEST_CONFIGS}"
+    JSON-GYM:
+        runs-on: gcp-k8s-util
+        steps:
+            - name: validate test configs
+              run: |
+                sudo apt-get install -y jq
+                jq --version
+                # TEST_CONFIGS=${{ inputs.test_configs }}
+                # jq -re '""' <<< "${TEST_CONFIGS}"
+                exit 1
 
     BUILD:
         # needs: [JSON-GYM]
@@ -162,7 +163,7 @@ jobs:
     # uploading is only available when using GCP autoscaling group
     UPLOAD:
         needs: [TEST, BENCHMARK, LM-EVAL]
-        if: success() && ${{ inputs.push_to_pypi }}
+        if: ${{ inputs.push_to_pypi }}
         uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
         with:
             label: gcp-k8s-util
