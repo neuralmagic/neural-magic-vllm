@@ -122,7 +122,7 @@ jobs:
             gitref: ${{ github.ref }}
             python: ${{ inputs.python }}
             whl: ${{ needs.BUILD.outputs.whl }}
-            test_skip_list: ${{ inputs.test_skip_list }}
+            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
         secrets: inherit
 
 #    BENCHMARK:
