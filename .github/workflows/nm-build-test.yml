@@ -98,7 +98,7 @@ jobs:
               run: |
                 sudo apt-get install -y jq
                 jq --version
-                TEST_CONFIGS=${{ inputs.test_configs }}
+                TEST_CONFIGS="${{ inputs.test_configs }}"
                 echo "test configs: ${TEST_CONFIGS}"
                 # jq -re '""' <<< "${TEST_CONFIGS}"
                 exit 1
