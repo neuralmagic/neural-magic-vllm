@@ -103,7 +103,7 @@ echo "..."
 
 # run selected tests
 SUCCESS=0
-CC_PYTEST_FLAGS="--cov=${SRC_DIR} --cov=${TEST_DIR} --cov-report=html:cc-vllm-html --cov-append"
+CC_PYTEST_FLAGS="--cov-config=pyproject.toml --cov=${SRC_DIR} --cov=${TEST_DIR} --cov-report html:cc-vllm-html --cov-append"
 for TEST in "${TESTS_FOUND[@]}"
 do
     LOCAL_SUCCESS=0
