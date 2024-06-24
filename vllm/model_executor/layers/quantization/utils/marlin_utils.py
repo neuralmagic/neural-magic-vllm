@@ -22,6 +22,27 @@ def is_marlin_supported():
     return __cuda_arch[0] >= 8
 
 
+# Permutations for Marlin scale shuffling
+def get_scale_perms(num_bits):
+    scale_perm = []
+    for i in range(8):
+        scale_perm.extend([i + 8 * j for j in range(8)])
+    scale_perm_single = []
+    for i in range(4):
+        scale_perm_single.extend(
+            [2 * i + j for j in [0, 1, 8, 9, 16, 17, 24, 25]])
+    return scale_perm, scale_perm_single
+
+def marlin_permute_scales_2(s, size_k, size_n, group_size, num_bits):
+    scale_perm, scale_perm_single = get_scale_perms(num_bits)
+    if group_size < size_k and group_size != -1:
+        s = s.reshape((-1, len(scale_perm)))[:, scale_perm]
+    else:
+        s = s.reshape((-1, len(scale_perm_single)))[:, scale_perm_single]
+    s = s.reshape((-1, size_n)).contiguous()
+
+    return s
+
 def marlin_permute_weights(q_w, size_k, size_n, perm, tile=MARLIN_TILE):
     assert q_w.shape == (size_k, size_n)
     assert size_k % tile == 0, f"size_k = {size_k}, tile = {tile}"
@@ -35,7 +56,6 @@ def marlin_permute_weights(q_w, size_k, size_n, perm, tile=MARLIN_TILE):
     q_w = q_w.reshape((-1, perm.numel()))[:, perm].reshape(q_w.shape)
 
     return q_w
-
 
 def marlin_weights(q_w, size_k, size_n, num_bits, perm):
     # Permute

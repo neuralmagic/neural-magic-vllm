@@ -224,6 +224,7 @@ def aqlm_dequant(codes: torch.Tensor, codebooks: torch.Tensor,
 def gptq_marlin_repack(b_q_weight: torch.Tensor, perm: torch.Tensor,
                        size_k: int, size_n: int,
                        num_bits: int) -> torch.Tensor:
+    # print("after call:", b_q_weight.shape, size_k, size_n)
     return torch.ops._C.gptq_marlin_repack(b_q_weight, perm, size_k, size_n,
                                            num_bits)
 

@@ -15,6 +15,7 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.model_executor.layers.activation import SiluAndMul
 from vllm.model_executor.layers.fused_moe import fused_moe, fused_marlin_moe, single_marlin_moe
 from vllm.model_executor.models.mixtral import MixtralMoE
+from vllm.model_executor.models.mixtral_quant import MixtralMoE as MixtralMoEQuant
 
 if should_skip_test_group(group_name="TEST_KERNELS"):
     pytest.skip("TEST_KERNELS=DISABLE, skipping kernels test group",
@@ -29,38 +30,12 @@ def torch_moe(a, w1, w2, score, topk):
     topk_weight, topk_ids = torch.topk(score, topk)
     topk_weight = topk_weight.view(-1)
     topk_ids = topk_ids.view(-1)
-    # for idx in range(4):
-    #     topk_ids[idx * 2] = 0
-    #     topk_ids[idx * 2 + 1] = 1
-    print("topk:", topk_ids)
     for i in range(w1.shape[0]):
         mask = topk_ids == i
-        print("mask:", mask)
         if mask.sum():
-            # print("silu and mul:", (a[mask] @ w1[i].transpose(0, 1)).size(),
-            #       "->", SiluAndMul()(a[mask] @ w1[i].transpose(0, 1)).size(),
-            #       "->", (SiluAndMul()(a[mask] @ w1[i].transpose(0, 1)) @ w2[i].transpose(0, 1)).size(),)
             simul = SiluAndMul()(
                 a[mask] @ w1[i].transpose(0, 1))
-            # print("out shape:", out[mask].size(), "simul shape:", simul.size())
-            print("simul torch:", simul)
-            print("w2 t:", w2[i].transpose(0, 1))
             out[mask] = simul @ w2[i].transpose(0, 1)
-    # for i in range(1):
-    #     mask = topk_ids == i
-    #     # print("mask:", mask, mask.size())
-    #     # print("silu and mul:", (a[mask] @ w1[i].transpose(0, 1)).size(),
-    #     #       "->", SiluAndMul()(a[mask] @ w1[i].transpose(0, 1)).size(),
-    #     #       "->", (SiluAndMul()(a[mask] @ w1[i].transpose(0, 1)) @ w2[i].transpose(0, 1)).size(),)
-    #     inter1 = a[mask] @ w1[i].transpose(0, 1)
-    #     print("intermediate 1 torch:", inter1, inter1.size())
-    #     simul = SiluAndMul()(inter1)
-    #     # print("out shape:", out[mask].size(), "simul shape:", simul.size())
-    #     print("simul torch:", simul, simul.size())
-    #     print("w2 t:", w2[i].transpose(0, 1))
-    #     out[mask] = simul @ w2[i].transpose(0, 1)
-    # return out.view(B, -1, w2.shape[1]).sum(dim=1)
-    # return out#.view(B, -1, w2.shape[1])
     return (out.view(B, -1, w2.shape[1]) *
             topk_weight.view(B, -1, 1).to(out.dtype)).sum(dim=1)
 
@@ -108,10 +83,10 @@ def test_fused_moe(
 
 
 # UPSTREAM SYNC: breaks NM automation.
-@pytest.mark.skip("C compiler not installed in NM automation. "
-                  "This codepath follows a triton pathway, which "
-                  "JITs using clang or gcc. Since neither are installed "
-                  "in our test instances, we need to skip this for now.")
+# @pytest.mark.skip("C compiler not installed in NM automation. "
+#                   "This codepath follows a triton pathway, which "
+#                   "JITs using clang or gcc. Since neither are installed "
+#                   "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("dtype",
                          [torch.float32, torch.float16, torch.bfloat16])
 @torch.inference_mode()
@@ -415,21 +390,10 @@ def test_fused_marlin_moe(
     scales2 = stack_and_dev(scaless2)
 
     score = torch.randn((m, e), device='cuda', dtype=dtype)
-    # score = torch.ones((m, e), device='cuda', dtype=dtype)
     triton_output = fused_moe(a, w_ref1.transpose(1, 2), w_ref2.transpose(1, 2), score, topk, renormalize=False)
-    # triton_output = fused_moe(a, w1, w2, score, topk, renormalize=False)
-    marlin_output = fused_marlin_moe(m, n, k, e, a, qweight1, qweight2, score, topk,
+    marlin_output = fused_marlin_moe(a, qweight1, qweight2, score, topk,
                                     renormalize=False, w1_scale=scales1, w2_scale=scales2)
 
-    # print("marlin out:", marlin_output)
-    # print("triton out:", triton_output)
-    # print(marlin_output.size())
-    # print(triton_output.size())
-
-    # print(compute_max_diff(marlin_output, triton_output))
-    # assert(True)
-
-    # assert(compute_max_diff(marlin_output, triton_output) < 100)
     assert(compute_max_diff(marlin_output, triton_output) < 4e-2)
 
 # UPSTREAM SYNC: breaks NM automation.
@@ -473,9 +437,6 @@ def test_single_marlin_moe(
     #             w[ii][jj][kk*gran:(kk+1)*gran] = sav_w * inc 
     #             inc += 0.01
 
-    # print ("w size:", w.size())
-    # print("w:", w)
-
     w_refs = []
     qweights = []
     scaless = []
@@ -504,7 +465,7 @@ def test_single_marlin_moe(
     # print(w.size(), "->", qweight.size())
 
     score = torch.randn((m, e), device='cuda', dtype=dtype)
-    marlin_output = single_marlin_moe(m, n, k, e, a, qweight, scales, score, topk, renormalize=False)
+    marlin_output = single_marlin_moe(a, qweight, scales, score, topk, renormalize=False)
     torch_output = torch_moe_small(a, w_ref.transpose(1, 2), score, topk)
 
     # print(marlin_output.size(), torch_output.size())
@@ -527,3 +488,47 @@ def test_single_marlin_moe(
     #             print(mm[0], mm[0] // n, mm[0] // n * n, "+", mm[0] % n, mm[1].item(), tt[1].item())
 
     assert(compute_max_diff(marlin_output, torch_output) < 1e-2)
+
+from vllm.model_executor.layers.linear import ReplicatedLinear
+from vllm.model_executor.layers.quantization.gptq_marlin import GPTQMarlinConfig
+from vllm.distributed.parallel_state import initialize_model_parallel, init_distributed_environment
+import os
+
+@torch.inference_mode()
+def test_forward():
+    m = 8
+    n = 256
+    k = 128
+    # e = 2
+    # topk = 2
+    group_size = -1
+    dtype = torch.float16
+
+    init_distributed_environment(1, 0, "tcp://192.168.198.114:60519", 0, "nccl")
+    initialize_model_parallel()
+
+    a = torch.randn((m, k), device='cuda', dtype=dtype) / 10
+    w = torch.randn((n, k), device='cuda', dtype=dtype) / 10
+
+    quant_config = GPTQMarlinConfig(4, group_size, False, True)
+    layer = ReplicatedLinear(k, n, bias=False, quant_config=quant_config, params_dtype=dtype)
+    print(layer.qweight.data)
+    # layer.weight = w
+
+    # making w:
+    # GPTQMarlinLinearMethod.create_weights(self, self.input_size,
+    #                                      [self.output_size], self.input_size,
+    #                                      self.output_size, self.params_dtype)
+
+    # config = MixtralConfig()
+    # hf_moe = MixtralSparseMoeBlock(config).to(dtype).to("cuda")
+    # vllm_moe = MixtralMoEQuant(
+    #     config, quant_config
+    # ).cuda()
+
+    # for i in range(1):
+    #     w1 = vllm_moe.experts[i].w1.weight.data
+    #     w3 = vllm_moe.experts[i].w3.weight.data
+
+    # out = layer(a)
+    # print(out)

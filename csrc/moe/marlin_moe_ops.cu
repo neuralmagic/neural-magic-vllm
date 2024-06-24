@@ -643,12 +643,20 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
         scale(frag_b0, frag_s[k % 2][j], 0);
       }
 
+      // if (threadIdx.x == 0 && blockIdx.x == 0 && expert_idx == 0 && j == 0) {
+      //   printf("dequant: %f %f %f %f\n", __high2float(frag_b0[0]), __low2float(frag_b0[0]), __high2float(frag_b0[1]), __low2float(frag_b0[1]));
+      // }
+
       FragB frag_b1 = dequant(b_quant_shift);
 
       // Apply scale to frag_b1
       if constexpr (group_blocks != -1) {
         scale(frag_b1, frag_s[k % 2][j], 1);
       }
+
+      // if (threadIdx.x == 0 && blockIdx.x == 0 && expert_idx == 0 && j == 0) {
+      //   printf("dequant: %f %f %f %f\n", __high2float(frag_b1[0]), __low2float(frag_b1[0]), __high2float(frag_b1[1]), __low2float(frag_b1[1]));
+      // }
 
 #pragma unroll
       for (int i = 0; i < thread_m_blocks; i++) {
@@ -1200,10 +1208,15 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
   int tot_m = prob_m;
 
   long* expert_offsets_ptr = (long*)expert_offsets;
+  // for (int expert_idx = 0; expert_idx < num_experts + 1; ++expert_idx) {
+  //   printf("%ld ", expert_offsets_ptr[expert_idx]);
+  // }
+  // printf("\n");
 
   // printf("run loop for %d %d %d and topk: %d\n", prob_m, prob_n, prob_k, topk);
 
-  for (int expert_idx = 0; expert_idx < num_experts; ++expert_idx) {
+  // TODO bring 1 back to num_experts 
+  for (int expert_idx = 0; expert_idx < 1; ++expert_idx) {
     const int4* A_ptr     = (const int4*)A;
     const int4* B_ptr     = (const int4*)B + (prob_n * prob_k / 32) * expert_idx;
     int4*       C_ptr     = (int4*)C;
@@ -1279,7 +1292,7 @@ torch::Tensor marlin_gemm_moe(torch::Tensor& a, torch::Tensor& b_q_weights, torc
   int dev = a.get_device();
 
   auto          options = torch::TensorOptions().dtype(a.dtype()).device(a.device());
-  torch::Tensor c       = torch::empty({size_m, topk, size_n}, options);
+  torch::Tensor c       = torch::zeros({size_m, topk, size_n}, options);
 
   // thread_k: `k` size of a thread_tile in `weights` (can usually be left as auto -1)
   int thread_k = -1;
@@ -1308,6 +1321,15 @@ torch::Tensor marlin_gemm_moe(torch::Tensor& a, torch::Tensor& b_q_weights, torc
   }
 
   long* eoff_f = (long*)(expert_offsets.data_ptr());
+
+  // printf("a %d\n", a.is_cuda());
+  // printf("b_q_weights %d\n", b_q_weights.is_cuda());
+  // printf("c %d\n", c.is_cuda());
+  // printf("sorted_ids %d\n", sorted_ids.is_cuda());
+  // printf("topk_weights %d\n", topk_weights.is_cuda());
+  // printf("b_scales %d\n", b_scales.is_cuda());
+  // printf("expert_offsets %d\n", expert_offsets.is_cuda());
+  // printf("workspace %d\n", workspace.is_cuda());
 
   // printf("offf: %ld %ld %ld\n", eoff_f[0], eoff_f[1], eoff_f[2]);
 
