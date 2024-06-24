@@ -14,6 +14,10 @@ on:
                     - 'true'
                     - 'false'
                 default: 'false'
+            push_binaries_to_pypi:
+                description: "When set to yes, built wheels and tar.gz will be pushed to neuralmagic pypi if all tests pass"
+                type: string
+                default: 'yes'
 
 jobs:
 
@@ -23,6 +27,7 @@ jobs:
             wf_category: NIGHTLY
             python: 3.8.17
             gitref: ${{ github.ref }}
+            push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
 
             test_label_solo: gcp-k8s-l4-solo
             test_label_multi: ignore
@@ -33,6 +38,10 @@ jobs:
             benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
             benchmark_timeout: 720
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
+
+            lm_eval_label: gcp-k8s-l4-solo
+            lm_eval_configuration: ./neuralmagic/lm-eval/full-small-models.yaml
+            lm_eval_timeout: 60
         secrets: inherit
 
     PYTHON-3-9:
@@ -41,6 +50,7 @@ jobs:
             wf_category: NIGHTLY
             python: 3.9.17
             gitref: ${{ github.ref }}
+            push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
 
             test_label_solo: gcp-k8s-l4-solo
             test_label_multi: ignore
@@ -51,6 +61,10 @@ jobs:
             benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
             benchmark_timeout: 720
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
+
+            lm_eval_label: gcp-k8s-l4-solo
+            lm_eval_configuration: ./neuralmagic/lm-eval/full-small-models.yaml
+            lm_eval_timeout: 60
         secrets: inherit
 
     PYTHON-3-10:
@@ -59,6 +73,7 @@ jobs:
             wf_category: NIGHTLY
             python: 3.10.12
             gitref: ${{ github.ref }}
+            push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
 
             test_label_solo: gcp-k8s-l4-solo
             test_label_multi: ignore
@@ -69,6 +84,10 @@ jobs:
             benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
             benchmark_timeout: 720
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
+
+            lm_eval_label: gcp-k8s-l4-solo
+            lm_eval_configuration: ./neuralmagic/lm-eval/full-small-models.yaml
+            lm_eval_timeout: 60
         secrets: inherit
 
     PYTHON-3-11:
@@ -77,6 +96,7 @@ jobs:
             wf_category: NIGHTLY
             python: 3.11.4
             gitref: ${{ github.ref }}
+            push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
 
             test_label_solo: gcp-k8s-l4-solo
             test_label_multi: ignore
@@ -88,4 +108,8 @@ jobs:
             benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
             benchmark_timeout: 720
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
+
+            lm_eval_label: gcp-k8s-l4-solo
+            lm_eval_configuration: ./neuralmagic/lm-eval/full-small-models.yaml
+            lm_eval_timeout: 60
         secrets: inherit
