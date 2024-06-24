@@ -8,10 +8,10 @@ on:
         description: "workflow category: REMOTE, NIGHTLY, RELEASE"
         type: string
         default: "REMOTE"
-      push_binaries_to_pypi:
+      push_to_pypi:
         description: "When set to true, built wheels and tar.gz will be pushed to neuralmagic pypi if all tests pass"
-        type: string
-        default: 'no'
+        type: boolean
+        default: false
       python:
         description: "python version, e.g. 3.10.12"
         type: string
@@ -96,6 +96,7 @@ on:
 
 jobs:
 
+    # TODO: ...
     # JSON-GYM:
     #     runs-on: gcp-k8s-util
     #     steps:
@@ -136,47 +137,6 @@ jobs:
             test_skip_env_vars: ${{ matrix.test_config.test }}
         secrets: inherit
 
-        # needs: [BUILD]
-        # if: success()
-        # strategy:
-        #     matrix:
-        #         test_label: ${{ fromJson(inputs.test_labels) }}
-        #     uses: ./.github/workflows/nm-test.yml
-        #     with:
-        #         test_labels: ${{ matrix.test_label }}
-        #         timeout: ${{ inputs.test_timeout }}
-        #         gitref: ${{ github.ref }}
-        #         python: ${{ inputs.python }}
-        #         whl: ${{ needs.BUILD.outputs.whl }}
-        #         test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-        #     secrets: inherit
-
-    # TODO: re-enable
-    # TEST-MULTI:
-    #     needs: [BUILD]
-    #     if: success() && contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category)
-    #     uses: ./.github/workflows/nm-test.yml
-    #     with:
-    #         test_label: ${{ inputs.test_label_multi }}
-    #         timeout: ${{ inputs.test_timeout }}
-    #         gitref: ${{ github.ref }}
-    #         python: ${{ inputs.python }}
-    #         whl: ${{ needs.BUILD.outputs.whl }}
-    #         test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-    #     secrets: inherit
-
-    # uploading is only available when using GCP autoscaling group
-    UPLOAD:
-        needs: [TEST]
-        if: success() && contains(fromJSON('["NIGHTLY", "RELEASE"]'), inputs.wf_category) && contains(fromJSON('["gcp"]'), inputs.build_label)
-        uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
-        with:
-            label: gcp-k8s-util
-            timeout: ${{ inputs.build_timeout }}
-            gitref: ${{ github.ref }}
-            python: ${{ inputs.python }}
-        secrets: inherit
-
     BENCHMARK:
         needs: [BUILD]
         if: success()
@@ -192,7 +152,7 @@ jobs:
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
         secrets: inherit
 
-    LM-EVAL-SOLO:
+    LM-EVAL:
       needs: [BUILD]
       uses: ./.github/workflows/nm-lm-eval.yml
       with:
@@ -204,12 +164,13 @@ jobs:
         lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
       secrets: inherit
 
+    # uploading is only available when using GCP autoscaling group
     UPLOAD:
-        needs: [TEST-SOLO, BENCHMARK, LM-EVAL-SOLO]
-        if: ${{ contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category) && inputs.push_binaries_to_pypi == 'yes' }}
+        needs: [TEST, BENCHMARK, LM-EVAL]
+        if: success() && ${{ inputs.push_to_pypi }}
         uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
         with:
-            label: ${{ inputs.build_label }}
+            label: gcp-k8s-util
             timeout: ${{ inputs.build_timeout }}
             gitref: ${{ github.ref }}
             python: ${{ inputs.python }}
