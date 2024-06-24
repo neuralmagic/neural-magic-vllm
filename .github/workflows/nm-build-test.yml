@@ -103,8 +103,7 @@ jobs:
                 exit 1
 
     BUILD:
-        # needs: [JSON-GYM]
-        # if: success()
+        needs: [JSON-GYM]
         uses: ./.github/workflows/nm-build.yml
         with:
             wf_category: ${{ inputs.wf_category }}
