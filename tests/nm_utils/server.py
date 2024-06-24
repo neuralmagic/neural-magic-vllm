@@ -4,7 +4,7 @@ import os
 import subprocess
 import sys
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import ray
 import requests
@@ -16,8 +16,7 @@ MAX_SERVER_START_WAIT = 15 * 60  # time (seconds) to wait for server to start
 @ray.remote(num_gpus=torch.cuda.device_count())
 class ServerRunner:
 
-    def __init__(self,
-                 args: List[str]):
+    def __init__(self, args: List[str]):
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
         self.startup_command = [
@@ -82,7 +81,7 @@ class ServerContext:
         ray.init(ignore_reinit_error=True)
 
         try:
-            self.server_runner = ServerRunner.remote(self._args,)
+            self.server_runner = ServerRunner.remote(self._args, )
             ray.get(self.server_runner.ready.remote())
             return self.server_runner
         except Exception as e:
