@@ -153,6 +153,14 @@ jobs:
                 path: cc-vllm-html
                 retention-days: 15
 
+            - name: upload code coverage json
+              uses: actions/upload-artifact@v4
+              if: success() || failure()
+              with:
+                name: cc-vllm-json-${{ inputs.test_label }}-${{ inputs.python }}
+                path: cc-vllm.json
+                retention-days: 5
+
             - name: report test results
               id: report_test
               uses: ./.github/actions/nm-testmo-run-submit-thread/
