@@ -10,86 +10,101 @@ on:
           - 'true'
           - 'false'
         default: 'false'
+      push_binaries_to_pypi:
+        description: "When set to yes, built wheels and tar.gz will be pushed to neuralmagic pypi if all tests pass"
+        type: string
+        default: 'no'
 
 jobs:
 
-  TO-DELETE:
+  PYTHON-3-8:
+    uses: ./.github/workflows/nm-build-test.yml
+    with:
+      wf_category: 'RELEASE'
+      python: 3.8.17
+      gitref: ${{ github.ref }}
+      push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
 
-    runs-on: gcp-k8s-util
-    timeout-minutes: 10
+      test_label_solo: gcp-k8s-l4-solo
+      test_label_multi: ignore
+      test_timeout: 720
+      test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
 
-    steps:
-        - run: |
-            secho "this is workflow is getting deleted"
+      benchmark_label: gcp-k8s-l4-solo
+      benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
+      benchmark_timeout: 720
+      push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
 
-#   PYTHON-3-8:
-#     uses: ./.github/workflows/nm-build-test.yml
-#     with:
-#       wf_category: 'RELEASE'
-#       python: 3.8.17
-#       gitref: ${{ github.ref }}
+      lm_eval_label: gcp-k8s-l4-solo
+      lm_eval_configuration: ./neuralmagic/lm-eval/full-small-models.yaml
+      lm_eval_timeout: 60
+    secrets: inherit
 
-#       test_label_solo: gcp-k8s-l4-solo
-#       test_label_multi: ignore
-#       test_timeout: 720
-#       test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
+  PYTHON-3-9:
+    uses: ./.github/workflows/nm-build-test.yml
+    with:
+      wf_category: 'RELEASE'
+      python: 3.9.17
+      gitref: ${{ github.ref }}
+      push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
 
-#       benchmark_label: gcp-k8s-l4-solo
-#       benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
-#       benchmark_timeout: 720
-#       push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
-#     secrets: inherit
+      test_label_solo: gcp-k8s-l4-solo
+      test_label_multi: ignore
+      test_timeout: 720
+      test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
 
-#   PYTHON-3-9:
-#     uses: ./.github/workflows/nm-build-test.yml
-#     with:
-#       wf_category: 'RELEASE'
-#       python: 3.9.17
-#       gitref: ${{ github.ref }}
+      benchmark_label: gcp-k8s-l4-solo
+      benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
+      benchmark_timeout: 720
+      push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
 
-#       test_label_solo: gcp-k8s-l4-solo
-#       test_label_multi: ignore
-#       test_timeout: 720
-#       test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
+      lm_eval_label: gcp-k8s-l4-solo
+      lm_eval_configuration: ./neuralmagic/lm-eval/full-small-models.yaml
+      lm_eval_timeout: 60
+    secrets: inherit
 
-#       benchmark_label: gcp-k8s-l4-solo
-#       benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
-#       benchmark_timeout: 720
-#       push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
-#     secrets: inherit
+  PYTHON-3-10:
+    uses: ./.github/workflows/nm-build-test.yml
+    with:
+      wf_category: 'RELEASE'
+      python: 3.10.12
+      gitref: ${{ github.ref }}
+      push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
 
-#   PYTHON-3-10:
-#     uses: ./.github/workflows/nm-build-test.yml
-#     with:
-#       wf_category: 'RELEASE'
-#       python: 3.10.12
-#       gitref: ${{ github.ref }}
+      test_label_solo: gcp-k8s-l4-solo
+      test_label_multi: ignore
+      test_timeout: 720
+      test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
 
-#       test_label_solo: gcp-k8s-l4-solo
-#       test_label_multi: ignore
-#       test_timeout: 720
-#       test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
+      benchmark_label: gcp-k8s-l4-solo
+      benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
+      benchmark_timeout: 720
+      push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
 
-#       benchmark_label: gcp-k8s-l4-solo
-#       benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
-#       benchmark_timeout: 720
-#       push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
-#     secrets: inherit
+      lm_eval_label: gcp-k8s-l4-solo
+      lm_eval_configuration: ./neuralmagic/lm-eval/full-small-models.yaml
+      lm_eval_timeout: 60
+    secrets: inherit
 
-#   PYTHON-3-11:
-#     uses: ./.github/workflows/nm-build-test.yml
-#     with:
-#       wf_category: 'RELEASE'
-#       python: 3.11.4
-#       gitref: ${{ github.ref }}
+  PYTHON-3-11:
+    uses: ./.github/workflows/nm-build-test.yml
+    with:
+      wf_category: 'RELEASE'
+      python: 3.11.4
+      gitref: ${{ github.ref }}
+      push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
 
-#       test_label_solo: gcp-k8s-l4-solo
-#       test_label_multi: ignore
-#       test_timeout: 720
-#       test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
+      test_label_solo: gcp-k8s-l4-solo
+      test_label_multi: ignore
+      test_timeout: 720
+      test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
 
-#       benchmark_label: gcp-k8s-l4-solo
-#       benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
-#       benchmark_timeout: 720
-#       push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
-#     secrets: inherit
+      benchmark_label: gcp-k8s-l4-solo
+      benchmark_config_list_file: ./.github/data/nm_benchmark_nightly_configs_list.txt
+      benchmark_timeout: 720
+      push_benchmark_results_to_gh_pages: ${{ inputs.push_benchmark_results_to_gh_pages }}
+
+      lm_eval_label: gcp-k8s-l4-solo
+      lm_eval_configuration: ./neuralmagic/lm-eval/full-small-models.yaml
+      lm_eval_timeout: 60
+    secrets: inherit
