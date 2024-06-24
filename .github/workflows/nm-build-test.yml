@@ -72,8 +72,9 @@ on:
         default: "720"
       push_benchmark_results_to_gh_pages:
         description: "when set to true, the workflow pushes all benchmarking results to gh-pages UI"
-        type: string
-        default: "false"
+        type: boolean
+        default: false
+
       # lm-eval related parameters
       lm_eval_label:
         description: "requested runner label (specifies instance)"
@@ -85,12 +86,6 @@ on:
         default: "60"
       lm_eval_configuration:
         description: "configuration for lm-eval test (see neuralmagic/lm-eval)"
-        type: string
-        default: ""
-
-      # lm accuracy
-      test_label_accuracy:
-        description: "label to run accuracy tests"
         type: string
         default: ""
 
