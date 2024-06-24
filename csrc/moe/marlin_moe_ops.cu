@@ -226,8 +226,14 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
        int  tot_m,                          // total number of rows in A and C
        int* locks,                          // extra global storage for barrier synchronization
        bool replicate_input,                // do we use the same input for each expert?
-       bool apply_weights                   // apply weights to output
+       bool apply_weights,                   // apply weights to output
+       bool printfirst
 ) {
+
+  // if (printfirst && threadIdx.x == 0 && blockIdx.x == 0) {
+  //   const int* b_int = (const int*)B;
+  //   printf("firsts: %d %d %d %d\n", b_int[0], b_int[1], b_int[2], b_int[3]);
+  // }
 
   // Each threadblock processes one "stripe" of the B matrix with (roughly) the same size, which
   // might involve multiple column "slices" (of width 16 * `thread_n_blocks`). Stripes are defined
@@ -263,13 +269,6 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
       iters = (group_blocks / thread_k_blocks) * ceildiv(iters, (group_blocks / thread_k_blocks));
     }
   }
-
-  // if (threadIdx.x == 0 && blockIdx.x == 0) {
-  //   printf("XXXXX");
-  //   const int* bhalf = reinterpret_cast<const int*>(&B[0]);
-  //   const __half* shalf = reinterpret_cast<const __half*>(&scales_ptr[0]);
-  //   printf("FIRST B: %d, FIRST SCALE: %f\n", bhalf[0], __half2float(shalf[0]));
-  // }
 
   int slice_row     = (iters * blockIdx.x) % k_tiles;
   int slice_col_par = (iters * blockIdx.x) / k_tiles;
@@ -1014,7 +1013,8 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
        int  tot_m,                          // total number of rows in A and C
        int* locks,                          // extra global storage for barrier synchronization
        bool replicate_input,                // do we use the same input for each expert?
-       bool apply_weights                   // apply weights to output
+       bool apply_weights,                   // apply weights to output
+       bool printfirst
 ) {
   // Marlin is not implemented yet for SM < 8.0
   assert(false);
@@ -1046,7 +1046,7 @@ static constexpr int min_thread_k = 64;
            GROUP_BLOCKS><<<blocks, NUM_THREADS, max_shared_mem, stream>>>(          \
         A_ptr, B_ptr, C_ptr, sorted_ids_ptr, topk_weights_ptr, s_ptr, \
         num_groups, num_tokens_post_padded, expert_idx, num_experts, topk, \
-        prob_m, prob_n, prob_k, tot_m, locks, replicate_input, apply_weights);         \
+        prob_m, prob_n, prob_k, tot_m, locks, replicate_input, apply_weights, printfirst);         \
   }
 
   typedef struct {
@@ -1216,7 +1216,8 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
   // printf("run loop for %d %d %d and topk: %d\n", prob_m, prob_n, prob_k, topk);
 
   // TODO bring 1 back to num_experts 
-  for (int expert_idx = 0; expert_idx < 1; ++expert_idx) {
+  for (int expert_idx = 0; expert_idx < num_experts; ++expert_idx) {
+    bool printfirst = true;
     const int4* A_ptr     = (const int4*)A;
     const int4* B_ptr     = (const int4*)B + (prob_n * prob_k / 32) * expert_idx;
     int4*       C_ptr     = (int4*)C;
@@ -1235,6 +1236,7 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
     int* locks = (int*)workspace;
 
     int tot_its        = expert_offsets_ptr[expert_idx + 1] - expert_offsets_ptr[expert_idx]; //prob_m;
+    // printf("TOT ITS: %d\n", tot_its);
     if (tot_its == 0) {
       continue;
     }
@@ -1273,6 +1275,7 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
                               ", thread_n_blocks = " + str(thread_n_blocks) +
                               ", thread_k_blocks = " + str(thread_k_blocks));
       }
+      printfirst = false;
 
       // A_ptr += 16 * thread_m_blocks * (prob_k / 8) * par;
       // C_ptr += 16 * thread_m_blocks * (prob_n / 8) * par;
@@ -1322,6 +1325,9 @@ torch::Tensor marlin_gemm_moe(torch::Tensor& a, torch::Tensor& b_q_weights, torc
 
   long* eoff_f = (long*)(expert_offsets.data_ptr());
 
+  // printf("b_q_weights %s\n", b_q_weights.dtype().name());
+
+  // TODO check these types in unit test / model code
   // printf("a %d\n", a.is_cuda());
   // printf("b_q_weights %d\n", b_q_weights.is_cuda());
   // printf("c %d\n", c.is_cuda());

@@ -967,7 +967,10 @@ def fused_marlin_moe_2(
 
     # sorted_token_ids[0:M] = torch.range(0, M - 1)# * 2
 
+    # torch.set_printoptions(profile="full")
     # print("sorted_token_ids", sorted_token_ids, "(", E, ")")
+    # torch.set_printoptions(profile="default")
+
     # print("topk_ids:", topk_ids.flatten())
 
     max_workspace_size = (N // 64) * 16
@@ -995,16 +998,16 @@ def fused_marlin_moe_2(
     #                                   device=hidden_states.device,
     #                                   dtype=hidden_states.dtype)
 
-    print("hidden", hidden_states.shape, "\n", hidden_states)
-    print("w1", w1.shape, "\n", w1)
-    print("w1_scale", w1_scale.shape, "\n", w1_scale)
+    # print("hidden", hidden_states.shape, "\n", hidden_states)
+    # print("w1", w1.shape, "\n", w1)
+    # print("w1_scale", w1_scale.shape, "\n", w1_scale)
 
     intermediate_cache1 = torch.ops._moe_C.marlin_gemm_moe(hidden_states, w1,
         sorted_token_ids, topk_ids, w1_scale, torch.from_numpy(expert_offsets_np), workspace,
         M, N, K, num_tokens_post_padded, E, topk, block_size_m, True, False)
 
     # torch.set_printoptions(profile="full")
-    print("intermediate 1 marlin:", torch.sum(intermediate_cache1, dim=1).shape, torch.sum(intermediate_cache1, dim=1))
+    # print("intermediate 1 marlin:", torch.sum(intermediate_cache1, dim=1).shape, torch.sum(intermediate_cache1, dim=1))
     # torch.set_printoptions(profile="default")
 
     # print("intermediate 1 view:", intermediate_cache1.view(-1, 2 * N))

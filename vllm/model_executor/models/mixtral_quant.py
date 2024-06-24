@@ -130,7 +130,7 @@ class MixtralMoE(nn.Module):
         print("Mixtral MoE")
         self.config = config
         self.quant_config = quant_config
-        print("config:", quant_config)
+        # print("config:", quant_config)
         self.rank = get_tensor_model_parallel_rank()
         self.tp_size = get_tensor_model_parallel_world_size()
         self.num_total_experts = config.num_local_experts
@@ -196,9 +196,9 @@ class MixtralMoE(nn.Module):
                 w3_s = self.experts[i].w3.get_parameter("scales")
                 w2_qw = self.experts[i].w2.get_parameter("qweight")
                 w2_s = self.experts[i].w2.get_parameter("scales")
-                if (i == 0):
-                    print("LAYERS", self.experts[i].w1.quant_method, self.experts[i].w2.quant_method, self.experts[i].w3.quant_method)
-                    print("h:", hidden_states.shape, "qws:", w1_qw.shape, w2_qw.shape, w3_qw.shape)
+                # if (i == 0):
+                #     print("LAYERS", self.experts[i].w1.quant_method, self.experts[i].w2.quant_method, self.experts[i].w3.quant_method)
+                #     print("h:", hidden_states.shape, "qws:", w1_qw.shape, w2_qw.shape, w3_qw.shape)
 
                 # w_ref = torch.zeros((8), dtype=torch.float)
                 # q_item = w1_qw[0][0].item()
@@ -251,8 +251,8 @@ class MixtralMoE(nn.Module):
                                                 self.quant_config.group_size,
                                                 self.quant_config.weight_bits).half()
                 
-                w1_qw= torch.full(w1_qw.shape, -1180006009).to(w1_qw.device)
-                w1_s= torch.full(w1_s.shape, 0.0054).to(w1_qw.device)
+                # w1_qw= torch.full(w1_qw.shape, -1180006009).to(w1_qw.device)
+                # w1_s= torch.full(w1_s.shape, 0.0054).to(w1_qw.device)
                 # if (i == 0):
                 #     print("marlin: ", w1_qw)
                 #     print("scales:", w1_s)
@@ -275,53 +275,53 @@ class MixtralMoE(nn.Module):
                 qweights3.append(w3_qw)
                 scaless3.append(w3_s)
 
-            hidden_states= torch.full(hidden_states.shape, 1, dtype=hidden_states.dtype).to(hidden_states.device)
+            # hidden_states= torch.full(hidden_states.shape, 1, dtype=hidden_states.dtype).to(hidden_states.device)
             
                 # print(w1_s.shape, ":", w3_s.shape, ",", w2_s.shape)
 
             # print(bin(qweights2[0][0][0].item()), bin(qweights2[0][0][1].item()))
 
-            qweight13 = torch.stack(qweights13, dim=0).to(qweights13[0].device)
-            scales13 = torch.stack(scaless13, dim=0).to(scaless13[0].device)
-            qweight2 = torch.stack(qweights2, dim=0).to(qweights2[0].device)
-            scales2 = torch.stack(scaless2, dim=0).to(scaless2[0].device)
-            qweight1 = torch.stack(qweights1, dim=0).to(qweights1[0].device)
-            scales1 = torch.stack(scaless1, dim=0).to(scaless1[0].device)
-            qweight3 = torch.stack(qweights3, dim=0).to(qweights3[0].device)
-            scales3 = torch.stack(scaless3, dim=0).to(scaless3[0].device)
+            qweight13 = torch.stack(qweights13, dim=0).to(qweights13[0].device).int()
+            scales13 = torch.stack(scaless13, dim=0).to(scaless13[0].device).half()
+            qweight2 = torch.stack(qweights2, dim=0).to(qweights2[0].device).int()
+            scales2 = torch.stack(scaless2, dim=0).to(scaless2[0].device).half()
+            qweight1 = torch.stack(qweights1, dim=0).to(qweights1[0].device).int()
+            scales1 = torch.stack(scaless1, dim=0).to(scaless1[0].device).half()
+            qweight3 = torch.stack(qweights3, dim=0).to(qweights3[0].device).int()
+            scales3 = torch.stack(scaless3, dim=0).to(scaless3[0].device).half()
 
             # print(hidden_states.device, router_logits.device, qweight13.device, scales13.device, qweight2.device, scales2.device)
 
-            # final_hidden_states = fused_marlin_moe(
-            #     hidden_states,
-            #     qweight13,
-            #     qweight2,
-            #     router_logits,
-            #     self.top_k,
-            #     renormalize=True,
-            #     w1_scale=scales13,
-            #     w2_scale=scales2,
-            # )
-
-            final_hidden_states = fused_marlin_moe_2(
-                hidden_states,
-                qweight1,
+            final_hidden_states = fused_marlin_moe(
+                hidden_states.half(),
+                qweight13,
                 qweight2,
-                qweight3,
                 router_logits,
                 self.top_k,
                 renormalize=True,
-                w1_scale=scales1,
+                w1_scale=scales13,
                 w2_scale=scales2,
-                w3_scale=scales3,
             )
-            print("out size:", final_hidden_states.shape, "->", num_tokens, hidden_dim)
-            for x in range(10):
-                print(final_hidden_states[0][x].item(), end=' ')
-            print('')
-            assert(False)
+
+            # final_hidden_states = fused_marlin_moe_2(
+            #     hidden_states,
+            #     qweight1,
+            #     qweight2,
+            #     qweight3,
+            #     router_logits,
+            #     self.top_k,
+            #     renormalize=True,
+            #     w1_scale=scales1,
+            #     w2_scale=scales2,
+            #     w3_scale=scales3,
+            # )
+            # print("out size:", final_hidden_states.shape, "->", num_tokens, hidden_dim)
+            # for x in range(10):
+            #     print(final_hidden_states[0][x].item(), end=' ')
+            # print('')
+            # assert(False)
             assert not final_hidden_states[0][0].isnan()
-            return final_hidden_states
+            return final_hidden_states.bfloat16()
 
         torch.cuda.synchronize()
         routing_weights = F.softmax(router_logits, dim=1, dtype=torch.float)
@@ -329,10 +329,13 @@ class MixtralMoE(nn.Module):
                                                        self.top_k,
                                                        dim=-1)
         routing_weights /= routing_weights.sum(dim=-1, keepdim=True)
+        # torch.set_printoptions(profile="full")
+        # print("selected experts:", selected_experts.flatten())
+        # torch.set_printoptions(profile="default")
 
         final_hidden_states = None
         # TODO bring this back to all experts
-        for expert_idx in self.expert_indicies[:1]:
+        for expert_idx in self.expert_indicies:
             expert_layer = self.experts[expert_idx]
             expert_mask = (selected_experts == expert_idx)
             expert_weights = (routing_weights * expert_mask).sum(dim=-1,
@@ -340,15 +343,17 @@ class MixtralMoE(nn.Module):
 
             current_hidden_states = expert_layer(hidden_states).mul_(
                 expert_weights)
+            # current_hidden_states = expert_layer(hidden_states)
             if final_hidden_states is None:
                 final_hidden_states = current_hidden_states
             else:
                 final_hidden_states.add_(current_hidden_states)
+        # print("out muls:", final_hidden_states)
 
         final_hidden_states = tensor_model_parallel_all_reduce(final_hidden_states).view(
             num_tokens, hidden_dim)
 
-        print("out size:", final_hidden_states.shape, "->", num_tokens, hidden_dim)
+        # print("out size:", final_hidden_states.shape, "->", num_tokens, hidden_dim)
 
         # if final_hidden_states.count_nonzero() > 0:
         #     for x in range(final_hidden_states.shape[0]):
@@ -369,7 +374,7 @@ class MixtralMoE(nn.Module):
         # for x in range(10):
         #         print(final_hidden_states[3][x].item(), end=' ')
         # print('')
-        assert(False)
+        # assert(False)
         return final_hidden_states
 
 
