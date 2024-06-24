@@ -17,7 +17,7 @@ jobs:
         with:
             python: 3.10.12
             gitref: ${{ github.ref }}
-            push_to_pypi:
+            push_to_pypi: false
 
             test_configs: '[{"python":"3.8.17","label":"gcp-k8s-l4-solo","test":"neuralmagic/tests/test_skip_env_vars/smoke.txt"},
                             {"python":"3.9.17","label":"gcp-k8s-t4-duo","test":"neuralmagic/tests/test_skip_env_vars/smoke.txt"},
