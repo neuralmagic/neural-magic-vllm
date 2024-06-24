@@ -196,8 +196,13 @@ def is_tpu() -> bool:
 
 @lru_cache(maxsize=None)
 def is_xpu() -> bool:
-    from importlib.metadata import version
-    is_xpu_flag = "xpu" in version("nm-vllm")
+    from importlib.metadata import version, PackageNotFoundError
+    # UPSTREAM SYNC: nm-vllm can be either nightly or release.
+    try:
+        version_nm_vllm = version("nm-vllm")
+    except PackageNotFoundError:
+        version_nm_vllm = version("nm-vllm-nightly")
+    is_xpu_flag = "xpu" in version_nm_vllm
     # vllm is not build with xpu
     if not is_xpu_flag:
         return False
