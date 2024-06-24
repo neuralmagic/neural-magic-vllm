@@ -11,13 +11,11 @@ from vllm.multimodal.utils import ImageFetchAiohttp, encode_image_base64
 
 from ..utils import VLLM_PATH, RemoteOpenAIServer
 
-if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
-    pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
-                allow_module_level=True)
 
 if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
     pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
                 allow_module_level=True)
+
 
 MODEL_NAME = "llava-hf/llava-1.5-7b-hf"
 LLAVA_CHAT_TEMPLATE = (Path(__file__).parent.parent.parent /

@@ -27,7 +27,7 @@ MODEL_FORMAT_EXTRABLOCKS = [
 
 
 @pytest.mark.skipif(torch.cuda.get_device_capability() < (8, 0),
-                    reason="skip for T4s")
+                    reason="skip for T4s, requires compute capability 8.0")
 @pytest.mark.parametrize("model_format_extrablocks", MODEL_FORMAT_EXTRABLOCKS)
 @pytest.mark.parametrize("dtype", ["half"])
 @pytest.mark.parametrize("max_tokens", [32])
