@@ -7,6 +7,10 @@ on:
         description: "categories: REMOTE, NIGHTLY, WEEKLY, RELEASE"
         type: string
         default: "REMOTE"
+      push_binaries_to_pypi:
+        description: "When set to true, built wheels and tar.gz will be pushed to neuralmagic pypi if all tests pass"
+        type: string
+        default: 'no'
       python:
         description: "python version, e.g. 3.10.12"
         type: string
@@ -121,17 +125,6 @@ jobs:
     #         test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
     #     secrets: inherit
 
-    UPLOAD:
-        needs: [TEST-SOLO]
-        if: contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category)
-        uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
-        with:
-            label: ${{ inputs.build_label }}
-            timeout: ${{ inputs.build_timeout }}
-            gitref: ${{ github.ref }}
-            python: ${{ inputs.python }}
-        secrets: inherit
-
     BENCHMARK:
         needs: [BUILD]
         if: success()
@@ -158,3 +151,14 @@ jobs:
         whl: ${{ needs.BUILD.outputs.whl }}
         lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
       secrets: inherit
+
+    UPLOAD:
+        needs: [TEST-SOLO, BENCHMARK, LM-EVAL-SOLO]
+        if: ${{ contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category) && inputs.push_binaries_to_pypi == 'yes' }}
+        uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
+        with:
+            label: ${{ inputs.build_label }}
+            timeout: ${{ inputs.build_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+        secrets: inherit
