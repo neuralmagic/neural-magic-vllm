@@ -2,16 +2,19 @@
 
 Run `pytest tests/kernels/test_moe.py`.
 """
+from typing import List
+
 import pytest
 import torch
-from typing import List
 from transformers import MixtralConfig
 from transformers.models.mixtral.modeling_mixtral import MixtralSparseMoeBlock
 
 from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.model_executor.layers.activation import SiluAndMul
-from vllm.model_executor.layers.fused_moe import fused_moe, fused_marlin_moe, single_marlin_moe
-from vllm.model_executor.layers.quantization.utils.marlin_utils import marlin_quantize
+from vllm.model_executor.layers.fused_moe import (fused_marlin_moe, fused_moe,
+                                                  single_marlin_moe)
+from vllm.model_executor.layers.quantization.utils.marlin_utils import (
+    marlin_quantize)
 from vllm.model_executor.models.mixtral import MixtralMoE
 
 if should_skip_test_group(group_name="TEST_KERNELS"):
@@ -35,6 +38,7 @@ def torch_moe(a, w1, w2, score, topk):
     return (out.view(B, -1, w2.shape[1]) *
             topk_weight.view(B, -1, 1).to(out.dtype)).sum(dim=1)
 
+
 def torch_moe_single(a, w, score, topk):
     B, D = a.shape
     a = a.view(B, -1, D).repeat(1, topk, 1).reshape(-1, D)
@@ -45,8 +49,9 @@ def torch_moe_single(a, w, score, topk):
     for i in range(w.shape[0]):
         mask = topk_ids == i
         if mask.sum():
-            out[mask] =  a[mask] @ w[i].transpose(0, 1)
+            out[mask] = a[mask] @ w[i].transpose(0, 1)
     return (out.view(B, -1, w.shape[1])).sum(dim=1)
+
 
 # UPSTREAM SYNC: breaks NM automation.
 @pytest.mark.skip("C compiler not installed in NM automation. "
@@ -129,13 +134,16 @@ def test_mixtral_moe(dtype: torch.dtype):
                           rtol=mixtral_moe_tol[dtype],
                           atol=mixtral_moe_tol[dtype])
 
+
 def stack_and_dev(tensors: List[torch.Tensor]):
     dev = tensors[0].device
     return torch.stack(tensors, dim=0).to(dev)
 
+
 def compute_max_diff(output, output_ref):
     return torch.mean(torch.abs(output - output_ref)) / torch.mean(
         torch.abs(output_ref))
+
 
 # UPSTREAM SYNC: breaks NM automation.
 @pytest.mark.skip("C compiler not installed in NM automation. "
@@ -172,7 +180,8 @@ def test_fused_marlin_moe(
     scaless1 = []
 
     for i in range(w1.shape[0]):
-        w_ref1, qweight1, scales1, _, _, _ = marlin_quantize(w1[i].transpose(1, 0), num_bits, group_size, False)
+        w_ref1, qweight1, scales1, _, _, _ = marlin_quantize(
+            w1[i].transpose(1, 0), num_bits, group_size, False)
         w_refs1.append(w_ref1)
         qweights1.append(qweight1)
         scaless1.append(scales1)
@@ -186,7 +195,8 @@ def test_fused_marlin_moe(
     scales2_l = []
 
     for i in range(w2.shape[0]):
-        w_ref2, qweight2, scales2, _, _, _ = marlin_quantize(w2[i].transpose(1, 0), num_bits, group_size, False)
+        w_ref2, qweight2, scales2, _, _, _ = marlin_quantize(
+            w2[i].transpose(1, 0), num_bits, group_size, False)
         w_refs2.append(w_ref2)
         qweight2_l.append(qweight2)
         scales2_l.append(scales2)
@@ -196,14 +206,22 @@ def test_fused_marlin_moe(
     scales2 = stack_and_dev(scales2_l)
 
     score = torch.randn((m, e), device='cuda', dtype=dtype)
-    triton_output = fused_moe(a, w_ref1.transpose(1, 2).contiguous(),
+    triton_output = fused_moe(a,
+                              w_ref1.transpose(1, 2).contiguous(),
                               w_ref2.transpose(1, 2).contiguous(),
-                              score, topk, renormalize=False)
-    marlin_output = fused_marlin_moe(a, qweight1, qweight2, score, topk,
-                                    renormalize=False,
-                                    w1_scale=scales1, w2_scale=scales2)
+                              score,
+                              topk,
+                              renormalize=False)
+    marlin_output = fused_marlin_moe(a,
+                                     qweight1,
+                                     qweight2,
+                                     score,
+                                     topk,
+                                     renormalize=False,
+                                     w1_scale=scales1,
+                                     w2_scale=scales2)
 
-    assert(compute_max_diff(marlin_output, triton_output) < 4e-2)
+    assert (compute_max_diff(marlin_output, triton_output) < 4e-2)
 
 
 # UPSTREAM SYNC: breaks NM automation.
@@ -238,7 +256,8 @@ def test_single_marlin_moe(
     scales_l = []
 
     for i in range(w.shape[0]):
-        w_ref, qweight, scales, _, _, _ = marlin_quantize(w[i].transpose(1, 0), num_bits, group_size, False)
+        w_ref, qweight, scales, _, _, _ = marlin_quantize(
+            w[i].transpose(1, 0), num_bits, group_size, False)
         w_ref_l.append(w_ref)
         qweights_l.append(qweight)
         scales_l.append(scales)
@@ -248,7 +267,12 @@ def test_single_marlin_moe(
     scales = stack_and_dev(scales_l)
 
     score = torch.randn((m, e), device='cuda', dtype=dtype)
-    marlin_output = single_marlin_moe(a, qweight, scales, score, topk, renormalize=False)
+    marlin_output = single_marlin_moe(a,
+                                      qweight,
+                                      scales,
+                                      score,
+                                      topk,
+                                      renormalize=False)
     torch_output = torch_moe_single(a, w_ref.transpose(1, 2), score, topk)
 
-    assert(compute_max_diff(marlin_output, torch_output) < 1e-2)
+    assert (compute_max_diff(marlin_output, torch_output) < 1e-2)

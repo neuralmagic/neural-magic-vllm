@@ -2,12 +2,12 @@
 import functools
 import json
 import os
-from typing import Any, Dict, Optional, Tuple, List
+from typing import Any, Dict, Optional, Tuple
 
+import numpy
 import torch
 import triton
 import triton.language as tl
-import numpy
 
 from vllm import _custom_ops as ops
 from vllm.logger import init_logger
@@ -526,6 +526,7 @@ def fused_moe(
                          a1_scale=a1_scale,
                          a2_scale=a2_scale)
 
+
 def single_marlin_moe(
     hidden_states: torch.Tensor,
     w: torch.Tensor,
@@ -572,13 +573,13 @@ def single_marlin_moe(
     N = w.shape[2] // 2
 
     topk_weights = torch.empty(M,
-                                topk,
-                                dtype=torch.float32,
-                                device=hidden_states.device)
+                               topk,
+                               dtype=torch.float32,
+                               device=hidden_states.device)
     topk_ids = torch.empty(M,
-                            topk,
-                            dtype=torch.int32,
-                            device=hidden_states.device)
+                           topk,
+                           dtype=torch.int32,
+                           device=hidden_states.device)
     token_expert_indicies = torch.empty(M,
                                         topk,
                                         dtype=torch.int32,
@@ -594,7 +595,7 @@ def single_marlin_moe(
     if renormalize:
         topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
 
-    if override_config :
+    if override_config:
         config = override_config
     else:
         # First try to load optimal config from the file
@@ -633,34 +634,33 @@ def single_marlin_moe(
                             requires_grad=False)
 
     expert_offsets = [0] * (E + 1)
-    occurences = torch.bincount(topk_ids.flatten()).to(dtype=torch.int)
-    erange = min(E, len(occurences))
+    occurrences = torch.bincount(topk_ids.flatten()).to(dtype=torch.int)
+    erange = min(E, len(occurrences))
     for i in range(erange):
-        ex_blocks = (occurences[i].item() + block_size_m - 1) // block_size_m
+        ex_blocks = (occurrences[i].item() + block_size_m - 1) // block_size_m
         expert_offsets[i + 1] = ex_blocks * block_size_m + expert_offsets[i]
-    for i in range(len(occurences), E):
+    for i in range(len(occurrences), E):
         expert_offsets[i] = sorted_token_ids.size()[0]
     expert_offsets_np = numpy.asarray(expert_offsets)
 
-    intermediate_cache = torch.ops._moe_C.marlin_gemm_moe(hidden_states, w,
-        sorted_token_ids, topk_weights, scales, torch.from_numpy(expert_offsets_np), workspace,
-        M, N, K, num_tokens_post_padded, E, topk, block_size_m, True, False)
+    intermediate_cache = torch.ops._moe_C.marlin_gemm_moe(
+        hidden_states, w, sorted_token_ids, topk_weights, scales,
+        torch.from_numpy(expert_offsets_np), workspace, M, N, K,
+        num_tokens_post_padded, E, topk, block_size_m, True, False)
 
-    return torch.sum(intermediate_cache.view(*intermediate_cache.shape),
-                     dim=1)
+    return torch.sum(intermediate_cache.view(*intermediate_cache.shape), dim=1)
 
-def fused_marlin_moe(
-    hidden_states: torch.Tensor,
-    w1: torch.Tensor,
-    w2: torch.Tensor,
-    gating_output: torch.Tensor,
-    topk: int,
-    renormalize: bool,
-    override_config: Optional[Dict[str, Any]] = None,
-    use_fp8: bool = False,
-    w1_scale: Optional[torch.Tensor] = None,
-    w2_scale: Optional[torch.Tensor] = None
-) -> torch.Tensor:
+
+def fused_marlin_moe(hidden_states: torch.Tensor,
+                     w1: torch.Tensor,
+                     w2: torch.Tensor,
+                     gating_output: torch.Tensor,
+                     topk: int,
+                     renormalize: bool,
+                     override_config: Optional[Dict[str, Any]] = None,
+                     use_fp8: bool = False,
+                     w1_scale: Optional[torch.Tensor] = None,
+                     w2_scale: Optional[torch.Tensor] = None) -> torch.Tensor:
     """
     This function computes a Mixture of Experts (MoE) layer using two sets of
     weights, w1 and w2, and top-k gating mechanism.
@@ -690,8 +690,10 @@ def fused_marlin_moe(
     # Check constraints.
     assert hidden_states.shape[0] == gating_output.shape[0], (
         "Number of tokens mismatch")
-    assert hidden_states.shape[1] == w1.shape[1] * 16, "Hidden size mismatch w1"
-    assert hidden_states.shape[1] == w2.shape[2] // 2, "Hidden size mismatch w2"
+    assert hidden_states.shape[
+        1] == w1.shape[1] * 16, "Hidden size mismatch w1"
+    assert hidden_states.shape[
+        1] == w2.shape[2] // 2, "Hidden size mismatch w2"
     assert gating_output.shape[1] == w1.shape[0], "Number of experts mismatch"
     assert hidden_states.is_contiguous(), "Hidden_states must be contiguous"
     assert w1.is_contiguous(), "Expert weights1 must be contiguous"
@@ -704,13 +706,13 @@ def fused_marlin_moe(
     N = w2.shape[1] * 16
 
     topk_weights = torch.empty(M,
-                                topk,
-                                dtype=torch.float32,
-                                device=hidden_states.device)
+                               topk,
+                               dtype=torch.float32,
+                               device=hidden_states.device)
     topk_ids = torch.empty(M,
-                            topk,
-                            dtype=torch.int32,
-                            device=hidden_states.device)
+                           topk,
+                           dtype=torch.int32,
+                           device=hidden_states.device)
     token_expert_indicies = torch.empty(M,
                                         topk,
                                         dtype=torch.int32,
@@ -765,12 +767,12 @@ def fused_marlin_moe(
                             requires_grad=False)
 
     expert_offsets = [0] * (E + 1)
-    occurences = torch.bincount(topk_ids.flatten()).to(dtype=torch.int)
-    erange = min(E, len(occurences))
+    occurrences = torch.bincount(topk_ids.flatten()).to(dtype=torch.int)
+    erange = min(E, len(occurrences))
     for i in range(erange):
-        ex_blocks = (occurences[i].item() + block_size_m - 1) // block_size_m
+        ex_blocks = (occurrences[i].item() + block_size_m - 1) // block_size_m
         expert_offsets[i + 1] = ex_blocks * block_size_m + expert_offsets[i]
-    for i in range(len(occurences), E):
+    for i in range(len(occurrences), E):
         expert_offsets[i] = sorted_token_ids.size()[0]
     expert_offsets_np = numpy.asarray(expert_offsets)
 
@@ -778,15 +780,17 @@ def fused_marlin_moe(
                                       device=hidden_states.device,
                                       dtype=hidden_states.dtype)
 
-    intermediate_cache1 = torch.ops._moe_C.marlin_gemm_moe(hidden_states, w1,
-        sorted_token_ids, topk_ids, w1_scale, torch.from_numpy(expert_offsets_np), workspace,
-        M, 2 * N, K, num_tokens_post_padded, E, topk, block_size_m, True, False)
+    intermediate_cache1 = torch.ops._moe_C.marlin_gemm_moe(
+        hidden_states, w1, sorted_token_ids, topk_ids, w1_scale,
+        torch.from_numpy(expert_offsets_np), workspace, M, 2 * N, K,
+        num_tokens_post_padded, E, topk, block_size_m, True, False)
 
     ops.silu_and_mul(intermediate_cache2, intermediate_cache1.view(-1, 2 * N))
 
-    intermediate_cache3 = torch.ops._moe_C.marlin_gemm_moe(intermediate_cache2, w2,
-        sorted_token_ids, topk_weights, w2_scale, torch.from_numpy(expert_offsets_np), workspace,
-        M, K, N, num_tokens_post_padded, E, topk, block_size_m, False, True)
+    intermediate_cache3 = torch.ops._moe_C.marlin_gemm_moe(
+        intermediate_cache2, w2, sorted_token_ids, topk_weights, w2_scale,
+        torch.from_numpy(expert_offsets_np), workspace, M, K, N,
+        num_tokens_post_padded, E, topk, block_size_m, False, True)
 
     return torch.sum(intermediate_cache3.view(*intermediate_cache3.shape),
                      dim=1)

@@ -25,17 +25,14 @@ from typing import Iterable, List, Optional, Tuple
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 from torch import nn
 from transformers import MixtralConfig
 
 from vllm import _custom_ops as ops
-
 from vllm.attention import Attention, AttentionMetadata
 from vllm.config import CacheConfig
 from vllm.distributed import (get_tensor_model_parallel_rank,
-                              get_tensor_model_parallel_world_size,
-                              tensor_model_parallel_all_reduce)
+                              get_tensor_model_parallel_world_size)
 from vllm.model_executor.layers.fused_moe import fused_marlin_moe
 from vllm.model_executor.layers.layernorm import RMSNorm
 from vllm.model_executor.layers.linear import (QKVParallelLinear,
@@ -44,16 +41,15 @@ from vllm.model_executor.layers.linear import (QKVParallelLinear,
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig)
+from vllm.model_executor.layers.quantization.utils.marlin_utils import (
+    marlin_permute_scales_numbits)
 from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler
 from vllm.model_executor.layers.vocab_parallel_embedding import (
     ParallelLMHead, VocabParallelEmbedding)
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.model_executor.sampling_metadata import SamplingMetadata
-from vllm.model_executor.utils import set_weight_attrs
 from vllm.sequence import SamplerOutput
-
-from vllm.model_executor.layers.quantization.utils.marlin_utils import marlin_permute_scales_numbits
 
 
 class MixtralMLP(nn.Module):
@@ -155,20 +151,24 @@ class MixtralMoE(nn.Module):
             w13_s = torch.cat((w1_s, w3_s), 1)
             size_k = hidden_states.shape[1]
             size_n = w13_qw.shape[1]
-            g_idx_sort_idx = torch.empty(0, dtype=torch.int, device=w13_qw.device)
+            g_idx_sort_idx = torch.empty(0,
+                                         dtype=torch.int,
+                                         device=w13_qw.device)
             w13_qw = ops.gptq_marlin_repack(w13_qw, g_idx_sort_idx, size_k,
-                                            size_n, self.quant_config.weight_bits)
-            w13_s =  marlin_permute_scales_numbits(w13_s, size_k, size_n,
-                                                self.quant_config.group_size,
-                                                self.quant_config.weight_bits)
+                                            size_n,
+                                            self.quant_config.weight_bits)
+            w13_s = marlin_permute_scales_numbits(
+                w13_s, size_k, size_n, self.quant_config.group_size,
+                self.quant_config.weight_bits)
 
             size_k = w2_qw.shape[0] * 8
             size_n = w2_qw.shape[1]
             w2_qw = ops.gptq_marlin_repack(w2_qw, g_idx_sort_idx, size_k,
-                                            size_n, self.quant_config.weight_bits)
-            w2_s =  marlin_permute_scales_numbits(w2_s, size_k, size_n,
-                                            self.quant_config.group_size,
-                                            self.quant_config.weight_bits)
+                                           size_n,
+                                           self.quant_config.weight_bits)
+            w2_s = marlin_permute_scales_numbits(w2_s, size_k, size_n,
+                                                 self.quant_config.group_size,
+                                                 self.quant_config.weight_bits)
 
             qweight13_l.append(w13_qw)
             scales13_l.append(w13_s)

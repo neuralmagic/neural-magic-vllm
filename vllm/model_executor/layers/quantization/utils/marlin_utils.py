@@ -33,6 +33,7 @@ def get_scale_perms(num_bits):
             [2 * i + j for j in [0, 1, 8, 9, 16, 17, 24, 25]])
     return scale_perm, scale_perm_single
 
+
 def marlin_permute_scales_numbits(s, size_k, size_n, group_size, num_bits):
     scale_perm, scale_perm_single = get_scale_perms(num_bits)
     if group_size < size_k and group_size != -1:
@@ -42,6 +43,7 @@ def marlin_permute_scales_numbits(s, size_k, size_n, group_size, num_bits):
     s = s.reshape((-1, size_n)).contiguous()
 
     return s
+
 
 def marlin_permute_weights(q_w, size_k, size_n, perm, tile=MARLIN_TILE):
     assert q_w.shape == (size_k, size_n)
