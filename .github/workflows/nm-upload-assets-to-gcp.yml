@@ -16,10 +16,6 @@ on:
                 description: 'git commit hash or branch name'
                 type: string
                 required: true
-            python:
-                description: "python version, e.g. 3.10.12"
-                type: string
-                required: true
 
 jobs:
 
@@ -74,5 +70,3 @@ jobs:
             - name: cp assets
               id: cp-assets
               uses: ./.github/actions/nm-cp-assets/
-              with:
-                  python: ${{ inputs.python }}

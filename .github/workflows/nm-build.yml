@@ -125,27 +125,6 @@ jobs:
                 python: ${{ inputs.python }}
                 venv: ${{ env.VENV_BASE }}
 
-            # GCP
-            - name: 'Authenticate to Google Cloud'
-              id: auth
-              uses: google-github-actions/auth@v2.1.3
-              with:
-                  project_id: ${{ secrets.GCP_PROJECT }}
-                  workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-                  service_account: ${{ secrets.NM_PYPI_SA }}
-
-            - name: 'Set up Cloud SDK'
-              uses: 'google-github-actions/setup-gcloud@v2'
-              with:
-                  version: '>= 473.0.0'
-
-            - name: copy whl and source distribution
-              run: |
-                # echo "whl: ${{ steps.build.outputs.whl }}"
-                # echo "tarfile: ${{ steps.build.outputs.tarfile }}"
-                gcloud storage cp dist/${{ steps.build.outputs.whl }} gs://neuralmagic-public-pypi/assets/${{ github.run_id }}/${{ steps.build.outputs.whl }}
-                gcloud storage cp dist/${{ steps.build.outputs.tarfile }} gs://neuralmagic-public-pypi/assets/${{ github.run_id }}/${{ steps.build.outputs.tarfile }}
-
             - name: upload whl
               uses: actions/upload-artifact@v4
               if: success() || failure()
