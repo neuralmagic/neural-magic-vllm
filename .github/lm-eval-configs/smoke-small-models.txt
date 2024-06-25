@@ -1,2 +1,2 @@
 Meta-Llama-3-8B-Instruct.yaml
-Phi-3-medium-4k-instruct.yaml
+Qwen2-7B-Instruct.yaml
