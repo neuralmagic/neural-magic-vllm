@@ -53,7 +53,7 @@ from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.model_executor.utils import set_weight_attrs
 from vllm.sequence import SamplerOutput
 
-from vllm.model_executor.layers.quantization.utils.marlin_utils import marlin_permute_scales_2
+from vllm.model_executor.layers.quantization.utils.marlin_utils import marlin_permute_scales_numbits
 
 
 class MixtralMLP(nn.Module):
@@ -158,7 +158,7 @@ class MixtralMoE(nn.Module):
             g_idx_sort_idx = torch.empty(0, dtype=torch.int, device=w13_qw.device)
             w13_qw = ops.gptq_marlin_repack(w13_qw, g_idx_sort_idx, size_k,
                                             size_n, self.quant_config.weight_bits)
-            w13_s =  marlin_permute_scales_2(w13_s, size_k, size_n,
+            w13_s =  marlin_permute_scales_numbits(w13_s, size_k, size_n,
                                                 self.quant_config.group_size,
                                                 self.quant_config.weight_bits)
 
@@ -166,7 +166,7 @@ class MixtralMoE(nn.Module):
             size_n = w2_qw.shape[1]
             w2_qw = ops.gptq_marlin_repack(w2_qw, g_idx_sort_idx, size_k,
                                             size_n, self.quant_config.weight_bits)
-            w2_s =  marlin_permute_scales_2(w2_s, size_k, size_n,
+            w2_s =  marlin_permute_scales_numbits(w2_s, size_k, size_n,
                                             self.quant_config.group_size,
                                             self.quant_config.weight_bits)
 

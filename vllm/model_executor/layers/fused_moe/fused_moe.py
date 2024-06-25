@@ -331,6 +331,7 @@ def get_default_config(
         }
     return config
 
+
 def fused_topk(
     hidden_states: torch.Tensor,
     gating_output: torch.Tensor,
