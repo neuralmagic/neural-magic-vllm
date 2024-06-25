@@ -76,7 +76,7 @@ def test_lm_eval_correctness(num_gpus_available):
         "model": eval_config["model_name"],
         "max-model-len": 4096,
         "tensor-parallel-size": num_gpus_available,
-        # TODO: understand why default (mp) does not
+        # TODO (@robertgshaw2): understand why default (mp) does not
         # shut down cleanly (it works, but not clean).
         "distributed-executor-backend": "ray",
         "disable-log-requests": "",
