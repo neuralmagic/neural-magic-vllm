@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import os
 
 import pytest
@@ -5,6 +6,13 @@ import ray
 
 from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.utils import cuda_device_count_stateless
+=======
+import ray
+
+import vllm.envs as envs
+from vllm.utils import (cuda_device_count_stateless, is_hip,
+                        update_environment_variables)
+>>>>>>> dd793d1d ([Hardware][AMD][CI/Build][Doc] Upgrade to ROCm 6.1, Dockerfile improvements, test fixes (#5422))
 
 if should_skip_test_group(group_name="TEST_DISTRIBUTED"):
     pytest.skip("TEST_DISTRIBUTED=DISABLE, skipping distributed test group",
@@ -18,16 +26,21 @@ class _CUDADeviceCountStatelessTestActor:
         return cuda_device_count_stateless()
 
     def set_cuda_visible_devices(self, cuda_visible_devices: str):
-        os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
+        update_environment_variables(
+            {"CUDA_VISIBLE_DEVICES": cuda_visible_devices})
 
     def get_cuda_visible_devices(self):
-        return os.environ["CUDA_VISIBLE_DEVICES"]
+        return envs.CUDA_VISIBLE_DEVICES
 
 
 def test_cuda_device_count_stateless():
     """Test that cuda_device_count_stateless changes return value if
     CUDA_VISIBLE_DEVICES is changed."""
-
+    if is_hip():
+        # Set HIP_VISIBLE_DEVICES == CUDA_VISIBLE_DEVICES. Conversion
+        # is handled by `update_environment_variables`
+        update_environment_variables(
+            {"CUDA_VISIBLE_DEVICES": envs.CUDA_VISIBLE_DEVICES})
     actor = _CUDADeviceCountStatelessTestActor.options(  # type: ignore
         num_gpus=2).remote()
     assert sorted(ray.get(

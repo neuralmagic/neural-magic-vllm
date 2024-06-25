@@ -9,7 +9,7 @@ import ray
 from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.multimodal.utils import ImageFetchAiohttp, encode_image_base64
 
-from ..utils import VLLM_PATH, RemoteOpenAIServer
+from ..utils import RemoteOpenAIServer
 
 if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
     pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
@@ -32,7 +32,7 @@ pytestmark = pytest.mark.openai
 
 @pytest.fixture(scope="module")
 def ray_ctx():
-    ray.init(runtime_env={"working_dir": VLLM_PATH})
+    ray.init()
     yield
     ray.shutdown()
 

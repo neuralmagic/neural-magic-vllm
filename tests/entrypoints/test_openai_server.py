@@ -18,9 +18,13 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 from tests.utils import VLLM_PATH, RemoteOpenAIServer
 from vllm.transformers_utils.tokenizer import get_tokenizer
 
+<<<<<<< HEAD
 if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
     pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
                 allow_module_level=True)
+=======
+from ..utils import RemoteOpenAIServer
+>>>>>>> dd793d1d ([Hardware][AMD][CI/Build][Doc] Upgrade to ROCm 6.1, Dockerfile improvements, test fixes (#5422))
 
 # any model with a chat template should work here
 MODEL_NAME = "HuggingFaceH4/zephyr-7b-beta"
@@ -85,7 +89,7 @@ def zephyr_lora_files():
 
 @pytest.fixture(scope="module")
 def ray_ctx():
-    ray.init(runtime_env={"working_dir": VLLM_PATH})
+    ray.init()
     yield
     ray.shutdown()
 
