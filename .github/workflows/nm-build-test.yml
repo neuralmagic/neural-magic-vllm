@@ -179,6 +179,6 @@ jobs:
         with:
             push_to_repository: ${{ inputs.push_to_pypi }}
             gitref: ${{ inputs.gitref }}
-            build_type: ${{ inputs.wf_category }}
-            build_wheel: ${{ needs.BUILD.outputs.whl }}
+            wf_category: ${{ inputs.wf_category }}
+            wheel: ${{ needs.BUILD.outputs.whl }}
         secrets: inherit

@@ -11,11 +11,11 @@ on:
         description: "git commit hash or branch name"
         type: string
         default: 'main'
-      build_type:
+      wf_category:
         description: "type of nm-vllm to install for the docker image: NIGHTLY (default) or RELEASE"
         type: string
         default: 'NIGHTLY'
-      build_wheel:
+      wheel:
         description: "nm-vllm wheel to install for the docker image: latest (default) or specific wheel name"
         type: string
         default: 'latest'
@@ -30,11 +30,11 @@ on:
         description: "git commit hash or branch name"
         type: string
         default: 'main'
-      build_type:
+      wf_category:
         description: "type of nm-vllm to install for the docker image: NIGHTLY (default) or RELEASE"
         type: string
         default: 'NIGHTLY'
-      build_wheel:
+      wheel:
         description: "nm-vllm wheel to install for the docker image: latest (default) or specific wheel name"
         type: string
         default: 'latest'
@@ -69,8 +69,8 @@ jobs:
             id: tags
             uses: ./.github/actions/nm-get-docker-tags/
             with:
-              build_type: ${{ inputs.build_type }}
-              build_wheel: ${{ inputs.build_wheel }}
+              wf_category: ${{ inputs.wf_category }}
+              wheel: ${{ inputs.wheel }}
 
           - name: Build image
             id: build
@@ -78,7 +78,7 @@ jobs:
             with:
               docker_tag: ${{ steps.tags.outputs.tag }}
               extra_tag: ${{ steps.tags.outputs.extra_tag }}
-              build_type: ${{ inputs.build_type }}
+              wf_category: ${{ inputs.wf_category }}
               build_version: ${{ steps.tags.outputs.build_version }}
 
           - name: Push image
