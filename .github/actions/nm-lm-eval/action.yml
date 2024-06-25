@@ -10,9 +10,6 @@ inputs:
   lm_eval_configuration:
     description: 'file containing test configuration'
     required: true
-  lm_eval_tensor_parallel_size:
-    description: 'tensor parallel size to run the test'
-    required: true
 runs:
   using: composite
   steps:
@@ -28,7 +25,7 @@ runs:
       pip3 install pytest openai==1.3.9
 
       SUCCESS=0
-      ./.github/scripts/nm-run-lm-eval-vllm.sh -c ${{ inputs.lm_eval_configuration }} -t $ {{ inputs.lm_eval_tensor_parallel_size }} || SUCCESS=$?
+      ./.github/scripts/nm-run-lm-eval-vllm.sh -c ${{ inputs.lm_eval_configuration }} || SUCCESS=$?
       echo "lm_eval=${SUCCESS}" >> "$GITHUB_OUTPUT"
       exit ${SUCCESS}
     shell: bash

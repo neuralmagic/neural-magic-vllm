@@ -14,7 +14,6 @@ usage() {
     echo "usage: ${0} <options>"
     echo
     echo "  -c    - path to the test data config (e.g. .github/lm-eval-configs/small-models-smoke.txt)"
-    echo "  -t    - tensor parallel size to run the test at"
     echo
 }
 
@@ -24,9 +23,6 @@ while getopts "c:t:" OPT; do
   case ${OPT} in
     c ) 
         CONFIG="$OPTARG"
-        ;;
-    t )
-        TP_SIZE="$OPTARG"
         ;;
     \? ) 
         usage
@@ -42,10 +38,10 @@ for MODEL_CONFIG in "${MODEL_CONFIGS[@]}"
 do
     LOCAL_SUCCESS=0
     
-    echo "=== RUNNING MODEL: $MODEL_CONFIG WITH TP_SIZE $TP_SIZE ==="
+    echo "=== RUNNING MODEL: $MODEL_CONFIG ==="
 
     MODEL_CONFIG_PATH=$PWD/.github/lm-eval-configs/models/${MODEL_CONFIG}
-    LM_EVAL_TEST_DATA_FILE=$MODEL_CONFIG_PATH LM_EVAL_TP_SIZE=${TP_SIZE} pytest -v tests/accuracy/test_lm_eval_correctness.py || LOCAL_SUCCESS=$?
+    LM_EVAL_TEST_DATA_FILE=$MODEL_CONFIG_PATH pytest -v tests/accuracy/test_lm_eval_correctness.py || LOCAL_SUCCESS=$?
 
     if [[ $LOCAL_SUCCESS == 0 ]]; then
         echo "=== PASSED MODEL: ${MODEL_CONFIG} ==="

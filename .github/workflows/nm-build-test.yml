@@ -158,7 +158,6 @@ jobs:
         python: ${{ inputs.python }}
         whl: ${{ needs.BUILD.outputs.whl }}
         lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
-        lm_eval_tensor_parallel_size: 1
       secrets: inherit
 
     # uploading is only available when using GCP autoscaling group

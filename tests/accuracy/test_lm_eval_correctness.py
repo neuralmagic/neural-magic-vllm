@@ -24,9 +24,7 @@ lm_eval: "lm_eval_t" = pytest.importorskip("lm_eval",
                                            reason="lm_eval required")
 
 RTOL = 0.02
-TP_SIZE = os.environ.get("LM_EVAL_TP_SIZE", 1)
 TEST_DATA_FILE = os.environ.get("LM_EVAL_TEST_DATA_FILE", None)
-
 
 def wait_for_server(timeout=300) -> bool:
 
@@ -68,7 +66,7 @@ def launch_lm_eval(eval_config):
     return results
 
 
-def test_lm_eval_correctness():
+def test_lm_eval_correctness(num_gpus_available):
     eval_config = yaml.safe_load(
         Path(TEST_DATA_FILE).read_text(encoding="utf-8"))
 
@@ -76,7 +74,7 @@ def test_lm_eval_correctness():
     server_args = {
         "model": eval_config["model_name"],
         "max-model-len": 4096,
-        "tensor-parallel-size": TP_SIZE,
+        "tensor-parallel-size": num_gpus_available,
         # TODO: understand why default (mp) does not
         # shut down cleanly (it works, but not clean).
         "distributed-executor-backend": "ray",
