@@ -1,6 +1,7 @@
 import weakref
 
 import pytest
+import torch
 # downloading lora to test lora requests
 from huggingface_hub import snapshot_download
 
@@ -54,6 +55,11 @@ def zephyr_lora_files():
     return snapshot_download(repo_id=LORA_NAME)
 
 
+@pytest.mark.skipif(
+    torch.cuda.get_device_capability() < (8, 0),
+    reason=
+    "Bfloat16 is only supported on GPUs with compute capability of at least 8.0"
+)
 @pytest.mark.skip_global_cleanup
 def test_multiple_lora_requests(llm: LLM, zephyr_lora_files):
     lora_request = [

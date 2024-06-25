@@ -1,27 +1,29 @@
 name: nm build-test
 on:
+
   # makes workflow reusable
   workflow_call:
     inputs:
       wf_category:
-        description: "categories: REMOTE, NIGHTLY, WEEKLY, RELEASE"
+        description: "workflow category: REMOTE, NIGHTLY, RELEASE"
         type: string
         default: "REMOTE"
-      push_binaries_to_pypi:
+      push_to_pypi:
         description: "When set to true, built wheels and tar.gz will be pushed to neuralmagic pypi if all tests pass"
-        type: string
-        default: 'no'
+        type: boolean
+        default: false
       python:
         description: "python version, e.g. 3.10.12"
         type: string
         required: true
+
       # build related parameters
       build_label:
         description: "requested runner label (specifies instance)"
         type: string
         default: gcp-k8s-build
       build_timeout:
-        description: "time limit for build in minutes "
+        description: "time limit for build in minutes"
         type: string
         default: "120"
       Gi_per_thread:
@@ -32,27 +34,29 @@ on:
         description: "number of threads nvcc build threads"
         type: string
         default: "8"
+
       # test related parameters
-      test_label_solo:
-        description: "requested runner label (specifies instance)"
+
+      # stringified Json array of maps
+      # each map has a "python", "gha label", "test skip env vars" e.g.
+      # [
+      #     {'python':'3.8.17','label':'gcp-k8s-l4-solo','test':'neuralmagic/tests/test_skip_env_vars/smoke.txt'},
+      #     ...
+      # ]
+      test_configs:
+        description: "python, label, skip envs"
         type: string
         required: true
-      test_label_multi:
-        description: "requested runner label (specifies instance)"
-        type: string
-        required: true
+
       test_timeout:
-        description: "time limit for test run in minutes "
+        description: "time limit for test run in minutes"
         type: string
         required: true
       gitref:
         description: "git commit hash or branch name"
         type: string
         required: true
-      test_skip_env_vars:
-        description: 'file with list of env vars controlling which tests to run'
-        type: string
-        required: true
+
       # benchmark related parameters
       benchmark_label:
         description: "requested benchmark label (specifies instance)"
@@ -67,9 +71,10 @@ on:
         type: string
         default: "720"
       push_benchmark_results_to_gh_pages:
-        description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI"
-        type: string
-        default: "false"
+        description: "when set to true, the workflow pushes all benchmarking results to gh-pages UI"
+        type: boolean
+        default: false
+
       # lm-eval related parameters
       lm_eval_label:
         description: "requested runner label (specifies instance)"
@@ -82,11 +87,24 @@ on:
       lm_eval_configuration:
         description: "configuration for lm-eval test (see neuralmagic/lm-eval)"
         type: string
-        default: "" 
+        default: ""
 
 jobs:
 
+    JSON-VALIDATE:
+        runs-on: gcp-k8s-util
+        strategy:
+            matrix:
+                test_config: ${{ fromJson(inputs.test_configs) }}
+        steps:
+            - name: validate test config
+              run: |
+                echo "python: ${{ matrix.test_config.python }}"
+                echo "label: ${{ matrix.test_config.label }}"
+                echo "tests: ${{ matrix.test_config.test }}"
+
     BUILD:
+        needs: [JSON-VALIDATE]
         uses: ./.github/workflows/nm-build.yml
         with:
             wf_category: ${{ inputs.wf_category }}
@@ -98,32 +116,22 @@ jobs:
             python: ${{ inputs.python }}
         secrets: inherit
 
-    TEST-SOLO:
+    TEST:
         needs: [BUILD]
         if: success()
+        strategy:
+            fail-fast: false
+            matrix:
+                test_config: ${{ fromJson(inputs.test_configs) }}
         uses: ./.github/workflows/nm-test.yml
         with:
-            test_label: ${{ inputs.test_label_solo }}
+            test_label: ${{ matrix.test_config.label }}
             timeout: ${{ inputs.test_timeout }}
             gitref: ${{ github.ref }}
-            python: ${{ inputs.python }}
-            whl: ${{ needs.BUILD.outputs.whl }}
-            test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
+            python: ${{ matrix.test_config.python }}
+            whl: ${{ needs.BUILD.output.whl }}
+            test_skip_env_vars: ${{ matrix.test_config.test }}
         secrets: inherit
-
-    # TODO: re-enable
-    # TEST-MULTI:
-    #     needs: [BUILD]
-    #     if: success() && contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category)
-    #     uses: ./.github/workflows/nm-test.yml
-    #     with:
-    #         test_label: ${{ inputs.test_label_multi }}
-    #         timeout: ${{ inputs.test_timeout }}
-    #         gitref: ${{ github.ref }}
-    #         python: ${{ inputs.python }}
-    #         whl: ${{ needs.BUILD.outputs.whl }}
-    #         test_skip_env_vars: ${{ inputs.test_skip_env_vars }}
-    #     secrets: inherit
 
     BENCHMARK:
         needs: [BUILD]
@@ -140,7 +148,7 @@ jobs:
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
         secrets: inherit
 
-    LM-EVAL-SOLO:
+    LM-EVAL:
       needs: [BUILD]
       uses: ./.github/workflows/nm-lm-eval.yml
       with:
@@ -152,12 +160,13 @@ jobs:
         lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
       secrets: inherit
 
+    # uploading is only available when using GCP autoscaling group
     UPLOAD:
-        needs: [TEST-SOLO, BENCHMARK, LM-EVAL-SOLO]
-        if: ${{ contains(fromJSON('["NIGHTLY", "WEEKLY", "RELEASE"]'), inputs.wf_category) && inputs.push_binaries_to_pypi == 'yes' }}
+        needs: [TEST, BENCHMARK, LM-EVAL]
+        if: ${{ inputs.push_to_pypi }}
         uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
         with:
-            label: ${{ inputs.build_label }}
+            label: gcp-k8s-util
             timeout: ${{ inputs.build_timeout }}
             gitref: ${{ github.ref }}
             python: ${{ inputs.python }}

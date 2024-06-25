@@ -3,110 +3,45 @@ run-name: ${{ github.actor }} triggered nightly on ${{ github.ref }}
 on:
     schedule:
       # * is a special character in YAML so you have to quote this string
-      - cron: '0 1 * * 1-6'  # nightly run (Mon-Sat)
+      - cron: '0 1 * * *'  # nightly run
 
     workflow_dispatch:
         inputs:
-            push_benchmark_results_to_gh_pages:
-                description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI "
+            wf_category:
+                description: "workflow category, default is NIGHTLY"
                 type: choice
                 options:
-                    - 'true'
-                    - 'false'
-                default: 'false'
-            push_binaries_to_pypi:
-                description: "When set to yes, built wheels and tar.gz will be pushed to neuralmagic pypi if all tests pass"
-                type: string
-                default: 'yes'
+                    - NIGHTLY
+                    - RELEASE
+                default: NIGHTLY
+            push_to_pypi:
+                description: "when set and tests pass, then '.whl' and '.tar.gz' will be pushed to neuralmagic pypi"
+                type: boolean
+                default: false
+            push_benchmark_results_to_gh_pages:
+                description: "when set, then all benchmarking results are published to gh-pages UI "
+                type: boolean
+                default: false
 
 jobs:
 
-    PYTHON-3-8:
+    NIGHTLY:
         uses: ./.github/workflows/nm-build-test.yml
         with:
-            wf_category: NIGHTLY
-            python: 3.8.17
-            gitref: ${{ github.ref }}
-            push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
-
-            test_label_solo: gcp-k8s-l4-solo
-            test_label_multi: ignore
-            test_timeout: 480
-            test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
-
-            benchmark_label: gcp-k8s-l4-solo
-            benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
-            benchmark_timeout: 720
-            push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
-
-            lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_configuration: ./neuralmagic/lm-eval/full-small-models.yaml
-            lm_eval_timeout: 60
-        secrets: inherit
-
-    PYTHON-3-9:
-        uses: ./.github/workflows/nm-build-test.yml
-        with:
-            wf_category: NIGHTLY
-            python: 3.9.17
-            gitref: ${{ github.ref }}
-            push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
-
-            test_label_solo: gcp-k8s-l4-solo
-            test_label_multi: ignore
-            test_timeout: 480
-            test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
-
-            benchmark_label: gcp-k8s-l4-solo
-            benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
-            benchmark_timeout: 720
-            push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
-
-            lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_configuration: ./neuralmagic/lm-eval/full-small-models.yaml
-            lm_eval_timeout: 60
-        secrets: inherit
-
-    PYTHON-3-10:
-        uses: ./.github/workflows/nm-build-test.yml
-        with:
-            wf_category: NIGHTLY
+            wf_category: ${{ inputs.wf_category || 'NIGHTLY' }}
             python: 3.10.12
             gitref: ${{ github.ref }}
-            push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
+            push_to_pypi: ${{ inputs.push_to_pypi }}
 
-            test_label_solo: gcp-k8s-l4-solo
-            test_label_multi: ignore
+            test_configs: '[{"python":"3.8.17","label":"gcp-k8s-l4-solo","test":"neuralmagic/tests/test_skip_env_vars/full.txt"},
+                            {"python":"3.9.17","label":"gcp-k8s-l4-solo","test":"neuralmagic/tests/test_skip_env_vars/full.txt"},
+                            {"python":"3.10.12","label":"gcp-k8s-l4-duo","test":"neuralmagic/tests/test_skip_env_vars/full.txt"},
+                            {"python":"3.11.4","label":"gcp-k8s-l4-duo","test":"neuralmagic/tests/test_skip_env_vars/full.txt"}]'
             test_timeout: 480
-            test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
 
             benchmark_label: gcp-k8s-l4-solo
             benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
-            benchmark_timeout: 720
-            push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
-
-            lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_configuration: ./neuralmagic/lm-eval/full-small-models.yaml
-            lm_eval_timeout: 60
-        secrets: inherit
-
-    PYTHON-3-11:
-        uses: ./.github/workflows/nm-build-test.yml
-        with:
-            wf_category: NIGHTLY
-            python: 3.11.4
-            gitref: ${{ github.ref }}
-            push_binaries_to_pypi: ${{ inputs.push_binaries_to_pypi }}
-
-            test_label_solo: gcp-k8s-l4-solo
-            test_label_multi: ignore
-            test_timeout: 480
-            test_skip_env_vars: neuralmagic/tests/test_skip_env_vars/full.txt
-
-
-            benchmark_label: gcp-k8s-l4-solo
-            benchmark_config_list_file: ./.github/data/nm_benchmark_remote_push_configs_list.txt
-            benchmark_timeout: 720
+            benchmark_timeout: 480
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
 
             lm_eval_label: gcp-k8s-l4-solo
