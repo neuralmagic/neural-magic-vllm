@@ -76,7 +76,7 @@ on:
         default: false
 
       # lm-eval related parameters
-      lm_eval_label_solo:
+      lm_eval_label:
         description: "requested runner label (specifies instance)"
         type: string
         default: ""
@@ -152,7 +152,7 @@ jobs:
       needs: [BUILD]
       uses: ./.github/workflows/nm-lm-eval.yml
       with:
-        label: ${{ inputs.lm_eval_label_solo }}
+        label: ${{ inputs.lm_eval_label }}
         timeout: ${{ inputs.lm_eval_timeout }}
         gitref: ${{ inputs.gitref }}
         python: ${{ inputs.python }}
