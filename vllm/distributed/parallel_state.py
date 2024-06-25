@@ -86,11 +86,6 @@ def init_distributed_environment(
     local_rank: int = -1,
     backend: str = "nccl",
 ):
-    print("IDE distributed")
-    print("world_size=%d rank=%d local_rank=%d "
-        "distributed_init_method=%s backend=%s", world_size, rank, local_rank,
-        distributed_init_method, backend)
-
     logger.debug(
         "world_size=%d rank=%d local_rank=%d "
         "distributed_init_method=%s backend=%s", world_size, rank, local_rank,

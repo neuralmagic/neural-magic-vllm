@@ -57,6 +57,7 @@ def marlin_permute_weights(q_w, size_k, size_n, perm, tile=MARLIN_TILE):
 
     return q_w
 
+
 def marlin_weights(q_w, size_k, size_n, num_bits, perm):
     # Permute
     q_w = marlin_permute_weights(q_w, size_k, size_n, perm)

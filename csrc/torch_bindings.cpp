@@ -121,9 +121,6 @@ TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, ops) {
   ops.def("marlin_gemm", &marlin_gemm);
   ops.impl("marlin_gemm", torch::kCUDA, &marlin_gemm);
 
-//   ops.def("marlin_gemm_moe", &marlin_gemm_moe);
-//   ops.impl("marlin_gemm_moe", torch::kCUDA, &marlin_gemm_moe);
-
   // Marlin_24 (Sparse) Optimized Quantized GEMM for GPTQ.
   ops.def("gptq_marlin_24_gemm", &gptq_marlin_24_gemm);
   ops.impl("gptq_marlin_24_gemm", torch::kCUDA, &gptq_marlin_24_gemm);

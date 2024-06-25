@@ -210,7 +210,7 @@ template <const int threads,         // number of threads in a threadblock
           >
 __global__ void
 MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
-       const int4* __restrict__ B,          // 4bit quantized weight matrix of shape kxn /// TODO offset B to the beginning of right expert and use this as the func argument
+       const int4* __restrict__ B,          // 4bit quantized weight matrix of shape kxn
        int4* __restrict__ C,                // fp16 output buffer of shape mxn
        int* __restrict__ sorted_ids,        // int32 sorted ids of experts
        float* __restrict__ topk_weights,    // float topk weights
@@ -226,14 +226,8 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
        int  tot_m,                          // total number of rows in A and C
        int* locks,                          // extra global storage for barrier synchronization
        bool replicate_input,                // do we use the same input for each expert?
-       bool apply_weights,                   // apply weights to output
-       bool printfirst
+       bool apply_weights                   // apply weights to output
 ) {
-
-  // if (printfirst && threadIdx.x == 0 && blockIdx.x == 0) {
-  //   const int* b_int = (const int*)B;
-  //   printf("firsts: %d %d %d %d\n", b_int[0], b_int[1], b_int[2], b_int[3]);
-  // }
 
   // Each threadblock processes one "stripe" of the B matrix with (roughly) the same size, which
   // might involve multiple column "slices" (of width 16 * `thread_n_blocks`). Stripes are defined
@@ -244,11 +238,6 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
   // While this kind of partitioning makes things somewhat more complicated, it ensures good
   // utilization of all SMs for many kinds of shape and GPU configurations, while requiring as few
   // slow global cross-threadblock reductions as possible.
-
-  // if (threadIdx.x == 0 && blockIdx.x == 0) {
-    // printf("sajdhajkshdjkashdjkashdjkahsdjkashdjk\n");
-    // printf("sorted ids: %d %d %d %d\n", sorted_ids[0], sorted_ids[1], sorted_ids[2], sorted_ids[3]);
-  // }
 
   // For larger GEMMs we run multiple batchsize 64 versions in parallel for a better partitioning
   // with less reductions
@@ -408,14 +397,12 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
   int4* sh_a      = sh;
   int4* sh_b      = sh_a + (stages * a_sh_stage);
   int4* sh_s      = sh_b + (stages * b_sh_stage);
-  // printf("%f %f %f\n", __half2float(reinterpret_cast<__half*>(sh_a)[0]), __half2float(reinterpret_cast<__half*>(sh_b)[0]), __half2float(reinterpret_cast<__half*>(sh_s)[0]));
   int*  sh_sorted = (int*)(sh_s + shs_size);
 
   // Precompute which thread should not read memory in which iterations; this is needed if there are
   // more threads than required for a certain tilesize or when the batchsize is not a multiple
   // of 16.
   bool a_sh_wr_pred[a_sh_wr_iters];
-  // int mcols = replicate_input ? 1 : topk;
 #pragma unroll
   for (int i = 0; i < a_sh_wr_iters; i++) {
     int a_idx = a_sh_wr_delta * i + a_sh_wr;
@@ -424,16 +411,7 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
       a_sh_wr_pred[i] = false;
     }
     else {
-      // if (threadIdx.x == 0) {
-      //   int sorted_row = sorted_ids[row] / (replicate_input ? topk : 1);
-      //   int new_idx = sorted_row * a_gl_rd_delta_o + a_idx % a_gl_rd_delta_o;
-      //   bool onevar = sorted_row >= 0 && sorted_row < tot_m * mcols && new_idx < a_gl_stride * tot_m * mcols;
-      //   bool twovar = a_sh_wr_delta * i + a_sh_wr < a_gl_stride * prob_m;
-      //   if (onevar != twovar)
-      //     printf("%d vs. %d\n", onevar, twovar);
-      // }
       a_sh_wr_pred[i] = a_sh_wr_delta * i + a_sh_wr < a_sh_stride * prob_m;
-      // a_sh_wr_pred[i] = sorted_row < tot_m * mcols && new_idx < a_sh_stride * tot_m * mcols;
     }
   }
 
@@ -492,41 +470,11 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
         int row = a_idx / a_gl_stride;
         int sorted_row = replicate_input ? sorted_ids[row] / topk : sorted_ids[row];
         int new_idx = sorted_row * a_gl_stride + a_idx % a_gl_stride;
-        // if (threadIdx.x < 8 && blockIdx.x == 80) {
-        //     // int mcols = replicate_input ? 1 : topk;
-        //     // bool check = sorted_row >= 0 && sorted_row < tot_m * mcols && new_idx < a_gl_stride * tot_m * mcols;
-        //     // printf("%d vs. %d\n", check, a_sh_wr_pred[i]);
-        //     printf("row: %d -> %d\n", row, sorted_row);
-        //     // printf("row: %d -> %d, sh: %d -> %d ? %d // %d, %d, %d\n", row, sorted_row, i,
-        //     //     a_sh_wr_trans[i], a_sh_wr_pred[i], tot_m * (replicate_input ? 1 : topk), a_sh_wr_iters, stages * a_sh_stage);
-        //   }
         if (sorted_row < tot_m * (replicate_input ? 1 : topk)
             && new_idx < a_gl_stride * tot_m * (replicate_input ? 1 : topk)) {
           cp_async4_pred(&sh_a_stage[a_sh_wr_trans[i]],
                          &A[new_idx],
                          a_sh_wr_pred[i]);
-          // if (threadIdx.x == 0) {
-          //   printf("reached pred (%d, %d)\n", blockIdx.x, i);
-          // }
-          // if (a_sh_wr_pred[i]) {
-          //   if (threadIdx.x == 0) {
-          //     printf("reached inside condition (%d, %d)\n", blockIdx.x, i);
-          //   }
-          //   // int4 a_elem = A[new_idx];
-          //   // if (threadIdx.x == 0) {
-          //   //   __half* elem = reinterpret_cast<__half*>(&a_elem);
-          //   //   printf("A elem: %f (%d, %d)\n", __half2float(elem[0]), blockIdx.x, i);
-          //   // }
-          //   // int trans_elem = a_sh_wr_trans[i];
-          //   // if (threadIdx.x == 0) {
-          //   //   printf("Trans elem: %d (%d, %d)\n", trans_elem, blockIdx.x, i);
-          //   // }
-          //   sh_a_stage[a_sh_wr_trans[i]] = A[new_idx];
-          //   // if (threadIdx.x == 0) {
-          //   //   __half* elem = reinterpret_cast<__half*>(&sh_a_stage[a_sh_wr_trans[i]]);
-          //   //   printf("Done: %f (%d, %d)\n", __half2float(elem[0]), blockIdx.x, i);
-          //   // }
-          // }
         }
       }
       int4* sh_b_stage = sh_b + b_sh_stage * pipe;
@@ -562,17 +510,13 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
     cp_async_fence();
   };
 
+  // TODO fix
   auto fetch_sorted_ids_to_shared = [&]() {
     const int mpt = ceildiv(prob_m, threads);
     for (int i = 0; i < mpt; i++) {
       if ((i * sorted_gl_stride) + threadIdx.x < prob_m) {
-        // printf("load %d -> %d to shared sorted, eid: %d  (%d)\n", (i * sorted_gl_stride) + threadIdx.x,
-        //     sorted_ids[(i * sorted_gl_stride) + threadIdx.x], expert_idx, (i * sorted_sh_stride) + threadIdx.x);
         sh_sorted[(i * sorted_sh_stride) + threadIdx.x] =
             sorted_ids[(i * sorted_gl_stride) + threadIdx.x];
-        // printf("load %d -> %d to shared sorted, eid: %d  (%d / %d)\n", (i * sorted_gl_stride) + threadIdx.x,
-        //     sorted_ids[(i * sorted_gl_stride) + threadIdx.x], expert_idx, (i * sorted_sh_stride) + threadIdx.x,
-        //         sh_sorted[(i * sorted_sh_stride) + threadIdx.x]);
       }
     }
   };
@@ -642,20 +586,12 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
         scale(frag_b0, frag_s[k % 2][j], 0);
       }
 
-      // if (threadIdx.x == 0 && blockIdx.x == 0 && expert_idx == 0 && j == 0) {
-      //   printf("dequant: %f %f %f %f\n", __high2float(frag_b0[0]), __low2float(frag_b0[0]), __high2float(frag_b0[1]), __low2float(frag_b0[1]));
-      // }
-
       FragB frag_b1 = dequant(b_quant_shift);
 
       // Apply scale to frag_b1
       if constexpr (group_blocks != -1) {
         scale(frag_b1, frag_s[k % 2][j], 1);
       }
-
-      // if (threadIdx.x == 0 && blockIdx.x == 0 && expert_idx == 0 && j == 0) {
-      //   printf("dequant: %f %f %f %f\n", __high2float(frag_b1[0]), __low2float(frag_b1[0]), __high2float(frag_b1[1]), __low2float(frag_b1[1]));
-      // }
 
 #pragma unroll
       for (int i = 0; i < thread_m_blocks; i++) {
@@ -841,36 +777,17 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
         int row = sorted_ids[c_gl_wr / c_gl_stride];
         if (row < tot_m * topk) {
           int off = row * c_gl_stride + c_gl_wr % c_gl_stride;
-          // TODO make function that multiplies everything in sh[] by scalar topk_weights
           if (!apply_weights) {
-            // if (c_gl_wr % c_gl_stride == 0) {
-            //   printf("wr w/o apply %d -> %d\n", c_gl_wr / c_gl_stride, row);
-            // }
             C[off] = sh[c_sh_rd];
           } else {
-            // if (c_gl_wr % c_gl_stride == 0) {
-            //   printf("wr w/ apply %d -> %d\n", c_gl_wr / c_gl_stride, row);
-            // }
             __half* ctrg = reinterpret_cast<__half*>(&C[off]);
             __half* csrc = reinterpret_cast<__half*>(&sh[c_sh_rd]);
-            // if (/*expert_idx == 0 && */row < 64 && c_gl_wr % c_gl_stride >= 250 && c_gl_wr % c_gl_stride < 260) {
-            // printf("add to row: %d -> %d and col: %d (b: %d, t: %d, e: %d) --- %f += %f\n",
-            //     c_gl_wr / c_gl_stride, row, c_gl_wr % c_gl_stride, blockIdx.x, threadIdx.x, expert_idx,
-            //     __half2float(ctrg[0]), __half2float(csrc[0]));
-            // }
             for (int j = 0; j < 8; ++j) {
-              // __half old = ctrg[j];
               ctrg[j] = __float2half(topk_weights[row] * __half2float(csrc[j]));
             }
           }
           c_gl_wr += c_gl_wr_delta;
           c_sh_rd += c_sh_rd_delta;
-        }
-        else {
-          if (expert_idx == 0) {
-          // printf("don't add to row: %d -> %d and col: %d (b: %d, t: %d, e: %d)\n",
-          //     c_gl_wr / c_gl_stride, row, c_gl_wr % c_gl_stride, blockIdx.x, threadIdx.x, expert_idx);
-          }
         }
       }
     }
@@ -997,7 +914,7 @@ template <const int threads,         // number of threads in a threadblock
           >
 __global__ void
 MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
-       const int4* __restrict__ B,          // 4bit quantized weight matrix of shape kxn /// TODO offset B to the beginning of right expert and use this as the func argument
+       const int4* __restrict__ B,          // 4bit quantized weight matrix of shape kxn
        int4* __restrict__ C,                // fp16 output buffer of shape mxn
        int* __restrict__ sorted_ids,        // int32 sorted ids of experts
        float* __restrict__ topk_weights,    // float topk weights
@@ -1013,8 +930,7 @@ MarlinMoE(const int4* __restrict__ A,       // fp16 input matrix of shape mxk
        int  tot_m,                          // total number of rows in A and C
        int* locks,                          // extra global storage for barrier synchronization
        bool replicate_input,                // do we use the same input for each expert?
-       bool apply_weights,                   // apply weights to output
-       bool printfirst
+       bool apply_weights                   // apply weights to output
 ) {
   // Marlin is not implemented yet for SM < 8.0
   assert(false);
@@ -1046,7 +962,7 @@ static constexpr int min_thread_k = 64;
            GROUP_BLOCKS><<<blocks, NUM_THREADS, max_shared_mem, stream>>>(          \
         A_ptr, B_ptr, C_ptr, sorted_ids_ptr, topk_weights_ptr, s_ptr, \
         num_groups, num_tokens_post_padded, expert_idx, num_experts, topk, \
-        prob_m, prob_n, prob_k, tot_m, locks, replicate_input, apply_weights, printfirst);         \
+        prob_m, prob_n, prob_k, tot_m, locks, replicate_input, apply_weights);         \
   }
 
   typedef struct {
@@ -1208,16 +1124,8 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
   int tot_m = prob_m;
 
   long* expert_offsets_ptr = (long*)expert_offsets;
-  // for (int expert_idx = 0; expert_idx < num_experts + 1; ++expert_idx) {
-  //   printf("%ld ", expert_offsets_ptr[expert_idx]);
-  // }
-  // printf("\n");
 
-  // printf("run loop for %d %d %d and topk: %d\n", prob_m, prob_n, prob_k, topk);
-
-  // TODO bring 1 back to num_experts 
   for (int expert_idx = 0; expert_idx < num_experts; ++expert_idx) {
-    bool printfirst = true;
     const int4* A_ptr     = (const int4*)A;
     const int4* B_ptr     = (const int4*)B + (prob_n * prob_k / 32) * expert_idx;
     int4*       C_ptr     = (int4*)C;
@@ -1225,18 +1133,9 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
     float*      topk_weights_ptr = (float*)topk_weights;
     const int4* s_ptr     = (const int4*)s + (((group_size == -1 || group_size == 0) ? 1 : prob_k / group_size) * prob_n / 8) * expert_idx;
 
-    // printf("%d * %d vs. %d * %d\n", prob_n, prob_k / 32, prob_k / group_size, prob_n / 8);
-
-    // printf("expert offset: %d, group offset: %d, (mult: %d), expert: %d, gs: %d\n",
-    //     (prob_n * prob_k / 32) * expert_idx,
-    //     (((group_size == -1 || group_size == 0) ? 1 : prob_k / group_size) * prob_n / 8) * expert_idx,
-    //     (prob_n * prob_k / 32) * expert_idx * group_size / 8,
-    //     expert_idx, group_size);
-
     int* locks = (int*)workspace;
 
     int tot_its        = expert_offsets_ptr[expert_idx + 1] - expert_offsets_ptr[expert_idx]; //prob_m;
-    // printf("TOT ITS: %d\n", tot_its);
     if (tot_its == 0) {
       continue;
     }
@@ -1257,7 +1156,6 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
         i += 4 * (par - 1);
         thread_m_blocks = 4;
       }
-      // printf("main loop it: %d/%d (tot its: %d)\n", i, tot_m_blocks, tot_its);
 
       // Define kernel configurations
 
@@ -1275,10 +1173,7 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C, void* sorted_ids
                               ", thread_n_blocks = " + str(thread_n_blocks) +
                               ", thread_k_blocks = " + str(thread_k_blocks));
       }
-      printfirst = false;
 
-      // A_ptr += 16 * thread_m_blocks * (prob_k / 8) * par;
-      // C_ptr += 16 * thread_m_blocks * (prob_n / 8) * par;
       sorted_ids_ptr += 16 * thread_m_blocks * par;
     }
   }
@@ -1313,7 +1208,6 @@ torch::Tensor marlin_gemm_moe(torch::Tensor& a, torch::Tensor& b_q_weights, torc
   TORCH_CHECK(b_scales.size(2) == size_n, "b_scales dim 2 = ", b_scales.size(2),
               " is not size_n = ", size_n);
   num_groups = b_scales.size(1);
-  // printf("NUM GROUPS: %d\n", num_groups);
 
   if (num_groups > 1) {
     TORCH_CHECK(size_k % num_groups == 0, "size_k = ", size_k,
@@ -1322,22 +1216,6 @@ torch::Tensor marlin_gemm_moe(torch::Tensor& a, torch::Tensor& b_q_weights, torc
   } else {
     group_size = -1;
   }
-
-  long* eoff_f = (long*)(expert_offsets.data_ptr());
-
-  // printf("b_q_weights %s\n", b_q_weights.dtype().name());
-
-  // TODO check these types in unit test / model code
-  // printf("a %d\n", a.is_cuda());
-  // printf("b_q_weights %d\n", b_q_weights.is_cuda());
-  // printf("c %d\n", c.is_cuda());
-  // printf("sorted_ids %d\n", sorted_ids.is_cuda());
-  // printf("topk_weights %d\n", topk_weights.is_cuda());
-  // printf("b_scales %d\n", b_scales.is_cuda());
-  // printf("expert_offsets %d\n", expert_offsets.is_cuda());
-  // printf("workspace %d\n", workspace.is_cuda());
-
-  // printf("offf: %ld %ld %ld\n", eoff_f[0], eoff_f[1], eoff_f[2]);
 
   marlin_moe::marlin_mm_moe_f16i4(a.data_ptr(), b_q_weights.data_ptr(), c.data_ptr(),
                 sorted_ids.data_ptr(), topk_weights.data_ptr(), b_scales.data_ptr(),

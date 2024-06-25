@@ -36,7 +36,7 @@ from vllm.config import CacheConfig
 from vllm.distributed import (get_tensor_model_parallel_rank,
                               get_tensor_model_parallel_world_size,
                               tensor_model_parallel_all_reduce)
-from vllm.model_executor.layers.fused_moe import fused_marlin_moe, fused_marlin_moe_2
+from vllm.model_executor.layers.fused_moe import fused_marlin_moe
 from vllm.model_executor.layers.layernorm import RMSNorm
 from vllm.model_executor.layers.linear import (QKVParallelLinear,
                                                ReplicatedLinear,
@@ -83,36 +83,14 @@ class MixtralMLP(nn.Module):
                                    bias=False,
                                    quant_config=quant_config)
 
-        # print("config:", quant_config)
-
         # TODO: Use vllm's SiluAndMul
         self.act_fn = nn.SiLU()
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        # print("sizes:",
-        #     hidden_states.size(),
-        #     self.w1.get_parameter("qweight").size(),
-        #     self.w2.get_parameter("qweight").size(),
-        #     self.w3.get_parameter("qweight").size())
-        # print("ws:",
-        #     self.w1.get_parameter("qweight"),
-        #     self.w2.get_parameter("qweight"),
-        #     self.w3.get_parameter("qweight"))
-
-        # first mmm
         w1_out, _ = self.w1(hidden_states)
-        # print("inter1:", w1_out)
-        # silu
         w1_out = self.act_fn(w1_out)
-        # 
         w3_out, _ = self.w3(hidden_states)
         current_hidden_states = w1_out * w3_out
-        # print("outs:", w1_out.size(), "*", w3_out.size(), "=", current_hidden_states.size())
-
-        # print(w1_out[0][0].item(), w3_out[0][0].item(), current_hidden_states[0][0].item())
-        # print(w1_out[0][1].item(), w3_out[0][1].item(), current_hidden_states[0][1].item())
-        # print(w1_out[0][2].item(), w3_out[0][2].item(), current_hidden_states[0][2].item())
-        # print("---")
         current_hidden_states, _ = self.w2(current_hidden_states)
         return current_hidden_states
 
@@ -125,23 +103,12 @@ class MixtralMoE(nn.Module):
         quant_config: Optional[QuantizationConfig] = None,
     ):
         super().__init__()
-        # Mixtral MoE creates a MixtralMLP for each expert
-        # -> extract weights from these
-        print("Mixtral MoE")
         self.config = config
         self.quant_config = quant_config
-        # print("config:", quant_config)
         self.rank = get_tensor_model_parallel_rank()
         self.tp_size = get_tensor_model_parallel_world_size()
         self.num_total_experts = config.num_local_experts
         self.top_k = config.num_experts_per_tok
-        # self.quant_method = quant_config.get_quant_method(self)
-        # assert self.quant_method is not None
-        # self.w1 = torch.empty(sum(output_partition_sizes),
-        #                                input_size_per_partition,
-        #                                dtype=params_dtype)
-        # set_weight_attrs(self.w1, {"input_dim": 1, "output_dim": 0})
-        # print(self.w1)
 
         if self.tp_size > self.num_total_experts:
             raise ValueError(
@@ -168,214 +135,64 @@ class MixtralMoE(nn.Module):
                                      quant_config=None)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        # print("forward")
         num_tokens, hidden_dim = hidden_states.shape
         hidden_states = hidden_states.view(-1, hidden_dim)
-        # router_logits: (num_tokens, n_experts)
         router_logits, _ = self.gate(hidden_states)
 
         qweights13 = []
         scaless13 = []
         qweights2 = []
         scaless2 = []
-        qweights1 = []
-        scaless1 = []
-        qweights3 = []
-        scaless3 = []
 
-        new_version = True
+        for i in range(len(self.experts)):
+            w1_qw = self.experts[i].w1.get_parameter("qweight")
+            w3_qw = self.experts[i].w3.get_parameter("qweight")
+            w1_s = self.experts[i].w1.get_parameter("scales")
+            w3_s = self.experts[i].w3.get_parameter("scales")
+            w2_qw = self.experts[i].w2.get_parameter("qweight")
+            w2_s = self.experts[i].w2.get_parameter("scales")
 
-        # no_shape_match = hidden_states.shape[1] != self.experts[0].w1.get_parameter("qweight").shape[0] * 16
-        # print("NSM", no_shape_match)
-
-        if new_version:
-            for i in range(len(self.experts)):
-                w1_qw = self.experts[i].w1.get_parameter("qweight")
-                w3_qw = self.experts[i].w3.get_parameter("qweight")
-                w1_s = self.experts[i].w1.get_parameter("scales")
-                w3_s = self.experts[i].w3.get_parameter("scales")
-                w2_qw = self.experts[i].w2.get_parameter("qweight")
-                w2_s = self.experts[i].w2.get_parameter("scales")
-                # if (i == 0):
-                #     print("LAYERS", self.experts[i].w1.quant_method, self.experts[i].w2.quant_method, self.experts[i].w3.quant_method)
-                #     print("h:", hidden_states.shape, "qws:", w1_qw.shape, w2_qw.shape, w3_qw.shape)
-
-                # w_ref = torch.zeros((8), dtype=torch.float)
-                # q_item = w1_qw[0][0].item()
-                # s_item = w1_s[0][0].item()
-                # for i in range(8):
-                #     deq_el = ((q_item >> (4 * i)) & 15)
-                #     w_ref[i] = deq_el * s_item
-                # print("w ref 1:", w_ref)
-
-                w13_qw = torch.cat((w1_qw, w3_qw), 1)
-                w13_s = torch.cat((w1_s, w3_s), 1)
-                # size_k = w13_qw.shape[0] * 8
-                # size_n = w13_qw.shape[1]
-                # if no_shape_match:
-                size_k = hidden_states.shape[1]
-                size_n = w13_qw.shape[1]
-                # print(hidden_states.shape, "*", w13_qw.shape, "(", size_k, size_n, ")")
-                g_idx_sort_idx = torch.empty(0, dtype=torch.int, device=w13_qw.device)
-                w13_qw = ops.gptq_marlin_repack(w13_qw, g_idx_sort_idx, size_k,
-                                                size_n, self.quant_config.weight_bits)
-                w13_s =  marlin_permute_scales_2(w13_s, size_k, size_n,
-                                                 self.quant_config.group_size,
-                                                 self.quant_config.weight_bits).half()
-
-                # w_ref = torch.zeros((8), dtype=torch.float)
-                # q_item = w13_qw[0][0].item()
-                # s_item = w13_s[0][0].item()
-                # for i in range(8):
-                #     deq_el = ((q_item >> (4 * i)) & 15)
-                #     w_ref[i] = deq_el * s_item
-                # print("w ref 2:", w_ref)
-
-                size_k = w2_qw.shape[0] * 8
-                size_n = w2_qw.shape[1]
-                w2_qw = ops.gptq_marlin_repack(w2_qw, g_idx_sort_idx, size_k,
-                                               size_n, self.quant_config.weight_bits)
-                w2_s =  marlin_permute_scales_2(w2_s, size_k, size_n,
+            w13_qw = torch.cat((w1_qw, w3_qw), 1)
+            w13_s = torch.cat((w1_s, w3_s), 1)
+            size_k = hidden_states.shape[1]
+            size_n = w13_qw.shape[1]
+            g_idx_sort_idx = torch.empty(0, dtype=torch.int, device=w13_qw.device)
+            w13_qw = ops.gptq_marlin_repack(w13_qw, g_idx_sort_idx, size_k,
+                                            size_n, self.quant_config.weight_bits)
+            w13_s =  marlin_permute_scales_2(w13_s, size_k, size_n,
                                                 self.quant_config.group_size,
-                                                self.quant_config.weight_bits).half()
-                # print(hidden_states.shape, ",", w1_qw.shape, ",", w2_qw.shape, ",", w3_qw.shape, "(", size_k, size_n, ")")
+                                                self.quant_config.weight_bits)
 
-                size_k = w1_qw.shape[0] * 8
-                size_n = w1_qw.shape[1]
-                # if (i == 0):
-                #     print("unmarlin: ", w1_qw)
-                #     print("scales:", w1_s)
-                w1_qw = ops.gptq_marlin_repack(w1_qw, g_idx_sort_idx, size_k,
-                                               size_n, self.quant_config.weight_bits)
-                w1_s =  marlin_permute_scales_2(w1_s, size_k, size_n,
-                                                self.quant_config.group_size,
-                                                self.quant_config.weight_bits).half()
-                
-                # w1_qw= torch.full(w1_qw.shape, -1180006009).to(w1_qw.device)
-                # w1_s= torch.full(w1_s.shape, 0.0054).to(w1_qw.device)
-                # if (i == 0):
-                #     print("marlin: ", w1_qw)
-                #     print("scales:", w1_s)
-                #     print("---")
-                size_k = w3_qw.shape[0] * 8
-                size_n = w3_qw.shape[1]
-                w3_qw = ops.gptq_marlin_repack(w3_qw, g_idx_sort_idx, size_k,
-                                               size_n, self.quant_config.weight_bits)
-                w3_s =  marlin_permute_scales_2(w3_s, size_k, size_n,
-                                                self.quant_config.group_size,
-                                                self.quant_config.weight_bits).half()
+            size_k = w2_qw.shape[0] * 8
+            size_n = w2_qw.shape[1]
+            w2_qw = ops.gptq_marlin_repack(w2_qw, g_idx_sort_idx, size_k,
+                                            size_n, self.quant_config.weight_bits)
+            w2_s =  marlin_permute_scales_2(w2_s, size_k, size_n,
+                                            self.quant_config.group_size,
+                                            self.quant_config.weight_bits)
 
-                torch.cuda.synchronize()
-                qweights13.append(w13_qw)
-                scaless13.append(w13_s)
-                qweights2.append(w2_qw)
-                scaless2.append(w2_s)
-                qweights1.append(w1_qw)
-                scaless1.append(w1_s)
-                qweights3.append(w3_qw)
-                scaless3.append(w3_s)
+            qweights13.append(w13_qw)
+            scaless13.append(w13_s)
+            qweights2.append(w2_qw)
+            scaless2.append(w2_s)
 
-            # hidden_states= torch.full(hidden_states.shape, 1, dtype=hidden_states.dtype).to(hidden_states.device)
-            
-                # print(w1_s.shape, ":", w3_s.shape, ",", w2_s.shape)
+        qweight13 = torch.stack(qweights13, dim=0).to(qweights13[0].device).int()
+        scales13 = torch.stack(scaless13, dim=0).to(scaless13[0].device).half()
+        qweight2 = torch.stack(qweights2, dim=0).to(qweights2[0].device).int()
+        scales2 = torch.stack(scaless2, dim=0).to(scaless2[0].device).half()
 
-            # print(bin(qweights2[0][0][0].item()), bin(qweights2[0][0][1].item()))
+        final_hidden_states = fused_marlin_moe(
+            hidden_states.half(),
+            qweight13,
+            qweight2,
+            router_logits,
+            self.top_k,
+            renormalize=True,
+            w1_scale=scales13,
+            w2_scale=scales2,
+        )
 
-            qweight13 = torch.stack(qweights13, dim=0).to(qweights13[0].device).int()
-            scales13 = torch.stack(scaless13, dim=0).to(scaless13[0].device).half()
-            qweight2 = torch.stack(qweights2, dim=0).to(qweights2[0].device).int()
-            scales2 = torch.stack(scaless2, dim=0).to(scaless2[0].device).half()
-            qweight1 = torch.stack(qweights1, dim=0).to(qweights1[0].device).int()
-            scales1 = torch.stack(scaless1, dim=0).to(scaless1[0].device).half()
-            qweight3 = torch.stack(qweights3, dim=0).to(qweights3[0].device).int()
-            scales3 = torch.stack(scaless3, dim=0).to(scaless3[0].device).half()
-
-            # print(hidden_states.device, router_logits.device, qweight13.device, scales13.device, qweight2.device, scales2.device)
-
-            final_hidden_states = fused_marlin_moe(
-                hidden_states.half(),
-                qweight13,
-                qweight2,
-                router_logits,
-                self.top_k,
-                renormalize=True,
-                w1_scale=scales13,
-                w2_scale=scales2,
-            )
-
-            # final_hidden_states = fused_marlin_moe_2(
-            #     hidden_states,
-            #     qweight1,
-            #     qweight2,
-            #     qweight3,
-            #     router_logits,
-            #     self.top_k,
-            #     renormalize=True,
-            #     w1_scale=scales1,
-            #     w2_scale=scales2,
-            #     w3_scale=scales3,
-            # )
-            # print("out size:", final_hidden_states.shape, "->", num_tokens, hidden_dim)
-            # for x in range(10):
-            #     print(final_hidden_states[0][x].item(), end=' ')
-            # print('')
-            # assert(False)
-            assert not final_hidden_states[0][0].isnan()
-            return final_hidden_states.bfloat16()
-
-        torch.cuda.synchronize()
-        routing_weights = F.softmax(router_logits, dim=1, dtype=torch.float)
-        routing_weights, selected_experts = torch.topk(routing_weights,
-                                                       self.top_k,
-                                                       dim=-1)
-        routing_weights /= routing_weights.sum(dim=-1, keepdim=True)
-        # torch.set_printoptions(profile="full")
-        # print("selected experts:", selected_experts.flatten())
-        # torch.set_printoptions(profile="default")
-
-        final_hidden_states = None
-        # TODO bring this back to all experts
-        for expert_idx in self.expert_indicies:
-            expert_layer = self.experts[expert_idx]
-            expert_mask = (selected_experts == expert_idx)
-            expert_weights = (routing_weights * expert_mask).sum(dim=-1,
-                                                                 keepdim=True)
-
-            current_hidden_states = expert_layer(hidden_states).mul_(
-                expert_weights)
-            # current_hidden_states = expert_layer(hidden_states)
-            if final_hidden_states is None:
-                final_hidden_states = current_hidden_states
-            else:
-                final_hidden_states.add_(current_hidden_states)
-        # print("out muls:", final_hidden_states)
-
-        final_hidden_states = tensor_model_parallel_all_reduce(final_hidden_states).view(
-            num_tokens, hidden_dim)
-
-        # print("out size:", final_hidden_states.shape, "->", num_tokens, hidden_dim)
-
-        # if final_hidden_states.count_nonzero() > 0:
-        #     for x in range(final_hidden_states.shape[0]):
-        #         for y in range(final_hidden_states.shape[1]):
-        #             if final_hidden_states[x][y].item() != 0:
-        #                 print("nonzero:", final_hidden_states[x][y].item())
-        #                 return final_hidden_states
-
-        for x in range(10):
-                print(final_hidden_states[0][x].item(), end=' ')
-        print('')
-        # for x in range(10):
-        #         print(final_hidden_states[1][x].item(), end=' ')
-        # print('')
-        # for x in range(10):
-        #         print(final_hidden_states[2][x].item(), end=' ')
-        # print('')
-        # for x in range(10):
-        #         print(final_hidden_states[3][x].item(), end=' ')
-        # print('')
-        # assert(False)
-        return final_hidden_states
+        return final_hidden_states.bfloat16()
 
 
 class MixtralAttention(nn.Module):

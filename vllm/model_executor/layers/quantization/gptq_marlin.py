@@ -1,7 +1,6 @@
 import enum
 from enum import Enum
 from typing import Any, Dict, List, Optional
-import traceback
 
 import torch
 from torch.nn.parameter import Parameter
@@ -356,7 +355,6 @@ class GPTQMarlinLinearMethod(LinearMethodBase):
         layer.register_parameter("scales", scales)
         layer.register_parameter("qzeros", qzeros)
 
-        # print("qweight:", layer.get_parameter("qweight"))
         layer.g_idx_sort_indices = g_idx_sort_indices
         layer.workspace = workspace
         layer.input_size_per_partition = input_size_per_partition
@@ -371,8 +369,6 @@ class GPTQMarlinLinearMethod(LinearMethodBase):
         x: torch.Tensor,
         bias: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        # print("APPLY", self)
-        # traceback.print_stack()
         reshaped_x = x.reshape(-1, x.shape[-1])
 
         size_m = reshaped_x.shape[0]
@@ -425,9 +421,6 @@ class GPTQMarlinLinearMethod(LinearMethodBase):
                 part_size_n,
                 self.quant_config.weight_bits,
             )
-            # print("ajssad", layer.qweight.shape, "->", marlin_qweight.shape, "(", x.shape,  ")")
-            # print("->", layer.qweight)
-            # print("->", marlin_qweight)
             replace_tensor("qweight", marlin_qweight)
 
             # Permute scales
@@ -443,19 +436,7 @@ class GPTQMarlinLinearMethod(LinearMethodBase):
                 self.quant_config.group_size,
                 self.quant_config.weight_bits,
             )
-            # print("->", layer.scales)
-            # print("->", marlin_scales)
             replace_tensor("scales", marlin_scales)
-
-        # w_qw= torch.full(layer.qweight.shape, -1180006009).to(layer.qweight.device)
-        # replace_tensor("qweight", w_qw)
-        # w_s= torch.full(layer.scales.shape, 0.0054).to(layer.scales.device)
-        # replace_tensor("scales", w_s)
-        # reshaped_x = torch.full(reshaped_x.shape, 1, dtype=reshaped_x.dtype).to(reshaped_x.device)
-
-        # print("hidden:", reshaped_x.shape, "\n", reshaped_x)
-        # print("w:", layer.qweight.shape, "\n", layer.qweight)
-        # print("w_scale:", layer.scales.shape, "\n", layer.scales)
 
         output = ops.gptq_marlin_gemm(
             reshaped_x,
@@ -470,8 +451,6 @@ class GPTQMarlinLinearMethod(LinearMethodBase):
             part_size_k,
             layer.is_k_full,
         )
-
-        # print("gptq_marlin out:", output.shape, output)
 
         if bias is not None:
             output.add_(bias)  # In-place add
