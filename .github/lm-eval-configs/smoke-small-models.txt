@@ -1,2 +1,1 @@
 Meta-Llama-3-8B-Instruct.yaml
-Qwen2-7B-Instruct.yaml
