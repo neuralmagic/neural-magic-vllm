@@ -169,7 +169,6 @@ jobs:
             label: gcp-k8s-util
             timeout: ${{ inputs.build_timeout }}
             gitref: ${{ github.ref }}
-            python: ${{ inputs.python }}
         secrets: inherit
 
     # update docker
