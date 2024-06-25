@@ -36,7 +36,10 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
         print(f"  {key} = {value}")
 
     # Create sampling params
-    sampling_params = SamplingParams(temperature=0.8, top_p=0.95, max_tokens=8)
+    sampling_params = SamplingParams(temperature=0.8,
+                                     top_p=0.95,
+                                     max_tokens=8,
+                                     ignore_eos=True)
 
     # Create LLM
     llm = LLM(
@@ -75,8 +78,7 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
 
     for i in range(batch_size):
         prompt_token_ids = torch.randint(
-            128,  # 128 to skip over special tokens
-            llm.llm_engine.model_config.get_vocab_size() // 2,
+            llm.llm_engine.model_config.get_vocab_size(),
             size=(prompt_len, )).tolist()
         prompt_token_ids = {'prompt_token_ids': prompt_token_ids}
 

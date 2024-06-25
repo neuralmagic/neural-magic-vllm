@@ -971,6 +971,8 @@ class ModelRunner:
         return self.model_config.get_vocab_size()
 
 
+# NOTE: this is nn.Module so the profiler can properly capture/group
+#  kernels calls made within the graph
 class CUDAGraphRunner(nn.Module):
 
     def __init__(self, model: nn.Module):
