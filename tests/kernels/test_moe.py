@@ -182,18 +182,18 @@ def test_fused_marlin_moe(
     scales1 = stack_and_dev(scaless1)
 
     w_refs2 = []
-    qweights2 = []
-    scaless2 = []
+    qweight2_l = []
+    scales2_l = []
 
     for i in range(w2.shape[0]):
         w_ref2, qweight2, scales2, _, _, _ = marlin_quantize(w2[i].transpose(1, 0), num_bits, group_size, False)
         w_refs2.append(w_ref2)
-        qweights2.append(qweight2)
-        scaless2.append(scales2)
+        qweight2_l.append(qweight2)
+        scales2_l.append(scales2)
 
     w_ref2 = stack_and_dev(w_refs2)
-    qweight2 = stack_and_dev(qweights2).contiguous()
-    scales2 = stack_and_dev(scaless2)
+    qweight2 = stack_and_dev(qweight2_l).contiguous()
+    scales2 = stack_and_dev(scales2_l)
 
     score = torch.randn((m, e), device='cuda', dtype=dtype)
     triton_output = fused_moe(a, w_ref1.transpose(1, 2).contiguous(),
@@ -233,19 +233,19 @@ def test_single_marlin_moe(
     a = torch.randn((m, k), device='cuda', dtype=dtype) / 10
     w = torch.randn((e, n, k), device='cuda', dtype=dtype) / 10
 
-    w_refs = []
-    qweights = []
-    scaless = []
+    w_ref_l = []
+    qweights_l = []
+    scales_l = []
 
     for i in range(w.shape[0]):
         w_ref, qweight, scales, _, _, _ = marlin_quantize(w[i].transpose(1, 0), num_bits, group_size, False)
-        w_refs.append(w_ref)
-        qweights.append(qweight)
-        scaless.append(scales)
+        w_ref_l.append(w_ref)
+        qweights_l.append(qweight)
+        scales_l.append(scales)
 
-    w_ref = stack_and_dev(w_refs)
-    qweight = stack_and_dev(qweights).contiguous()
-    scales = stack_and_dev(scaless)
+    w_ref = stack_and_dev(w_ref_l)
+    qweight = stack_and_dev(qweights_l).contiguous()
+    scales = stack_and_dev(scales_l)
 
     score = torch.randn((m, e), device='cuda', dtype=dtype)
     marlin_output = single_marlin_moe(a, qweight, scales, score, topk, renormalize=False)

@@ -138,18 +138,18 @@ class MixtralMoE(nn.Module):
         hidden_states = hidden_states.view(-1, hidden_dim)
         router_logits, _ = self.gate(hidden_states)
 
-        qweights13 = []
-        scaless13 = []
-        qweights2 = []
-        scaless2 = []
+        qweight13_l = []
+        scales13_l = []
+        qweight2_l = []
+        scales2_l = []
 
         for i in range(len(self.experts)):
-            w1_qw = self.experts[i].w1.get_parameter("qweight")
-            w3_qw = self.experts[i].w3.get_parameter("qweight")
-            w1_s = self.experts[i].w1.get_parameter("scales")
-            w3_s = self.experts[i].w3.get_parameter("scales")
-            w2_qw = self.experts[i].w2.get_parameter("qweight")
-            w2_s = self.experts[i].w2.get_parameter("scales")
+            w1_qw = self.experts[i].w1.get_parameter("qweight").int()
+            w3_qw = self.experts[i].w3.get_parameter("qweight").int()
+            w1_s = self.experts[i].w1.get_parameter("scales").half()
+            w3_s = self.experts[i].w3.get_parameter("scales").half()
+            w2_qw = self.experts[i].w2.get_parameter("qweight").int()
+            w2_s = self.experts[i].w2.get_parameter("scales").half()
 
             w13_qw = torch.cat((w1_qw, w3_qw), 1)
             w13_s = torch.cat((w1_s, w3_s), 1)
@@ -170,15 +170,15 @@ class MixtralMoE(nn.Module):
                                             self.quant_config.group_size,
                                             self.quant_config.weight_bits)
 
-            qweights13.append(w13_qw)
-            scaless13.append(w13_s)
-            qweights2.append(w2_qw)
-            scaless2.append(w2_s)
+            qweight13_l.append(w13_qw)
+            scales13_l.append(w13_s)
+            qweight2_l.append(w2_qw)
+            scales2_l.append(w2_s)
 
-        qweight13 = torch.stack(qweights13, dim=0).to(qweights13[0].device).int()
-        scales13 = torch.stack(scaless13, dim=0).to(scaless13[0].device).half()
-        qweight2 = torch.stack(qweights2, dim=0).to(qweights2[0].device).int()
-        scales2 = torch.stack(scaless2, dim=0).to(scaless2[0].device).half()
+        qweight13 = torch.stack(qweight13_l, dim=0).to(qweight13_l[0].device)
+        scales13 = torch.stack(scales13_l, dim=0).to(scales13_l[0].device)
+        qweight2 = torch.stack(qweight2_l, dim=0).to(qweight2_l[0].device)
+        scales2 = torch.stack(scales2_l, dim=0).to(scales2_l[0].device)
 
         final_hidden_states = fused_marlin_moe(
             hidden_states.half(),
