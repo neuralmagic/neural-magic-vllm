@@ -79,6 +79,12 @@ jobs:
 
     steps:
 
+      - name: debug info
+        shell: bash
+        run: |
+          cat /etc/hosts
+          sed -i 's/::1\s+localhost/::1 ' /etc/hosts
+
       - name: set python
         id: set_python
         uses: actions/setup-python@v5
