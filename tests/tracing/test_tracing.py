@@ -13,6 +13,12 @@ from opentelemetry.proto.common.v1.common_pb2 import AnyValue, KeyValue
 from opentelemetry.sdk.environment_variables import (
     OTEL_EXPORTER_OTLP_TRACES_INSECURE)
 
+from tests.nm_utils.utils_skip import should_skip_test_group
+
+if should_skip_test_group(group_name="TEST_TRACING"):
+    pytest.skip("TEST_TRACING=DISABLE, skipping tracing test group",
+                allow_module_level=True)
+
 from vllm import LLM, SamplingParams
 from vllm.tracing import SpanAttributes
 

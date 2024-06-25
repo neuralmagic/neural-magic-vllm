@@ -102,6 +102,11 @@ def should_skip_tokenization_test_group():
     return TEST_TOKENIZATION == "DISABLE"
 
 
+def should_skip_tracing_test_group():
+    TEST_TRACING = os.getenv("TEST_TRACING", "ENABLE")
+    return TEST_TRACING == "DISABLE"
+
+
 def should_skip_worker_test_group():
     TEST_WORKER = os.getenv("TEST_WORKER", "ENABLE")
     return TEST_WORKER == "DISABLE"
@@ -126,6 +131,7 @@ MAP = {
     "TEST_SPEC_DECODE": should_skip_spec_decode_test_group,
     "TEST_TENSORIZER_LOADER": should_skip_tensorizer_loader_test_group,
     "TEST_TOKENIZATION": should_skip_tokenization_test_group,
+    "TEST_TRACING": should_skip_tracing_test_group,
     "TEST_WORKER": should_skip_worker_test_group,
 }
 
