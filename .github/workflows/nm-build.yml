@@ -73,7 +73,13 @@ jobs:
 
         runs-on: ${{ inputs.build_label }}
         timeout-minutes: ${{ fromJson(inputs.timeout) }}
+
+        permissions:
+            contents: 'read'
+            id-token: 'write'
+
         outputs:
+            run_id: ${{ github.run_id }}
             whl: ${{ steps.build.outputs.whl }}
             tarfile: ${{ steps.build.outputs.tarfile }}
 
@@ -118,7 +124,27 @@ jobs:
               with:
                 python: ${{ inputs.python }}
                 venv: ${{ env.VENV_BASE }}
-                pypi: ${{ secrets.NM_PRIVATE_PYPI_LOCATION }}
+
+            # GCP
+            - name: 'Authenticate to Google Cloud'
+              id: auth
+              uses: google-github-actions/auth@v2.1.3
+              with:
+                  project_id: ${{ secrets.GCP_PROJECT }}
+                  workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+                  service_account: ${{ secrets.NM_PYPI_SA }}
+
+            - name: 'Set up Cloud SDK'
+              uses: 'google-github-actions/setup-gcloud@v2'
+              with:
+                  version: '>= 473.0.0'
+
+            - name: copy whl and source distribution
+              run: |
+                # echo "whl: ${{ steps.build.outputs.whl }}"
+                # echo "tarfile: ${{ steps.build.outputs.tarfile }}"
+                gcloud storage cp dist/${{ steps.build.outputs.whl }} gs://neuralmagic-public-pypi/assets/${{ github.run_id }}/${{ steps.build.outputs.whl }}
+                gcloud storage cp dist/${{ steps.build.outputs.tarfile }} gs://neuralmagic-public-pypi/assets/${{ github.run_id }}/${{ steps.build.outputs.tarfile }}
 
             - name: upload whl
               uses: actions/upload-artifact@v4
@@ -126,7 +152,7 @@ jobs:
               with:
                 name: ${{ steps.build.outputs.whl }}
                 path: dist/${{ steps.build.outputs.whl }}
-                retention-days: 15
+                retention-days: 5
 
             - name: upload tar.gz
               uses: actions/upload-artifact@v4
@@ -144,7 +170,6 @@ jobs:
                 gitref: ${{ inputs.gitref }}
                 testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
                 python: ${{ steps.set_python.outputs.version }}
-                build_status: ${{ steps.build.outputs.build_status }}
                 whl_status: ${{ steps.build.outputs.whl_status }}
 
             - name: run status
@@ -154,9 +179,7 @@ jobs:
                 BUILD_STATUS: ${{ steps.build.outputs.build_status }}
                 WHL_STATUS: ${{ steps.build.outputs.whl_status }}
               run: |
-                echo "build status: ${BUILD_STATUS}"
                 echo "build status: ${WHL_STATUS}"
-                if [ -z "${BUILD_STATUS}" ] || [ "${BUILD_STATUS}" -ne "0" ]; then exit 1; fi
                 if [ -z "${WHL_STATUS}" ] || [ "${WHL_STATUS}" -ne "0" ]; then exit 1; fi
 
             - name: complete testmo run

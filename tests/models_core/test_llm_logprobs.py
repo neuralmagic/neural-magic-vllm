@@ -6,6 +6,7 @@ over so many samples, we look
 Run `pytest tests/models/test_models_logprobs.py`.
 """
 import pytest
+import torch
 
 from tests.models.utils import check_logprobs_close
 from tests.nm_utils.utils_skip import should_skip_test_group
@@ -24,6 +25,8 @@ MODELS = [
 ]
 
 
+@pytest.mark.skipif(torch.cuda.get_device_capability() < (8, 0),
+                    reason="T4 memory constraints")
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("max_tokens", [32])
 @pytest.mark.parametrize("num_logprobs", [5])

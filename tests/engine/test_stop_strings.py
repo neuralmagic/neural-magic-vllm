@@ -1,6 +1,7 @@
 from typing import Any, List, Optional
 
 import pytest
+import torch
 
 from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm import CompletionOutput, LLMEngine, SamplingParams
@@ -19,6 +20,8 @@ def vllm_model(vllm_runner):
         yield vllm_model
 
 
+@pytest.mark.skipif(torch.cuda.get_device_capability() < (8, 0),
+                    reason="T4 KV cache constraints")
 @pytest.mark.skip_global_cleanup
 def test_stop_basic(vllm_model):
     _test_stopping(vllm_model.model.llm_engine,
@@ -34,6 +37,8 @@ def test_stop_basic(vllm_model):
                    expected_reason=".")
 
 
+@pytest.mark.skipif(torch.cuda.get_device_capability() < (8, 0),
+                    reason="T4 KV cache constraints")
 @pytest.mark.skip_global_cleanup
 def test_stop_multi_tokens(vllm_model):
     _test_stopping(
@@ -52,6 +57,8 @@ def test_stop_multi_tokens(vllm_model):
         expected_reason="group of peo")
 
 
+@pytest.mark.skipif(torch.cuda.get_device_capability() < (8, 0),
+                    reason="T4 KV cache constraints")
 @pytest.mark.skip_global_cleanup
 def test_stop_partial_token(vllm_model):
     _test_stopping(vllm_model.model.llm_engine,
@@ -67,6 +74,8 @@ def test_stop_partial_token(vllm_model):
                    expected_reason="gani")
 
 
+@pytest.mark.skipif(torch.cuda.get_device_capability() < (8, 0),
+                    reason="T4 KV cache constraints")
 @pytest.mark.skip_global_cleanup
 def test_stop_token_id(vllm_model):
     # token id 13013 => " organization"
