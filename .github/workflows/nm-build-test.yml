@@ -94,8 +94,8 @@ on:
         default: ""
       lm_eval_tensor_parallel_size:
         description: "tensor parallel size for lm-eval-multi test"
-        type: string
-        default: "1"
+        type: number
+        default: 1
 
 jobs:
 
@@ -166,6 +166,7 @@ jobs:
         python: ${{ inputs.python }}
         whl: ${{ needs.BUILD.outputs.whl }}
         lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
+        lm_eval_tensor_parallel_size: 1
       secrets: inherit
     
     LM-EVAL-MULTI:

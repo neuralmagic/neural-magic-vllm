@@ -38,7 +38,6 @@ done
 # Parse list of configs.
 IFS=$'\n' read -d '' -r -a MODEL_CONFIGS < $CONFIG
 
-# Run each config separately.
 for MODEL_CONFIG in "${MODEL_CONFIGS[@]}"
 do
     LOCAL_SUCCESS=0
@@ -55,7 +54,8 @@ do
     fi
 
     SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
-done 
+
+done
 
 if [ "${SUCCESS}" -eq "0" ]; then
     exit 0
