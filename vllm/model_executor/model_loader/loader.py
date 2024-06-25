@@ -61,7 +61,6 @@ def _get_quantization_config(
                 f"{model_config.dtype} is not supported for quantization "
                 f"method {model_config.quantization}. Supported dtypes: "
                 f"{supported_dtypes}")
-
         return quant_config
 
     elif model_config.sparsity is not None:

@@ -121,10 +121,9 @@ CODESPELL_EXCLUDES=(
     '--skip' 'tests/prompts/**,./benchmarks/sonnet.txt,*tests/lora/data/**,build/**'
 )
 
-
 # check spelling of specified files
 spell_check() {
-    codespell "$@ ${CODESPELL_EXCLUDES[@]}"
+    codespell "$@"
 }
 
 spell_check_all(){
@@ -157,7 +156,6 @@ elif [[ "$1" == '--all' ]]; then
    spell_check_all
 else
    # Check spelling only of the files that changed in last commit.
-   echo "${CODESPELL_EXCLUDES[@]}"
    spell_check_changed
 fi
 echo 'vLLM codespell: Done'
