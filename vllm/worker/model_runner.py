@@ -1,3 +1,5 @@
+# This file has been modified by Neural Magic
+
 import gc
 import time
 import warnings
@@ -969,9 +971,11 @@ class ModelRunner:
         return self.model_config.get_vocab_size()
 
 
-class CUDAGraphRunner:
+class CUDAGraphRunner(nn.Module):
 
     def __init__(self, model: nn.Module):
+        super().__init__()
+
         self.model = model
         self.input_buffers: Dict[str, torch.Tensor] = {}
         self.output_buffers: Dict[str, torch.Tensor] = {}
@@ -1066,9 +1070,6 @@ class CUDAGraphRunner:
 
         # Return the output tensor.
         return self.output_buffers["hidden_states"]
-
-    def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
 
 
 def _get_graph_batch_size(batch_size: int) -> int:
