@@ -1,2 +1,1 @@
-Meta-Llama-3-8B-Instruct-W4A16.yaml
 Meta-Llama-3-8B-Instruct.yaml

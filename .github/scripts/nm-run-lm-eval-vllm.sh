@@ -18,6 +18,8 @@ usage() {
     echo
 }
 
+SUCCESS=0
+
 while getopts "c:t:" OPT; do
   case ${OPT} in
     c ) 
@@ -33,22 +35,26 @@ while getopts "c:t:" OPT; do
   esac
 done
 
-SUCCESS=0
-cat $CONFIG | while read MODEL_CONFIG 
+# Parse list of configs.
+IFS=$'\n' read -d '' -r -a MODEL_CONFIGS < $CONFIG
+
+# Run each config separately.
+for MODEL_CONFIG in "${MODEL_CONFIGS[@]}"
 do
     LOCAL_SUCCESS=0
     
-    echo "=== RUNNING MODEL: $MODEL_CONFIG WITH TP_SIZE $TP_SIZE =="
-    
+    echo "=== RUNNING MODEL: $MODEL_CONFIG WITH TP_SIZE $TP_SIZE ==="
+
     MODEL_CONFIG_PATH=$PWD/.github/lm-eval-configs/models/${MODEL_CONFIG}
-    LM_EVAL_TEST_DATA_FILE=$MODEL_CONFIG_PATH LM_EVAL_TP_SIZE=${TP_SIZE} pytest -s tests/accuracy/test_lm_eval_correctness.py || LOCAL_SUCCESS=$?
+    LM_EVAL_TEST_DATA_FILE=$MODEL_CONFIG_PATH LM_EVAL_TP_SIZE=${TP_SIZE} pytest -v tests/accuracy/test_lm_eval_correctness.py || LOCAL_SUCCESS=$?
 
     if [[ $LOCAL_SUCCESS == 0 ]]; then
         echo "=== PASSED MODEL: ${MODEL_CONFIG} ==="
     else
         echo "=== FAILED MODEL: ${MODEL_CONFIG} ==="
-        SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
     fi
+
+    SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
 done 
 
 if [ "${SUCCESS}" -eq "0" ]; then

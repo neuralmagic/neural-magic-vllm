@@ -28,7 +28,7 @@ TP_SIZE = os.environ.get("LM_EVAL_TP_SIZE", 1)
 TEST_DATA_FILE = os.environ.get("LM_EVAL_TEST_DATA_FILE", None)
 
 
-def wait_for_server(timeout=900) -> bool:
+def wait_for_server(timeout=300) -> bool:
 
     def try_connection() -> bool:
         try:
