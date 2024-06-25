@@ -8,6 +8,7 @@ from typing import Optional
 import torch
 
 from vllm import LLM, SamplingParams
+from vllm.inputs import TokensPrompt
 from vllm.profiler import nm_profile
 
 BATCH_SIZE_DEFAULT = 1
@@ -74,14 +75,16 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
         sys.exit(-1)
 
     for i in range(batch_size):
+        prompt_token_ids=torch.randint(
+             128,  # 128 to skip over special tokens
+             llm.llm_engine.model_config.get_vocab_size() // 2,
+             size=(prompt_len, )).tolist()
+        prompt_token_ids = {'prompt_token_ids' : prompt_token_ids}
+
         llm.llm_engine.add_request(
             request_id=f"seq{i}",
-            prompt=None,
-            prompt_token_ids=torch.randint(
-                128,  # 128 to skip over special tokens
-                llm.llm_engine.model_config.get_vocab_size() // 2,
-                size=(prompt_len, )).tolist(),
-            sampling_params=sampling_params)
+            inputs=prompt_token_ids,
+            params=sampling_params)
 
     with nm_profile() as prefill_prof:
         llm.llm_engine.step()  # First step is prefill
