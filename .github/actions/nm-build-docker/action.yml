@@ -3,20 +3,16 @@ description: 'build docker image for nm-vllm'
 inputs:
   docker_tag:
     description: "tag to be used for the docker image"
-    type: string
     required: true
   extra_tag:
     description: "additional tag for the docker image"
-    type: string
     required: true
   wf_category:
     description: "type of nm-vllm to install for the docker image: NIGHTLY (default) or RELEASE"
-    type: string
-    default: 'NIGHTLY'
+    required: true
   build_version:
     description: "version of nm-vllm to install for the docker image: latest (default) or specific version e.g. 0.4.0, 0.4.0.20240531"
-    type: string
-    default: 'latest'
+    required: true
 runs:
   using: composite
   steps:
