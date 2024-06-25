@@ -91,11 +91,9 @@ jobs:
           Gi_per_thread: ${{ inputs.Gi_per_thread }}
           nvcc_threads: ${{ inputs.nvcc_threads }}
 
-      - name: hf cache
-        id: hf_cache
-        uses: ./.github/actions/nm-hf-cache/
-        with:
-          fs_cache: ${{ secrets.HF_FS_CACHE }}
+      - name: caches
+        id: caches
+        uses: ./.github/actions/nm-caches/
 
       - name: download whl
         id: download

@@ -67,6 +67,8 @@ async def my_chat(
                                                 top_logprobs=num_logprobs)
 
 
+@pytest.mark.skipif(torch.cuda.get_device_capability() < (8, 0),
+                    reason="T4 memory constraints")
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("max_tokens", [32])
 @pytest.mark.parametrize("num_logprobs", [5])

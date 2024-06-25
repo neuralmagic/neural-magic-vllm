@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       test_label:
-        description: "requested runner label (specifies instance)"
+        description: "requested runner label"
         type: string
         required: true
       timeout:
@@ -32,7 +32,7 @@ on:
   workflow_dispatch:
     inputs:
       test_label:
-        description: "requested runner label (specifies instance)"
+        description: "requested runner label"
         type: string
         required: true
       timeout:
@@ -109,11 +109,9 @@ jobs:
               id: verify_python
               uses: ./.github/actions/nm-verify-python/
 
-            - name: hf cache
-              id: hf_cache
-              uses: ./.github/actions/nm-hf-cache/
-              with:
-                fs_cache: ${{ secrets.HF_FS_CACHE }}
+            - name: caches
+              id: caches
+              uses: ./.github/actions/nm-caches/
 
             - name: download whl
               id: download
