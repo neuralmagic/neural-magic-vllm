@@ -10,8 +10,11 @@ pytest-shard
 awscli
 einops # required for MPT
 httpx
+opentelemetry-sdk # required for test tracing
+opentelemetry-api # required for test tracing
+opentelemetry-exporter-otlp # required for test tracing
+opentelemetry-semantic-conventions-ai # required for test tracing
 peft
-grpc # required for test tracing
 requests==2.31  # required for python 3.8 testing
 ray
 sentence-transformers # required for embedding
