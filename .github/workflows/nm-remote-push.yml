@@ -30,8 +30,6 @@ jobs:
             benchmark_timeout: 480
 
             lm_eval_label_solo: gcp-k8s-l4-solo
-            lm_eval_label_multi: gcp-k8s-l4-duo
             lm_eval_configuration: ./.github/lm-eval-configs/smoke-small-models.txt
             lm_eval_timeout: 60
-            lm_eval_tensor_parallel_size: 2
         secrets: inherit
