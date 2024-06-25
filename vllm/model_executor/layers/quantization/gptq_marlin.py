@@ -354,7 +354,6 @@ class GPTQMarlinLinearMethod(LinearMethodBase):
         layer.register_parameter("g_idx", g_idx)
         layer.register_parameter("scales", scales)
         layer.register_parameter("qzeros", qzeros)
-
         layer.g_idx_sort_indices = g_idx_sort_indices
         layer.workspace = workspace
         layer.input_size_per_partition = input_size_per_partition

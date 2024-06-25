@@ -2,7 +2,6 @@
 
 Run `pytest tests/kernels/test_moe.py`.
 """
-
 import pytest
 import torch
 from typing import List
@@ -32,7 +31,7 @@ def torch_moe(a, w1, w2, score, topk):
         mask = topk_ids == i
         if mask.sum():
             out[mask] = SiluAndMul()(
-                 a[mask] @ w1[i].transpose(0, 1)) @ w2[i].transpose(0, 1)
+                a[mask] @ w1[i].transpose(0, 1)) @ w2[i].transpose(0, 1)
     return (out.view(B, -1, w2.shape[1]) *
             topk_weight.view(B, -1, 1).to(out.dtype)).sum(dim=1)
 
@@ -75,21 +74,20 @@ def test_fused_moe(
     score = torch.randn((m, e), device='cuda', dtype=dtype)
     triton_output = fused_moe(a, w1, w2, score, topk, renormalize=False)
     torch_output = torch_moe(a, w1, w2, score, topk)
-
     assert torch.allclose(triton_output, torch_output, atol=1e-2, rtol=0)
 
 
 # UPSTREAM SYNC: breaks NM automation.
-# @pytest.mark.skip("C compiler not installed in NM automation. "
-#                   "This codepath follows a triton pathway, which "
-#                   "JITs using clang or gcc. Since neither are installed "
-#                   "in our test instances, we need to skip this for now.")
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("dtype",
                          [torch.float32, torch.float16, torch.bfloat16])
 @torch.inference_mode()
 def test_mixtral_moe(dtype: torch.dtype):
-    "Make sure our Mixtral MoE implementation agrees with the one from"
-    "huggingface."
+    """Make sure our Mixtral MoE implementation agrees with the one from
+    huggingface."""
 
     # Instantiate our and huggingface's MoE blocks
     config = MixtralConfig()

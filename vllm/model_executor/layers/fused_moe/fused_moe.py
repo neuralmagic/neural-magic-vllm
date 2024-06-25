@@ -219,6 +219,7 @@ def moe_align_block_size(
                              expert_ids, num_tokens_post_pad)
     return sorted_ids, expert_ids, num_tokens_post_pad
 
+
 def invoke_fused_moe_kernel(A: torch.Tensor, B: torch.Tensor, C: torch.Tensor,
                             A_scale: Optional[torch.Tensor],
                             B_scale: Optional[torch.Tensor],

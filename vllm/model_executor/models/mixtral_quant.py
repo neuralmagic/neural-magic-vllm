@@ -109,7 +109,6 @@ class MixtralMoE(nn.Module):
         self.tp_size = get_tensor_model_parallel_world_size()
         self.num_total_experts = config.num_local_experts
         self.top_k = config.num_experts_per_tok
-
         if self.tp_size > self.num_total_experts:
             raise ValueError(
                 f"Tensor parallel size {self.tp_size} is greater than "

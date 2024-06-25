@@ -158,8 +158,7 @@ set(VLLM_EXT_SRC
   "csrc/quantization/fp8/common.cu"
   "csrc/cuda_utils_kernels.cu"
   "csrc/moe_align_block_size_kernels.cu"
-  "csrc/torch_bindings.cpp"
-  )
+  "csrc/torch_bindings.cpp")
 
 if(VLLM_GPU_LANG STREQUAL "CUDA")
   include(FetchContent)
@@ -216,8 +215,7 @@ define_gpu_extension_target(
 set(VLLM_MOE_EXT_SRC
   "csrc/moe/torch_bindings.cpp"
   "csrc/moe/topk_softmax_kernels.cu"
-  "csrc/moe/marlin_moe_ops.cu"
-  )
+  "csrc/moe/marlin_moe_ops.cu")
 
 define_gpu_extension_target(
   _moe_C
