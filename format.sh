@@ -121,7 +121,6 @@ CODESPELL_EXCLUDES=(
     '--skip' 'tests/prompts/**,./benchmarks/sonnet.txt,*tests/lora/data/**,build/**'
 )
 
-
 # check spelling of specified files
 spell_check() {
     codespell "$@"
