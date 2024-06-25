@@ -2,11 +2,17 @@ import multiprocessing
 import random
 import time
 
+import pytest
 import torch.distributed as dist
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.distributed.device_communicators.shm_broadcast import (
     ShmRingBuffer, ShmRingBufferIO)
 from vllm.utils import update_environment_variables
+
+if should_skip_test_group(group_name="TEST_DISTRIBUTED"):
+    pytest.skip("TEST_DISTRIBUTED=DISABLE, skipping distributed test group",
+                allow_module_level=True)
 
 
 def distributed_run(fn, world_size):
