@@ -11,6 +11,7 @@ awscli
 einops # required for MPT
 httpx
 peft
+grpc # required for test tracing
 requests==2.31  # required for python 3.8 testing
 ray
 sentence-transformers # required for embedding
