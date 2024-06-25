@@ -26,6 +26,7 @@ lm_eval: "lm_eval_t" = pytest.importorskip("lm_eval",
 RTOL = 0.02
 TEST_DATA_FILE = os.environ.get("LM_EVAL_TEST_DATA_FILE", None)
 
+
 def wait_for_server(timeout=300) -> bool:
 
     def try_connection() -> bool:
