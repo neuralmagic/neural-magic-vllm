@@ -103,10 +103,6 @@ exclude_also = [
 [tool.coverage.run]
 # collect context info for reporting, e.g. which tests exercised a line
 dynamic_context = "test_function"
-
-[tool.coverage.html]
-# include the context info in the HTML report
-show_contexts = true
 # do not include in the report any files matching these patterns
 omit = [
     # coverage for these devices is to be ignored until we plan to deploy them
@@ -119,3 +115,11 @@ omit = [
     # we are not testing AMD devices at the moment
     "**/rocm_flash_attn.py"
 ]
+
+[tool.coverage.html]
+# include the context info in the HTML report
+show_contexts = true
+
+[tool.coverage.json]
+# include the context info in the JSON report
+show_contexts = true
