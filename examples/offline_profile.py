@@ -8,7 +8,6 @@ from typing import Optional
 import torch
 
 from vllm import LLM, SamplingParams
-from vllm.inputs import TokensPrompt
 from vllm.profiler import nm_profile
 
 BATCH_SIZE_DEFAULT = 1
