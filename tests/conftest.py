@@ -1,6 +1,5 @@
 import contextlib
 import gc
-import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple, TypeVar
 
@@ -12,7 +11,6 @@ from PIL import Image
 from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
                           AutoProcessor, AutoTokenizer, BatchEncoding)
 
-from tests.nm_utils.logging import make_logger
 from vllm import LLM, SamplingParams
 from vllm.config import TokenizerPoolConfig, VisionLanguageConfig
 from vllm.distributed import (destroy_distributed_environment,
@@ -146,6 +144,7 @@ class HfRunner:
         model_name: str,
         dtype: str = "half",
         *,
+        model_kwargs: Optional[Dict[str, Any]] = None,
         is_embedding_model: bool = False,
         is_vision_model: bool = False,
         **kwargs,
@@ -169,12 +168,13 @@ class HfRunner:
             else:
                 auto_cls = AutoModelForCausalLM
 
+            model_kwargs = model_kwargs if model_kwargs is not None else {}
             self.model = self.wrap_device(
                 auto_cls.from_pretrained(
                     model_name,
                     torch_dtype=torch_dtype,
                     trust_remote_code=True,
-                    **kwargs,
+                    **model_kwargs,
                 ))
 
         self.tokenizer = AutoTokenizer.from_pretrained(
@@ -234,11 +234,13 @@ class HfRunner:
         prompts: List[str],
         max_tokens: int,
         images: Optional[List[Image.Image]] = None,
+        **kwargs,
     ) -> List[Tuple[List[int], str]]:
         outputs = self.generate(prompts,
                                 do_sample=False,
                                 max_new_tokens=max_tokens,
-                                images=images)
+                                images=images,
+                                **kwargs)
 
         return [(output_ids[0], output_str[0])
                 for output_ids, output_str in outputs]
@@ -366,7 +368,7 @@ class HfRunner:
         cleanup()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def hf_runner():
     return HfRunner
 
@@ -478,7 +480,7 @@ class HfRunnerNM(HfRunner):
         input_ids_lst: List[torch.Tensor],
         max_tokens: int,
         topk_logprobs_count: int,
-    ) -> List[Tuple[List[int], str, List[Dict]]]:
+    ) -> List[Tuple[List[str], str, List[Dict[str, Any]]]]:
         all_logprobs = []
         all_output_tokens = []
         all_output_strs = []
@@ -567,6 +569,7 @@ class VllmRunner:
         block_size: int = 16,
         enable_chunked_prefill: bool = False,
         swap_space: int = 4,
+        enforce_eager: bool = False,
         **kwargs,
     ) -> None:
         self.model = LLM(
@@ -575,6 +578,7 @@ class VllmRunner:
             trust_remote_code=True,
             dtype=dtype,
             swap_space=swap_space,
+            enforce_eager=enforce_eager,
             disable_log_stats=disable_log_stats,
             tensor_parallel_size=tensor_parallel_size,
             max_model_len=max_model_len,
@@ -691,51 +695,6 @@ def vllm_runner():
     return VllmRunner
 
 
-# UPSTREAM SYNC: needed for nm-automation
-class VllmRunnerNm(VllmRunner):
-
-    def generate_w_logprobs(
-        self,
-        prompts: List[str],
-        sampling_params: SamplingParams,
-    ) -> List[Tuple[List[int], str]]:
-        assert sampling_params.logprobs is not None
-
-        req_outputs = self.model.generate(prompts,
-                                          sampling_params=sampling_params)
-        outputs = []
-        for req_output in req_outputs:
-            for sample in req_output.outputs:
-                output_str = sample.text
-                output_ids = sample.token_ids
-                output_logprobs = sample.logprobs
-            outputs.append((output_ids, output_str, output_logprobs))
-        return outputs
-
-    def generate_greedy_logprobs(
-        self,
-        prompts: List[str],
-        max_tokens: int,
-        num_logprobs: int,
-    ) -> List[Tuple[List[int], str]]:
-        greedy_logprobs_params = SamplingParams(temperature=0.0,
-                                                max_tokens=max_tokens,
-                                                logprobs=num_logprobs)
-        outputs = self.generate_w_logprobs(prompts, greedy_logprobs_params)
-
-        return [(output_ids, output_str, output_logprobs)
-                for output_ids, output_str, output_logprobs in outputs]
-
-    def __del__(self):
-        del self.model
-        cleanup()
-
-
-@pytest.fixture
-def vllm_runner_nm():
-    return VllmRunnerNm
-
-
 def get_tokenizer_pool_config(tokenizer_group_type):
     if tokenizer_group_type is None:
         return None
@@ -768,8 +727,3 @@ def num_gpus_available():
     in current process."""
 
     return cuda_device_count_stateless()
-
-
-@pytest.fixture(scope="session")
-def logger() -> logging.Logger:
-    return make_logger("vllm_test")

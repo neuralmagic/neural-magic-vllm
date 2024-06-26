@@ -401,7 +401,7 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
                 param_data.copy_(loaded_weight)
                 return
             current_shard_offset = 0
-            shard_offsets = []
+            shard_offsets: List[Tuple[int, int, int]] = []
             for i, output_size in enumerate(self.output_sizes):
                 shard_offsets.append((i, current_shard_offset, output_size))
                 current_shard_offset += output_size
@@ -475,13 +475,6 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
                     "Loading a weight without `output_dim` attribute in "
                     "MergedColumnParallelLinear, assume the weight is "
                     "the same for all partitions.")
-
-        if fp8_scales_shard_indexer is None:
-            if len(param_data.shape) == 0:
-                param_data = param_data.reshape(1)
-
-            if len(loaded_weight.shape) == 0:
-                loaded_weight = loaded_weight.reshape(1)
 
         # UPSTREAM SYNC: needed for LazyCompressedParameter
         self.loaded_shards.add(loaded_shard_id)
@@ -706,12 +699,6 @@ class QKVParallelLinear(ColumnParallelLinear):
                     "Loading a weight without `output_dim` attribute in "
                     "QKVParallelLinear, assume the weight is the same "
                     "for all partitions.")
-
-        if len(param_data.shape) == 0:
-            param_data = param_data.reshape(1)
-
-        if len(loaded_weight.shape) == 0:
-            loaded_weight = loaded_weight.reshape(1)
 
         assert param_data.shape == loaded_weight.shape
         param_data.copy_(loaded_weight)
