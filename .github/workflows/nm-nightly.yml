@@ -31,7 +31,7 @@ jobs:
             wf_category: ${{ inputs.wf_category || 'NIGHTLY' }}
             python: 3.10.12
             gitref: ${{ github.ref }}
-            push_to_pypi: ${{ inputs.push_to_pypi }}
+            push_to_pypi: ${{ github.event_name == 'schedule' || inputs.push_to_pypi }}
 
             test_configs: '[{"python":"3.8.17","label":"gcp-k8s-l4-solo","test":"neuralmagic/tests/test_skip_env_vars/full.txt"},
                             {"python":"3.9.17","label":"gcp-k8s-l4-solo","test":"neuralmagic/tests/test_skip_env_vars/full.txt"},
