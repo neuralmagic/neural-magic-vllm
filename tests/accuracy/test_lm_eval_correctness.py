@@ -24,7 +24,9 @@ lm_eval: "lm_eval_t" = pytest.importorskip("lm_eval",
                                            reason="lm_eval required")
 
 RTOL = 0.02
-TEST_DATA_FILE = os.environ.get("LM_EVAL_TEST_DATA_FILE", None)
+TEST_DATA_FILE = os.environ.get(
+    "LM_EVAL_TEST_DATA_FILE",
+    ".github/lm-eval-configs/models/Meta-Llama-3-8B-Instruct.yaml")
 
 
 def wait_for_server(timeout=900) -> bool:
