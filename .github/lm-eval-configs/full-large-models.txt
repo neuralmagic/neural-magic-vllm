@@ -1,0 +1,9 @@
+Meta-Llama-3-70B-Instruct-FP8.yaml
+Meta-Llama-3-70B-Instruct.yaml
+Mixtral-8x22B-Instruct-v0.1-FP8.yaml
+Mixtral-8x22B-Instruct-v0.1.yaml
+Mixtral-8x7B-Instruct-v0.1-FP8.yaml
+Mixtral-8x7B-Instruct-v0.1.yaml
+Qwen2-57B-A14B-Instruct.yaml
+Qwen2-72B-Instruct.yaml
+Phi-3-medium-4k-instruct.yaml

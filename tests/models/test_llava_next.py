@@ -8,7 +8,7 @@ from vllm.config import VisionLanguageConfig
 
 from ..conftest import IMAGE_FILES
 
-pytestmark = pytest.mark.llava
+pytestmark = pytest.mark.vlm
 
 if should_skip_test_group(group_name="TEST_MODELS"):
     pytest.skip("TEST_MODELS=DISABLE, skipping model test group",

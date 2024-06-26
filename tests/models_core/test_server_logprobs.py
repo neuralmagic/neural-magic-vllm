@@ -1,3 +1,5 @@
+# mypy: ignore-errors
+# TODO (robertgshaw2-neuralmagic): clean this up
 import asyncio
 import gc
 import os
@@ -13,7 +15,6 @@ from transformers import AutoTokenizer
 
 from tests.conftest import HfRunnerNM
 from tests.models.compare_utils import check_logprobs_close
-from tests.nm_utils.logging import make_logger
 from tests.nm_utils.server import ServerContext
 from tests.nm_utils.utils_skip import should_skip_test_group
 
@@ -96,15 +97,12 @@ def test_models_on_server(
     :param num_logprobs: the total number of logprobs checked for "close enough"
     :param tensor_parallel_size: passed to the vllm Server launch
     """
-    logger = make_logger("vllm_test")
-
     # Check that we have enough GPUs to run the test.
     if tensor_parallel_size > 1 and tensor_parallel_size > GPU_COUNT:
         pytest.skip(f"gpu count {GPU_COUNT} is insufficient for "
                     f"tensor_parallel_size = {tensor_parallel_size}")
 
     # Load dataset.
-    logger.info("Loading dataset and converting to chat format.")
     ds = load_dataset("nm-testing/qa-chat-prompts",
                       split="train_sft").select(range(NUM_SAMPLES_TO_RUN))
     messages_list = [row["messages"][:NUM_CHAT_TURNS] for row in ds]
@@ -129,7 +127,6 @@ def test_models_on_server(
         for messages in messages_list
     ]
 
-    logger.info("Generating chat responses from HF transformers.")
     hf_model = hf_runner_nm(model)
     hf_outputs = hf_model.generate_greedy_logprobs_nm_use_tokens(
         input_ids_lst, max_tokens, num_logprobs)
@@ -139,7 +136,6 @@ def test_models_on_server(
     gc.collect()
     time.sleep(1.0)
 
-    logger.info("Generating chat responses from vLLM server.")
     api_server_args = {
         "--model": model,
         "--max-model-len": 4096,
@@ -152,7 +148,7 @@ def test_models_on_server(
 
     # TODO: Update this to work like the benchmark script.
     asyncio_event_loop = asyncio.get_event_loop()
-    with ServerContext(api_server_args, logger=logger) as _:
+    with ServerContext(api_server_args) as _:
         chats = []
         for messages in messages_list:
             chats.append(
@@ -160,7 +156,6 @@ def test_models_on_server(
         # Gather results.
         results = asyncio_event_loop.run_until_complete(asyncio.gather(*chats))
 
-    logger.info("Processing raw data from vLLM server.")
     vllm_outputs = []
 
     # See https://platform.openai.com/docs/api-reference/chat/create
@@ -187,7 +182,6 @@ def test_models_on_server(
             output_logprobs.append(top_logprobs)
         vllm_outputs.append((output_tokens, output_str, output_logprobs))
 
-    logger.info("Comparing results.")
     check_logprobs_close(
         outputs_0_lst=hf_outputs,
         outputs_1_lst=vllm_outputs,

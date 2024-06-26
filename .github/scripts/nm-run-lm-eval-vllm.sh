@@ -7,15 +7,19 @@
 usage() {
     echo``
     echo "Runs lm eval harness on GSM8k using vllm server and compares to "
-    echo "precomputed baseline (measured by HF transformers."
+    echo "precomputed baseline (measured by HF transformers.)"
+    echo
+    echo "This script should be run from the /nm-vllm directory" 
     echo
     echo "usage: ${0} <options>"
     echo
-    echo "  -c    - path to the test data config (e.g. neuralmagic/lm-eval/YOUR_CONFIG.yaml)"
+    echo "  -c    - path to the test data config (e.g. .github/lm-eval-configs/small-models-smoke.txt)"
     echo
 }
 
-while getopts "c:" OPT; do
+SUCCESS=0
+
+while getopts "c:t:" OPT; do
   case ${OPT} in
     c ) 
         CONFIG="$OPTARG"
@@ -27,4 +31,30 @@ while getopts "c:" OPT; do
   esac
 done
 
-LM_EVAL_TEST_DATA_FILE=$CONFIG pytest -v tests/accuracy/test_lm_eval_correctness.py
+# Parse list of configs.
+IFS=$'\n' read -d '' -r -a MODEL_CONFIGS < $CONFIG
+
+for MODEL_CONFIG in "${MODEL_CONFIGS[@]}"
+do
+    LOCAL_SUCCESS=0
+    
+    echo "=== RUNNING MODEL: $MODEL_CONFIG ==="
+
+    MODEL_CONFIG_PATH=$PWD/.github/lm-eval-configs/models/${MODEL_CONFIG}
+    LM_EVAL_TEST_DATA_FILE=$MODEL_CONFIG_PATH pytest -s tests/accuracy/test_lm_eval_correctness.py || LOCAL_SUCCESS=$?
+
+    if [[ $LOCAL_SUCCESS == 0 ]]; then
+        echo "=== PASSED MODEL: ${MODEL_CONFIG} ==="
+    else
+        echo "=== FAILED MODEL: ${MODEL_CONFIG} ==="
+    fi
+
+    SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
+
+done
+
+if [ "${SUCCESS}" -eq "0" ]; then
+    exit 0
+else
+    exit 1
+fi

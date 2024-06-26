@@ -191,7 +191,8 @@ class NMProfileResults(profile):
         correlated_kineto_events = self._kineto_event_correlation_map.get(
             node.event.correlation_id, [])
         iterator = (x for x in correlated_kineto_events
-                    if x.device_type() == DeviceType.CUDA)
+                    if x.device_type() == DeviceType.CUDA
+                    and x.name() == node.event.name)
         return next(iterator, None)
 
     def _cumulative_cuda_time(self, node: _ModuleTreeNode):

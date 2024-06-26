@@ -1,0 +1,11 @@
+# ./nm-run-lm-eval-gsm-hf-baseline.sh -m google/gemma-7b-it -b 16 -l 250 -f 5
+model_name: "google/gemma-7b-it"
+tasks:
+- name: "gsm8k"
+  metrics:
+  - name: "exact_match,strict-match"
+    value: 0.284
+  - name: "exact_match,flexible-extract"
+    value: 0.324
+limit: 250
+num_fewshot: 5
