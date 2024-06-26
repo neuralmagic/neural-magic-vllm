@@ -30,7 +30,6 @@ runs:
       SUCCESS=0
       python setup.py bdist_wheel --dist-dir=dist --py-limited-api=cp38 || SUCCESS=$?
       echo "whl_status=${SUCCESS}" >> "$GITHUB_OUTPUT"
-      ls -alh dist
       WHL_FILEPATH=$(find dist -type f -iname "*linux_x86_64.whl")
       echo "whl: ${WHL_FILEPATH}"
       # strip wheel
@@ -51,6 +50,7 @@ runs:
       mv ${WHL_FILEPATH} ${RENAME}
       WHL=$(basename ${RENAME})
       echo "whl=${WHL}" >> "$GITHUB_OUTPUT"
+      ls -alh dist
       if [ ${SUCCESS} -ne 0 ]; then
         exit 1
       fi
