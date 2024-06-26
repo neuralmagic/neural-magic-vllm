@@ -129,7 +129,7 @@ jobs:
             timeout: ${{ inputs.test_timeout }}
             gitref: ${{ github.ref }}
             python: ${{ matrix.test_config.python }}
-            whl: ${{ needs.BUILD.output.whl }}
+            whl: ${{ needs.BUILD.outputs.whl }}
             test_skip_env_vars: ${{ matrix.test_config.test }}
         secrets: inherit
 
@@ -169,5 +169,16 @@ jobs:
             label: gcp-k8s-util
             timeout: ${{ inputs.build_timeout }}
             gitref: ${{ github.ref }}
-            python: ${{ inputs.python }}
+        secrets: inherit
+
+    # update docker
+    DOCKER:
+        needs: [BUILD, UPLOAD]
+        if: ${{ inputs.push_to_pypi }}
+        uses: ./.github/workflows/publish-docker.yml
+        with:
+            push_to_repository: ${{ inputs.push_to_pypi }}
+            gitref: ${{ inputs.gitref }}
+            wf_category: ${{ inputs.wf_category }}
+            wheel: ${{ needs.BUILD.outputs.whl }}
         secrets: inherit
