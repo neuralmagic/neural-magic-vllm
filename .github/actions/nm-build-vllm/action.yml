@@ -25,13 +25,6 @@ runs:
       COMMIT=${{ github.sha }}
       VENV="${{ inputs.venv }}-${COMMIT:0:7}"
 
-      # add git commit hash to `vllm/version.py`
-      echo "__commit__ = '$COMMIT'" >> vllm/version.py
-      # update import line in `vllm/__init__.py`
-      sed -i 's/import __version__/import __commit__, __version__/' vllm/__init__.py
-      # update "__all__" list in `vllm/__init__.py`
-      sed -i 's/"__version__",/"__commit__",\n    "__version__",/' vllm/__init__.py
-
       source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
       pip3 install -r requirements-cuda.txt -r requirements-build.txt
       # whl
