@@ -353,8 +353,6 @@ def main(args: argparse.Namespace):
             dataset=args.dataset)
 
         result = metrics.update_benchmark_result(result)
-        # TODO: remove debug line
-        print(f"kwyjibo\n{result.result_dict=}")
 
         # Add information about the derived variables as metadata
         metadata_key = BenchmarkResult.METADATA_KEY_
