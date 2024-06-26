@@ -54,19 +54,6 @@ runs:
       if [ ${SUCCESS} -ne 0 ]; then
         exit 1
       fi
-      # strip wheel
-      if [ ! $(command -v strip) ]; then
-          sudo apt install -y binutils
-      fi
-      if [ ! $(command -v file) ]; then
-          sudo apt install -y file
-      fi
-      python -m wheel unpack ${RENAME} -d stripped-package
-      find stripped-package/ -type f -name '*.so' -exec strip {} \;
-      find stripped-package/ -type f -name '*.so' -exec file {} \;
-      STRIPPED_PACKAGE=`ls stripped-package/`
-      rm -rf ${RENAME}
-      python -m wheel pack stripped-package/${STRIPPED_PACKAGE} -d dist/
       # sdist
       python setup.py sdist || SUCCESS=$?
       pyenv uninstall --force ${{ inputs.python}}/envs/${VENV}
