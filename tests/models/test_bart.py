@@ -9,7 +9,7 @@ from vllm.utils import STR_XFORMERS_ATTN_VAL
 
 from .utils import check_logprobs_close
 
-MODELS = ["facebook/bart-large-cnn"]
+MODELS = ["facebook/bart-base","facebook/bart-large-cnn"]
 
 # Backends under test
 #
@@ -18,7 +18,7 @@ BACKEND_NAMES = [STR_XFORMERS_ATTN_VAL]
 
 
 @pytest.mark.parametrize("model", MODELS)
-@pytest.mark.parametrize("dtype", ["bfloat16"])
+@pytest.mark.parametrize("dtype", ["float","bfloat16"])
 @pytest.mark.parametrize("max_tokens", [64])
 @pytest.mark.parametrize("num_logprobs", [5])
 @pytest.mark.parametrize("backend_name", BACKEND_NAMES)

@@ -583,6 +583,8 @@ class LLMEngine:
                         prompt=inputs["decoder_prompt"],
                         lora_request=lora_request)
 
+                    decoder_prompt_token_ids = [2] + decoder_prompt_token_ids
+
                     encoder_prompt_token_ids = tokenizer.encode(
                         request_id=request_id,
                         prompt=inputs["encoder_prompt"],
