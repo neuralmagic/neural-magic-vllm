@@ -157,6 +157,7 @@ elif [[ "$1" == '--all' ]]; then
    spell_check_all
 else
    # Check spelling only of the files that changed in last commit.
+   echo "${CODESPELL_EXCLUDES[@]}"
    spell_check_changed
 fi
 echo 'vLLM codespell: Done'
