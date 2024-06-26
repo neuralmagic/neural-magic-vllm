@@ -389,11 +389,12 @@ class MergedColumnParallelLinear(ColumnParallelLinear):
         if loaded_shard_id is None:
             # Loaded weight is already packed.
             if output_dim is None:
-                assert param_data.shape == loaded_weight.shape
-                param_data.copy_(loaded_weight)
+                temp = loaded_weight.repeat(param_data.shape)
+                assert param_data.shape == temp.shape
+                param_data.copy_(temp)
                 return
             current_shard_offset = 0
-            shard_offsets: List[Tuple[int, int, int]] = []
+            shard_offsets = []
             for i, output_size in enumerate(self.output_sizes):
                 shard_offsets.append((i, current_shard_offset, output_size))
                 current_shard_offset += output_size
@@ -573,8 +574,9 @@ class QKVParallelLinear(ColumnParallelLinear):
         if loaded_shard_id is None:
             # Loaded weight is already packed.
             if output_dim is None:
-                assert param_data.shape == loaded_weight.shape
-                param_data.copy_(loaded_weight)
+                temp = loaded_weight.repeat(param_data.shape)
+                assert param_data.shape == temp.shape
+                param_data.copy_(temp)
                 return
             shard_offsets = [
                 # (shard_id, shard_offset, shard_size)
