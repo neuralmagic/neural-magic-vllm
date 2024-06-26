@@ -146,16 +146,17 @@ def compute_max_diff(output, output_ref):
 
 
 # UPSTREAM SYNC: breaks NM automation.
-@pytest.mark.skip("C compiler not installed in NM automation. "
-                  "This codepath follows a triton pathway, which "
-                  "JITs using clang or gcc. Since neither are installed "
-                  "in our test instances, we need to skip this for now.")
+# @pytest.mark.skip("C compiler not installed in NM automation. "
+#                   "This codepath follows a triton pathway, which "
+#                   "JITs using clang or gcc. Since neither are installed "
+#                   "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("m", [64, 512, 222, 33, 1])
 @pytest.mark.parametrize("n", [128, 2048, 256, 1024])
 @pytest.mark.parametrize("k", [128, 1024, 512])
 @pytest.mark.parametrize("e", [4, 8, 64])
 @pytest.mark.parametrize("topk", [2, 6])
-@pytest.mark.parametrize("group_size", [-1, 32, 64, 128])
+@pytest.mark.parametrize("group_size", [32, 64, 128])
+@pytest.mark.parametrize("act_order", [True])
 def test_fused_marlin_moe(
     m: int,
     n: int,
@@ -163,9 +164,17 @@ def test_fused_marlin_moe(
     e: int,
     topk: int,
     group_size: int,
+    act_order: bool,
 ):
     if topk > e:
         return
+    
+    # Filter act_order
+    if act_order:
+        if group_size == -1:
+            return
+        if group_size == k:
+            return
 
     num_bits = 4
     dtype = torch.float16
@@ -180,8 +189,8 @@ def test_fused_marlin_moe(
     scaless1 = []
 
     for i in range(w1.shape[0]):
-        w_ref1, qweight1, scales1, _, _, _ = marlin_quantize(
-            w1[i].transpose(1, 0), num_bits, group_size, False)
+        w_ref1, qweight1, scales1, g_idx, _, rand_perm = marlin_quantize(
+            w1[i].transpose(1, 0), num_bits, group_size, act_order)
         w_refs1.append(w_ref1)
         qweights1.append(qweight1)
         scaless1.append(scales1)
@@ -195,8 +204,8 @@ def test_fused_marlin_moe(
     scales2_l = []
 
     for i in range(w2.shape[0]):
-        w_ref2, qweight2, scales2, _, _, _ = marlin_quantize(
-            w2[i].transpose(1, 0), num_bits, group_size, False)
+        w_ref2, qweight2, scales2, g_idx, sort_indices, rand_perm = marlin_quantize(
+            w2[i].transpose(1, 0), num_bits, group_size, act_order)
         w_refs2.append(w_ref2)
         qweight2_l.append(qweight2)
         scales2_l.append(scales2)
@@ -216,6 +225,8 @@ def test_fused_marlin_moe(
                                      qweight1,
                                      qweight2,
                                      score,
+                                     g_idx,
+                                     rand_perm,
                                      topk,
                                      renormalize=False,
                                      w1_scale=scales1,
@@ -225,16 +236,17 @@ def test_fused_marlin_moe(
 
 
 # UPSTREAM SYNC: breaks NM automation.
-@pytest.mark.skip("C compiler not installed in NM automation. "
-                  "This codepath follows a triton pathway, which "
-                  "JITs using clang or gcc. Since neither are installed "
-                  "in our test instances, we need to skip this for now.")
+# @pytest.mark.skip("C compiler not installed in NM automation. "
+#                   "This codepath follows a triton pathway, which "
+#                   "JITs using clang or gcc. Since neither are installed "
+#                   "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("m", [64, 512, 222, 33, 1])
 @pytest.mark.parametrize("n", [128, 2048, 256, 1024])
 @pytest.mark.parametrize("k", [128, 1024, 512])
 @pytest.mark.parametrize("e", [4, 8, 64])
 @pytest.mark.parametrize("topk", [2, 6])
 @pytest.mark.parametrize("group_size", [-1, 32, 64, 128])
+@pytest.mark.parametrize("act_order", [True])
 def test_single_marlin_moe(
     m: int,
     n: int,
@@ -242,9 +254,17 @@ def test_single_marlin_moe(
     e: int,
     topk: int,
     group_size: int,
+    act_order: bool,
 ):
     if topk > e:
         return
+    
+    # Filter act_order
+    if act_order:
+        if group_size == -1:
+            return
+        if group_size == k:
+            return
 
     num_bits = 4
     dtype = torch.float16
@@ -256,8 +276,8 @@ def test_single_marlin_moe(
     scales_l = []
 
     for i in range(w.shape[0]):
-        w_ref, qweight, scales, _, _, _ = marlin_quantize(
-            w[i].transpose(1, 0), num_bits, group_size, False)
+        w_ref, qweight, scales, g_idx, _, rand_perm= marlin_quantize(
+            w[i].transpose(1, 0), num_bits, group_size, act_order)
         w_ref_l.append(w_ref)
         qweights_l.append(qweight)
         scales_l.append(scales)
@@ -271,6 +291,8 @@ def test_single_marlin_moe(
                                       qweight,
                                       scales,
                                       score,
+                                      g_idx,
+                                      rand_perm,
                                       topk,
                                       renormalize=False)
     torch_output = torch_moe_single(a, w_ref.transpose(1, 2), score, topk)

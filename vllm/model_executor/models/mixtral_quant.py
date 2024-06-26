@@ -185,6 +185,8 @@ class MixtralMoE(nn.Module):
             qweight13,
             qweight2,
             router_logits,
+            g_idx_sort_idx,
+            g_idx_sort_idx,
             self.top_k,
             renormalize=True,
             w1_scale=scales13,
