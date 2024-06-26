@@ -9,6 +9,7 @@ usage() {
     echo "  -t    - test directory, i.e. location of *.py test files. (default 'tests/')"
     echo "  -r    - desired results base directory. xml results will mirror provided tests directory structure. (default 'test-results/')"
     echo "  -f    - file with test skip list, e.g. ' neuralmagic/tests/skip-for-remote-push.txt'. (default is to run all found tests)"
+    echo "  -c    - str to set as the static context for code coverage report of this run"
     echo "  -h    - this list of options"
     echo
     echo "note: all paths are relative to 'nm-vllm' root"
@@ -23,21 +24,24 @@ SKIP_LIST=
 
 while getopts "hs:t:r:f:" OPT; do
     case "${OPT}" in
-	h)
+	  h)
 	    usage
 	    ;;
     s)
-        SRC_DIR="${OPTARG}"
-        ;;
-	t)
+      SRC_DIR="${OPTARG}"
+      ;;
+	  t)
 	    TEST_DIR="${OPTARG}"
 	    ;;
     r)
-        RESULTS_DIR="${OPTARG}"
-        ;;
+      RESULTS_DIR="${OPTARG}"
+      ;;
     f)
-        SKIP_LIST="${OPTARG}"
-        ;;
+      SKIP_LIST="${OPTARG}"
+      ;;
+    c)
+      TEST_CONTEXT="${OPTARG}"
+      ;;
     esac
 done
 
@@ -103,7 +107,7 @@ echo "..."
 
 # run selected tests
 SUCCESS=0
-CC_PYTEST_FLAGS="--cov=${SRC_DIR} --cov=${TEST_DIR} --cov-report=html:cc-vllm-html --cov-report=json:cc-vllm.json --cov-append"
+CC_PYTEST_FLAGS="--cov=${SRC_DIR} --cov=${TEST_DIR} --cov-report=html:cc-vllm-html --cov-report=json:cc-vllm.json --cov-context=${TEST_CONTEXT} --cov-append"
 for TEST in "${TESTS_FOUND[@]}"
 do
     LOCAL_SUCCESS=0

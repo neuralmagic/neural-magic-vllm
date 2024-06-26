@@ -126,7 +126,6 @@ jobs:
               uses: ./.github/actions/nm-install-whl/
               with:
                 python: ${{ inputs.python }}
-                venv:
 
             - name: run buildkite script
               run: |
@@ -144,6 +143,8 @@ jobs:
               with:
                 test_directory: tests
                 test_results: test-results
+                python: ${{ steps.verify_python.outputs.version }}
+                test_label: ${{ inputs.test_label }}
 
             - name: upload code coverage html
               uses: actions/upload-artifact@v4

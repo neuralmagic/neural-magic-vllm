@@ -10,6 +10,12 @@ inputs:
   test_results:
     description: 'desired directory for test results'
     required: true
+  python:
+    description: 'version of python to id test coverage'
+    required: true
+  test_label:
+    description: 'test environment label to id test coverage'
+    required: true
 outputs:
   status:
     description: 'return test result'
@@ -25,7 +31,7 @@ runs:
         pip install -r requirements-dev.txt
         SUCCESS=0
         VLLM_SRC=$(python3 -c "import vllm; print(vllm.__path__[0])")
-        ./.github/scripts/run-tests -s ${VLLM_SRC} -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} -f ${{ inputs.test_skip_list }}|| SUCCESS=$?
+        ./.github/scripts/run-tests -s ${VLLM_SRC} -t ${{ inputs.test_directory }} -r ${{ inputs.test_results }} -f ${{ inputs.test_skip_list }} -c ${{ inputs.python }}-${{ inputs.test_label }} || SUCCESS=$?
         pytest ./neuralmagic/tests/test_nm-vllm_licenses.py --junitxml=${{ inputs.test_results }}/test_nm-vllm_licenses.xml
         echo "status=${SUCCESS}" >> "$GITHUB_OUTPUT"
         exit ${SUCCESS}
