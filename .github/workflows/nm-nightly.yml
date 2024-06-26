@@ -14,6 +14,11 @@ on:
                     - NIGHTLY
                     - RELEASE
                 default: NIGHTLY
+            gitref:
+                description: "git commit hash or branch name"
+                type: string
+                default: 'main'
+                required: true
             push_to_pypi:
                 description: "when set and tests pass, then '.whl' and '.tar.gz' will be pushed to neuralmagic pypi"
                 type: boolean
@@ -30,7 +35,7 @@ jobs:
         with:
             wf_category: ${{ inputs.wf_category || 'NIGHTLY' }}
             python: 3.10.12
-            gitref: ${{ github.ref }}
+            gitref: ${{ inputs.gitref || 'main' }}
             push_to_pypi: ${{ github.event_name == 'schedule' || inputs.push_to_pypi }}
 
             test_configs: '[{"python":"3.8.17","label":"gcp-k8s-l4-solo","test":"neuralmagic/tests/test_skip_env_vars/full.txt"},
