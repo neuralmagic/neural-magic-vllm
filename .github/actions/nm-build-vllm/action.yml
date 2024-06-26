@@ -30,27 +30,14 @@ runs:
       SUCCESS=0
       python setup.py bdist_wheel --dist-dir=dist --py-limited-api=cp38 || SUCCESS=$?
       echo "whl_status=${SUCCESS}" >> "$GITHUB_OUTPUT"
+      ls -alh dist
       WHL_FILEPATH=$(find dist -type f -iname "*linux_x86_64.whl")
       echo "whl: ${WHL_FILEPATH}"
-      # strip wheel
-      if [ ! $(command -v strip) ]; then
-          sudo apt install -y binutils
-      fi
-      if [ ! $(command -v file) ]; then
-          sudo apt install -y file
-      fi
-      python -m wheel unpack ${WHL_FILEPATH} -d stripped-package
-      find stripped-package/ -type f -name '*.so' -exec strip {} \;
-      find stripped-package/ -type f -name '*.so' -exec file {} \;
-      STRIPPED_PACKAGE=`ls stripped-package/`
-      rm -rf ${WHL_FILEPATH}
-      python -m wheel pack stripped-package/${STRIPPED_PACKAGE} -d dist/
       RENAME=$(echo ${WHL_FILEPATH} | sed -e 's/linux_x86_64/manylinux_2_17_x86_64/')
       echo "rename: ${RENAME}"
       mv ${WHL_FILEPATH} ${RENAME}
       WHL=$(basename ${RENAME})
       echo "whl=${WHL}" >> "$GITHUB_OUTPUT"
-      ls -alh dist
       if [ ${SUCCESS} -ne 0 ]; then
         exit 1
       fi
