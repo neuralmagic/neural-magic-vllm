@@ -1,3 +1,5 @@
+from typing import List
+
 import pytest
 
 from tests.nm_utils.utils_skip import should_skip_test_group
@@ -22,7 +24,7 @@ def test_load_checkpoints(
     packed_modules_mapping = BaiChuanBaseForCausalLM.packed_modules_mapping
     embedding_modules = BaiChuanBaseForCausalLM.embedding_modules
     embed_padding_modules = BaiChuanBaseForCausalLM.embedding_padding_modules
-    expected_lora_modules = []
+    expected_lora_modules: List[str] = []
     for module in supported_lora_modules:
         if module in packed_modules_mapping:
             expected_lora_modules.extend(packed_modules_mapping[module])

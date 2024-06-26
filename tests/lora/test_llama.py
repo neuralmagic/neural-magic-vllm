@@ -1,3 +1,5 @@
+from typing import List
+
 import pytest
 import ray
 
@@ -14,7 +16,7 @@ if should_skip_test_group(group_name="TEST_LORA"):
 MODEL_PATH = "meta-llama/Llama-2-7b-hf"
 
 
-def do_sample(llm, lora_path: str, lora_id: int):
+def do_sample(llm: vllm.LLM, lora_path: str, lora_id: int) -> List[str]:
     prompts = [
         "[user] Write a SQL query to answer the question based on the table schema.\n\n context: CREATE TABLE table_name_74 (icao VARCHAR, airport VARCHAR)\n\n question: Name the ICAO for lilongwe international airport [/user] [assistant]",  # noqa: E501
         "[user] Write a SQL query to answer the question based on the table schema.\n\n context: CREATE TABLE table_name_11 (nationality VARCHAR, elector VARCHAR)\n\n question: When Anchero Pantaleone was the elector what is under nationality? [/user] [assistant]",  # noqa: E501
@@ -32,7 +34,7 @@ def do_sample(llm, lora_path: str, lora_id: int):
         lora_request=LoRARequest(str(lora_id), lora_id, lora_path)
         if lora_id else None)
     # Print the outputs.
-    generated_texts = []
+    generated_texts: List[str] = []
     for output in outputs:
         prompt = output.prompt
         generated_text = output.outputs[0].text

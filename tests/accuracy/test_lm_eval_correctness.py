@@ -1,4 +1,5 @@
-import logging
+# mypy: ignore-errors
+# TODO (robertgshaw2-neuralmagic): clean this up
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, TypedDict
@@ -63,14 +64,12 @@ DEFAULT_RTOL = 0.05
 @pytest.mark.parametrize("eval_data", TEST_DATA)
 def test_lm_eval_correctness(
     eval_data: EvalTaskDefinition,
-    logger: logging.Logger,
     monkeypatch: pytest.MonkeyPatch,
 ):
     monkeypatch.setenv("TOKENIZERS_PARALLELISM", "false")
     monkeypatch.setenv("OPENAI_API_KEY", "dummy")
 
     model_name = eval_data["model_name"]
-    logger.info("building server startup args")
     vllm_args = {
         "--model": model_name,
         "--disable-log-requests": None,
@@ -79,7 +78,6 @@ def test_lm_eval_correctness(
 
     if eval_data.get("enable_tensor_parallel") is True:
         tp = torch.cuda.device_count()
-        logger.info("Enabling tensor parallelism with %d devices", tp)
         vllm_args["--tensor-parallel-size"] = tp
 
     if extra_args := eval_data.get("extra_args"):
@@ -91,12 +89,10 @@ def test_lm_eval_correctness(
         "base_url=http://localhost:8000/v1",
     ])
 
-    logger.info("launching server")
-    with ServerContext(vllm_args, logger=logger) as _:
+    with ServerContext(vllm_args) as _:
         task_names = [task["name"] for task in eval_data["tasks"]]
         limit = eval_data["limit"]
         new_fewshot = eval_data["num_fewshot"]
-        logger.info("getting results for task_names=%s", task_names)
         results = lm_eval.simple_evaluate(
             model="local-completions",
             model_args=openai_args,
@@ -106,16 +102,14 @@ def test_lm_eval_correctness(
             limit=limit,
         )
 
-    logger.info("clearing torch cache")
     lm_eval.models.utils.clear_torch_cache()
 
     rtol = eval_data.get("rtol", DEFAULT_RTOL)
     for task in eval_data["tasks"]:
-        logger.info("checking metrics for task=%s", task["name"])
         for metric in task["metrics"]:
             ground_truth = metric["value"]
             measured_value = results["results"][task["name"]][metric["name"]]
-            logger.info(
+            print(
                 "%s %s:\nground_truth=%s measured_value=%s",
                 task["name"],
                 metric["name"],
