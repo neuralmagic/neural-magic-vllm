@@ -10,7 +10,8 @@ except ImportError as e:
     logger = init_logger(__name__)
     logger.warning("Failed to import from vllm._C with %r", e)
 
-import vllm._moe_C
+with contextlib.suppress(ImportError):
+    import vllm._moe_C
 
 with contextlib.suppress(ImportError):
     # ruff: noqa: F401
