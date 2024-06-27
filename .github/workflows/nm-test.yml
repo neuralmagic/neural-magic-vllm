@@ -93,7 +93,7 @@ jobs:
 
         strategy:
             matrix:
-                job-set: ${{ fromJson(needs.DISPATCH.outputs.jobs) }}
+                job-set: ${{ fromJson(needs.DISPATCH.outputs.job-sets.jobs) }}
         steps:
 
             - name: take a look
