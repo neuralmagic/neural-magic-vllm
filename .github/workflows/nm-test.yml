@@ -98,14 +98,14 @@ jobs:
         runs-on: gcp-k8-util
         timeout-minutes: 16
 
-        strategy:
-            matrix:
-                job-set: ${{ fromJson(needs.DISPATCH.outputs.job-sets) }}
+        # strategy:
+        #     matrix:
+        #         job-set: ${{ fromJson(needs.DISPATCH.outputs.job-sets) }}
         steps:
 
             - name: take a look
               run: |
-                echo "job: matrix.job-set"
+                echo "from dispatch: ${{ needs.DISPATCH.outputs.job-sets }}"
 
     # TEST:
 
