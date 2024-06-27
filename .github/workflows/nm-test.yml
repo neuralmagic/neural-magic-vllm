@@ -62,6 +62,9 @@ jobs:
         runs-on: gcp-k8s-util
         timeout-minutes: 16
 
+        outputs:
+            job-sets: ${{ steps.job-sets.outputs.jobs }}
+
         steps:
 
             - name: install automation components
@@ -84,6 +87,10 @@ jobs:
                 JOBS=$(printf '%s\n' "${TEST_DIRS_ARRAY[@]}" | jq -R . | jq -s . | jq '@json')
                 echo "jobs=${JOBS}" >> $GITHUB_OUTPUT
 
+            - name: take a look
+              run: |
+                echo "... ${{ steps.job-sets.outputs.jobs }}"
+
     TEST:
 
         needs: [DISPATCH]
@@ -93,7 +100,7 @@ jobs:
 
         strategy:
             matrix:
-                job-set: ${{ fromJson(needs.DISPATCH.outputs.job-sets.jobs) }}
+                job-set: ${{ fromJson(needs.DISPATCH.outputs.job-sets) }}
         steps:
 
             - name: take a look
