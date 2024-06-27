@@ -6,6 +6,8 @@ from torch.nn import Parameter
 from vllm import _custom_ops as custom_ops
 from vllm.model_executor.layers.quantization.compressed_tensors.schemes.compressed_tensors_w8a8 import (  # noqa: E501
     CompressedTensorsW8A8)
+from vllm.model_executor.layers.quantization.compressed_tensors.utils import (
+    QuantizationType)
 from vllm.model_executor.utils import set_weight_attrs
 
 __all__ = ["CompressedTensorsW8A8StaticTensor"]
@@ -40,8 +42,23 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsW8A8):
         weight_scale = layer.weight_scale
         act_scale = layer.input_scale
 
-        # Input quantize
-        x_q, _ = custom_ops.scaled_int8_quant(x, act_scale)
+        if self.quant_type == QuantizationType.FLOAT:
+            x_q, x_scale = custom_ops.scaled_fp8_quant(x, act_scale)
 
-        return custom_ops.cutlass_scaled_mm(x_q, weight.t(), act_scale,
-                                            weight_scale, x.dtype)
+            # Fused GEMM_DQ
+            output = custom_ops.cutlass_scaled_mm(
+                x_q,
+                weight.t(),
+                out_dtype=x.dtype,
+                scale_a=x_scale,
+                scale_b=weight_scale,
+            )
+
+            return torch.narrow(output, 0, 0, x.shape[0])
+        
+        else:
+            # Input quantize
+            x_q, _ = custom_ops.scaled_int8_quant(x, act_scale)
+
+            return custom_ops.cutlass_scaled_mm(x_q, weight.t(), act_scale,
+                                                weight_scale, x.dtype)
