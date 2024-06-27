@@ -15,7 +15,7 @@ outputs:
     description: "extra tag for the docker image based on build type, either latest (for RELEASE) or nightly (for NIGHTLY)"
     value: ${{ steps.tags.outputs.extra_tag }}
   build_version:
-    "version of nm-vllm, e.g. 0.4.0, 0.4.0.20240531"
+    description: "version of nm-vllm, e.g. 0.4.0, 0.4.0.20240531"
     value: ${{ steps.tags.outputs.build_version }}
 runs:
   using: composite
