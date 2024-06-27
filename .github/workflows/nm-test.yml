@@ -85,7 +85,7 @@ jobs:
                 TEST_DIRS=$(find tests -type d -maxdepth 1 -mindepth 1)
                 TEST_DIRS_ARRAY=(${TEST_DIRS})
                 JOBS=$(printf '%s\n' "${TEST_DIRS_ARRAY[@]}" | jq -R . | jq -s . | jq '@json')
-                echo "jobs=${JOBS}" >> $GITHUB_OUTPUT
+                echo "jobs=\"${JOBS}\"" >> $GITHUB_OUTPUT
 
             - name: take a look
               run: |
