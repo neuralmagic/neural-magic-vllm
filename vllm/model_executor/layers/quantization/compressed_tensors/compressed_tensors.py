@@ -17,6 +17,8 @@ from vllm.model_executor.layers.quantization.compressed_tensors.utils import (
     should_ignore_layer)
 from vllm.platforms import current_platform
 
+__all__ = ["CompressedTensorsLinearMethod"]
+
 
 class CompressedTensorsConfig(QuantizationConfig):
 
