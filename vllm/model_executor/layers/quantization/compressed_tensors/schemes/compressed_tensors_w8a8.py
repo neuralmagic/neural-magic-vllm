@@ -1,4 +1,4 @@
-from typing import Callable, List, Tuple, Union
+from typing import Callable, List, Union
 
 import torch
 from torch.nn import Parameter
@@ -12,17 +12,15 @@ from vllm.model_executor.utils import set_weight_attrs
 
 class CompressedTensorsW8A8(CompressedTensorsScheme):
 
-    def __init__(self,
-                 strategy: QuantizationStrategy,
+    def __init__(self, strategy: QuantizationStrategy,
                  quant_type: QuantizationType):
         self.strategy = strategy
         self.quant_type = quant_type
 
-    
     def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
-        # If not per tensor or not a "fused" module, do nothing.
+        # If not per tensor or not a "fused" (QKV/MLP) module, do nothing.
         if (self.strategy != QuantizationStrategy.TENSOR
-            or len(self.logical_widths) == 1):
+                or len(self.logical_widths) == 1):
             return
 
         # Cutlass kernels support only per-tensor and per-channel cases.
@@ -30,26 +28,28 @@ class CompressedTensorsW8A8(CompressedTensorsScheme):
         #   > int8): requantize with single scale
         #   > fp8 ): convert N per tensor scales >> channelwise
 
-        # int8 case -> convert the N per-tensor scales into channelwise. 
+        # int8 case -> convert the N per-tensor scales into channelwise.
         if self.quant_type == QuantizationType.INT:
             weight_scale_channel = torch.empty(
-                (sum(self.logical_widths), 1), dtype=torch.float32,
+                (sum(self.logical_widths), 1),
+                dtype=torch.float32,
                 device=layer.weight_scale.device)
             start = 0
             for idx, logical_width in enumerate(self.logical_widths):
                 end = start + logical_width
                 weight_scale_channel[start:end, :] = layer.weight_scale[idx]
                 start = end
-            layer.weight_scale = Parameter(weight_scale_channel, requires_grad=False)
-        
+            layer.weight_scale = Parameter(weight_scale_channel,
+                                           requires_grad=False)
+
         # fp8 case -> convert the N per-tensor scales to 1 by requantizing.
         else:
             max_w_scale = layer.weight_scale.max()
             start = 0
             for idx, logical_width in enumerate(self.logical_widths):
                 end = start + logical_width
-                weight_dq = per_tensor_dequantize(
-                    layer.weight[start:end, :], layer.weight_scale[idx])
+                weight_dq = per_tensor_dequantize(layer.weight[start:end, :],
+                                                  layer.weight_scale[idx])
                 layer.weight[start:end, :] = per_tensor_quantize(
                     weight_dq, layer.weight_scale.max())
                 start = end
@@ -63,11 +63,9 @@ class CompressedTensorsW8A8(CompressedTensorsScheme):
         self.logical_widths = output_partition_sizes
 
         # WEIGHT SCALE
-        shape: Union[Tuple[int], Tuple[int, int]]
-        if self.strategy == QuantizationStrategy.CHANNEL:
-            shape = (sum(self.logical_widths), 1)
-        else:
-            shape = (len(self.logical_widths), )
+        shape = (sum(self.logical_widths),
+                 1) if self.strategy == QuantizationStrategy.CHANNEL else (len(
+                     self.logical_widths), )
 
         weight_scale = Parameter(torch.empty(*shape, dtype=torch.float32),
                                  requires_grad=False)
@@ -84,11 +82,8 @@ class CompressedTensorsW8A8(CompressedTensorsScheme):
             })
 
         # WEIGHT
-        if self.quant_type == QuantizationType.FLOAT:
-            weight_dtype = torch.float8_e4m3fn
-        else:
-            weight_dtype = torch.int8
-
+        weight_dtype = (torch.float8_e4m3fn if self.quant_type
+                        == QuantizationType.FLOAT else torch.int8)
         weight = Parameter(torch.empty(sum(output_partition_sizes),
                                        input_size_per_partition,
                                        dtype=weight_dtype),

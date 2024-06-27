@@ -45,7 +45,6 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsW8A8):
         if self.quant_type == QuantizationType.FLOAT:
             x_q, x_scale = custom_ops.scaled_fp8_quant(x, act_scale)
 
-            # Fused GEMM_DQ
             output = custom_ops.cutlass_scaled_mm(
                 x_q,
                 weight.t(),
@@ -55,9 +54,8 @@ class CompressedTensorsW8A8StaticTensor(CompressedTensorsW8A8):
             )
 
             return torch.narrow(output, 0, 0, x.shape[0])
-        
+
         else:
-            # Input quantize
             x_q, _ = custom_ops.scaled_int8_quant(x, act_scale)
 
             return custom_ops.cutlass_scaled_mm(x_q, weight.t(), act_scale,
