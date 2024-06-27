@@ -1,5 +1,6 @@
 #!/bin/bash
-# We can use this script to compute baseline accuracy on GSM for transformers.
+# We can use this script to compute baseline accuracy on GSM for vllm.
+# We use this for fp8, which HF does not support.
 #
 # Make sure you have lm-eval-harness installed:
 #   pip install git+https://github.com/EleutherAI/lm-evaluation-harness.git@9516087b81a61d0e220b22cc1b75be76de23bc10

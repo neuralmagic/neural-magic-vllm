@@ -3,8 +3,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from tests.nm_utils.utils_skip import should_skip_test_group
-from vllm.sequence import SequenceGroupMetadata
-from vllm.spec_decode.util import get_all_seq_ids, split_batch_by_proposal_len
+from vllm.sequence import SequenceGroupMetadata, get_all_seq_ids
+from vllm.spec_decode.util import split_batch_by_proposal_len
 
 if should_skip_test_group(group_name="TEST_SPEC_DECODE"):
     pytest.skip("TEST_SPEC_DECODE=DISABLE, skipping spec decode group",
