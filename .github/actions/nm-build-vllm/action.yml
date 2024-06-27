@@ -24,7 +24,6 @@ runs:
     run: |
       COMMIT=${{ github.sha }}
       VENV="${{ inputs.venv }}-${COMMIT:0:7}"
-
       source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
       pip3 install -r requirements-cuda.txt -r requirements-build.txt
       # whl
