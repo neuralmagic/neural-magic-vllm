@@ -31,8 +31,8 @@ logger = logging.getLogger(__name__)
 
 def embed_commit_hash():
     try:
-        commit_id = subprocess.check_output(
-            ['git', 'rev-parse', '--short', 'HEAD'], encoding="utf-8").strip()
+        commit_id = subprocess.check_output(["git", "rev-parse", "HEAD"],
+                                            encoding="utf-8").strip()
 
         version_file = os.path.join(ROOT_DIR, "vllm", "version.py")
         with open(version_file, encoding="utf-8") as f:
