@@ -38,7 +38,8 @@ def embed_commit_hash():
         with open(version_file, encoding="utf-8") as f:
             version_contents = f.read()
 
-        version_contents = version_contents.replace("None", f'"{commit_id}"')
+        version_contents = version_contents.replace("COMMIT_HASH_PLACEHOLDER",
+                                                    f'"{commit_id}"')
 
         with open(version_file, "w", encoding="utf-8") as f:
             f.write(version_contents)
