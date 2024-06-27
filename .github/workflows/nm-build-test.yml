@@ -80,11 +80,19 @@ on:
         description: "requested runner label (specifies instance)"
         type: string
         default: ""
+      lm_eval_label_large:
+        description: "requested runner label (specifies instance)"
+        type: string
+        default: ""
       lm_eval_timeout:
         description: "time limit for lm_eval in minutes"
         type: string
         default: "60"
       lm_eval_configuration:
+        description: "configuration for lm-eval test (see .github/lm-eval-configs)"
+        type: string
+        default: ""
+      lm_eval_configuration_large:
         description: "configuration for lm-eval test (see .github/lm-eval-configs)"
         type: string
         default: ""
@@ -158,6 +166,18 @@ jobs:
         python: ${{ inputs.python }}
         whl: ${{ needs.BUILD.outputs.whl }}
         lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
+      secrets: inherit
+
+    LM-EVAL-LARGE:
+      needs: [BUILD]
+      uses: ./.github/workflows/nm-lm-eval.yml
+      with:
+        label: ${{ inputs.lm_eval_label_large }}
+        timeout: ${{ inputs.lm_eval_timeout }}
+        gitref: ${{ inputs.gitref }}
+        python: ${{ inputs.python }}
+        whl: ${{ needs.BUILD.outputs.whl }}
+        lm_eval_configuration: ${{ inputs.lm_eval_configuration_large }}
       secrets: inherit
 
     # uploading is only available when using GCP autoscaling group

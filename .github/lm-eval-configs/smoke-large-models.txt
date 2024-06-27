@@ -1,2 +1,2 @@
-Meta-Llama-3-70B-Instruct.yaml
-Mixtral-8x7B-Instruct-v0.1.yaml
+Meta-Llama-3-8B-Instruct.yaml
+Meta-Llama-3-70B-Instruct-FP8.yaml
