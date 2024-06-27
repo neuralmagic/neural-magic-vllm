@@ -1,0 +1,39 @@
+name: Get docker image tags based on build type and the image version based on wheel name
+description: 'docker image tags for nm-vllm'
+inputs:
+  wf_category:
+    description: "type of nm-vllm to install for the docker image: NIGHTLY or RELEASE"
+    required: true
+  wheel:
+    description: "wheel name, if latest use the latest from nm pypi"
+    required: true
+outputs:
+  tag:
+    description: "tag for the docker image based on wheel version"
+    value: ${{ steps.tags.outputs.tag }}
+  extra_tag:
+    description: "extra tag for the docker image based on build type, either latest (for RELEASE) or nightly (for NIGHTLY)"
+    value: ${{ steps.tags.outputs.extra_tag }}
+  build_version:
+    "version of nm-vllm, e.g. 0.4.0, 0.4.0.20240531"
+    value: ${{ steps.tags.outputs.build_version }}
+runs:
+  using: composite
+  steps:
+  - id: tags
+    run: |
+      BUILD_VERSION=`echo "${{ inputs.wheel }} | cut -d'-' -f2`
+      if [[ "${{ inputs.wf_category }}" = "RELEASE" ]]; then
+          TAG="v${build_version}"
+          EXTRA_TAG=latest
+      else
+          TAG=`echo "${build_version}" | cut -d'.' -f4`
+          EXTRA_TAG=nightly
+      fi
+      if [[ "${{ inputs.wheel }} = 'latest' ]]; then
+          BUILD_VERSION='latest'
+      fi
+      echo "tag=${TAG}" >> $GITHUB_OUTPUT
+      echo "extra_tag=${EXTRA_TAG}" >> $GITHUB_OUTPUT
+      echo "build_version=${BUILD_VERSION}" >> $GITHUB_OUTPUT
+    shell: bash

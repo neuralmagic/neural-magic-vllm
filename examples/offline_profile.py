@@ -36,7 +36,10 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
         print(f"  {key} = {value}")
 
     # Create sampling params
-    sampling_params = SamplingParams(temperature=0.8, top_p=0.95, max_tokens=8)
+    sampling_params = SamplingParams(temperature=0.8,
+                                     top_p=0.95,
+                                     max_tokens=8,
+                                     ignore_eos=True)
 
     # Create LLM
     llm = LLM(
@@ -74,14 +77,14 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
         sys.exit(-1)
 
     for i in range(batch_size):
+        prompt_token_ids = torch.randint(
+            llm.llm_engine.model_config.get_vocab_size(),
+            size=(prompt_len, )).tolist()
+
         llm.llm_engine.add_request(
             request_id=f"seq{i}",
-            prompt=None,
-            prompt_token_ids=torch.randint(
-                128,  # 128 to skip over special tokens
-                llm.llm_engine.model_config.get_vocab_size() // 2,
-                size=(prompt_len, )).tolist(),
-            sampling_params=sampling_params)
+            inputs={'prompt_token_ids': prompt_token_ids},
+            params=sampling_params)
 
     with nm_profile() as prefill_prof:
         llm.llm_engine.step()  # First step is prefill
