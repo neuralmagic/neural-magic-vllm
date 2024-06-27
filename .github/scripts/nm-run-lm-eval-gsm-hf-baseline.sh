@@ -14,22 +14,18 @@ usage() {
     echo
     echo "  -m    - huggingface stub or local directory of the model"
     echo "  -b    - batch size to run the evaluation at"
-    echo "  -d    - device to use (e.g. cuda, cuda:0, auto, cpu)"
     echo "  -l    - limit number of samples to run"
     echo "  -f    - number of fewshot samples to use"
     echo
 }
 
-while getopts "m:b:d:l:f:" OPT; do
+while getopts "m:b:l:f:" OPT; do
   case ${OPT} in
     m ) 
         MODEL="$OPTARG"
         ;;
     b ) 
         BATCH_SIZE="$OPTARG"
-        ;;
-    d ) 
-        DEVICE="$OPTARG"
         ;;
     l ) 
         LIMIT="$OPTARG"
@@ -45,6 +41,6 @@ while getopts "m:b:d:l:f:" OPT; do
 done
 
 lm_eval --model hf \
-  --model_args pretrained=$MODEL \
+  --model_args pretrained=$MODEL,parallelize=True \
   --tasks gsm8k --num_fewshot $FEWSHOT --limit $LIMIT \
-  --batch_size $BATCH_SIZE --device $DEVICE
+  --batch_size $BATCH_SIZE

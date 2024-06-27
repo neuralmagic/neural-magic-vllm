@@ -20,8 +20,6 @@ runs:
   using: composite
   steps:
   - run: |
-      BUILD_STATUS=${{ inputs.build_status }}
-      BUILD_EMOJI=$(./.github/scripts/step-status ${BUILD_STATUS})
       WHL_STATUS=${{ inputs.whl_status }}
       WHL_EMOJI=$(./.github/scripts/step-status ${WHL_STATUS})
       echo "testmo URL: ${{ inputs.testmo_run_url }}" >> $GITHUB_STEP_SUMMARY

@@ -3,20 +3,16 @@ description: 'build docker image for nm-vllm'
 inputs:
   docker_tag:
     description: "tag to be used for the docker image"
-    type: string
     required: true
   extra_tag:
     description: "additional tag for the docker image"
-    type: string
     required: true
-  build_type:
+  wf_category:
     description: "type of nm-vllm to install for the docker image: NIGHTLY (default) or RELEASE"
-    type: string
-    default: 'NIGHTLY'
+    required: true
   build_version:
     description: "version of nm-vllm to install for the docker image: latest (default) or specific version e.g. 0.4.0, 0.4.0.20240531"
-    type: string
-    default: 'latest'
+    required: true
 runs:
   using: composite
   steps:
@@ -29,11 +25,11 @@ runs:
       # build
       status=0
       docker build --tag ghcr.io/neuralmagic/nm-vllm-openai:${{ inputs.docker_tag }} \
-             --build-arg build_type=${{ inputs.build_type }} \
+             --build-arg build_type=${{ inputs.wf_category }} \
              --build-arg build_version=${{ inputs.build_version }} \
              --target vllm-openai . || status=$?
       if [ ${status} -eq 0 ]; then
-          echo "Add tag ${{ inputs.extra_tag }} for "${{ inputs.build_type }}" build too"
+          echo "Add tag ${{ inputs.extra_tag }} for "${{ inputs.wf_category }}" build too"
           docker image tag ghcr.io/neuralmagic/nm-vllm-openai:${{ inputs.docker_tag }} ghcr.io/neuralmagic/nm-vllm-openai:${{ inputs.extra_tag }} || ((status+=$?))
       fi
       docker image ls -a

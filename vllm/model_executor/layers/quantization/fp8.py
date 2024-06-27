@@ -20,19 +20,8 @@ logger = init_logger(__name__)
 def cutlass_fp8_supported() -> bool:
     capability = torch.cuda.get_device_capability()
     capability = capability[0] * 10 + capability[1]
-    major, minor = torch.version.cuda.split(".")
-    version = int(major) * 10 + int(minor)
 
-    # CUTLASS FP8 kernels need at least
-    #   CUDA 12.0 on SM90 systems (Hopper)
-    #   CUDA 12.4 on SM89 systems (Lovelace)
-    gpu_is_supported = False
-    if capability >= 90:
-        gpu_is_supported = version > 120
-    elif capability >= 89:
-        gpu_is_supported = version > 124
-
-    return gpu_is_supported
+    return ops.cutlass_scaled_mm_supports_fp8(capability)
 
 
 class Fp8Config(QuantizationConfig):
@@ -257,9 +246,7 @@ class Fp8LinearMethod(LinearMethodBase):
         #   If dynamic, layer.input_scale is None and x_scale computed from x.
         #   If static, layer.input_scale is scalar and x_scale is input_scale.
 
-        # Temporarily disable CUTLASS kernels due to an illegal memory access
-        #if  bias is None and self.cutlass_fp8_supported:
-        if False:
+        if bias is None and self.cutlass_fp8_supported:
             qinput, x_scale = ops.scaled_fp8_quant(x, layer.input_scale)
 
             # Fused GEMM_DQ

@@ -1,0 +1,11 @@
+# ./nm-run-lm-eval-gsm-hf-baseline.sh -m microsoft/Phi-3-medium-4k-instruct -b 16 -l 250 -f 5
+model_name: "microsoft/Phi-3-medium-4k-instruct"
+tasks:
+- name: "gsm8k"
+  metrics:
+  - name: "exact_match,strict-match"
+    value: 0.840
+  - name: "exact_match,flexible-extract"
+    value: 0.852
+limit: 250
+num_fewshot: 5
