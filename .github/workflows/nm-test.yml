@@ -80,6 +80,9 @@ jobs:
               run: |
                 TESTS_DEPTH_1=$(find tests -type f -maxdepth 1 -mindepth 1 -iname "test*.py")
                 TEST_DIRS=$(find tests -type d -maxdepth 1 -mindepth 1)
+                TEST_DIRS_ARRAY=(${TEST_DIRS})
+                JOBS=$(printf '%s\n' "${TEST_DIRS_ARRAY[@]}" | jq -R . | jq -s . | jq '@json')
+                echo "jobs=${JOBS}" >> $GITHUB_OUTPUT
 
     TEST:
 
@@ -90,12 +93,12 @@ jobs:
 
         strategy:
             matrix:
-                job-set: ${{ fromJson(needs.DISPATCH.outputs.job-sets) }}
+                job-set: ${{ fromJson(needs.DISPATCH.outputs.jobs) }}
         steps:
 
             - name: take a look
               run: |
-                echo "job: matrix.job-set.job"
+                echo "job: matrix.job-set"
 
     # TEST:
 
