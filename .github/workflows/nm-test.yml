@@ -95,7 +95,7 @@ jobs:
 
         needs: [DISPATCH]
 
-        runs-on: gcp-k8-util
+        runs-on: gcp-k8s-util
         timeout-minutes: 16
 
         # strategy:
