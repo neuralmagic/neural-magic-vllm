@@ -97,7 +97,7 @@ class Qwen2MoeSparseMoeBlock(nn.Module):
         self.config = config
         self.rank = get_tensor_model_parallel_rank()
         self.tp_size = get_tensor_model_parallel_world_size()
-        # self.n_routed_experts = config.num_experts
+        self.n_routed_experts = config.num_experts
         # self.top_k = config.num_experts_per_tok
         if self.tp_size > self.n_routed_experts:
             raise ValueError(
@@ -440,11 +440,11 @@ class Qwen2MoeForCausalLM(nn.Module):
 
         expert_params_mapping = [
             # These are the weights for the experts
-            # (param_name, weight_name, expert_id)
+            # (param_name, weight_name, expert_id, shard_id)
             ("experts.w13_weight" if weight_name in ["gate_proj", "up_proj"] else "experts.w2_weight",
-             f"experts.{expert_id}.{weight_name}.weight", expert_id)
-            for expert_id in range(self.config.num_local_experts)
-            for weight_name in ["gate_proj", "down_proj", "up_proj"]
+             f"experts.{expert_id}.{weight_name}.weight", expert_id, shard_id)
+            for expert_id in range(self.config.num_experts)
+            for shard_id, weight_name in enumerate(["gate_proj", "down_proj", "up_proj"])
         ]
 
         params_dict = dict(self.named_parameters())
@@ -470,7 +470,7 @@ class Qwen2MoeForCausalLM(nn.Module):
                 weight_loader(param, loaded_weight, shard_id)
                 break
             else:
-                for param_name, weight_name, expert_id in expert_params_mapping:
+                for param_name, weight_name, expert_id, shard_id in expert_params_mapping:
                     if weight_name not in name:
                         continue
                     name = name.replace(weight_name, param_name)
@@ -479,20 +479,21 @@ class Qwen2MoeForCausalLM(nn.Module):
                     weight_loader(param,
                                   loaded_weight,
                                   weight_name,
+                                  shard_id=shard_id,
                                   expert_id=expert_id)
                     break
+                else:
+                    # Skip loading extra bias for GPTQ models.
+                    if name.endswith(".bias") and name not in params_dict:
+                        continue
+                    # # Skip experts that are not assigned to this worker.
+                    # if (("mlp.experts." in name or "mlp.shared_expert." in name)
+                    #         and name not in params_dict):
+                    #     continue
+                    if name not in params_dict:
+                        continue
 
-                # Skip loading extra bias for GPTQ models.
-                if name.endswith(".bias") and name not in params_dict:
-                    continue
-                # # Skip experts that are not assigned to this worker.
-                # if (("mlp.experts." in name or "mlp.shared_expert." in name)
-                #         and name not in params_dict):
-                #     continue
-                if name not in params_dict:
-                    continue
-
-                param = params_dict[name]
-                weight_loader = getattr(param, "weight_loader",
-                                        default_weight_loader)
-                weight_loader(param, loaded_weight)
+                    param = params_dict[name]
+                    weight_loader = getattr(param, "weight_loader",
+                                            default_weight_loader)
+                    weight_loader(param, loaded_weight)
