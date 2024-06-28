@@ -30,7 +30,7 @@ runs:
           TAG=`echo "${build_version}" | cut -d'.' -f4`
           EXTRA_TAG=nightly
       fi
-      if [[ "${{ inputs.wheel }} = 'latest' ]]; then
+      if [[ "${{ inputs.wheel }}" = 'latest' ]]; then
           BUILD_VERSION='latest'
       fi
       echo "tag=${TAG}" >> $GITHUB_OUTPUT
