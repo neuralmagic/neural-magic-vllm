@@ -158,14 +158,15 @@ class UnquantizedLinearMethod(LinearMethodBase):
                   layer: torch.nn.Module,
                   x: torch.Tensor,
                   router_logits: torch.Tensor,
-                  top_k: int) -> torch.Tensor:
+                  top_k: int,
+                  renormalize: bool=True) -> torch.Tensor:
 
         return fused_moe(x, 
                          layer.w13_weight,
                          layer.w2_weight,
                          router_logits,
                          top_k,
-                         renormalize=True,
+                         renormalize=renormalize,
                          inplace=True)
 
 
@@ -888,7 +889,7 @@ class FusedMoELinear(torch.nn.Module):
         self.tp_size = get_tensor_model_parallel_world_size()
         self.top_k = top_k
         self.intermediate_size_per_partition = intermediate_size // self.tp_size
-        self.renomalize = False
+        self.renormalize = False
         
         if quant_config is None:
             self.quant_method: Optional[
@@ -953,7 +954,7 @@ class FusedMoELinear(torch.nn.Module):
                                                           x=hidden_states,
                                                           router_logits=router_logits,
                                                           top_k=self.top_k,
-                                                          renomalize=self.renomalize)
+                                                          renormalize=self.renormalize)
     
         if self.tp_size > 1:
             final_hidden_states = tensor_model_parallel_all_reduce(
