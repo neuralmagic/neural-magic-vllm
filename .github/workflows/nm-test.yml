@@ -63,7 +63,9 @@ jobs:
         timeout-minutes: 16
 
         outputs:
-            job-sets: ${{ steps.job-sets.outputs.jobs }}
+            job-sets: '["tests/entrypoints","tests/spec_decode","tests/models","tests/multimodal","tests/fp8_kv","tests/prompts","tests/samplers","tests/worker","tests/async_engine","tests/kernels","tests/tensorizer_loader","tests/accuracy","tests/engine","tests/core","tests/models_core","tests/prefix_caching","tests/distributed","tests/lora","tests/metrics","tests/basic_correctness","tests/tracing","tests/nm_utils","tests/model_executor","tests/tokenization","tests/quantization"]'
+            # '[\"tests/entrypoints\",\"tests/spec_decode\",\"tests/models\",\"tests/multimodal\",\"tests/fp8_kv\",\"tests/prompts\",\"tests/samplers\",\"tests/worker\",\"tests/async_engine\",\"tests/kernels\",\"tests/tensorizer_loader\",\"tests/accuracy\",\"tests/engine\",\"tests/core\",\"tests/models_core\",\"tests/prefix_caching\",\"tests/distributed\",\"tests/lora\",\"tests/metrics\",\"tests/basic_correctness\",\"tests/tracing\",\"tests/nm_utils\",\"tests/model_executor\",\"tests/tokenization\",\"tests/quantization\"]'
+            # ${{ steps.job-sets.outputs.jobs }}
 
         steps:
 
@@ -98,14 +100,14 @@ jobs:
         runs-on: gcp-k8s-util
         timeout-minutes: 16
 
-        # strategy:
-        #     matrix:
-        #         job-set: ${{ fromJson(needs.DISPATCH.outputs.job-sets) }}
+        strategy:
+            matrix:
+                job-set: ${{ fromJson(needs.DISPATCH.outputs.job-sets) }}
         steps:
 
             - name: take a look
               run: |
-                echo "from dispatch: ${{ needs.DISPATCH.outputs.job-sets }}"
+                echo "from matrix: ${{ matrix.job-set }}"
 
     # TEST:
 
