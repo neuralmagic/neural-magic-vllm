@@ -129,6 +129,8 @@ jobs:
             - name: run buildkite script
               run: |
                 cd tests && sudo bash ../.buildkite/download-images.sh
+                echo "check CUDA driver"
+                nvidia-smi
 
             - name: setenv test skip
               id: setenv_test_skip
