@@ -63,7 +63,7 @@ jobs:
         timeout-minutes: 16
 
         outputs:
-            job-sets: '[{"label":"k8s-h100-solo","tests":"tests/entrypoints"},{"label":"k8s-h100-duo","tests":"tests/spec_decode"}]'
+            job-sets: '[{"label":"k8s-h100-solo","python":"3.10.12","tests":"tests/entrypoints"},{"label":"k8s-h100-duo","python":"3.8.17","tests":"tests/spec_decode"}]'
             # '[\"tests/entrypoints\",\"tests/spec_decode\",\"tests/models\",\"tests/multimodal\",\"tests/fp8_kv\",\"tests/prompts\",\"tests/samplers\",\"tests/worker\",\"tests/async_engine\",\"tests/kernels\",\"tests/tensorizer_loader\",\"tests/accuracy\",\"tests/engine\",\"tests/core\",\"tests/models_core\",\"tests/prefix_caching\",\"tests/distributed\",\"tests/lora\",\"tests/metrics\",\"tests/basic_correctness\",\"tests/tracing\",\"tests/nm_utils\",\"tests/model_executor\",\"tests/tokenization\",\"tests/quantization\"]'
             # job-sets: ${{ steps.job-sets.outputs.jobs }}
 
@@ -109,6 +109,7 @@ jobs:
 
             - name: take a look
               run: |
+                echo "python: ${{ matrix.job-set.python }}"
                 echo "tests: ${{ matrix.job-set.tests }}"
 
     # TEST:
