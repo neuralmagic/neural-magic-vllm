@@ -80,8 +80,8 @@ jobs:
 
         outputs:
             run_id: ${{ github.run_id }}
-            whl: ${{ steps.build.outputs.whl }}
-            tarfile: ${{ steps.build.outputs.tarfile }}
+            # whl: ${{ steps.build.outputs.whl }}
+            # tarfile: ${{ steps.build.outputs.tarfile }}
             job-sets: ${{ steps.job-sets.outputs.jobs }}
 
         steps:
