@@ -63,9 +63,9 @@ jobs:
         timeout-minutes: 16
 
         outputs:
-            # job-sets: '["tests/entrypoints","tests/spec_decode","tests/models","tests/multimodal","tests/fp8_kv","tests/prompts","tests/samplers","tests/worker","tests/async_engine","tests/kernels","tests/tensorizer_loader","tests/accuracy","tests/engine","tests/core","tests/models_core","tests/prefix_caching","tests/distributed","tests/lora","tests/metrics","tests/basic_correctness","tests/tracing","tests/nm_utils","tests/model_executor","tests/tokenization","tests/quantization"]'
+            job-sets: '[{"label":"k8s-h100-solo","tests":"tests/entrypoints"},{"label":"k8s-h100-duo","tests":"tests/spec_decode"}]'
             # '[\"tests/entrypoints\",\"tests/spec_decode\",\"tests/models\",\"tests/multimodal\",\"tests/fp8_kv\",\"tests/prompts\",\"tests/samplers\",\"tests/worker\",\"tests/async_engine\",\"tests/kernels\",\"tests/tensorizer_loader\",\"tests/accuracy\",\"tests/engine\",\"tests/core\",\"tests/models_core\",\"tests/prefix_caching\",\"tests/distributed\",\"tests/lora\",\"tests/metrics\",\"tests/basic_correctness\",\"tests/tracing\",\"tests/nm_utils\",\"tests/model_executor\",\"tests/tokenization\",\"tests/quantization\"]'
-            job-sets: ${{ steps.job-sets.outputs.jobs }}
+            # job-sets: ${{ steps.job-sets.outputs.jobs }}
 
         steps:
 
@@ -87,7 +87,6 @@ jobs:
                 TEST_DIRS=$(find tests -type d -maxdepth 1 -mindepth 1)
                 TEST_DIRS_ARRAY=(${TEST_DIRS})
                 JOBS=$(printf '%s\n' "${TEST_DIRS_ARRAY[@]}" | jq -R . | jq -s . | tr -d "[:space:]")
-                # JOBS=$(printf '%s\n' "${TEST_DIRS_ARRAY[@]}" | jq -R . | jq -s . | jq '@json')
                 echo "jobs=${JOBS}" >> $GITHUB_OUTPUT
 
             - name: take a look
@@ -102,14 +101,15 @@ jobs:
             matrix:
                 job-set: ${{ fromJson(needs.DISPATCH.outputs.job-sets) }}
 
-        runs-on: gcp-k8s-util
+        # runs-on: gcp-k8s-util
+        runs-on: ${{ matrix.job-set.label }}
         timeout-minutes: 16
 
         steps:
 
             - name: take a look
               run: |
-                echo "from matrix: ${{ matrix.job-set }}"
+                echo "tests: ${{ matrix.job-set.tests }}"
 
     # TEST:
 
