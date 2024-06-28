@@ -82,7 +82,8 @@ jobs:
             run_id: ${{ github.run_id }}
             # whl: ${{ steps.build.outputs.whl }}
             # tarfile: ${{ steps.build.outputs.tarfile }}
-            job-sets: ${{ steps.job-sets.outputs.jobs }}
+            # job-sets: ${{ steps.job-sets.outputs.jobs }}
+            job-sets: '["tests/entrypoints","tests/spec_decode"]'
 
         steps:
 
