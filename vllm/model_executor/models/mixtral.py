@@ -372,25 +372,25 @@ class MixtralForCausalLM(nn.Module, SupportsLoRA):
         
         expert_params_mapping = [
             # These are the weight scales for the experts
-            # (param_name, weight_name, expert_id)
+            # (param_name, weight_name, expert_id, shard_id)
             ("mlp.w13_scale" if weight_name in ["w1", "w3"] else "mlp.w2_scale",
-             f"experts.{expert_id}.{weight_name}.weight_scale", expert_id)
+             f"experts.{expert_id}.{weight_name}.weight_scale", expert_id, shard_id)
             for expert_id in range(self.config.num_local_experts)
-            for weight_name in ["w1", "w2", "w3"]
+            for shard_id, weight_name in enumerate(["w1", "w2", "w3"])
         ] + [
             # These are the weights for the experts
             # (param_name, weight_name, expert_id)
             ("mlp.w13_weight" if weight_name in ["w1", "w3"] else "mlp.w2_weight",
-             f"experts.{expert_id}.{weight_name}.weight", expert_id)
+             f"experts.{expert_id}.{weight_name}.weight", expert_id, shard_id)
             for expert_id in range(self.config.num_local_experts)
-            for weight_name in ["w1", "w2", "w3"]
+            for shard_id, weight_name in enumerate(["w1", "w2", "w3"])
         ] + [
             # These are the activation scales for the experts
             # (param_name, weight_name, expert_id)
             ("mlp.a13_scale" if weight_name in ["w1", "w3"] else "mlp.a2_scale",
-             f"experts.{expert_id}.{weight_name}.input_scale", expert_id)
+             f"experts.{expert_id}.{weight_name}.input_scale", expert_id, shard_id)
             for expert_id in range(self.config.num_local_experts)
-            for weight_name in ["w1", "w2", "w3"]
+            for shard_id, weight_name in enumerate(["w1", "w2", "w3"])
         ]
 
         params_dict = dict(self.named_parameters())
@@ -410,7 +410,7 @@ class MixtralForCausalLM(nn.Module, SupportsLoRA):
                 weight_loader(param, loaded_weight, shard_id)
                 break
             else:
-                for param_name, weight_name, expert_id in expert_params_mapping:
+                for param_name, weight_name, expert_id, shard_id in expert_params_mapping:
                     if weight_name not in name:
                         continue
                     name = name.replace(weight_name, param_name)
@@ -419,6 +419,7 @@ class MixtralForCausalLM(nn.Module, SupportsLoRA):
                     weight_loader(param,
                                   loaded_weight,
                                   weight_name,
+                                  shard_id=shard_id,
                                   expert_id=expert_id)
                     break
                 else:
