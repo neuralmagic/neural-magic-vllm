@@ -88,7 +88,7 @@ jobs:
                 TEST_DIRS_ARRAY=(${TEST_DIRS})
                 JOBS=$(printf '%s\n' "${TEST_DIRS_ARRAY[@]}" | jq -R . | jq -s . | tr -d "[:space:]")
                 # JOBS=$(printf '%s\n' "${TEST_DIRS_ARRAY[@]}" | jq -R . | jq -s . | jq '@json')
-                echo "jobs='${JOBS}'" >> $GITHUB_OUTPUT
+                echo "jobs=${JOBS}" >> $GITHUB_OUTPUT
 
             - name: take a look
               run: |
