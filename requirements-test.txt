@@ -20,7 +20,7 @@ ray
 sentence-transformers # required for embedding
 optimum     # required for hf gptq baselines
 auto-gptq   # required for hf gptq baselines
-torchvision # required for the image processor of phi3v
+torchvision<=0.18.0 # required for the image processor of phi3v; 0.18.1 requires torch 2.3.1 which conflicts with nm-vllm
 
 # Benchmarking
 aiohttp
