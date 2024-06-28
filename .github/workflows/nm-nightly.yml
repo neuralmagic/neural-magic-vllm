@@ -33,7 +33,8 @@ jobs:
             gitref: ${{ github.ref }}
             push_to_pypi: ${{ github.event_name == 'schedule' || inputs.push_to_pypi }}
 
-            test_configs: '[{"python":"3.10.12","label":"gcp-k8s-t4-duo","test":"neuralmagic/tests/test_skip_env_vars/full.txt"}]'
+            #test_configs: '[{"python":"3.10.12","label":"gcp-k8s-t4-duo","test":"neuralmagic/tests/test_skip_env_vars/full.txt"}]'
+            test_configs: '[{"python":"3.10.12","label":"k8s-h100-duo","test":"neuralmagic/tests/test_skip_env_vars/full.txt"}]'
             test_timeout: 720
 
             benchmark_label: gcp-k8s-l4-solo
