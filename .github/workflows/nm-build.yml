@@ -31,6 +31,10 @@ on:
         description: "python version, e.g. 3.10.12"
         type: string
         required: true
+    outputs:
+      job-partitions:
+        description: "stringified Json of test partitions"
+        value: ${{ jobs.BUILD.outputs.job-partitions }}
 
   # makes workflow manually callable
   workflow_dispatch:
@@ -80,10 +84,10 @@ jobs:
 
         outputs:
             run_id: ${{ github.run_id }}
-            # whl: ${{ steps.build.outputs.whl }}
-            # tarfile: ${{ steps.build.outputs.tarfile }}
-            job-sets: ${{ steps.job-sets.outputs.jobs }}
-            # job-sets: '["tests/entrypoints","tests/spec_decode"]'
+        #     # whl: ${{ steps.build.outputs.whl }}
+        #     # tarfile: ${{ steps.build.outputs.tarfile }}
+            job-partitions: ${{ steps.job-sets.outputs.partitions }}
+        #     # job-sets: '["tests/entrypoints","tests/spec_decode"]'
 
         steps:
 
@@ -135,7 +139,7 @@ jobs:
                 TEST_DIRS=$(find tests -type d -maxdepth 1 -mindepth 1)
                 TEST_DIRS_ARRAY=(${TEST_DIRS})
                 JOBS=$(printf '%s\n' "${TEST_DIRS_ARRAY[@]}" | jq -R . | jq -s . | tr -d "[:space:]")
-                echo "jobs=${JOBS}" >> $GITHUB_OUTPUT
+                echo "partitions=${JOBS}" >> $GITHUB_OUTPUT
 
             # # GCP
             # - name: 'Authenticate to Google Cloud'

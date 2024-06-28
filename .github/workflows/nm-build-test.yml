@@ -118,10 +118,10 @@ jobs:
 
     Te:
         needs: [BUILD]
-        # strategy:
-        #     fail-fast: false
-        #     matrix:
-        #         job-set: ${{ fromJson(needs.BUILD.outputs.job-sets) }}
+        strategy:
+            fail-fast: false
+            matrix:
+                job-partition: ${{ fromJson(needs.BUILD.outputs.job-partitions) }}
 
         runs-on: gcp-k8s-util
         timeout-minutes: 16
@@ -130,8 +130,7 @@ jobs:
 
             - name: take a look
               run: |
-                # echo "tests: ${{ matrix.job-set }}"
-                echo "... ${{ needs.BUILD.outputs.job-sets }}"
+                echo "tests: ${{ matrix.job-partition }}"
 
     # TEST:
     #     needs: [BUILD]
