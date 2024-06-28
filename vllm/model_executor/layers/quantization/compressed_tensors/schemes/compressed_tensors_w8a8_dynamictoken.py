@@ -5,6 +5,8 @@ import torch
 from vllm import _custom_ops as custom_ops
 from vllm.model_executor.layers.quantization.compressed_tensors.schemes.compressed_tensors_w8a8 import (  # noqa: E501
     CompressedTensorsW8A8)
+from vllm.model_executor.layers.quantization.compressed_tensors.utils import (
+    QuantizationType)
 
 __all__ = ["CompressedTensorsW8A8DynamicToken"]
 
@@ -28,6 +30,21 @@ class CompressedTensorsW8A8DynamicToken(CompressedTensorsW8A8):
         weight = layer.weight
         weight_scale = layer.weight_scale
 
-        x_q, input_scales = custom_ops.scaled_int8_quant(x)
-        return custom_ops.cutlass_scaled_mm(x_q, weight.t(), input_scales,
-                                            weight_scale, x.dtype)
+        if self.quant_type == QuantizationType.FLOAT:
+            # Note: this is technically per tensor not per token
+            # Will update name of the method in follow up PR.
+            x_q, x_scale = custom_ops.scaled_fp8_quant(x, None)
+
+            output = custom_ops.cutlass_scaled_mm(
+                x_q,
+                weight.t(),
+                out_dtype=x.dtype,
+                scale_a=x_scale,
+                scale_b=weight_scale,
+            )
+
+            return torch.narrow(output, 0, 0, x.shape[0])
+        else:
+            x_q, input_scales = custom_ops.scaled_int8_quant(x)
+            return custom_ops.cutlass_scaled_mm(x_q, weight.t(), input_scales,
+                                                weight_scale, x.dtype)

@@ -16,6 +16,7 @@ from vllm.model_executor.layers.quantization.compressed_tensors.compressed_tenso
 @pytest.mark.parametrize("model_args", [
     ("nm-testing/tinyllama-oneshot-w8w8-test-static-shape-change", "tensor"),
     ("nm-testing/tinyllama-oneshot-w8-channel-a8-tensor", "channel"),
+    ("nm-testing/Meta-Llama-3-8B-FP8-compressed-tensors-test", "channel"),
 ])
 def test_compressed_tensors_w8a8_static_setup(vllm_runner, model_args):
     model_path, strategy = model_args
