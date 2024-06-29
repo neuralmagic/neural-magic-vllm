@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple, Type
 
 import pytest
 from transformers import AutoTokenizer
@@ -7,7 +7,7 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.config import VisionLanguageConfig
 from vllm.utils import is_cpu
 
-from ..conftest import IMAGE_ASSETS
+from ..conftest import IMAGE_ASSETS, HfRunner, VllmRunner, _ImageAssets
 
 if should_skip_test_group(group_name="TEST_MODELS"):
     pytest.skip("TEST_MODELS=DISABLE, skipping models test group",
@@ -78,17 +78,17 @@ if is_cpu():
     target_dtype = "bfloat16"
 
 
-# TODO: Add test for `tensor_parallel_size` [ref: PR #3883]
-# Since we use _attn_implementation="eager" for hf_runner, here is
-# numeric difference for longer context and test can't pass
-@pytest.mark.xfail(
-    reason="Inconsistent image processor being used due to lack "
-    "of support for dynamic image token replacement")
-@pytest.mark.parametrize("model_and_config", model_and_vl_config)
-@pytest.mark.parametrize("dtype", [target_dtype])
-@pytest.mark.parametrize("max_tokens", [128])
-def test_models(hf_runner, vllm_runner, image_assets, model_and_config,
-                dtype: str, max_tokens: int) -> None:
+def run_test(
+    hf_runner: Type[HfRunner],
+    vllm_runner: Type[VllmRunner],
+    image_assets: _ImageAssets,
+    model_and_config: Tuple[str, VisionLanguageConfig],
+    *,
+    dtype: str,
+    max_tokens: int,
+    tensor_parallel_size: int,
+    distributed_executor_backend: Optional[str] = None,
+):
     """Inference result should be the same between hf and vllm.
 
     All the image fixtures for the test is under tests/images.
@@ -121,7 +121,9 @@ def test_models(hf_runner, vllm_runner, image_assets, model_and_config,
     with vllm_runner(model_id,
                      max_model_len=2048,
                      dtype=dtype,
+                     tensor_parallel_size=tensor_parallel_size,
                      enforce_eager=True,
+                     distributed_executor_backend=distributed_executor_backend,
                      **vlm_config.as_cli_args_dict()) as vllm_model:
         vllm_outputs = vllm_model.generate_greedy(vllm_image_prompts,
                                                   max_tokens,
@@ -135,3 +137,24 @@ def test_models(hf_runner, vllm_runner, image_assets, model_and_config,
             f"Test{i}:\nHF: {hf_output_str!r}\nvLLM: {vllm_output_str!r}")
         assert hf_output_ids == vllm_output_ids, (
             f"Test{i}:\nHF: {hf_output_ids}\nvLLM: {vllm_output_ids}")
+
+
+# Since we use _attn_implementation="eager" for hf_runner, here is
+# numeric difference for longer context and test can't pass
+@pytest.mark.xfail(
+    reason="Inconsistent image processor being used due to lack "
+    "of support for dynamic image token replacement")
+@pytest.mark.parametrize("model_and_config", model_and_vl_config)
+@pytest.mark.parametrize("dtype", [target_dtype])
+@pytest.mark.parametrize("max_tokens", [128])
+def test_models(hf_runner, vllm_runner, image_assets, model_and_config,
+                dtype: str, max_tokens: int) -> None:
+    run_test(
+        hf_runner,
+        vllm_runner,
+        image_assets,
+        model_and_config,
+        dtype=dtype,
+        max_tokens=max_tokens,
+        tensor_parallel_size=1,
+    )
