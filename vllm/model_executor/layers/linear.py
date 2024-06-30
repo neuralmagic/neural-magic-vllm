@@ -948,9 +948,7 @@ class FusedMoELinear(torch.nn.Module):
             param_data[expert_id][shard_id] = loaded_weight
 
 
-    def forward(self, 
-                hidden_states: torch.Tensor, 
-                router_logits: torch.Tensor):
+    def forward(self, hidden_states: torch.Tensor, router_logits: torch.Tensor):
         # Matrix multiply.
         assert self.quant_method is not None
         final_hidden_states = self.quant_method.apply_moe(self,
