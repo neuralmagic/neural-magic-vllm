@@ -877,9 +877,9 @@ class FusedMoELinear(torch.nn.Module):
         top_k: int,
         hidden_size: int,
         intermediate_size: int,
-        params_dtype: Optional[torch.dtype]=None,
-        quant_config: Optional[QuantizationConfig]=None,
-        renormalize: bool=True
+        params_dtype: Optional[torch.dtype] = None,
+        quant_config: Optional[QuantizationConfig] = None,
+        renormalize: bool = True
     ):
         super().__init__()
 
