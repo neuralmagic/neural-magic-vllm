@@ -13,8 +13,6 @@ if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
 MODEL_NAME = "openai-community/gpt2"
 CHAT_TEMPLATE = "Dummy chat template for testing {}"
 
-pytestmark = pytest.mark.openai
-
 
 @dataclass
 class MockModelConfig:

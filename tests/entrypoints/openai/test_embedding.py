@@ -2,21 +2,15 @@ import openai
 import pytest
 import ray
 
-<<<<<<< HEAD
 from tests.nm_utils.utils_skip import should_skip_test_group
-
-from ..utils import VLLM_PATH, RemoteOpenAIServer
-=======
-from ..utils import RemoteOpenAIServer
->>>>>>> dd793d1d ([Hardware][AMD][CI/Build][Doc] Upgrade to ROCm 6.1, Dockerfile improvements, test fixes (#5422))
+from ...utils import RemoteOpenAIServer
 
 if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
     pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
                 allow_module_level=True)
 
-EMBEDDING_MODEL_NAME = "intfloat/e5-mistral-7b-instruct"
 
-pytestmark = pytest.mark.openai
+EMBEDDING_MODEL_NAME = "intfloat/e5-mistral-7b-instruct"
 
 
 @pytest.fixture(scope="module")

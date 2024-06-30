@@ -7,7 +7,7 @@ import ray
 from huggingface_hub import snapshot_download
 
 from tests.nm_utils.utils_skip import should_skip_test_group
-from ..utils import RemoteOpenAIServer
+from ...utils import RemoteOpenAIServer
 
 if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
     pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
@@ -18,8 +18,6 @@ MODEL_NAME = "HuggingFaceH4/zephyr-7b-beta"
 # technically this needs Mistral-7B-v0.1 as base, but we're not testing
 # generation quality here
 LORA_NAME = "typeof/zephyr-7b-beta-lora"
-
-pytestmark = pytest.mark.openai
 
 
 @pytest.fixture(scope="module")

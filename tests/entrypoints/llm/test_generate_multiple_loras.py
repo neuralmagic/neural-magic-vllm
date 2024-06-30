@@ -9,7 +9,7 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm import LLM
 from vllm.lora.request import LoRARequest
 
-from ..conftest import cleanup
+from ...conftest import cleanup
 
 if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
     pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
@@ -25,8 +25,6 @@ PROMPTS = [
 ]
 
 LORA_NAME = "typeof/zephyr-7b-beta-lora"
-
-pytestmark = pytest.mark.llm
 
 
 @pytest.fixture(scope="module")
