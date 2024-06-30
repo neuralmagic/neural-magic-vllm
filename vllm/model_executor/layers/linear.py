@@ -878,8 +878,9 @@ class FusedMoELinear(torch.nn.Module):
         hidden_size: int,
         intermediate_size: int,
         params_dtype: Optional[torch.dtype] = None,
+        reduce_results: bool = False,
+        renormalize: bool = True,
         quant_config: Optional[QuantizationConfig] = None,
-        renormalize: bool = True
     ):
         super().__init__()
 
@@ -889,6 +890,7 @@ class FusedMoELinear(torch.nn.Module):
         self.tp_size = get_tensor_model_parallel_world_size()
         self.top_k = top_k
         self.intermediate_size_per_partition = intermediate_size // self.tp_size
+        self.reduce_results = True
         self.renormalize = renormalize
         
         if quant_config is None:
@@ -955,5 +957,9 @@ class FusedMoELinear(torch.nn.Module):
                                                           router_logits=router_logits,
                                                           top_k=self.top_k,
                                                           renormalize=self.renormalize)
+
+        if self.reduce_results and self.tp_size > 1:
+            final_hidden_states = tensor_model_parallel_all_reduce(
+                final_hidden_states)
 
         return final_hidden_states
