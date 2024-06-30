@@ -94,7 +94,6 @@ class Qwen2MoeSparseMoeBlock(nn.Module):
     ):
         super().__init__()
         self.config = config
-        self.rank = get_tensor_model_parallel_rank()
         self.tp_size = get_tensor_model_parallel_world_size()
         self.n_routed_experts = config.num_experts
         # self.top_k = config.num_experts_per_tok
@@ -296,6 +295,7 @@ class Qwen2MoeDecoderLayer(nn.Module):
             cache_config=cache_config,
             quant_config=quant_config,
         )
+
         if (layer_idx not in config.mlp_only_layers) and (
                 config.num_experts > 0 and
             (layer_idx + 1) % config.decoder_sparse_step == 0):
@@ -434,6 +434,7 @@ class Qwen2MoeForCausalLM(nn.Module):
             ("qkv_proj", "q_proj", "q"),
             ("qkv_proj", "k_proj", "k"),
             ("qkv_proj", "v_proj", "v"),
+            # note: there are dense mlp layers in this model.
             ("gate_up_proj", "gate_proj", 0),
             ("gate_up_proj", "up_proj", 1),
         ]
@@ -452,16 +453,21 @@ class Qwen2MoeForCausalLM(nn.Module):
             if "rotary_emb.inv_freq" in name:
                 continue
             for (param_name, weight_name, shard_id) in stacked_params_mapping:
+                # Skip non-stacked and experts (experts handled below).
                 if weight_name not in name:
+                    continue
+                # We have mlp.experts[0].gate_proj in the checkpoint. 
+                # Since we handle the experts below in expert_params_mapping,
+                # we need to skip here BEFORE we update the name, otherwise
+                # name will be updated to mlp.experts[0].gate_up_proj, which
+                # will then be updated below in expert_params_mapping 
+                # for mlp.experts[0].gate_gate_up_proj, which breaks load.
+                if "mlp.experts" in name:
                     continue
                 name = name.replace(weight_name, param_name)
                 # Skip loading extra bias for GPTQ models.
                 if name.endswith(".bias") and name not in params_dict:
                     continue
-                # Skip experts that are not assigned to this worker.
-                # if (("mlp.experts." in name or "mlp.shared_expert." in name)
-                #         and name not in params_dict):
-                #     continue
                 if name not in params_dict:
                     continue
 
@@ -486,10 +492,6 @@ class Qwen2MoeForCausalLM(nn.Module):
                     # Skip loading extra bias for GPTQ models.
                     if name.endswith(".bias") and name not in params_dict:
                         continue
-                    # # Skip experts that are not assigned to this worker.
-                    # if (("mlp.experts." in name or "mlp.shared_expert." in name)
-                    #         and name not in params_dict):
-                    #     continue
                     if name not in params_dict:
                         continue
 

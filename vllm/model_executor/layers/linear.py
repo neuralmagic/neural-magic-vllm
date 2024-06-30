@@ -918,7 +918,7 @@ class FusedMoELinear(torch.nn.Module):
         param_data = param.data
         shard_size = self.intermediate_size_per_partition
         shard = slice(tp_rank * shard_size, (tp_rank + 1) * shard_size)
-        
+
         # w1, gate_proj
         if shard_id == 0:
             param_data[expert_id, 0:shard_size, :] = loaded_weight[shard, :]
