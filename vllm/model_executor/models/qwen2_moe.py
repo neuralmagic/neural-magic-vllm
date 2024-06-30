@@ -102,16 +102,6 @@ class Qwen2MoeSparseMoeBlock(nn.Module):
                 f"Tensor parallel size {self.tp_size} is greater than "
                 f"the number of experts {self.n_routed_experts}.")
 
-        # self.experts = nn.ModuleList([
-        #     Qwen2MoeMLP(hidden_size=config.hidden_size,
-        #                 intermediate_size=config.moe_intermediate_size,
-        #                 hidden_act=config.hidden_act,
-        #                 quant_config=quant_config,
-        #                 reduce_results=False)
-        #     for idx in range(self.n_routed_experts)
-        # ])
-        # self.pack_params()
-
         self.experts = FusedMoELinear(
             num_experts=config.num_experts,
             top_k=config.num_experts_per_tok,
@@ -140,25 +130,6 @@ class Qwen2MoeSparseMoeBlock(nn.Module):
                                                   1,
                                                   bias=False)
 
-    # def pack_params(self):
-    #     w1 = []
-    #     w2 = []
-    #     for expert in self.experts:
-    #         w1.append(expert.gate_up_proj.weight)
-    #         w2.append(expert.down_proj.weight)
-    #     self.w1 = torch._utils._flatten_dense_tensors(w1)
-    #     w1s = torch._utils._unflatten_dense_tensors(self.w1, w1)
-    #     for data, param in zip(w1s, w1):
-    #         param.data = data
-    #     self.w1 = self.w1.view(len(w1), *w1s[0].shape)
-
-    #     self.w2 = torch._utils._flatten_dense_tensors(w2)
-    #     w2s = torch._utils._unflatten_dense_tensors(self.w2, w2)
-    #     for data, param in zip(w2s, w2):
-    #         param.data = data
-
-    #     self.w2 = self.w2.view(len(w2), *w2s[0].shape)
-
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         num_tokens, hidden_dim = hidden_states.shape
         hidden_states = hidden_states.view(-1, hidden_dim)
@@ -171,13 +142,6 @@ class Qwen2MoeSparseMoeBlock(nn.Module):
 
         # router_logits: (num_tokens, n_experts)
         router_logits, _ = self.gate(hidden_states)
-        # final_hidden_states = fused_moe(hidden_states,
-        #                                 self.w1,
-        #                                 self.w2,
-        #                                 router_logits,
-        #                                 self.top_k,
-        #                                 renormalize=self.config.norm_topk_prob,
-        #                                 inplace=True)
         final_hidden_states = self.experts(hidden_states=hidden_states,
                                            router_logits=router_logits)
 
