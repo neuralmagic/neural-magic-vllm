@@ -93,14 +93,12 @@ class Qwen2MoeSparseMoeBlock(nn.Module):
         quant_config: Optional[QuantizationConfig] = None,
     ):
         super().__init__()
-        self.config = config
-        self.tp_size = get_tensor_model_parallel_world_size()
-        self.n_routed_experts = config.num_experts
-        # self.top_k = config.num_experts_per_tok
-        if self.tp_size > self.n_routed_experts:
+        self.tp_size = get_tensor_model_parallel_world_size()        
+
+        if self.tp_size > config.num_experts:
             raise ValueError(
                 f"Tensor parallel size {self.tp_size} is greater than "
-                f"the number of experts {self.n_routed_experts}.")
+                f"the number of experts {config.num_experts}.")
 
         self.experts = FusedMoELinear(
             num_experts=config.num_experts,
@@ -108,7 +106,7 @@ class Qwen2MoeSparseMoeBlock(nn.Module):
             hidden_size=config.hidden_size,
             intermediate_size=config.moe_intermediate_size,
             reduce_results=False,
-            renormalize=self.config.norm_topk_prob,
+            renormalize=config.norm_topk_prob,
             quant_config=quant_config,
         )
 
@@ -144,11 +142,11 @@ class Qwen2MoeSparseMoeBlock(nn.Module):
         router_logits, _ = self.gate(hidden_states)
         final_hidden_states = self.experts(hidden_states=hidden_states,
                                            router_logits=router_logits)
-
         if shared_output is not None:
             final_hidden_states = final_hidden_states + shared_output
-        final_hidden_states = tensor_model_parallel_all_reduce(
-            final_hidden_states)
+        if self.tp_size > 1:
+            final_hidden_states = tensor_model_parallel_all_reduce(
+                final_hidden_states)
 
         return final_hidden_states.view(num_tokens, hidden_dim)
 
@@ -398,7 +396,6 @@ class Qwen2MoeForCausalLM(nn.Module):
             ("qkv_proj", "q_proj", "q"),
             ("qkv_proj", "k_proj", "k"),
             ("qkv_proj", "v_proj", "v"),
-            # note: there are dense mlp layers in this model.
             ("gate_up_proj", "gate_proj", 0),
             ("gate_up_proj", "up_proj", 1),
         ]
