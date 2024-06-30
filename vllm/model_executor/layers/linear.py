@@ -90,7 +90,7 @@ class LinearMethodBase(QuantizeMethodBase):
                   x: torch.Tensor,
                   router_logits: torch.Tensor,
                   top_k: int,
-                  renormalize: bool=True) -> torch.Tensor:
+                  renormalize: bool = True) -> torch.Tensor:
         raise NotImplementedError
 
 
@@ -159,7 +159,7 @@ class UnquantizedLinearMethod(LinearMethodBase):
                   x: torch.Tensor,
                   router_logits: torch.Tensor,
                   top_k: int,
-                  renormalize: bool=True) -> torch.Tensor:
+                  renormalize: bool = True) -> torch.Tensor:
 
         return fused_moe(x, 
                          layer.w13_weight,
