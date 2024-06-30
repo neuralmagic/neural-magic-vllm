@@ -929,6 +929,8 @@ class FusedMoELinear(torch.nn.Module):
         # w2, down_proj case: Load into only shard of w2.
         elif shard_id == 1:
             param_data[expert_id, :, :] = loaded_weight[:, shard]
+        else:
+            raise ValueError(f"Shard id must be in [0,1,2] but got {shard_id}")
 
         # FIXME(robertgshaw2-neuralmagic): Overfit to Mixtral. 
         # Follow up PR to enable fp8 for other MoE models.
