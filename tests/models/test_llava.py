@@ -7,6 +7,7 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.config import VisionLanguageConfig
 
 from ..conftest import IMAGE_ASSETS, HfRunner, VllmRunner, _ImageAssets
+from .utils import check_outputs_equal
 
 if should_skip_test_group(group_name="TEST_MODELS"):
     pytest.skip("TEST_MODELS=DISABLE, skipping model test group",
@@ -114,14 +115,15 @@ def run_test(
                                                   max_tokens,
                                                   images=vllm_images)
 
-    for i in range(len(HF_IMAGE_PROMPTS)):
-        hf_output_ids, hf_output_str = hf_outputs[i]
-        vllm_output_ids, vllm_output_str = vllm_to_hf_output(
-            vllm_outputs[i], vlm_config, model_id)
-        assert hf_output_str == vllm_output_str, (
-            f"Test{i}:\nHF: {hf_output_str!r}\nvLLM: {vllm_output_str!r}")
-        assert hf_output_ids == vllm_output_ids, (
-            f"Test{i}:\nHF: {hf_output_ids}\nvLLM: {vllm_output_ids}")
+    check_outputs_equal(
+        hf_outputs,
+        [
+            vllm_to_hf_output(vllm_output, vlm_config, model_id)
+            for vllm_output in vllm_outputs
+        ],
+        name_0="hf",
+        name_1="vllm",
+    )
 
 
 @pytest.mark.parametrize("model_and_config", model_and_vl_config)
