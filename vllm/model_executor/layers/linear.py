@@ -919,18 +919,19 @@ class FusedMoELinear(torch.nn.Module):
         shard_size = self.intermediate_size_per_partition
         shard = slice(tp_rank * shard_size, (tp_rank + 1) * shard_size)
 
-        # w1, gate_proj
+        # w1, gate_proj case: Load into first shard of w13.
         if shard_id == 0:
             param_data[expert_id, 0:shard_size, :] = loaded_weight[shard, :]
-        # w3, up_proj
+        # w3, up_proj case: Load into second shard of w13.
         elif shard_id == 2:
             param_data[expert_id,
                        shard_size:2 * shard_size, :] = loaded_weight[shard, :]
-        # w2, down_proj
+        # w2, down_proj case: Load into only shard of w2.
         elif shard_id == 1:
             param_data[expert_id, :, :] = loaded_weight[:, shard]
 
-        # FIXME: This is going to be brittle.
+        # FIXME(robertgshaw2-neuralmagic): Overfit to Mixtral. 
+        # Follow up PR to enable fp8 for other MoE models.
         if "input_scale" in weight_name or "w2.weight_scale" in weight_name:
             if param_data[expert_id] != 1 and (param_data[expert_id] -
                                                loaded_weight).abs() > 1e-5:
