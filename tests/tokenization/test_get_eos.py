@@ -9,10 +9,10 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.transformers_utils.config import try_get_generation_config
 from vllm.transformers_utils.tokenizer import get_tokenizer
 
-
 if should_skip_test_group(group_name="TEST_TOKENIZATION"):
     pytest.skip("TEST_TOKENIZATION=DISABLE, skipping tokenization test group",
                 allow_module_level=True)
+
 
 def test_get_llama3_eos_token():
     model_name = "meta-llama/Meta-Llama-3-8B-Instruct"

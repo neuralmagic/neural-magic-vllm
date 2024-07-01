@@ -5,9 +5,8 @@ tensor parallelism.
 import pytest
 import torch
 
-from vllm.utils import is_hip
-
 from tests.nm_utils.utils_skip import should_skip_test_group
+from vllm.utils import is_hip
 
 from .conftest import run_greedy_equality_correctness_test
 

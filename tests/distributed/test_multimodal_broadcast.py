@@ -22,7 +22,6 @@ if should_skip_test_group(group_name="TEST_DISTRIBUTED"):
     pytest.skip("TEST_DISTRIBUTED=DISABLE, skipping distributed test group",
                 allow_module_level=True)
 
-
 model = os.environ["TEST_DIST_MODEL"]
 
 if model.startswith("llava-hf/llava"):

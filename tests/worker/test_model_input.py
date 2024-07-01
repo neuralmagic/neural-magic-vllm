@@ -17,6 +17,7 @@ if should_skip_test_group(group_name="TEST_WORKER"):
     pytest.skip("TEST_WORKER=DISABLE, skipping worker test group",
                 allow_module_level=True)
 
+
 class MockAttentionBackend(AttentionBackend):
 
     @staticmethod

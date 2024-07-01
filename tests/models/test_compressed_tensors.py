@@ -7,9 +7,8 @@ tokens of the are in the top 5 selections of each other.
 
 import pytest
 
-from tests.quantization.utils import is_quant_method_supported
-
 from tests.nm_utils.utils_skip import should_skip_test_group
+from tests.quantization.utils import is_quant_method_supported
 
 from .utils import check_logprobs_close
 
