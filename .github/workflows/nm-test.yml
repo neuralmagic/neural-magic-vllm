@@ -72,10 +72,7 @@ jobs:
                 python-version: ${{ inputs.python }}
 
             - name: install automation components
-              run: |
-                sudo apt-get update --fix-missing
-                sudo apt-get install -y git-all
-                sudo apt-get install -y curl
+              uses: neuralmagic/nm-actions/actions/install-automation-components@install-prereqs
 
             - name: checkout
               id: checkout
@@ -129,8 +126,6 @@ jobs:
             - name: run buildkite script
               run: |
                 cd tests && sudo bash ../.buildkite/download-images.sh
-                echo "check CUDA driver"
-                nvidia-smi
 
             - name: setenv test skip
               id: setenv_test_skip
