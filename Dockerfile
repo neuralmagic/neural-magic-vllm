@@ -63,16 +63,16 @@ RUN apt-get update -y && apt-get install -y ccache
 #################### EXTENSION Build IMAGE ####################
 
 #################### FLASH_ATTENTION Build IMAGE ####################
-FROM dev as flash-attn-builder
-# flash attention version
-ARG flash_attn_version=v2.5.8
-ENV FLASH_ATTN_VERSION=${flash_attn_version}
+#FROM dev as flash-attn-builder
+## flash attention version
+#ARG flash_attn_version=v2.5.8
+#ENV FLASH_ATTN_VERSION=${flash_attn_version}
 
-WORKDIR /usr/src/flash-attention-v2
+#WORKDIR /usr/src/flash-attention-v2
 
 # Download the wheel or build it if a pre-compiled release doesn't exist
-RUN pip --verbose wheel flash-attn==${FLASH_ATTN_VERSION} \
-    --no-build-isolation --no-deps --no-cache-dir
+#RUN pip --verbose wheel flash-attn==${FLASH_ATTN_VERSION} \
+#    --no-build-isolation --no-deps --no-cache-dir
 
 #################### FLASH_ATTENTION Build IMAGE ####################
 
@@ -114,9 +114,9 @@ RUN --mount=type=bind,from=build \
         fi; \
     fi
 
-RUN --mount=type=bind,from=flash-attn-builder,src=/usr/src/flash-attention-v2,target=/usr/src/flash-attention-v2 \
-    --mount=type=cache,target=/root/.cache/pip \
-    pip install /usr/src/flash-attention-v2/*.whl --no-cache-dir
+#RUN --mount=type=bind,from=flash-attn-builder,src=/usr/src/flash-attention-v2,target=/usr/src/flash-attention-v2 \
+#    --mount=type=cache,target=/root/.cache/pip \
+#    pip install /usr/src/flash-attention-v2/*.whl --no-cache-dir
 #################### vLLM installation IMAGE ####################
 
 #################### TEST IMAGE ####################
