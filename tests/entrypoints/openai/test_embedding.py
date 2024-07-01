@@ -13,7 +13,6 @@ if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
     pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
                 allow_module_level=True)
 
-
 EMBEDDING_MODEL_NAME = "intfloat/e5-mistral-7b-instruct"
 
 

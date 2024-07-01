@@ -15,7 +15,13 @@ import os
 
 import pytest
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.utils import cuda_device_count_stateless
+
+if should_skip_test_group(group_name="TEST_DISTRIBUTED"):
+    pytest.skip("TEST_DISTRIBUTED=DISABLE, skipping distributed test group",
+                allow_module_level=True)
+
 
 model = os.environ["TEST_DIST_MODEL"]
 
