@@ -20,9 +20,9 @@ import os
 
 import pytest
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.utils import cuda_device_count_stateless
 
-from tests.nm_utils.utils_skip import should_skip_test_group
 from ..models.utils import check_outputs_equal
 
 if should_skip_test_group(group_name="TEST_DISTRIBUTED"):

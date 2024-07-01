@@ -11,6 +11,7 @@ import pytest
 import torch
 
 from tests.nm_utils.utils_skip import should_skip_test_group
+
 from .utils import check_outputs_equal
 
 if should_skip_test_group(group_name="TEST_MODELS"):

@@ -8,9 +8,9 @@ Run `pytest tests/models/test_chunked_prefill.py`.
 """
 import pytest
 
-from ..models.utils import check_outputs_equal
-
 from tests.nm_utils.utils_skip import should_skip_test_group
+
+from ..models.utils import check_outputs_equal
 
 if should_skip_test_group(group_name="TEST_BASIC_CORRECTNESS"):
     pytest.skip(

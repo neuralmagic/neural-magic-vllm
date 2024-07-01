@@ -10,6 +10,7 @@ Run `pytest tests/models/test_models.py`.
 import pytest
 
 from tests.nm_utils.utils_skip import should_skip_test_group
+
 from .utils import check_outputs_equal
 
 if should_skip_test_group(group_name="TEST_MODELS"):
@@ -58,6 +59,7 @@ def test_models(
         name_0="hf",
         name_1="vllm",
     )
+
 
 @pytest.mark.skip("Slow and not useful (just prints model).")
 @pytest.mark.parametrize("model", MODELS)

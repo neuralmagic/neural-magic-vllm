@@ -1,18 +1,10 @@
-<<<<<<< HEAD
-import os
-
 import pytest
 import ray
 
-from tests.nm_utils.utils_skip import should_skip_test_group
-from vllm.utils import cuda_device_count_stateless
-=======
-import ray
-
 import vllm.envs as envs
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.utils import (cuda_device_count_stateless, is_hip,
                         update_environment_variables)
->>>>>>> dd793d1d ([Hardware][AMD][CI/Build][Doc] Upgrade to ROCm 6.1, Dockerfile improvements, test fixes (#5422))
 
 if should_skip_test_group(group_name="TEST_DISTRIBUTED"):
     pytest.skip("TEST_DISTRIBUTED=DISABLE, skipping distributed test group",
