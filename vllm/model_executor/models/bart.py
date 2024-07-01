@@ -828,41 +828,57 @@ class BartForConditionalGeneration(nn.Module):
         model_params_dict = dict(self.model.named_parameters())
         top_params_dict = dict(self.named_parameters())
 
-        for name, loaded_weight in weights:
+        weights_tuple_list = list(weights)
+        weight_names = [w[0] for w in weights_tuple_list]
+
+        #has_shared_weight = any(['shared.weight' in wn for wn in weight_names])
+        #has_encoder_embed_tokens_weight = any(['encoder.embed_tokens.weight' in wn for wn in weight_names])
+        #has_decoder_embed_tokens_weight = any(['decoder.embed_tokens.weight' in wn for wn in weight_names])
+
+        shared_embedding_weight = None
+        shared_embedding_shard_id = None
+
+        for name, loaded_weight in weights_tuple_list:
 
             name = self._rename_key(name)
             name, shard_id = self._rename_stacked_param(name)
 
-            if 'shared.weight' in name:
-                encoder_in_param = model_params_dict[
-                    'encoder.embed_tokens.weight']
-                encoder_in_weight_loader = getattr(encoder_in_param,
-                                                   "weight_loader",
-                                                   default_weight_loader)
+            if 'shared.weight' in name or \
+                'encoder.embed_tokens.weight' in name \
+                    or 'decoder.embed_tokens.weight' in name \
+                        or 'lm_head.weight' in name:
+                assert shared_embedding_weight is None, "Conflicting embedding weights."
+                shared_embedding_weight = loaded_weight
+                shared_embedding_shard_id = shard_id
 
-                decoder_in_param = model_params_dict[
-                    'decoder.embed_tokens.weight']
-                decoder_in_weight_loader = getattr(decoder_in_param,
-                                                   "weight_loader",
-                                                   default_weight_loader)
+                # encoder_in_param = model_params_dict[
+                #     'encoder.embed_tokens.weight']
+                # encoder_in_weight_loader = getattr(encoder_in_param,
+                #                                    "weight_loader",
+                #                                    default_weight_loader)
 
-                lm_head_in_param = top_params_dict['lm_head.weight']
-                lm_head_in_weight_loader = getattr(lm_head_in_param,
-                                                   "weight_loader",
-                                                   default_weight_loader)
+                # decoder_in_param = model_params_dict[
+                #     'decoder.embed_tokens.weight']
+                # decoder_in_weight_loader = getattr(decoder_in_param,
+                #                                    "weight_loader",
+                #                                    default_weight_loader)
 
-                if shard_id:
-                    encoder_in_weight_loader(encoder_in_param, loaded_weight,
-                                             shard_id)
-                    decoder_in_weight_loader(decoder_in_param, loaded_weight,
-                                             shard_id)
-                    lm_head_in_weight_loader(lm_head_in_param, loaded_weight,
-                                             shard_id)
-                else:
-                    encoder_in_weight_loader(encoder_in_param, loaded_weight)
-                    decoder_in_weight_loader(decoder_in_param, loaded_weight)
-                    lm_head_in_weight_loader(lm_head_in_param, loaded_weight)
+                # lm_head_in_param = top_params_dict['lm_head.weight']
+                # lm_head_in_weight_loader = getattr(lm_head_in_param,
+                #                                    "weight_loader",
+                #                                    default_weight_loader)
 
+                # if shard_id:
+                #     encoder_in_weight_loader(encoder_in_param, loaded_weight,
+                #                              shard_id)
+                #     decoder_in_weight_loader(decoder_in_param, loaded_weight,
+                #                              shard_id)
+                #     lm_head_in_weight_loader(lm_head_in_param, loaded_weight,
+                #                              shard_id)
+                # else:
+                #     encoder_in_weight_loader(encoder_in_param, loaded_weight)
+                #     decoder_in_weight_loader(decoder_in_param, loaded_weight)
+                #     lm_head_in_weight_loader(lm_head_in_param, loaded_weight)
             else:
                 # Skip the specific downstream task weight.
                 if name.startswith('cls.'):
@@ -881,3 +897,35 @@ class BartForConditionalGeneration(nn.Module):
                     weight_loader(param, loaded_weight, shard_id)
                 else:
                     weight_loader(param, loaded_weight)
+
+        # Assign shared weight values
+        encoder_in_param = model_params_dict[
+            'encoder.embed_tokens.weight']
+        encoder_in_weight_loader = getattr(encoder_in_param,
+                                            "weight_loader",
+                                            default_weight_loader)
+
+        decoder_in_param = model_params_dict[
+            'decoder.embed_tokens.weight']
+        decoder_in_weight_loader = getattr(decoder_in_param,
+                                            "weight_loader",
+                                            default_weight_loader)
+
+        lm_head_in_param = top_params_dict['lm_head.weight']
+        lm_head_in_weight_loader = getattr(lm_head_in_param,
+                                            "weight_loader",
+                                            default_weight_loader)
+
+        assert shared_embedding_weight is not None
+
+        if shared_embedding_shard_id:
+            encoder_in_weight_loader(encoder_in_param, shared_embedding_weight,
+                                        shared_embedding_shard_id)
+            decoder_in_weight_loader(decoder_in_param, shared_embedding_weight,
+                                        shared_embedding_shard_id)
+            lm_head_in_weight_loader(lm_head_in_param, shared_embedding_weight,
+                                        shared_embedding_shard_id)
+        else:
+            encoder_in_weight_loader(encoder_in_param, shared_embedding_weight)
+            decoder_in_weight_loader(decoder_in_param, shared_embedding_weight)
+            lm_head_in_weight_loader(lm_head_in_param, shared_embedding_weight)
