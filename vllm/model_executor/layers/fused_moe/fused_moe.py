@@ -646,11 +646,9 @@ def single_marlin_moe(
     expert_offsets_np = numpy.asarray(expert_offsets)
 
     intermediate_cache = torch.ops._moe_C.marlin_gemm_moe(
-        hidden_states, w, sorted_token_ids, topk_weights, scales,
-        g_idx,
-        rand_perm,
-        torch.from_numpy(expert_offsets_np), workspace, M, N, K, True,
-        num_tokens_post_padded, E, topk, block_size_m, True, False)
+        hidden_states, w, sorted_token_ids, topk_weights, scales, g_idx,
+        rand_perm.int(), torch.from_numpy(expert_offsets_np), workspace, M, N,
+        K, True, num_tokens_post_padded, E, topk, block_size_m, True, False)
 
     return torch.sum(intermediate_cache.view(*intermediate_cache.shape), dim=1)
 
@@ -659,8 +657,10 @@ def fused_marlin_moe(hidden_states: torch.Tensor,
                      w1: torch.Tensor,
                      w2: torch.Tensor,
                      gating_output: torch.Tensor,
-                     g_idx: torch.Tensor,
-                     rand_perm: torch.Tensor,
+                     g_idx_1: torch.Tensor,
+                     g_idx_2: torch.Tensor,
+                     rand_perm_1: torch.Tensor,
+                     rand_perm_2: torch.Tensor,
                      topk: int,
                      renormalize: bool,
                      override_config: Optional[Dict[str, Any]] = None,
@@ -787,16 +787,18 @@ def fused_marlin_moe(hidden_states: torch.Tensor,
                                       dtype=hidden_states.dtype)
 
     intermediate_cache1 = torch.ops._moe_C.marlin_gemm_moe(
-        hidden_states, w1, sorted_token_ids, topk_weights, w1_scale, g_idx,
-        rand_perm, torch.from_numpy(expert_offsets_np), workspace, M, 2 * N, K,
-        True, num_tokens_post_padded, E, topk, block_size_m, True, False)
+        hidden_states, w1, sorted_token_ids,
+        topk_weights, w1_scale, g_idx_1, rand_perm_1,
+        torch.from_numpy(expert_offsets_np), workspace, M, 2 * N, K, True,
+        num_tokens_post_padded, E, topk, block_size_m, True, False)
 
     ops.silu_and_mul(intermediate_cache2, intermediate_cache1.view(-1, 2 * N))
 
     intermediate_cache3 = torch.ops._moe_C.marlin_gemm_moe(
-        intermediate_cache2, w2, sorted_token_ids, topk_weights, w2_scale,
-        g_idx, rand_perm, torch.from_numpy(expert_offsets_np), workspace, M, K,
-        N, True, num_tokens_post_padded, E, topk, block_size_m, False, True)
+        intermediate_cache2, w2, sorted_token_ids,
+        topk_weights, w2_scale, g_idx_2, rand_perm_2,
+        torch.from_numpy(expert_offsets_np), workspace, M, K, N, True,
+        num_tokens_post_padded, E, topk, block_size_m, False, True)
 
     return torch.sum(intermediate_cache3.view(*intermediate_cache3.shape),
                      dim=1)

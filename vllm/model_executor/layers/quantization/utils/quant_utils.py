@@ -1,4 +1,6 @@
 """This file is used for /tests and /benchmarks"""
+from typing import Optional
+
 import numpy
 import torch
 
@@ -11,7 +13,8 @@ def get_pack_factor(num_bits):
     return 32 // num_bits
 
 
-def permute_rows(q_w: torch.Tensor, w_ref: torch.Tensor, group_size: int):
+def permute_rows(q_w: torch.Tensor, w_ref: torch.Tensor, group_size: int,
+                 test_perm: Optional[bool] = None):
     assert q_w.shape == w_ref.shape
 
     orig_device = q_w.device
@@ -22,7 +25,10 @@ def permute_rows(q_w: torch.Tensor, w_ref: torch.Tensor, group_size: int):
         g_idx[i] = i // group_size
 
     # Simulate act_order by doing a random permutation on K
-    rand_perm = torch.randperm(k_size)
+    if test_perm is not None:
+        rand_perm = test_perm
+    else:
+        rand_perm = torch.randperm(k_size)
 
     g_idx = g_idx[rand_perm].contiguous()
     q_w = q_w[rand_perm, :].contiguous()
@@ -37,7 +43,7 @@ def permute_rows(q_w: torch.Tensor, w_ref: torch.Tensor, group_size: int):
 
 
 def quantize_weights(w: torch.Tensor, num_bits: int, group_size: int,
-                     act_order: bool):
+                     act_order: bool, test_perm: Optional[bool] = None):
     orig_device = w.device
     size_k, size_n = w.shape
 
@@ -89,13 +95,15 @@ def quantize_weights(w: torch.Tensor, num_bits: int, group_size: int,
     # Apply act_order
     g_idx = torch.empty(0, dtype=torch.int, device=w.device)
     rand_perm = torch.empty(0, dtype=torch.int, device=w.device)
+
     if act_order:
         assert (
             group_size < size_k
         ), "For act_order, groupsize = {} must be less than size_k = {}".format(
             group_size, size_k)
 
-        w_ref, q_w, g_idx, rand_perm = permute_rows(q_w, w_ref, group_size)
+        w_ref, q_w, g_idx, rand_perm = permute_rows(q_w, w_ref, group_size,
+                                                    test_perm)
 
     return (
         w_ref.to(device=orig_device),

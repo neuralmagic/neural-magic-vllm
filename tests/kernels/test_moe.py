@@ -146,17 +146,17 @@ def compute_max_diff(output, output_ref):
 
 
 # UPSTREAM SYNC: breaks NM automation.
-# @pytest.mark.skip("C compiler not installed in NM automation. "
-#                   "This codepath follows a triton pathway, which "
-#                   "JITs using clang or gcc. Since neither are installed "
-#                   "in our test instances, we need to skip this for now.")
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("m", [64, 512, 222, 33, 1])
 @pytest.mark.parametrize("n", [128, 2048, 256, 1024])
 @pytest.mark.parametrize("k", [128, 1024, 512])
 @pytest.mark.parametrize("e", [4, 8, 64])
 @pytest.mark.parametrize("topk", [2, 6])
-@pytest.mark.parametrize("group_size", [32, 64, 128])
-@pytest.mark.parametrize("act_order", [True])
+@pytest.mark.parametrize("group_size", [-1, 32, 64, 128])
+@pytest.mark.parametrize("act_order", [True, False])
 def test_fused_marlin_moe(
     m: int,
     n: int,
@@ -168,12 +168,12 @@ def test_fused_marlin_moe(
 ):
     if topk > e:
         return
-    
+
     # Filter act_order
     if act_order:
         if group_size == -1:
             return
-        if group_size == k:
+        if group_size == k or group_size == n:
             return
 
     num_bits = 4
@@ -184,33 +184,36 @@ def test_fused_marlin_moe(
     for i in range(w2.shape[0]):
         w2[0] = torch.eye(k, n, device='cuda', dtype=dtype)
 
-    w_refs1 = []
-    qweights1 = []
-    scaless1 = []
+    test_perm_1 = torch.randperm(k)
+    test_perm_2 = torch.randperm(n)
+
+    w_ref1_l = []
+    qweight1_l = []
+    scales1_l = []
 
     for i in range(w1.shape[0]):
-        w_ref1, qweight1, scales1, g_idx, _, rand_perm = marlin_quantize(
-            w1[i].transpose(1, 0), num_bits, group_size, act_order)
-        w_refs1.append(w_ref1)
-        qweights1.append(qweight1)
-        scaless1.append(scales1)
+        w_ref1, qweight1, scales1, g_idx_1, sort_indices_1, _ = marlin_quantize(
+            w1[i].transpose(1, 0), num_bits, group_size, act_order, test_perm_1)
+        w_ref1_l.append(w_ref1)
+        qweight1_l.append(qweight1)
+        scales1_l.append(scales1)
 
-    w_ref1 = stack_and_dev(w_refs1)
-    qweight1 = stack_and_dev(qweights1).contiguous()
-    scales1 = stack_and_dev(scaless1)
+    w_ref1 = stack_and_dev(w_ref1_l)
+    qweight1 = stack_and_dev(qweight1_l).contiguous()
+    scales1 = stack_and_dev(scales1_l)
 
-    w_refs2 = []
+    w_ref2_l = []
     qweight2_l = []
     scales2_l = []
 
     for i in range(w2.shape[0]):
-        w_ref2, qweight2, scales2, g_idx, sort_indices, rand_perm = marlin_quantize(
-            w2[i].transpose(1, 0), num_bits, group_size, act_order)
-        w_refs2.append(w_ref2)
+        w_ref2, qweight2, scales2, g_idx_2, sort_indices_2, _ = marlin_quantize(
+            w2[i].transpose(1, 0), num_bits, group_size, act_order, test_perm_2)
+        w_ref2_l.append(w_ref2)
         qweight2_l.append(qweight2)
         scales2_l.append(scales2)
 
-    w_ref2 = stack_and_dev(w_refs2)
+    w_ref2 = stack_and_dev(w_ref2_l)
     qweight2 = stack_and_dev(qweight2_l).contiguous()
     scales2 = stack_and_dev(scales2_l)
 
@@ -225,8 +228,10 @@ def test_fused_marlin_moe(
                                      qweight1,
                                      qweight2,
                                      score,
-                                     g_idx,
-                                     rand_perm,
+                                     g_idx_1,
+                                     g_idx_2,
+                                     sort_indices_1,
+                                     sort_indices_2,
                                      topk,
                                      renormalize=False,
                                      w1_scale=scales1,
@@ -236,17 +241,17 @@ def test_fused_marlin_moe(
 
 
 # UPSTREAM SYNC: breaks NM automation.
-# @pytest.mark.skip("C compiler not installed in NM automation. "
-#                   "This codepath follows a triton pathway, which "
-#                   "JITs using clang or gcc. Since neither are installed "
-#                   "in our test instances, we need to skip this for now.")
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("m", [64, 512, 222, 33, 1])
 @pytest.mark.parametrize("n", [128, 2048, 256, 1024])
 @pytest.mark.parametrize("k", [128, 1024, 512])
 @pytest.mark.parametrize("e", [4, 8, 64])
 @pytest.mark.parametrize("topk", [2, 6])
 @pytest.mark.parametrize("group_size", [-1, 32, 64, 128])
-@pytest.mark.parametrize("act_order", [True])
+@pytest.mark.parametrize("act_order", [True, False])
 def test_single_marlin_moe(
     m: int,
     n: int,
@@ -258,7 +263,7 @@ def test_single_marlin_moe(
 ):
     if topk > e:
         return
-    
+
     # Filter act_order
     if act_order:
         if group_size == -1:
@@ -270,17 +275,40 @@ def test_single_marlin_moe(
     dtype = torch.float16
     a = torch.randn((m, k), device='cuda', dtype=dtype) / 10
     w = torch.randn((e, n, k), device='cuda', dtype=dtype) / 10
+    # for nn in range(n):
+    #     for kk in range(k):
+    #         w[0][nn][kk] = nn / 10
 
     w_ref_l = []
     qweights_l = []
     scales_l = []
 
+    # _, qwww1, sccc1, _, _, sort_indices = marlin_quantize(
+    #         w[0].transpose(1, 0), num_bits, group_size, True)
+    # _, qwww2, sccc2, _, _, sort_indices = marlin_quantize(
+    #         w[0].transpose(1, 0), num_bits, group_size, False)
+
+    # print("with act_order:", qwww1, sccc1)
+    # print("without act_order:", qwww2, sccc2)
+
+    # assert(False)
+
+    test_perm = torch.randperm(k)
+
     for i in range(w.shape[0]):
-        w_ref, qweight, scales, g_idx, _, rand_perm= marlin_quantize(
-            w[i].transpose(1, 0), num_bits, group_size, act_order)
+        w_ref, qweight, scales, g_idx, sort_indices, _ = marlin_quantize(
+            w[i].transpose(1, 0), num_bits, group_size, act_order, test_perm)
         w_ref_l.append(w_ref)
         qweights_l.append(qweight)
         scales_l.append(scales)
+
+        # if i == 0:
+            # print("g_idx:", g_idx)
+            # print("sort_indices:", sort_indices)
+            # print("w_ref:", w_ref)
+            # print("qweight:", qweight)
+            # print("scales:", scales)
+            # print("---")
 
     w_ref = stack_and_dev(w_ref_l)
     qweight = stack_and_dev(qweights_l).contiguous()
@@ -292,9 +320,23 @@ def test_single_marlin_moe(
                                       scales,
                                       score,
                                       g_idx,
-                                      rand_perm,
+                                      sort_indices,
                                       topk,
                                       renormalize=False)
     torch_output = torch_moe_single(a, w_ref.transpose(1, 2), score, topk)
 
+    # print("marlin:")
+    # for i in range(m):
+    #     for j in range(10):
+    #         print(marlin_output[i][j].item(), end=" ")
+    #     print("")
+    # print("")
+    # print("torch:")
+    # for i in range(m):
+    #     for j in range(10):
+    #         print(torch_output[i][j].item(), end=" ")
+    #     print("")
+    # print("")
+
     assert (compute_max_diff(marlin_output, torch_output) < 1e-2)
+    # assert (False)
