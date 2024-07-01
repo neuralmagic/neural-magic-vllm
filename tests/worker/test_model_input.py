@@ -1,8 +1,10 @@
 import dataclasses
 from typing import List, Tuple, Type
 
+import pytest
 import torch
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.attention import AttentionMetadata
 from vllm.attention.backends.abstract import AttentionBackend
 from vllm.model_executor import SamplingMetadata
@@ -11,6 +13,9 @@ from vllm.worker.embedding_model_runner import (
     ModelInputForGPUWithPoolingMetadata)
 from vllm.worker.model_runner import ModelInputForGPUWithSamplingMetadata
 
+if should_skip_test_group(group_name="TEST_WORKER"):
+    pytest.skip("TEST_WORKER=DISABLE, skipping worker test group",
+                allow_module_level=True)
 
 class MockAttentionBackend(AttentionBackend):
 

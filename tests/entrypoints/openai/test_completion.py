@@ -14,9 +14,14 @@ import requests
 from huggingface_hub import snapshot_download
 from openai import BadRequestError
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.transformers_utils.tokenizer import get_tokenizer
 
 from ...utils import RemoteOpenAIServer
+
+if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
+    pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
+                allow_module_level=True)
 
 # any model with a chat template should work here
 MODEL_NAME = "HuggingFaceH4/zephyr-7b-beta"
