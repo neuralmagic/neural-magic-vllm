@@ -75,18 +75,21 @@ class BartLearnedPositionalEmbedding(nn.Embedding):
 
         if attn_type == AttentionType.ENCODER:
             seq_lens = attn_metadata.encoder_seq_lens
+            past_key_values_lens = [0]*len(seq_lens)
         else:
             # AttentionType.DECODER
             if attn_metadata.num_prefill_tokens > 0:
                 # Prefill
                 seq_lens = attn_metadata.seq_lens
+                past_key_values_lens = [0]*len(seq_lens)
             else:
                 # Decode: infer one (1) new token per sequence
                 seq_lens = [1] * len(attn_metadata.seq_lens)
+                past_key_values_lens = [seq_len-1 for seq_len in attn_metadata.seq_lens]
 
         positions = []
-        for seq_len in seq_lens:
-            positions.extend(list(range(seq_len)))
+        for past_key_values_len,seq_len in zip(past_key_values_lens,seq_lens):
+            positions.extend(list(range(past_key_values_len,past_key_values_len+seq_len)))
 
         positions = torch.tensor(positions,
                                  dtype=torch.long,
