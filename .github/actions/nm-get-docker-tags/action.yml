@@ -4,7 +4,7 @@ inputs:
   wf_category:
     description: "type of nm-vllm to install for the docker image: NIGHTLY or RELEASE"
     required: true
-  wheel:
+  whl:
     description: "wheel name, if latest use the latest from nm pypi"
     required: true
 outputs:
@@ -22,15 +22,15 @@ runs:
   steps:
   - id: tags
     run: |
-      BUILD_VERSION=`echo "${{ inputs.wheel }}" | cut -d'-' -f2`
+      BUILD_VERSION=`echo "${{ inputs.whl }}" | cut -d'-' -f2`
       if [[ "${{ inputs.wf_category }}" == "RELEASE" ]]; then
-          TAG="v${build_version}"
+          TAG="v${BUILD_VERSION}"
           EXTRA_TAG=latest
       else
-          TAG=`echo "${build_version}" | cut -d'.' -f4`
+          TAG=`echo "${BUILD_VERSION}" | cut -d'.' -f4`
           EXTRA_TAG=nightly
       fi
-      if [[ "${{ inputs.wheel }}" == "latest" ]]; then
+      if [[ "${{ inputs.whl }}" == "latest" ]]; then
           BUILD_VERSION="latest"
       fi
       echo "tag=${TAG}" >> $GITHUB_OUTPUT
