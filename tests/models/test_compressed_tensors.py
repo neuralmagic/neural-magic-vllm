@@ -9,7 +9,13 @@ import pytest
 
 from tests.quantization.utils import is_quant_method_supported
 
+from tests.nm_utils.utils_skip import should_skip_test_group
+
 from .utils import check_logprobs_close
+
+if should_skip_test_group(group_name="TEST_MODELS"):
+    pytest.skip("TEST_MODELS=DISABLE, skipping model test group",
+                allow_module_level=True)
 
 MODELS = [
     "nm-testing/Meta-Llama-3-8B-Instruct-W8-Channel-A8-Dynamic-Per-Token-Test",
