@@ -161,24 +161,24 @@ jobs:
       secrets: inherit
 
     # uploading is only available when using GCP autoscaling group
-    UPLOAD:
-        needs: [TEST, BENCHMARK, LM-EVAL]
-        if: ${{ inputs.push_to_pypi }}
-        uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
-        with:
-            label: gcp-k8s-util
-            timeout: ${{ inputs.build_timeout }}
-            gitref: ${{ github.ref }}
-        secrets: inherit
+    # UPLOAD:
+    #     needs: [TEST, BENCHMARK, LM-EVAL]
+    #     if: ${{ inputs.push_to_pypi }}
+    #     uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
+    #     with:
+    #         label: gcp-k8s-util
+    #         timeout: ${{ inputs.build_timeout }}
+    #         gitref: ${{ github.ref }}
+    #     secrets: inherit
 
     # update docker
-    DOCKER:
-        needs: [BUILD, UPLOAD]
-        if: ${{ inputs.push_to_pypi }}
-        uses: ./.github/workflows/publish-docker.yml
-        with:
-            push_to_repository: ${{ inputs.push_to_pypi }}
-            gitref: ${{ inputs.gitref }}
-            wf_category: ${{ inputs.wf_category }}
-            wheel: ${{ needs.BUILD.outputs.whl }}
-        secrets: inherit
+    # DOCKER:
+    #     needs: [BUILD, UPLOAD]
+    #     if: ${{ inputs.push_to_pypi }}
+    #     uses: ./.github/workflows/publish-docker.yml
+    #     with:
+    #         push_to_repository: ${{ inputs.push_to_pypi }}
+    #         gitref: ${{ inputs.gitref }}
+    #         wf_category: ${{ inputs.wf_category }}
+    #         wheel: ${{ needs.BUILD.outputs.whl }}
+    #     secrets: inherit
