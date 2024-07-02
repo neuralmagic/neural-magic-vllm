@@ -109,7 +109,7 @@ def process(json_file_path: Path) -> Iterable[Type_Record_T]:
 def main(args: argparse.Namespace) -> None:
     input_directory = Path(args.input_directory)
 
-    json_file_paths = input_directory.glob('*/*.json')
+    json_file_paths = list(input_directory.glob('*/*.json'))
     print(f"{json_file_paths=}")
 
     type_records: List[Type_Record_T] = list(
