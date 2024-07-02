@@ -10,6 +10,7 @@ def run(config_file_path: Path, output_directory: Path) -> None:
 
     for config in benchmark_configs(config_file_path):
         output_directory = output_directory.joinpath(config.script_name)
+        output_directory.mkdir(parents=True, exist_ok=True)
         if config.script_name == "benchmark_serving":
             run_benchmark_serving_script(config, output_directory)
             continue
