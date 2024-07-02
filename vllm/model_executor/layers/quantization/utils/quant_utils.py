@@ -45,7 +45,7 @@ def quantize_weights(w: torch.Tensor,
                      num_bits: int,
                      group_size: int,
                      act_order: bool,
-                     test_perm: Optional[bool] = None):
+                     test_perm: Optional[torch.Tensor] = None):
     orig_device = w.device
     size_k, size_n = w.shape
 
@@ -97,7 +97,6 @@ def quantize_weights(w: torch.Tensor,
     # Apply act_order
     g_idx = torch.empty(0, dtype=torch.int, device=w.device)
     rand_perm = torch.empty(0, dtype=torch.int, device=w.device)
-
     if act_order:
         assert (
             group_size < size_k

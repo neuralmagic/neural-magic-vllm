@@ -289,11 +289,11 @@ template <const int threads,          // number of threads in a threadblock
                                        // with a separate quantization scale
           >
 __global__ void MarlinMoE(
-    const int4* __restrict__ A,    // fp16 input matrix of shape mxk
-    const int4* __restrict__ B,    // 4bit quantized weight matrix of shape kxn
-    int4* __restrict__ C,          // fp16 output buffer of shape mxn
-    int* __restrict__ sorted_ids,  // int32 sorted ids of experts
-    float* __restrict__ topk_weights,     // float topk weights
+    const int4* __restrict__ A,  // fp16 input matrix of shape mxk
+    const int4* __restrict__ B,  // 4bit quantized weight matrix of shape kxn
+    int4* __restrict__ C,        // fp16 output buffer of shape mxn
+    const int* __restrict__ sorted_ids,      // int32 sorted ids of experts
+    const float* __restrict__ topk_weights,  // float topk weights
     const int4* __restrict__ scales_ptr,  // fp16 quantization scales of shape
                                           // (k/groupsize)xn
     const int* __restrict__ g_idx,        // int32 group indices of shape k
@@ -423,7 +423,7 @@ __global__ void MarlinMoE(
   constexpr int b_sh_stage = b_sh_stride * thread_k_blocks;
   constexpr int b_sh_wr_iters = b_sh_stage / b_sh_wr_delta;
 
-  // Scale sizes/strideswithout act_order
+  // Scale sizes/strides without act_order
   int s_gl_stride = prob_n / 8;
   constexpr int s_sh_stride = 16 * thread_n_blocks / 8;
   constexpr int s_tb_groups = !has_act_order && group_blocks < thread_k_blocks
@@ -1081,7 +1081,6 @@ __global__ void MarlinMoE(
     // fetch_sorted_ids_to_shared();
     __syncthreads();
 
-  // printf("loop over stages:\n");
   #pragma unroll
     for (int i = 0; i < stages - 1; i++) {
       if (has_act_order && i == 0) {
@@ -1089,7 +1088,6 @@ __global__ void MarlinMoE(
         if (last_g_idx >= prob_k) {
           last_g_idx = prob_k - 1;
         }
-        // printf("fetch scales %d (%d, %d)\n", i, slice_k_start, last_g_idx);
         fetch_scales_to_shared(true, g_idx[slice_k_start], g_idx[last_g_idx]);
       }
       fetch_to_shared(i, i, i < slice_iters);
@@ -1146,7 +1144,6 @@ __global__ void MarlinMoE(
       }
       int last_group_id = g_idx[last_g_idx];
       if (last_group_id >= sh_first_group_id + sh_num_groups) {
-        printf("fetch scales 2\n");
         fetch_scales_to_shared(false, first_group_id, last_group_id);
         __syncthreads();
       }
@@ -1244,11 +1241,11 @@ template <const int threads,          // number of threads in a threadblock
                                        // with a separate quantization scale
           >
 __global__ void MarlinMoE(
-    const int4* __restrict__ A,    // fp16 input matrix of shape mxk
-    const int4* __restrict__ B,    // 4bit quantized weight matrix of shape kxn
-    int4* __restrict__ C,          // fp16 output buffer of shape mxn
-    int* __restrict__ sorted_ids,  // int32 sorted ids of experts
-    float* __restrict__ topk_weights,     // float topk weights
+    const int4* __restrict__ A,  // fp16 input matrix of shape mxk
+    const int4* __restrict__ B,  // 4bit quantized weight matrix of shape kxn
+    int4* __restrict__ C,        // fp16 output buffer of shape mxn
+    const int* __restrict__ sorted_ids,      // int32 sorted ids of experts
+    const float* __restrict__ topk_weights,  // float topk weights
     const int4* __restrict__ scales_ptr,  // fp16 quantization scales of shape
                                           // (k/groupsize)xn
     const int* __restrict__ g_idx,        // int32 group indices of shape k
@@ -1408,15 +1405,16 @@ thread_config_t determine_thread_config(int prob_m, int prob_n, int prob_k) {
   __CALL_IF_MOE(4, N_BLOCKS, K_BLOCKS, false, 8, NUM_THREADS)
 
 void marlin_mm_moe_f16i4(const void* A, const void* B, void* C,
-                         void* sorted_ids, void* topk_weights, void* s,
-                         void* g_idx, void* perm, void* a_tmp,
-                         void* expert_offsets, int prob_m, int prob_n,
-                         int prob_k, void* workspace, bool has_act_order,
-                         bool is_k_full, int num_groups, int group_size,
-                         int num_tokens_post_padded, int num_experts, int topk,
-                         int moe_block_size, int dev, cudaStream_t stream,
-                         int thread_k, int thread_n, int sms, int max_par,
-                         bool replicate_input, bool apply_weights) {
+                         const void* sorted_ids, const void* topk_weights,
+                         const void* s, const void* g_idx, const void* perm,
+                         void* a_tmp, const void* expert_offsets, int prob_m,
+                         int prob_n, int prob_k, void* workspace,
+                         bool has_act_order, bool is_k_full, int num_groups,
+                         int group_size, int num_tokens_post_padded,
+                         int num_experts, int topk, int moe_block_size, int dev,
+                         cudaStream_t stream, int thread_k, int thread_n,
+                         int sms, int max_par, bool replicate_input,
+                         bool apply_weights) {
   TORCH_CHECK(prob_m > 0 && prob_n > 0 && prob_k > 0, "Invalid MNK = [", prob_m,
               ", ", prob_n, ", ", prob_k, "]");
 
@@ -1484,31 +1482,9 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C,
 
   int tot_m = prob_m;
 
-  long* expert_offsets_ptr = (long*)expert_offsets;
-
-  // const int4* A_ptr = (const int4*)A;
-  // int4* a_tmp_ptr = (int4*)a_tmp;
-  int4* C_ptr = (int4*)C;
-  float* topk_weights_ptr = (float*)topk_weights;
-  // const int* g_idx_ptr = (const int*)g_idx;
-  // const int* perm_ptr = (const int*)perm;
-  int* locks = (int*)workspace;
+  const long* expert_offsets_ptr = (const long*)expert_offsets;
 
   bool do_permute_a = has_act_order;
-
-  // if (has_act_order) {
-  //   // Permute A columns
-  //   int topk_rows = replicate_input ? tot_m : tot_m * topk;
-  //   int block_rows = ceildiv(topk_rows, blocks);
-  //   permute_cols_kernel<<<blocks, num_threads, 0, stream>>>(A_ptr,
-  //                                                           perm_ptr,
-  //                                                           a_tmp_ptr,
-  //                                                           topk_rows,
-  //                                                           prob_k,
-  //                                                           block_rows,
-  //                                                           USER_THREADS);
-  //   A_ptr = a_tmp_ptr;
-  // }
 
   // If we have a full K, then we can run the non-act-order version of Marlin
   // (since the weight rows are reordered by increasing group ids, and by
@@ -1518,8 +1494,13 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C,
   }
 
   for (int expert_idx = 0; expert_idx < num_experts; ++expert_idx) {
+    const int4* A_ptr = (const int4*)A;
+    int4* a_tmp_ptr = (int4*)a_tmp;
     const int4* B_ptr = (const int4*)B + (prob_n * prob_k / 32) * expert_idx;
-    int* sorted_ids_ptr = (int*)sorted_ids + expert_offsets_ptr[expert_idx];
+    int4* C_ptr = (int4*)C;
+    const float* topk_weights_ptr = (const float*)topk_weights;
+    const int* sorted_ids_ptr =
+        (const int*)sorted_ids + expert_offsets_ptr[expert_idx];
     const int4* s_ptr =
         (const int4*)s +
         (((group_size == -1 || group_size == 0) ? 1 : prob_k / group_size) *
@@ -1528,8 +1509,7 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C,
 
     const int* g_idx_ptr = (const int*)g_idx + prob_k * expert_idx;
     const int* perm_ptr = (const int*)perm + prob_k * expert_idx;
-    const int4* A_ptr = (const int4*)A;
-    int4* a_tmp_ptr = (int4*)a_tmp;
+    int* locks = (int*)workspace;
 
     if (do_permute_a) {
       // Permute A columns
@@ -1591,9 +1571,10 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C,
 }  // namespace marlin_moe
 
 torch::Tensor marlin_gemm_moe(
-    torch::Tensor& a, torch::Tensor& b_q_weights, torch::Tensor& sorted_ids,
-    torch::Tensor& topk_weights, torch::Tensor& b_scales, torch::Tensor& g_idx,
-    torch::Tensor& perm, torch::Tensor& expert_offsets,
+    const torch::Tensor& a, const torch::Tensor& b_q_weights,
+    const torch::Tensor& sorted_ids, const torch::Tensor& topk_weights,
+    const torch::Tensor& b_scales, const torch::Tensor& g_idx,
+    const torch::Tensor& perm, const torch::Tensor& expert_offsets,
     torch::Tensor& workspace, int64_t size_m, int64_t size_n, int64_t size_k,
     bool is_k_full, int64_t num_tokens_post_padded, int64_t num_experts,
     int64_t topk, int64_t moe_block_size, bool replicate_input,

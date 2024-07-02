@@ -657,10 +657,10 @@ def fused_marlin_moe(hidden_states: torch.Tensor,
                      w1: torch.Tensor,
                      w2: torch.Tensor,
                      gating_output: torch.Tensor,
-                     g_idx_1: torch.Tensor,
-                     g_idx_2: torch.Tensor,
-                     rand_perm_1: torch.Tensor,
-                     rand_perm_2: torch.Tensor,
+                     g_idx1: torch.Tensor,
+                     g_idx2: torch.Tensor,
+                     rand_perm1: torch.Tensor,
+                     rand_perm2: torch.Tensor,
                      topk: int,
                      renormalize: bool,
                      override_config: Optional[Dict[str, Any]] = None,
@@ -788,7 +788,7 @@ def fused_marlin_moe(hidden_states: torch.Tensor,
 
     intermediate_cache1 = torch.ops._moe_C.marlin_gemm_moe(
         hidden_states, w1, sorted_token_ids,
-        topk_weights, w1_scale, g_idx_1, rand_perm_1,
+        topk_weights, w1_scale, g_idx1, rand_perm1,
         torch.from_numpy(expert_offsets_np), workspace, M, 2 * N, K, True,
         num_tokens_post_padded, E, topk, block_size_m, True, False)
 
@@ -796,7 +796,7 @@ def fused_marlin_moe(hidden_states: torch.Tensor,
 
     intermediate_cache3 = torch.ops._moe_C.marlin_gemm_moe(
         intermediate_cache2, w2, sorted_token_ids,
-        topk_weights, w2_scale, g_idx_2, rand_perm_2,
+        topk_weights, w2_scale, g_idx2, rand_perm2,
         torch.from_numpy(expert_offsets_np), workspace, M, K, N, True,
         num_tokens_post_padded, E, topk, block_size_m, False, True)
 

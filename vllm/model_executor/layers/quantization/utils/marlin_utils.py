@@ -97,7 +97,7 @@ def marlin_quantize(
     num_bits: int,
     group_size: int,
     act_order: bool,
-    test_perm: Optional[bool] = None,
+    test_perm: Optional[torch.Tensor] = None,
 ):
     size_k, size_n = w.shape
 

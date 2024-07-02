@@ -146,10 +146,10 @@ def compute_max_diff(output, output_ref):
 
 
 # UPSTREAM SYNC: breaks NM automation.
-# @pytest.mark.skip("C compiler not installed in NM automation. "
-#                   "This codepath follows a triton pathway, which "
-#                   "JITs using clang or gcc. Since neither are installed "
-#                   "in our test instances, we need to skip this for now.")
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("m", [64, 512, 222, 33, 1])
 @pytest.mark.parametrize("n", [128, 2048, 256, 1024])
 @pytest.mark.parametrize("k", [128, 1024, 512])
@@ -183,9 +183,6 @@ def test_fused_marlin_moe(
     w2 = torch.randn((e, k, n), device='cuda', dtype=dtype) / 10
     for i in range(w2.shape[0]):
         w2[0] = torch.eye(k, n, device='cuda', dtype=dtype)
-
-    # test_perm_1 = torch.randperm(k)
-    # test_perm_2 = torch.randperm(n)
 
     w_ref1_l = []
     qweight1_l = []
@@ -255,10 +252,10 @@ def test_fused_marlin_moe(
 
 
 # UPSTREAM SYNC: breaks NM automation.
-# @pytest.mark.skip("C compiler not installed in NM automation. "
-#                   "This codepath follows a triton pathway, which "
-#                   "JITs using clang or gcc. Since neither are installed "
-#                   "in our test instances, we need to skip this for now.")
+@pytest.mark.skip("C compiler not installed in NM automation. "
+                  "This codepath follows a triton pathway, which "
+                  "JITs using clang or gcc. Since neither are installed "
+                  "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("m", [64, 512, 222, 33, 1])
 @pytest.mark.parametrize("n", [128, 2048, 256, 1024])
 @pytest.mark.parametrize("k", [128, 1024, 512])
@@ -295,8 +292,6 @@ def test_single_marlin_moe(
     scales_l = []
     g_idx_l = []
     sort_indices_l = []
-
-    # test_perm = torch.randperm(k)
 
     for i in range(w.shape[0]):
         test_perm = torch.randperm(k)

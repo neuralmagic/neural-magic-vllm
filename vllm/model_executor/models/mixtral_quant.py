@@ -138,10 +138,10 @@ class MixtralMoE(nn.Module):
         scales13_l = []
         qweight2_l = []
         scales2_l = []
-        g_idx_13_l = []
-        g_idx_2_l = []
-        g_idx_sort_idx_13_l = []
-        g_idx_sort_idx_2_l = []
+        g_idx13_l = []
+        g_idx2_l = []
+        g_idx_sort_idx13_l = []
+        g_idx_sort_idx2_l = []
 
         for i in range(len(self.experts)):
             w1_qw = self.experts[i].w1.get_parameter("qweight").int()
@@ -150,16 +150,16 @@ class MixtralMoE(nn.Module):
             w3_s = self.experts[i].w3.get_parameter("scales").half()
             w2_qw = self.experts[i].w2.get_parameter("qweight").int()
             w2_s = self.experts[i].w2.get_parameter("scales").half()
-            g_idx_13 = self.experts[i].w1.get_parameter("g_idx")
-            g_idx_2 = self.experts[i].w2.get_parameter("g_idx")
-            g_idx_sort_idx_13 = torch.argsort(g_idx_13).to(torch.int)
-            g_idx_sort_idx_2 = torch.argsort(g_idx_2).to(torch.int)
+            g_idx13 = self.experts[i].w1.get_parameter("g_idx")
+            g_idx2 = self.experts[i].w2.get_parameter("g_idx")
+            g_idx_sort_idx13 = torch.argsort(g_idx13).int()
+            g_idx_sort_idx2 = torch.argsort(g_idx2).int()
 
             w13_qw = torch.cat((w1_qw, w3_qw), 1)
             w13_s = torch.cat((w1_s, w3_s), 1)
             size_k = hidden_states.shape[1]
             size_n = w13_qw.shape[1]
-            w13_qw = ops.gptq_marlin_repack(w13_qw, g_idx_sort_idx_13, size_k,
+            w13_qw = ops.gptq_marlin_repack(w13_qw, g_idx_sort_idx13, size_k,
                                             size_n,
                                             self.quant_config.weight_bits)
             w13_s = marlin_permute_scales_numbits(
@@ -168,7 +168,7 @@ class MixtralMoE(nn.Module):
 
             size_k = w2_qw.shape[0] * 8
             size_n = w2_qw.shape[1]
-            w2_qw = ops.gptq_marlin_repack(w2_qw, g_idx_sort_idx_2, size_k,
+            w2_qw = ops.gptq_marlin_repack(w2_qw, g_idx_sort_idx2, size_k,
                                            size_n,
                                            self.quant_config.weight_bits)
             w2_s = marlin_permute_scales_numbits(w2_s, size_k, size_n,
@@ -179,31 +179,31 @@ class MixtralMoE(nn.Module):
             scales13_l.append(w13_s)
             qweight2_l.append(w2_qw)
             scales2_l.append(w2_s)
-            g_idx_13_l.append(g_idx_13)
-            g_idx_2_l.append(g_idx_2)
-            g_idx_sort_idx_13_l.append(g_idx_sort_idx_13)
-            g_idx_sort_idx_2_l.append(g_idx_sort_idx_2)
+            g_idx13_l.append(g_idx13)
+            g_idx2_l.append(g_idx2)
+            g_idx_sort_idx13_l.append(g_idx_sort_idx13)
+            g_idx_sort_idx2_l.append(g_idx_sort_idx2)
 
         qweight13 = torch.stack(qweight13_l, dim=0).to(qweight13_l[0].device)
         scales13 = torch.stack(scales13_l, dim=0).to(scales13_l[0].device)
         qweight2 = torch.stack(qweight2_l, dim=0).to(qweight2_l[0].device)
         scales2 = torch.stack(scales2_l, dim=0).to(scales2_l[0].device)
-        g_idx_13 = torch.stack(g_idx_13_l, dim=0).to(g_idx_13_l[0].device)
-        g_idx_2 = torch.stack(g_idx_2_l, dim=0).to(g_idx_2_l[0].device)
-        g_idx_sort_idx_13 = torch.stack(g_idx_sort_idx_13_l, dim=0).to(
-            g_idx_sort_idx_13_l[0].device)
-        g_idx_sort_idx_2 = torch.stack(g_idx_sort_idx_2_l,
-                                       dim=0).to(g_idx_sort_idx_2_l[0].device)
+        g_idx13 = torch.stack(g_idx13_l, dim=0).to(g_idx13_l[0].device)
+        g_idx2 = torch.stack(g_idx2_l, dim=0).to(g_idx2_l[0].device)
+        g_idx_sort_idx13 = torch.stack(g_idx_sort_idx13_l,
+                                       dim=0).to(g_idx_sort_idx13_l[0].device)
+        g_idx_sort_idx2 = torch.stack(g_idx_sort_idx2_l,
+                                      dim=0).to(g_idx_sort_idx2_l[0].device)
 
         final_hidden_states = fused_marlin_moe(
             hidden_states.half(),
             qweight13,
             qweight2,
             router_logits,
-            g_idx_13,
-            g_idx_2,
-            g_idx_sort_idx_13,
-            g_idx_sort_idx_2,
+            g_idx13,
+            g_idx2,
+            g_idx_sort_idx13,
+            g_idx_sort_idx2,
             self.top_k,
             renormalize=True,
             w1_scale=scales13,
