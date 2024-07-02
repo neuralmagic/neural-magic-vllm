@@ -125,7 +125,7 @@ jobs:
                 job-partition: ${{ fromJson(needs.Bu.outputs.job-partitions) }}
 
         runs-on: gcp-k8s-util
-        timeout-minutes: ${{ inputs.test_timeout }}
+        timeout-minutes: ${{ fromJson(inputs.test_timeout) }}
 
         steps:
 
