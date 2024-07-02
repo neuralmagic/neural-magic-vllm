@@ -88,7 +88,7 @@ class _ImageAssetPrompts(TypedDict):
 
 
 # UPSTREAM SYNC: Error in Python3.8 without Any
-class _ImageAssets(UserList[Any]):
+class _ImageAssets(UserList):
 
     def __init__(self) -> None:
         super().__init__(
