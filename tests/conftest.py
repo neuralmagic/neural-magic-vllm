@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 from typing import (TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple,
-                    TypedDict, TypeVar)          
+                    TypedDict, TypeVar)
 
 import pytest
 import torch
