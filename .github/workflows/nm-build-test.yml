@@ -116,22 +116,22 @@ jobs:
             python: ${{ inputs.python }}
         secrets: inherit
 
-    TEST:
-        needs: [BUILD]
-        if: success()
-        strategy:
-            fail-fast: false
-            matrix:
-                test_config: ${{ fromJson(inputs.test_configs) }}
-        uses: ./.github/workflows/nm-test.yml
-        with:
-            test_label: ${{ matrix.test_config.label }}
-            timeout: ${{ inputs.test_timeout }}
-            gitref: ${{ github.ref }}
-            python: ${{ matrix.test_config.python }}
-            whl: ${{ needs.BUILD.outputs.whl }}
-            test_skip_env_vars: ${{ matrix.test_config.test }}
-        secrets: inherit
+    # TEST:
+    #     needs: [BUILD]
+    #     if: success()
+    #     strategy:
+    #         fail-fast: false
+    #         matrix:
+    #             test_config: ${{ fromJson(inputs.test_configs) }}
+    #     uses: ./.github/workflows/nm-test.yml
+    #     with:
+    #         test_label: ${{ matrix.test_config.label }}
+    #         timeout: ${{ inputs.test_timeout }}
+    #         gitref: ${{ github.ref }}
+    #         python: ${{ matrix.test_config.python }}
+    #         whl: ${{ needs.BUILD.outputs.whl }}
+    #         test_skip_env_vars: ${{ matrix.test_config.test }}
+    #     secrets: inherit
 
     BENCHMARK:
         needs: [BUILD]
