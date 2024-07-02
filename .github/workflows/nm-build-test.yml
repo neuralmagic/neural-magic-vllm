@@ -103,7 +103,7 @@ jobs:
                 echo "label: ${{ matrix.test_config.label }}"
                 echo "tests: ${{ matrix.test_config.test }}"
 
-    BUILD:
+    Bu:
         needs: [JSON-VALIDATE]
         uses: ./.github/workflows/nm-build.yml
         with:
@@ -117,19 +117,22 @@ jobs:
         secrets: inherit
 
     Te:
-        needs: [BUILD]
+        needs: [Bu]
         strategy:
             fail-fast: false
             matrix:
-                job-partition: ${{ fromJson(needs.BUILD.outputs.job-partitions) }}
+                test-config: ${{ fromJson(inputs.test_configs ) }}
+                job-partition: ${{ fromJson(needs.Bu.outputs.job-partitions) }}
 
         runs-on: gcp-k8s-util
-        timeout-minutes: 16
+        timeout-minutes: ${{ inputs.test_timeout }}
 
         steps:
 
             - name: take a look
               run: |
+                echo "label: ${{ matrix.test-config.label }}"
+                echo "python: ${{ matrix.test-config.python }}"
                 echo "tests: ${{ matrix.job-partition }}"
 
     # TEST:
