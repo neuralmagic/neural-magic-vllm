@@ -166,11 +166,11 @@ jobs:
           vllm_benchmark_jsons_path: benchmark-results
           output_directory: gh-action-benchmark-jsons
           # Metrics that are "better" when the value is greater are stored here
-          bigger_is_better_output_file_path: bigger_is_better.json
+          bigger_is_better_output_filename: bigger_is_better.json
           # Metrics that are "better" when the value is smaller are stored here
-          smaller_is_better_output_file_path: smaller_is_better.json
+          smaller_is_better_output_filename: smaller_is_better.json
           # Metrics that we only want to observe are stored here
-          observation_metrics_output_file_path: observation_metrics.json
+          observation_metrics_output_filename: observation_metrics.json
           python: ${{ inputs.python }}
           venv:
 
