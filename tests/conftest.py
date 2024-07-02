@@ -205,7 +205,8 @@ class HfRunner:
             if is_vision_model:
                 auto_cls = AutoModelForVision2Seq
             elif is_compressed_tensors_model:
-                from llmcompressor.transformers import SparseAutoModelForCausalLM
+                from llmcompressor.transformers import (  # noqa: E501
+                    SparseAutoModelForCausalLM)
                 auto_cls = SparseAutoModelForCausalLM
             else:
                 auto_cls = AutoModelForCausalLM

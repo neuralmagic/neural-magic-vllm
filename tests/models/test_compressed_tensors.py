@@ -35,10 +35,11 @@ def test_models(
     model_name,
 ) -> None:
     # Run sparseml.
-    with hf_runner(model_name=model_name,
-                   is_compressed_tensors_model=True) as compressed_tensors_models:
+    with hf_runner(
+            model_name=model_name,
+            is_compressed_tensors_model=True) as compressed_tensors_models:
 
-        sparseml_outputs = compressed_tensors_models.generate_greedy_logprobs_limit(
+        ct_outputs = compressed_tensors_models.generate_greedy_logprobs_limit(
             example_prompts, MAX_TOKENS, NUM_LOGPROBS)
 
     # Run vllm.
@@ -47,8 +48,8 @@ def test_models(
             example_prompts, MAX_TOKENS, NUM_LOGPROBS)
 
     check_logprobs_close(
-        outputs_0_lst=sparseml_outputs,
+        outputs_0_lst=ct_outputs,
         outputs_1_lst=vllm_outputs,
-        name_0="sparseml",
+        name_0="compressed-tensors",
         name_1="vllm",
     )
