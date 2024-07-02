@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 from typing import (TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple,
-                    TypedDict, TypeVar)
+                    TypedDict, TypeVar)          
 
 import pytest
 import torch
@@ -87,7 +87,8 @@ class _ImageAssetPrompts(TypedDict):
     cherry_blossom: str
 
 
-class _ImageAssets(UserList[ImageAsset]):
+# UPSTREAM SYNC: Error in Python3.8 without Any
+class _ImageAssets(UserList[Any]):
 
     def __init__(self) -> None:
         super().__init__(
