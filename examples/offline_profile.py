@@ -1,32 +1,40 @@
 import argparse
-import inspect
-import json
-import sys
-from dataclasses import asdict, dataclass
-from typing import Optional
-
 import torch
+import sys
+import json
+import inspect
 
+from dataclasses import dataclass, asdict
+from typing import Optional
 from vllm import LLM, SamplingParams
 from vllm.profiler import nm_profile
 
 BATCH_SIZE_DEFAULT = 1
 PROMPT_LEN_DEFAULT = 256
-MAX_SEQ_LEN_DEFAULT = 1024
+OUTPUT_LEN_DEFAULT = 2
 
 
 @dataclass
 class ProfileContext:
     model: str
+    tokenizer: str
     model_revision: str
-    sparsity: str
     quantization: str
-    max_seq_len: int
+    max_model_len: int
     max_num_batched_tokens: int
     prompt_len: int
+    output_len: int
     batch_size: int
+    dtype: str
     tensor_parallel_size: int
     allow_cuda_graphs: bool
+
+
+def get_dtype(dtype: str):
+    if dtype == "torch.float":
+        return torch.float
+    else:
+        return dtype
 
 
 def run_profile(context: ProfileContext, csv_output: Optional[str],
@@ -36,23 +44,28 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
         print(f"  {key} = {value}")
 
     # Create sampling params
-    sampling_params = SamplingParams(temperature=0.8, top_p=0.95, max_tokens=8)
+    sampling_params = SamplingParams(temperature=0.8,
+                                     top_p=0.95,
+                                     max_tokens=context.output_len,
+                                     ignore_eos=True)
 
+    # Sparsity is in the future
     # Create LLM
-    llm = LLM(
-        model=context.model,
-        revision=context.model_revision,
-        sparsity=context.sparsity,
-        enforce_eager=not context.allow_cuda_graphs,
-        tensor_parallel_size=context.tensor_parallel_size,
-        gpu_memory_utilization=0.9,
-        max_model_len=context.max_seq_len,
-        quantization=context.quantization,
-        max_num_batched_tokens=context.max_num_batched_tokens,
-    )
+    llm = LLM(model=context.model,
+              tokenizer=context.tokenizer
+              if context.tokenizer is not None else context.model,
+              revision=context.model_revision,
+              enforce_eager=not context.allow_cuda_graphs,
+              tensor_parallel_size=context.tensor_parallel_size,
+              gpu_memory_utilization=0.9,
+              max_model_len=context.max_model_len,
+              quantization=context.quantization,
+              dtype=get_dtype(context.dtype),
+              max_num_batched_tokens=context.max_num_batched_tokens)
 
     batch_size = context.batch_size
     prompt_len = context.prompt_len
+    output_len = context.output_len
 
     scheduler_config = llm.llm_engine.scheduler_config
     max_num_batched_tokens = scheduler_config.max_num_batched_tokens
@@ -72,25 +85,37 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
             f"max_num_seqs ({max_num_seqs}) and therefore cannot be run in a "
             f"single profile step, please choose a smaller batch size")
         sys.exit(-1)
+    print("llm.llm_engine.model_config.max_model_len: ",
+          llm.llm_engine.model_config.max_model_len)
+    if prompt_len + output_len > llm.llm_engine.model_config.max_model_len:
+        print(
+            f"ERROR: chosen prompt_len + output_len ({prompt_len} + {output_len} = "
+            f"{prompt_len + output_len}) is larger than the model's max_model_len "
+            f"({llm.llm_engine.model_config.max_model_len}), please choose a smaller "
+            f"prompt_len or output_len, or increase --max-model-len")
+        sys.exit(-1)
 
     for i in range(batch_size):
+        prompt_token_ids = torch.randint(
+            llm.llm_engine.model_config.get_vocab_size(),
+            size=(prompt_len, )).tolist()
+
         llm.llm_engine.add_request(
             request_id=f"seq{i}",
-            prompt=None,
-            prompt_token_ids=torch.randint(
-                128,  # 128 to skip over special tokens
-                llm.llm_engine.model_config.get_vocab_size() // 2,
-                size=(prompt_len, )).tolist(),
-            sampling_params=sampling_params)
+            inputs={'prompt_token_ids': prompt_token_ids},
+            params=sampling_params)
 
     with nm_profile() as prefill_prof:
         llm.llm_engine.step()  # First step is prefill
 
-    with nm_profile() as decode_prof:
-        llm.llm_engine.step()
+    decode_results_list = []
+    for _ in range(context.output_len - 1):
+        with nm_profile() as decode_prof:
+            llm.llm_engine.step()
+        decode_results_list.append(decode_prof.results)
 
     prefill_results = prefill_prof.results
-    decode_results = decode_prof.results
+    has_decode = len(decode_results_list) > 0
 
     print("=" * 80)
     print(f"= Prefill Model Table "
@@ -98,13 +123,16 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
     print("=" * 80)
     print()
     prefill_results.print_model_table()
-    print()
-    print("=" * 80)
-    print(f"= Decode Model Table "
-          f"(prompt_len={prompt_len}, batch_size={batch_size})")
-    print("=" * 80)
-    print()
-    decode_results.print_model_table()
+
+    if has_decode:
+        print()
+        print("=" * 80)
+        print(f"= Decode Model Table "
+              f"(prompt_len={prompt_len}, batch_size={batch_size})")
+        print("=" * 80)
+        print()
+        decode_results_list[0].print_model_table()
+
     print()
     print("=" * 80)
     print(f"= Prefill Summary Table "
@@ -112,13 +140,14 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
     print("=" * 80)
     print()
     prefill_results.print_summary_table()
-    print()
-    print("=" * 80)
-    print(f"= Decode Summary Table "
-          f"(prompt_len={prompt_len}, batch_size={batch_size})")
-    print("=" * 80)
-    print()
-    decode_results.print_summary_table()
+    if has_decode:
+        print()
+        print("=" * 80)
+        print(f"= Decode Summary Table "
+              f"(prompt_len={prompt_len}, batch_size={batch_size})")
+        print("=" * 80)
+        print()
+        decode_results_list[0].print_summary_table()
 
     if csv_output:
         csv_filename_base = csv_output.rstrip(".csv")
@@ -126,10 +155,12 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
             csv_filename_base + "_prefill_model_table.csv")
         prefill_results.export_summary_stats_table_csv(
             csv_filename_base + "_prefill_summary_table.csv")
-        decode_results.export_model_stats_table_csv(\
-            csv_filename_base + "_decode_model_table.csv")
-        decode_results.export_summary_stats_table_csv(
-            csv_filename_base + "_decode_summary_table.csv")
+
+        if has_decode:
+            decode_results_list[0].export_model_stats_table_csv(\
+                csv_filename_base + "_decode_model_table.csv")
+            decode_results_list[0].export_summary_stats_table_csv(
+                csv_filename_base + "_decode_summary_table.csv")
 
     if json_output:
         cuda_devices = [
@@ -146,8 +177,11 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
                 **asdict(context)
             },
             "prefill": prefill_results.convert_stats_to_dict(),
-            "decode": decode_results.convert_stats_to_dict()
         }
+
+        if has_decode:
+            for idx, dr in enumerate(decode_results_list):
+                json_dict[f"decode_{idx + 1}"] = dr.convert_stats_to_dict()
 
         with open(json_output.rstrip(".json") + ".json", "w+") as f:
             json.dump(json_dict, f, indent=2)
@@ -162,6 +196,11 @@ if __name__ == "__main__":
         type=str,
         required=True,
         help='The name or path of a HuggingFace Transformers model.')
+    parser.add_argument("--tokenizer",
+                        type=str,
+                        default=None,
+                        help="path to the tokenizer")
+
     parser.add_argument("--model-revision", type=str, default=None)
     parser.add_argument(
         "--csv",
@@ -178,28 +217,23 @@ if __name__ == "__main__":
         default=None,
         help="Export the results as a json file. This should be the filename")
     parser.add_argument(
-        "--sparsity",
-        "-s",
-        type=str,
-        choices=[None, 'sparse_w16a16', 'semi_structured_sparse_w16a16'],
-        help="Method used to compress sparse weights. If "
-        "None, we first check the `sparsity_config` attribute"
-        "in the model config file. If that is None we assume"
-        "the model weights are dense")
-    parser.add_argument(
         "--quantization",
         "-q",
         type=str,
-        choices=['awq', 'gptq', 'squeezellm', 'marlin', None],
+        choices=['awq', 'gptq', 'squeezellm', 'marlin', 'smoothquant', None],
         default=None,
         help="The method used to quantize the model weights, "
-        "options are \"marlin\", \"awq\", \"gptq\" and \"squeezellm\"")
+        "options are \"marlin\", \"awq\", \"gptq\", \"squeezellm\", \"smoothquant\""
+    )
+    parser.add_argument("--dtype",
+                        type=str,
+                        default='auto',
+                        help="model dtype")
     parser.add_argument(
-        "--max-seq-len",
+        "--max-model-len",
         type=int,
-        default=MAX_SEQ_LEN_DEFAULT,
-        help=f"Maximum length of a sequence (including prompt and output), "
-        f"default={MAX_SEQ_LEN_DEFAULT}")
+        default=None,
+        help=f"Maximum length of a sequence (including prompt and output)")
     parser.add_argument(
         "--max-num-batched-tokens",
         type=int,
@@ -213,6 +247,12 @@ if __name__ == "__main__":
         default=PROMPT_LEN_DEFAULT,
         help=f"Length of the random prompt to use when profiling, all batched "
         f"requests use the same prompt_len, default={PROMPT_LEN_DEFAULT}")
+    parser.add_argument(
+        "--output-len",
+        type=int,
+        default=OUTPUT_LEN_DEFAULT,
+        help=
+        f"Number of output decode steps to run, default={OUTPUT_LEN_DEFAULT}")
     parser.add_argument("--batch-size",
                         type=int,
                         default=BATCH_SIZE_DEFAULT,

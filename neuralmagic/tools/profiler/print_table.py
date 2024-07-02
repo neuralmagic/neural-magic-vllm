@@ -1,9 +1,9 @@
 import argparse
 import json
-from typing import Dict
 
-from vllm.profiler.nm_profile import ModelStatsEntry, SummaryStatsEntry
-from vllm.profiler.utils import TablePrinter, indent_string
+from vllm.profiler.nm_profile import SummaryStatsEntry, ModelStatsEntry
+from vllm.profiler.utils import indent_string, TablePrinter
+from typing import Dict
 
 
 def flatten_entries(entry_cls, profile_dict: Dict):
@@ -34,7 +34,7 @@ if __name__ == "__main__":
                         "examples/offline_profile.py")
     parser.add_argument("--phase",
                         type=str,
-                        choices=["prefill", "decode"],
+                        choices=["prefill", "decode_1"],
                         required=True,
                         help="The phase to print the table for.")
     parser.add_argument("--table",
