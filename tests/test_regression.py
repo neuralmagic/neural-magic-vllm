@@ -6,6 +6,7 @@ will never happen again.
 """
 import gc
 
+import pytest
 import torch
 
 from vllm import LLM, SamplingParams
@@ -53,6 +54,11 @@ def test_gc():
     assert allocated < 50 * 1024 * 1024
 
 
+@pytest.mark.skipif(
+    torch.cuda.get_device_capability() < (8, 0),
+    reason=
+    "Bfloat16 is only supported on GPUs with compute capability of at least 8.0"
+)
 def test_model_from_modelscope(monkeypatch):
     # model: https://modelscope.cn/models/qwen/Qwen1.5-0.5B-Chat/summary
     MODELSCOPE_MODEL_NAME = "qwen/Qwen1.5-0.5B-Chat"

@@ -3,6 +3,7 @@
 Run `pytest tests/prefix_caching/test_prefix_caching.py`.
 """
 import pytest
+import torch
 
 from tests.conftest import cleanup
 from tests.nm_utils.utils_skip import should_skip_test_group
@@ -26,6 +27,11 @@ MODEL_LEN_LEN = [
 ]
 
 
+@pytest.mark.skipif(
+    torch.cuda.get_device_capability() < (8, 0),
+    reason=
+    "Bfloat16 is only supported on GPUs with compute capability of at least 8.0"
+)
 @pytest.mark.parametrize("model_len_len", MODEL_LEN_LEN)
 def test_disable_sliding_window(model_len_len, ):
     model, sliding_len, full_len = model_len_len

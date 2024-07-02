@@ -5,7 +5,7 @@
 
 STEP_STATUS=${1}
 
-if [ $STEP_STATUS -eq 0 ]; then
+if [ "$STEP_STATUS" -eq 0 ]; then
     # green check
     echo -e "\xE2\x9C\x85"
 else

@@ -92,25 +92,8 @@ class BenchmarkMetrics:
     def update_benchmark_result_metrics(
             self, result: BenchmarkResult) -> BenchmarkResult:
         rmt = ResultMetricTemplates
-        result.add_metric(rmt.request_throughput,
-                          self.metrics.request_throughput)
-        result.add_metric(rmt.input_throughput, self.metrics.input_throughput)
-        result.add_metric(rmt.output_throughput,
-                          self.metrics.output_throughput)
-        result.add_metric(rmt.median_request_latency,
-                          self.metrics.median_request_latency)
-        result.add_metric(rmt.p90_request_latency,
-                          self.metrics.p90_request_latency)
-        result.add_metric(rmt.p99_request_latency,
-                          self.metrics.p99_request_latency)
         result.add_metric(rmt.mean_ttft_ms, self.metrics.mean_ttft_ms)
-        result.add_metric(rmt.median_ttft_ms, self.metrics.median_ttft_ms)
-        result.add_metric(rmt.p90_ttft_ms, self.metrics.p90_ttft_ms)
-        result.add_metric(rmt.p99_ttft_ms, self.metrics.p99_ttft_ms)
         result.add_metric(rmt.mean_tpot_ms, self.metrics.mean_tpot_ms)
-        result.add_metric(rmt.median_tpot_ms, self.metrics.median_tpot_ms)
-        result.add_metric(rmt.p90_tpot_ms, self.metrics.p90_tpot_ms)
-        result.add_metric(rmt.p99_tpot_ms, self.metrics.p99_tpot_ms)
         return result
 
     def update_benchmark_result(self,
@@ -509,7 +492,7 @@ if __name__ == "__main__":
                         help="""
         First argument in the pair is num_prompts to process.
         Second argument in the pair is request_rate per second.
-            If this is inf, then all the requests are sent at time 0. 
+            If this is inf, then all the requests are sent at time 0.
             Otherwise, we use Poisson process to synthesize""",
                         default=None)
 

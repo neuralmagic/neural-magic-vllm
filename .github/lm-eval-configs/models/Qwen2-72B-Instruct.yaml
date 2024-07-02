@@ -1,0 +1,11 @@
+# ./nm-run-lm-eval-gsm-hf-baseline.sh -m Qwen/Qwen2-72B-Instruct -b 16 -l 250 -f 5
+model_name: "Qwen/Qwen2-72B-Instruct"
+tasks:
+- name: "gsm8k"
+  metrics:
+  - name: "exact_match,strict-match"
+    value: 0.828
+  - name: "exact_match,flexible-extract"
+    value: 0.856
+limit: 250
+num_fewshot: 5

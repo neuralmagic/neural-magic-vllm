@@ -1,6 +1,6 @@
 """Compare the outputs of a sparse model vs sparse model running dense.
-Note: sparse kernels do not have bitwise correctness vs the dense models. 
-As a result, in this test, we just confirm that the top selected tokens of the 
+Note: sparse kernels do not have bitwise correctness vs the dense models.
+As a result, in this test, we just confirm that the top selected tokens of the
 sparse models are in the top N selections of same model running dense.
 
 Run `pytest tests/models_core/test_magic_wand.py`.
@@ -9,6 +9,7 @@ Run `pytest tests/models_core/test_magic_wand.py`.
 import gc
 
 import pytest
+import torch
 
 from tests.models.utils import check_logprobs_close
 from tests.nm_utils.utils_skip import should_skip_test_group
@@ -25,6 +26,8 @@ MODEL_FORMAT_EXTRABLOCKS = [
 ]
 
 
+@pytest.mark.skipif(torch.cuda.get_device_capability() < (8, 0),
+                    reason="skip for T4s, requires compute capability 8.0")
 @pytest.mark.parametrize("model_format_extrablocks", MODEL_FORMAT_EXTRABLOCKS)
 @pytest.mark.parametrize("dtype", ["half"])
 @pytest.mark.parametrize("max_tokens", [32])

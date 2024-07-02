@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+import warnings
 from shutil import which
 from typing import Dict, List
 
@@ -26,6 +27,33 @@ def load_module_from_path(module_name, path):
 
 ROOT_DIR = os.path.dirname(__file__)
 logger = logging.getLogger(__name__)
+
+
+def embed_commit_hash():
+    try:
+        commit_id = subprocess.check_output(["git", "rev-parse", "HEAD"],
+                                            encoding="utf-8").strip()
+
+        version_file = os.path.join(ROOT_DIR, "vllm", "version.py")
+        with open(version_file, encoding="utf-8") as f:
+            version_contents = f.read()
+
+        version_contents = version_contents.replace("COMMIT_HASH_PLACEHOLDER",
+                                                    f"{commit_id}")
+
+        with open(version_file, "w", encoding="utf-8") as f:
+            f.write(version_contents)
+    except subprocess.CalledProcessError as e:
+        warnings.warn(f"failed to get commit hash:\n{e}",
+                      RuntimeWarning,
+                      stacklevel=2)
+    except Exception as e:
+        warnings.warn(f"failed to embed commit hash:\n{e}",
+                      RuntimeWarning,
+                      stacklevel=2)
+
+
+embed_commit_hash()
 
 # cannot import envs directly because it depends on vllm,
 #  which is not installed yet
@@ -234,6 +262,10 @@ def _is_cpu() -> bool:
     return VLLM_TARGET_DEVICE == "cpu"
 
 
+def _is_xpu() -> bool:
+    return VLLM_TARGET_DEVICE == "xpu"
+
+
 def _build_custom_ops() -> bool:
     return _is_cuda() or _is_hip() or _is_cpu()
 
@@ -357,6 +389,8 @@ def get_vllm_version() -> str:
         version += "+tpu"
     elif _is_cpu():
         version += "+cpu"
+    elif _is_xpu():
+        version += "+xpu"
     else:
         raise RuntimeError("Unknown runtime environment")
 
@@ -406,6 +440,8 @@ def get_requirements() -> List[str]:
         requirements = _read_requirements("requirements-tpu.txt")
     elif _is_cpu():
         requirements = _read_requirements("requirements-cpu.txt")
+    elif _is_xpu():
+        requirements = _read_requirements("requirements-xpu.txt")
     else:
         raise ValueError(
             "Unsupported platform, please use CUDA, ROCm, Neuron, or CPU.")
