@@ -1,5 +1,6 @@
 """This file is used for /tests and /benchmarks"""
 import random
+from typing import Optional
 
 import numpy
 import torch
@@ -96,6 +97,7 @@ def marlin_quantize(
     num_bits: int,
     group_size: int,
     act_order: bool,
+    test_perm: Optional[torch.Tensor] = None,
 ):
     size_k, size_n = w.shape
 
@@ -106,7 +108,7 @@ def marlin_quantize(
 
     # Quantize (and apply act_order if provided)
     w_ref, q_w, s, g_idx, rand_perm = quantize_weights(w, num_bits, group_size,
-                                                       act_order)
+                                                       act_order, test_perm)
 
     # For act_order, sort the "weights" and "g_idx" so that group ids are
     # increasing

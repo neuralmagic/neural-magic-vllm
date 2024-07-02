@@ -156,6 +156,7 @@ def compute_max_diff(output, output_ref):
 @pytest.mark.parametrize("e", [4, 8, 64])
 @pytest.mark.parametrize("topk", [2, 6])
 @pytest.mark.parametrize("group_size", [-1, 32, 64, 128])
+@pytest.mark.parametrize("act_order", [True, False])
 def test_fused_marlin_moe(
     m: int,
     n: int,
@@ -163,9 +164,17 @@ def test_fused_marlin_moe(
     e: int,
     topk: int,
     group_size: int,
+    act_order: bool,
 ):
     if topk > e:
         return
+
+    # Filter act_order
+    if act_order:
+        if group_size == -1:
+            return
+        if group_size in (k, n):
+            return
 
     num_bits = 4
     dtype = torch.float16
@@ -175,35 +184,49 @@ def test_fused_marlin_moe(
     for i in range(w2.shape[0]):
         w2[0] = torch.eye(k, n, device='cuda', dtype=dtype)
 
-    w_refs1 = []
-    qweights1 = []
-    scaless1 = []
+    w_ref1_l = []
+    qweight1_l = []
+    scales1_l = []
+    g_idx1_l = []
+    sort_indices1_l = []
 
     for i in range(w1.shape[0]):
-        w_ref1, qweight1, scales1, _, _, _ = marlin_quantize(
-            w1[i].transpose(1, 0), num_bits, group_size, False)
-        w_refs1.append(w_ref1)
-        qweights1.append(qweight1)
-        scaless1.append(scales1)
+        test_perm = torch.randperm(k)
+        w_ref1, qweight1, scales1, g_idx1, sort_indices1, _ = marlin_quantize(
+            w1[i].transpose(1, 0), num_bits, group_size, act_order, test_perm)
+        w_ref1_l.append(w_ref1)
+        qweight1_l.append(qweight1)
+        scales1_l.append(scales1)
+        g_idx1_l.append(g_idx1)
+        sort_indices1_l.append(sort_indices1)
 
-    w_ref1 = stack_and_dev(w_refs1)
-    qweight1 = stack_and_dev(qweights1).contiguous()
-    scales1 = stack_and_dev(scaless1)
+    w_ref1 = stack_and_dev(w_ref1_l)
+    qweight1 = stack_and_dev(qweight1_l).contiguous()
+    scales1 = stack_and_dev(scales1_l)
+    g_idx1 = stack_and_dev(g_idx1_l)
+    sort_indices1 = stack_and_dev(sort_indices1_l)
 
-    w_refs2 = []
+    w_ref2_l = []
     qweight2_l = []
     scales2_l = []
+    g_idx2_l = []
+    sort_indices2_l = []
 
     for i in range(w2.shape[0]):
-        w_ref2, qweight2, scales2, _, _, _ = marlin_quantize(
-            w2[i].transpose(1, 0), num_bits, group_size, False)
-        w_refs2.append(w_ref2)
+        test_perm = torch.randperm(n)
+        w_ref2, qweight2, scales2, g_idx2, sort_indices2, _ = marlin_quantize(
+            w2[i].transpose(1, 0), num_bits, group_size, act_order, test_perm)
+        w_ref2_l.append(w_ref2)
         qweight2_l.append(qweight2)
         scales2_l.append(scales2)
+        g_idx2_l.append(g_idx2)
+        sort_indices2_l.append(sort_indices2)
 
-    w_ref2 = stack_and_dev(w_refs2)
+    w_ref2 = stack_and_dev(w_ref2_l)
     qweight2 = stack_and_dev(qweight2_l).contiguous()
     scales2 = stack_and_dev(scales2_l)
+    g_idx2 = stack_and_dev(g_idx2_l)
+    sort_indices2 = stack_and_dev(sort_indices2_l)
 
     score = torch.randn((m, e), device='cuda', dtype=dtype)
     triton_output = fused_moe(a,
@@ -216,6 +239,10 @@ def test_fused_marlin_moe(
                                      qweight1,
                                      qweight2,
                                      score,
+                                     g_idx1,
+                                     g_idx2,
+                                     sort_indices1,
+                                     sort_indices2,
                                      topk,
                                      renormalize=False,
                                      w1_scale=scales1,
@@ -235,6 +262,7 @@ def test_fused_marlin_moe(
 @pytest.mark.parametrize("e", [4, 8, 64])
 @pytest.mark.parametrize("topk", [2, 6])
 @pytest.mark.parametrize("group_size", [-1, 32, 64, 128])
+@pytest.mark.parametrize("act_order", [True, False])
 def test_single_marlin_moe(
     m: int,
     n: int,
@@ -242,9 +270,17 @@ def test_single_marlin_moe(
     e: int,
     topk: int,
     group_size: int,
+    act_order: bool,
 ):
     if topk > e:
         return
+
+    # Filter act_order
+    if act_order:
+        if group_size == -1:
+            return
+        if group_size == k:
+            return
 
     num_bits = 4
     dtype = torch.float16
@@ -254,23 +290,32 @@ def test_single_marlin_moe(
     w_ref_l = []
     qweights_l = []
     scales_l = []
+    g_idx_l = []
+    sort_indices_l = []
 
     for i in range(w.shape[0]):
-        w_ref, qweight, scales, _, _, _ = marlin_quantize(
-            w[i].transpose(1, 0), num_bits, group_size, False)
+        test_perm = torch.randperm(k)
+        w_ref, qweight, scales, g_idx, sort_indices, _ = marlin_quantize(
+            w[i].transpose(1, 0), num_bits, group_size, act_order, test_perm)
         w_ref_l.append(w_ref)
         qweights_l.append(qweight)
         scales_l.append(scales)
+        g_idx_l.append(g_idx)
+        sort_indices_l.append(sort_indices)
 
     w_ref = stack_and_dev(w_ref_l)
     qweight = stack_and_dev(qweights_l).contiguous()
     scales = stack_and_dev(scales_l)
+    g_idx = stack_and_dev(g_idx_l)
+    sort_indices = stack_and_dev(sort_indices_l)
 
     score = torch.randn((m, e), device='cuda', dtype=dtype)
     marlin_output = single_marlin_moe(a,
                                       qweight,
                                       scales,
                                       score,
+                                      g_idx,
+                                      sort_indices,
                                       topk,
                                       renormalize=False)
     torch_output = torch_moe_single(a, w_ref.transpose(1, 2), score, topk)
