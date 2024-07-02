@@ -91,7 +91,7 @@ on:
 
 jobs:
 
-    JSON-VALIDATE:
+    Val-Json:
         runs-on: gcp-k8s-util
         strategy:
             matrix:
@@ -104,7 +104,7 @@ jobs:
                 echo "tests: ${{ matrix.test_config.test }}"
 
     Bu:
-        needs: [JSON-VALIDATE]
+        needs: [Val-Json]
         uses: ./.github/workflows/nm-build.yml
         with:
             wf_category: ${{ inputs.wf_category }}
@@ -129,12 +129,131 @@ jobs:
 
         steps:
 
+            - name: set python
+              id: set_python
+              uses: actions/setup-python@v5
+              with:
+                python-version: ${{ inputs.python }}
+
+            - name: install automation components
+              uses: neuralmagic/nm-actions/actions/install-automation-components@install-prereqs
+
+            - name: checkout
+              id: checkout
+              uses: actions/checkout@v4
+              with:
+                fetch-depth: 0
+                ref: ${{ inputs.gitref }}
+                submodules: recursive
+
+            - name: setenv
+              id: setenv
+              uses: ./.github/actions/nm-set-env/
+              with:
+                hf_token: ${{ secrets.NM_HF_TOKEN }}
+                Gi_per_thread: 1
+                nvcc_threads: 0
+
+            - name: install testmo
+              uses: neuralmagic/nm-actions/actions/install-testmo@main
+
+            # - name: create testmo run
+            #   id: create_testmo_run
+            #   uses: ./.github/actions/nm-testmo-run-create/
+            #   if: success() || failure()
+            #   with:
+            #     testmo_url: https://neuralmagic.testmo.net
+            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+            #     source: 'build-test'
+
+            - name: verify python
+              id: verify_python
+              uses: ./.github/actions/nm-verify-python/
+
+            - name: caches
+              id: caches
+              uses: ./.github/actions/nm-caches/
+
+            - name: download whl
+              id: download
+              uses: actions/download-artifact@v4
+              with:
+                name: ${{ needs.Bu.outputs.whl }}
+                path: ${{ needs.Bu.outputs.whl }}
+
+            - name: install whl
+              uses: ./.github/actions/nm-install-whl/
+              with:
+                python: ${{ inputs.python }}
+                venv:
+
+            - name: run buildkite script
+              run: |
+                cd tests && sudo bash ../.buildkite/download-images.sh
+
+            - name: setenv test skip
+              id: setenv_test_skip
+              uses: ./.github/actions/nm-set-env-test-skip
+              with:
+                test_skip_env_vars: ${{ matrix.test-config.test }}
+
             - name: take a look
               run: |
-                echo "label: ${{ matrix.test-config.label }}"
-                echo "python: ${{ matrix.test-config.python }}"
-                echo "tests: ${{ matrix.job-partition }}"
+                echo "partition: ${{ matrix.job-partition }}"
 
+    #         - name: run tests
+    #           id: test
+    #           uses: ./.github/actions/nm-test-whl/
+    #           with:
+    #             test_directory: tests
+    #             test_results: test-results
+
+    #         - name: upload code coverage html
+    #           uses: actions/upload-artifact@v4
+    #           if: success() || failure()
+    #           with:
+    #             name: cc-vllm-html-${{ inputs.test_label }}-${{ inputs.python }}
+    #             path: cc-vllm-html
+    #             retention-days: 15
+
+    #         - name: report test results
+    #           id: report_test
+    #           uses: ./.github/actions/nm-testmo-run-submit-thread/
+    #           if: success() || failure()
+    #           with:
+    #             testmo_url: https://neuralmagic.testmo.net
+    #             testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+    #             testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
+    #             results: test-results
+    #             step_status: ${{ steps.test.outputs.status }}
+
+    #         - name: summary
+    #           uses: ./.github/actions/nm-summary-test/
+    #           if: success() || failure()
+    #           with:
+    #             test_label: ${{ inputs.test_label }}
+    #             gitref: ${{ inputs.gitref }}
+    #             testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
+    #             python: ${{ steps.verify_python.outputs.version }}
+    #             whl: ${{ steps.test.outputs.whl }}
+    #             magic_wand: ${{ steps.test.outputs.magic_wand }}
+    #             test_status: ${{ steps.test.outputs.status }}
+
+    #         - name: complete testmo run
+    #           uses: ./.github/actions/nm-testmo-run-complete/
+    #           if: success() || failure()
+    #           with:
+    #             testmo_url: https://neuralmagic.testmo.net
+    #             testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+    #             testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
+
+            # - name: take a look
+            #   run: |
+            #     echo "label: ${{ matrix.test-config.label }}"
+            #     echo "python: ${{ matrix.test-config.python }}"
+            #     echo "tests: ${{ matrix.job-partition }}"
+
+    # TODO: re-enable after proof of concept is green
     # TEST:
     #     needs: [BUILD]
     #     strategy:

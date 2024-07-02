@@ -34,7 +34,10 @@ on:
     outputs:
       job-partitions:
         description: "stringified Json of test partitions"
-        value: ${{ jobs.BUILD.outputs.job-partitions }}
+        value: ${{ jobs.Bu.outputs.job-partitions }}
+      whl:
+        description: "generated whl file"
+        value: ${{ jobs.Bu.outputs.whl }}
 
   # makes workflow manually callable
   workflow_dispatch:
@@ -73,7 +76,7 @@ env:
 
 jobs:
 
-    BUILD:
+    Bu:
 
         runs-on: ${{ inputs.build_label }}
         timeout-minutes: ${{ fromJson(inputs.timeout) }}
@@ -83,11 +86,9 @@ jobs:
             id-token: 'write'
 
         outputs:
+            job-partitions: ${{ steps.job-partitions.outputs.partitions }}
             run_id: ${{ github.run_id }}
-        #     # whl: ${{ steps.build.outputs.whl }}
-        #     # tarfile: ${{ steps.build.outputs.tarfile }}
-            job-partitions: ${{ steps.job-sets.outputs.partitions }}
-        #     # job-sets: '["tests/entrypoints","tests/spec_decode"]'
+            whl: ${{ steps.build.outputs.whl }}
 
         steps:
 
@@ -99,40 +100,8 @@ jobs:
                 ref: ${{ inputs.gitref }}
                 submodules: recursive
 
-            # - name: setenv
-            #   id: setenv
-            #   uses: ./.github/actions/nm-set-env/
-            #   with:
-            #     wf_category: ${{ inputs.wf_category }}
-            #     hf_token: ${{ secrets.NM_HF_TOKEN }}
-            #     Gi_per_thread: ${{ inputs.Gi_per_thread }}
-            #     nvcc_threads: ${{ inputs.nvcc_threads }}
-
-            # - name: set python
-            #   id: set_python
-            #   uses: neuralmagic/nm-actions/actions/set-python@main
-            #   with:
-            #     python: ${{ inputs.python }}
-            #     venv: ${{ env.VENV_BASE }}
-
-            # - name: create testmo run
-            #   id: create_testmo_run
-            #   uses: ./.github/actions/nm-testmo-run-create/
-            #   if: success() || failure()
-            #   with:
-            #     testmo_url: https://neuralmagic.testmo.net
-            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-            #     source: 'build-test'
-
-            # - name: build
-            #   id: build
-            #   uses: ./.github/actions/nm-build-vllm/
-            #   with:
-            #     python: ${{ inputs.python }}
-            #     venv: ${{ env.VENV_BASE }}
-
-            - name: create job sets
-              id: job-sets
+            - name: create job partitions
+              id: job-partitions
               run: |
                 sudo apt install -y jq
                 TESTS_DEPTH_1=$(find tests -type f -maxdepth 1 -mindepth 1 -iname "test*.py")
@@ -140,6 +109,38 @@ jobs:
                 TEST_DIRS_ARRAY=(${TEST_DIRS})
                 JOBS=$(printf '%s\n' "${TEST_DIRS_ARRAY[@]}" | jq -R . | jq -s . | tr -d "[:space:]")
                 echo "partitions=${JOBS}" >> $GITHUB_OUTPUT
+
+            - name: setenv
+              id: setenv
+              uses: ./.github/actions/nm-set-env/
+              with:
+                wf_category: ${{ inputs.wf_category }}
+                hf_token: ${{ secrets.NM_HF_TOKEN }}
+                Gi_per_thread: ${{ inputs.Gi_per_thread }}
+                nvcc_threads: ${{ inputs.nvcc_threads }}
+
+            - name: set python
+              id: set_python
+              uses: neuralmagic/nm-actions/actions/set-python@main
+              with:
+                python: ${{ inputs.python }}
+                venv: ${{ env.VENV_BASE }}
+
+            - name: create testmo run
+              id: create_testmo_run
+              uses: ./.github/actions/nm-testmo-run-create/
+              if: success() || failure()
+              with:
+                testmo_url: https://neuralmagic.testmo.net
+                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+                source: 'build-test'
+
+            - name: build
+              id: build
+              uses: ./.github/actions/nm-build-vllm/
+              with:
+                python: ${{ inputs.python }}
+                venv: ${{ env.VENV_BASE }}
 
             # # GCP
             # - name: 'Authenticate to Google Cloud'
@@ -160,46 +161,46 @@ jobs:
             #     gcloud storage cp dist/${{ steps.build.outputs.whl }} gs://neuralmagic-public-pypi/assets/${{ github.run_id }}/${{ steps.build.outputs.whl }}
             #     gcloud storage cp dist/${{ steps.build.outputs.tarfile }} gs://neuralmagic-public-pypi/assets/${{ github.run_id }}/${{ steps.build.outputs.tarfile }}
 
-            # - name: upload whl
-            #   uses: actions/upload-artifact@v4
-            #   if: success() || failure()
-            #   with:
-            #     name: ${{ steps.build.outputs.whl }}
-            #     path: dist/${{ steps.build.outputs.whl }}
-            #     retention-days: 5
+            - name: upload whl
+              uses: actions/upload-artifact@v4
+              if: success() || failure()
+              with:
+                name: ${{ steps.build.outputs.whl }}
+                path: dist/${{ steps.build.outputs.whl }}
+                retention-days: 5
 
-            # - name: upload tar.gz
-            #   uses: actions/upload-artifact@v4
-            #   if: success() || failure()
-            #   with:
-            #     name: ${{ inputs.python }}-${{ steps.build.outputs.tarfile }}
-            #     path: dist/${{ steps.build.outputs.tarfile }}
-            #     retention-days: 5
+            - name: upload tar.gz
+              uses: actions/upload-artifact@v4
+              if: success() || failure()
+              with:
+                name: ${{ inputs.python }}-${{ steps.build.outputs.tarfile }}
+                path: dist/${{ steps.build.outputs.tarfile }}
+                retention-days: 5
 
-            # - name: summary
-            #   uses: ./.github/actions/nm-summary-build/
-            #   if: success() || failure()
-            #   with:
-            #     label: ${{ inputs.build_label }}
-            #     gitref: ${{ inputs.gitref }}
-            #     testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
-            #     python: ${{ steps.set_python.outputs.version }}
-            #     whl_status: ${{ steps.build.outputs.whl_status }}
+            - name: summary
+              uses: ./.github/actions/nm-summary-build/
+              if: success() || failure()
+              with:
+                label: ${{ inputs.build_label }}
+                gitref: ${{ inputs.gitref }}
+                testmo_run_url: https://neuralmagic.testmo.net/automation/runs/view/${{ steps.create_testmo_run.outputs.id }}
+                python: ${{ steps.set_python.outputs.version }}
+                whl_status: ${{ steps.build.outputs.whl_status }}
 
-            # - name: run status
-            #   id: run_status
-            #   if: success() || failure()
-            #   env:
-            #     BUILD_STATUS: ${{ steps.build.outputs.build_status }}
-            #     WHL_STATUS: ${{ steps.build.outputs.whl_status }}
-            #   run: |
-            #     echo "build status: ${WHL_STATUS}"
-            #     if [ -z "${WHL_STATUS}" ] || [ "${WHL_STATUS}" -ne "0" ]; then exit 1; fi
+            - name: run status
+              id: run_status
+              if: success() || failure()
+              env:
+                BUILD_STATUS: ${{ steps.build.outputs.build_status }}
+                WHL_STATUS: ${{ steps.build.outputs.whl_status }}
+              run: |
+                echo "build status: ${WHL_STATUS}"
+                if [ -z "${WHL_STATUS}" ] || [ "${WHL_STATUS}" -ne "0" ]; then exit 1; fi
 
-            # - name: complete testmo run
-            #   uses: ./.github/actions/nm-testmo-run-complete/
-            #   if: success() || failure()
-            #   with:
-            #     testmo_url: https://neuralmagic.testmo.net
-            #     testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
-            #     testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
+            - name: complete testmo run
+              uses: ./.github/actions/nm-testmo-run-complete/
+              if: success() || failure()
+              with:
+                testmo_url: https://neuralmagic.testmo.net
+                testmo_token: ${{ secrets.TESTMO_TEST_TOKEN }}
+                testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
