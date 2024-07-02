@@ -1486,27 +1486,29 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C,
 
   long* expert_offsets_ptr = (long*)expert_offsets;
 
-  const int4* A_ptr = (const int4*)A;
-  int4* a_tmp_ptr = (int4*)a_tmp;
+  // const int4* A_ptr = (const int4*)A;
+  // int4* a_tmp_ptr = (int4*)a_tmp;
   int4* C_ptr = (int4*)C;
   float* topk_weights_ptr = (float*)topk_weights;
-  const int* g_idx_ptr = (const int*)g_idx;
-  const int* perm_ptr = (const int*)perm;
+  // const int* g_idx_ptr = (const int*)g_idx;
+  // const int* perm_ptr = (const int*)perm;
   int* locks = (int*)workspace;
 
-  if (has_act_order) {
-    // Permute A columns
-    int topk_rows = replicate_input ? tot_m : tot_m * topk;
-    int block_rows = ceildiv(topk_rows, blocks);
-    permute_cols_kernel<<<blocks, num_threads, 0, stream>>>(A_ptr,
-                                                            perm_ptr,
-                                                            a_tmp_ptr,
-                                                            topk_rows,
-                                                            prob_k,
-                                                            block_rows,
-                                                            USER_THREADS);
-    A_ptr = a_tmp_ptr;
-  }
+  bool do_permute_a = has_act_order;
+
+  // if (has_act_order) {
+  //   // Permute A columns
+  //   int topk_rows = replicate_input ? tot_m : tot_m * topk;
+  //   int block_rows = ceildiv(topk_rows, blocks);
+  //   permute_cols_kernel<<<blocks, num_threads, 0, stream>>>(A_ptr,
+  //                                                           perm_ptr,
+  //                                                           a_tmp_ptr,
+  //                                                           topk_rows,
+  //                                                           prob_k,
+  //                                                           block_rows,
+  //                                                           USER_THREADS);
+  //   A_ptr = a_tmp_ptr;
+  // }
 
   // If we have a full K, then we can run the non-act-order version of Marlin
   // (since the weight rows are reordered by increasing group ids, and by
@@ -1523,6 +1525,21 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C,
         (((group_size == -1 || group_size == 0) ? 1 : prob_k / group_size) *
          prob_n / 8) *
             expert_idx;
+
+    const int* g_idx_ptr = (const int*)g_idx + prob_k * expert_idx;
+    const int* perm_ptr = (const int*)perm + prob_k * expert_idx;
+    const int4* A_ptr = (const int4*)A;
+    int4* a_tmp_ptr = (int4*)a_tmp;
+
+    if (do_permute_a) {
+      // Permute A columns
+      int topk_rows = replicate_input ? tot_m : tot_m * topk;
+      int block_rows = ceildiv(topk_rows, blocks);
+      permute_cols_kernel<<<blocks, num_threads, 0, stream>>>(
+          A_ptr, perm_ptr, a_tmp_ptr, topk_rows, prob_k, block_rows,
+          USER_THREADS);
+      A_ptr = a_tmp_ptr;
+    }
 
     int tot_its = expert_offsets_ptr[expert_idx + 1] -
                   expert_offsets_ptr[expert_idx];  // prob_m;
@@ -1603,7 +1620,7 @@ torch::Tensor marlin_gemm_moe(
   // Detect groupsize and act_order
   int num_groups = -1;
   int group_size = -1;
-  bool has_act_order = g_idx.size(0) != 0;
+  bool has_act_order = g_idx.size(1) != 0;
 
   int b_rank = b_scales.sizes().size();
   TORCH_CHECK(b_rank == 3, "b_scales rank = ", b_rank, " is not 3");

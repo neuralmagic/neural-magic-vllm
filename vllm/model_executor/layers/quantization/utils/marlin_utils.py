@@ -1,6 +1,5 @@
 """This file is used for /tests and /benchmarks"""
 import random
-
 from typing import Optional
 
 import numpy
