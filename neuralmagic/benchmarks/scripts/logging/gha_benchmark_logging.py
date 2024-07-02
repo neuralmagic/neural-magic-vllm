@@ -109,7 +109,7 @@ def process(json_file_path: Path) -> Iterable[Type_Record_T]:
 def main(args: argparse.Namespace) -> None:
     input_directory = Path(args.input_directory)
 
-    json_file_paths = input_directory.glob('*.json')
+    json_file_paths = input_directory.glob('*/*.json')
 
     type_records: List[Type_Record_T] = list(
         reduce(lambda whole, part: whole + part,
@@ -144,13 +144,16 @@ def main(args: argparse.Namespace) -> None:
 
     filter_and_dump_if_non_empty(
         type_records, BenchmarkMetricType.BiggerIsBetter,
-        Path(args.bigger_is_better_metrics_output_file_path))
+        Path(args.output_directory).joinpath(
+            args.bigger_is_better_metrics_output_filename))
     filter_and_dump_if_non_empty(
         type_records, BenchmarkMetricType.SmallerIsBetter,
-        Path(args.smaller_is_better_metrics_output_file_path))
+        Path(args.output_directory).joinpath(
+            args.smaller_is_better_metrics_output_filename))
     filter_and_dump_if_non_empty(
         type_records, BenchmarkMetricType.Observation,
-        Path(args.observation_metrics_output_file_path))
+        Path(args.output_directory).joinpath(
+            args.observation_metrics_output_filename))
 
 
 if __name__ == '__main__':
@@ -167,12 +170,19 @@ if __name__ == '__main__':
         "--input-directory",
         required=True,
         type=str,
-        help="""Path to the directory containing BenchmarkResult 
-                jsons. This is typically the output directory passed 
-                to the benchmark runner scripts like 
+        help="""Path to the directory containing BenchmarkResult
+                jsons. This is typically the output directory passed
+                to the benchmark runner scripts like
                 neuralmagic/benchmarks/run_benchmarks.py.""")
 
-    parser.add_argument("--bigger-is-better-metrics-output-file-path",
+    parser.add_argument(
+        "-o",
+        "--output-directory",
+        required=True,
+        type=str,
+        help="Path to directory where JSON files will be stored")
+
+    parser.add_argument("--bigger-is-better-metrics-output-filename",
                         required=True,
                         type=str,
                         help="""
@@ -180,7 +190,7 @@ if __name__ == '__main__':
         BiggerIsBetter metrics are stored.
         """)
 
-    parser.add_argument("--smaller-is-better-metrics-output-file-path",
+    parser.add_argument("--smaller-is-better-metrics-output-filename",
                         required=True,
                         type=str,
                         help="""
@@ -188,7 +198,7 @@ if __name__ == '__main__':
         SmallerIsBetter metrics are stored.
         """)
 
-    parser.add_argument("--observation-metrics-output-file-path",
+    parser.add_argument("--observation-metrics-output-filename",
                         required=True,
                         type=str,
                         help="""

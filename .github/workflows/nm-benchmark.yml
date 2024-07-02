@@ -164,12 +164,13 @@ jobs:
         uses: ./.github/actions/nm-produce-gha-benchmark-json
         with:
           vllm_benchmark_jsons_path: benchmark-results
+          output_directory: gh-action-benchmark-jsons
           # Metrics that are "better" when the value is greater are stored here
-          bigger_is_better_output_file_path: gh-action-benchmark-jsons/bigger_is_better.json
+          bigger_is_better_output_file_path: bigger_is_better.json
           # Metrics that are "better" when the value is smaller are stored here
-          smaller_is_better_output_file_path: gh-action-benchmark-jsons/smaller_is_better.json
+          smaller_is_better_output_file_path: smaller_is_better.json
           # Metrics that we only want to observe are stored here
-          observation_metrics_output_file_path: gh-action-benchmark-jsons/observation_metrics.json
+          observation_metrics_output_file_path: observation_metrics.json
           python: ${{ inputs.python }}
           venv:
 
@@ -222,45 +223,94 @@ jobs:
       - name: display structure of downloaded files
         run: ls -R ./downloads
 
-      - name: nm-github-action-benchmark(bigger_is_better.json)
+      - name: nm-github-action-benchmark(serving/bigger_is_better.json)
         # Absence of the file indicates that there were no "bigger_is_better" metrics
-        if: (success() || failure()) && (hashFiles('downloads/bigger_is_better.json') != '')
+        if: (success() || failure()) && (hashFiles('downloads/benchmark_serving/bigger_is_better.json') != '')
         uses: ./.github/actions/nm-github-action-benchmark
         with:
           gh_action_benchmark_name: "bigger_is_better"
-          gh_action_benchmark_json_file_path:  "downloads/bigger_is_better.json"
+          gh_action_benchmark_json_file_path: "downloads/benchmark_serving/bigger_is_better.json"
           gh_action_benchmark_tool: "customBiggerIsBetter"
           gh_pages_branch: "nm-gh-pages"
+          benchmark_data_dir_path: "dev/bench/serving"
           auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           reporting_enabled: "true"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: nm-github-action-benchmark(smaller_is_better.json)
+      - name: nm-github-action-benchmark(serving/smaller_is_better.json)
         # Absence of the file indicates that there were no "smaller_is_better" metrics
-        if: (success() || failure()) && (hashFiles('downloads/smaller_is_better.json') != '')
+        if: (success() || failure()) && (hashFiles('downloads/benchmark_serving/smaller_is_better.json') != '')
         uses: ./.github/actions/nm-github-action-benchmark
         with:
           gh_action_benchmark_name: "smaller_is_better"
-          gh_action_benchmark_json_file_path:  "downloads/smaller_is_better.json"
+          gh_action_benchmark_json_file_path: "downloads/benchmark_serving/smaller_is_better.json"
           gh_action_benchmark_tool: "customSmallerIsBetter"
           gh_pages_branch: "nm-gh-pages"
+          benchmark_data_dir_path: "dev/bench/serving"
           auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           reporting_enabled: "true"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: nm-github-action-benchmark(observation_metrics.json)
+      - name: nm-github-action-benchmark(serving/observation_metrics.json)
         # Absence of the file indicates that there were no "observation" metrics
-        if: (success() || failure()) && (hashFiles('downloads/observation_metrics.json') != '')
+        if: (success() || failure()) && (hashFiles('downloads/benchmark_serving/observation_metrics.json') != '')
         uses: ./.github/actions/nm-github-action-benchmark
         with:
           gh_action_benchmark_name: "observation_metrics"
-          gh_action_benchmark_json_file_path:  "downloads/observation_metrics.json"
+          gh_action_benchmark_json_file_path: "downloads/benchmark_serving/observation_metrics.json"
           # `github-action-benchmark` expects a tool name that is either
           # "customBiggerIsBetter" or "customSmallerIsBetter". This is a hack to
           # work around that. Since we mark the action to not report failures, this
           # is fine.
           gh_action_benchmark_tool: "customBiggerIsBetter"
           gh_pages_branch: "nm-gh-pages"
+          benchmark_data_dir_path: "dev/bench/serving"
+          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
+          reporting_enabled: "false"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: nm-github-action-benchmark(throughput/bigger_is_better.json)
+        # Absence of the file indicates that there were no "bigger_is_better" metrics
+        if: (success() || failure()) && (hashFiles('downloads/benchmark_throughput/bigger_is_better.json') != '')
+        uses: ./.github/actions/nm-github-action-benchmark
+        with:
+          gh_action_benchmark_name: "bigger_is_better"
+          gh_action_benchmark_json_file_path: "downloads/benchmark_throughput/bigger_is_better.json"
+          gh_action_benchmark_tool: "customBiggerIsBetter"
+          gh_pages_branch: "nm-gh-pages"
+          benchmark_data_dir_path: "dev/bench/throughput"
+          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
+          reporting_enabled: "true"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: nm-github-action-benchmark(throughput/smaller_is_better.json)
+        # Absence of the file indicates that there were no "smaller_is_better" metrics
+        if: (success() || failure()) && (hashFiles('downloads/benchmark_throughput/smaller_is_better.json') != '')
+        uses: ./.github/actions/nm-github-action-benchmark
+        with:
+          gh_action_benchmark_name: "smaller_is_better"
+          gh_action_benchmark_json_file_path: "downloads/benchmark_throughput/smaller_is_better.json"
+          gh_action_benchmark_tool: "customSmallerIsBetter"
+          gh_pages_branch: "nm-gh-pages"
+          benchmark_data_dir_path: "dev/bench/throughput"
+          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
+          reporting_enabled: "true"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: nm-github-action-benchmark(throughput/observation_metrics.json)
+        # Absence of the file indicates that there were no "observation" metrics
+        if: (success() || failure()) && (hashFiles('downloads/benchmark_throughput/observation_metrics.json') != '')
+        uses: ./.github/actions/nm-github-action-benchmark
+        with:
+          gh_action_benchmark_name: "observation_metrics"
+          gh_action_benchmark_json_file_path: "downloads/benchmark_throughput/observation_metrics.json"
+          # `github-action-benchmark` expects a tool name that is either
+          # "customBiggerIsBetter" or "customSmallerIsBetter". This is a hack to
+          # work around that. Since we mark the action to not report failures, this
+          # is fine.
+          gh_action_benchmark_tool: "customBiggerIsBetter"
+          gh_pages_branch: "nm-gh-pages"
+          benchmark_data_dir_path: "dev/bench/throughput"
           auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           reporting_enabled: "false"
           github_token: ${{ secrets.GITHUB_TOKEN }}

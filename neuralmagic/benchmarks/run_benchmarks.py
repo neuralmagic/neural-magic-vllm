@@ -9,6 +9,7 @@ from .run_benchmark_throughput import run_benchmark_throughput_script
 def run(config_file_path: Path, output_directory: Path) -> None:
 
     for config in benchmark_configs(config_file_path):
+        output_directory = output_directory.joinpath(config.script_name)
         if config.script_name == "benchmark_serving":
             run_benchmark_serving_script(config, output_directory)
             continue

@@ -27,7 +27,9 @@ runs:
         VENV="${{ inputs.venv }}-${COMMIT:0:7}"
         source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
       fi
+      echo "::group::install requirements"
       pip3 install -r neuralmagic/benchmarks/requirements-benchmark.txt
+      echo "::endgroup::"
       SUCCESS=0
       .github/scripts/nm-run-benchmarks.sh ${{ inputs.benchmark_config_list_file }} ${{ inputs.output_directory }} || SUCCESS=$?
       echo "test=${SUCCESS}" >> "$GITHUB_OUTPUT"
