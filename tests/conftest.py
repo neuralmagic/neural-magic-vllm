@@ -65,7 +65,6 @@ class _ImageAssetPrompts(TypedDict):
     cherry_blossom: str
 
 
-# UPSTREAM SYNC: Error in Python3.8 without Any
 class _ImageAssets(UserList):
 
     def __init__(self) -> None:
