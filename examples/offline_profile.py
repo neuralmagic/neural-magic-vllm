@@ -31,13 +31,6 @@ class ProfileContext:
     allow_cuda_graphs: bool
 
 
-def get_dtype(dtype: str):
-    if dtype == "torch.float":
-        return torch.float
-    else:
-        return dtype
-
-
 def run_profile(context: ProfileContext, csv_output: Optional[str],
                 json_output: Optional[str]):
     print("Run profile with:")
@@ -61,7 +54,7 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
               gpu_memory_utilization=0.9,
               max_model_len=context.max_model_len,
               quantization=context.quantization,
-              dtype=get_dtype(context.dtype),
+              dtype=context.dtype,
               max_num_batched_tokens=context.max_num_batched_tokens)
 
     batch_size = context.batch_size
@@ -129,7 +122,7 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
     if has_decode:
         print()
         print("=" * 80)
-        print(f"= Decode Model Table "
+        print(f"= First Decode Step Model Table "
               f"(prompt_len={prompt_len}, batch_size={batch_size})")
         print("=" * 80)
         print()
@@ -145,7 +138,7 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
     if has_decode:
         print()
         print("=" * 80)
-        print(f"= Decode Summary Table "
+        print(f"= First Decode Step Summary Table "
               f"(prompt_len={prompt_len}, batch_size={batch_size})")
         print("=" * 80)
         print()
