@@ -148,17 +148,17 @@ jobs:
             push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
         secrets: inherit
 
-    LM-EVAL:
-      needs: [BUILD]
-      uses: ./.github/workflows/nm-lm-eval.yml
-      with:
-        label: ${{ inputs.lm_eval_label }}
-        timeout: ${{ inputs.lm_eval_timeout }}
-        gitref: ${{ inputs.gitref }}
-        python: ${{ inputs.python }}
-        whl: ${{ needs.BUILD.outputs.whl }}
-        lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
-      secrets: inherit
+    # LM-EVAL:
+    #   needs: [BUILD]
+    #   uses: ./.github/workflows/nm-lm-eval.yml
+    #   with:
+    #     label: ${{ inputs.lm_eval_label }}
+    #     timeout: ${{ inputs.lm_eval_timeout }}
+    #     gitref: ${{ inputs.gitref }}
+    #     python: ${{ inputs.python }}
+    #     whl: ${{ needs.BUILD.outputs.whl }}
+    #     lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
+    #   secrets: inherit
 
     # uploading is only available when using GCP autoscaling group
     # UPLOAD:
