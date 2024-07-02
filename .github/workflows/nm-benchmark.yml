@@ -231,7 +231,7 @@ jobs:
           gh_action_benchmark_name: "bigger_is_better"
           gh_action_benchmark_json_file_path: "downloads/benchmark_serving/bigger_is_better.json"
           gh_action_benchmark_tool: "customBiggerIsBetter"
-          gh_pages_branch: "nm-gh-pages"
+          gh_pages_branch: "nm-gh-pages-trial"
           benchmark_data_dir_path: "dev/bench/serving"
           auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           reporting_enabled: "true"
@@ -245,7 +245,7 @@ jobs:
           gh_action_benchmark_name: "smaller_is_better"
           gh_action_benchmark_json_file_path: "downloads/benchmark_serving/smaller_is_better.json"
           gh_action_benchmark_tool: "customSmallerIsBetter"
-          gh_pages_branch: "nm-gh-pages"
+          gh_pages_branch: "nm-gh-pages-trial"
           benchmark_data_dir_path: "dev/bench/serving"
           auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           reporting_enabled: "true"
@@ -263,7 +263,7 @@ jobs:
           # work around that. Since we mark the action to not report failures, this
           # is fine.
           gh_action_benchmark_tool: "customBiggerIsBetter"
-          gh_pages_branch: "nm-gh-pages"
+          gh_pages_branch: "nm-gh-pages-trial"
           benchmark_data_dir_path: "dev/bench/serving"
           auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           reporting_enabled: "false"
@@ -277,7 +277,7 @@ jobs:
           gh_action_benchmark_name: "bigger_is_better"
           gh_action_benchmark_json_file_path: "downloads/benchmark_throughput/bigger_is_better.json"
           gh_action_benchmark_tool: "customBiggerIsBetter"
-          gh_pages_branch: "nm-gh-pages"
+          gh_pages_branch: "nm-gh-pages-trial"
           benchmark_data_dir_path: "dev/bench/throughput"
           auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           reporting_enabled: "true"
@@ -291,7 +291,7 @@ jobs:
           gh_action_benchmark_name: "smaller_is_better"
           gh_action_benchmark_json_file_path: "downloads/benchmark_throughput/smaller_is_better.json"
           gh_action_benchmark_tool: "customSmallerIsBetter"
-          gh_pages_branch: "nm-gh-pages"
+          gh_pages_branch: "nm-gh-pages-trial"
           benchmark_data_dir_path: "dev/bench/throughput"
           auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           reporting_enabled: "true"
@@ -309,7 +309,7 @@ jobs:
           # work around that. Since we mark the action to not report failures, this
           # is fine.
           gh_action_benchmark_tool: "customBiggerIsBetter"
-          gh_pages_branch: "nm-gh-pages"
+          gh_pages_branch: "nm-gh-pages-trial"
           benchmark_data_dir_path: "dev/bench/throughput"
           auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           reporting_enabled: "false"
