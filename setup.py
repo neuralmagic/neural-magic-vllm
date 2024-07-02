@@ -33,16 +33,12 @@ def embed_commit_hash():
     try:
         commit_id = subprocess.check_output(["git", "rev-parse", "HEAD"],
                                             encoding="utf-8").strip()
+        commit_contents = f'__commit__ = "{commit_id}"\n'
 
-        version_file = os.path.join(ROOT_DIR, "vllm", "version.py")
-        with open(version_file, encoding="utf-8") as f:
-            version_contents = f.read()
-
-        version_contents = version_contents.replace("COMMIT_HASH_PLACEHOLDER",
-                                                    f"{commit_id}")
-
+        version_file = os.path.join(ROOT_DIR, "vllm", "commit_id.py")
         with open(version_file, "w", encoding="utf-8") as f:
-            f.write(version_contents)
+            f.write(commit_contents)
+
     except subprocess.CalledProcessError as e:
         warnings.warn(f"failed to get commit hash:\n{e}",
                       RuntimeWarning,
