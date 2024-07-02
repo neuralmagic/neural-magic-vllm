@@ -233,7 +233,7 @@ jobs:
           gh_action_benchmark_tool: "customBiggerIsBetter"
           gh_pages_branch: "nm-gh-pages-trial"
           benchmark_data_dir_path: "dev/bench/serving"
-          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
+          auto_push: true
           reporting_enabled: "true"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -247,7 +247,7 @@ jobs:
           gh_action_benchmark_tool: "customSmallerIsBetter"
           gh_pages_branch: "nm-gh-pages-trial"
           benchmark_data_dir_path: "dev/bench/serving"
-          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
+          auto_push: true
           reporting_enabled: "true"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -265,7 +265,7 @@ jobs:
           gh_action_benchmark_tool: "customBiggerIsBetter"
           gh_pages_branch: "nm-gh-pages-trial"
           benchmark_data_dir_path: "dev/bench/serving"
-          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
+          auto_push: true
           reporting_enabled: "false"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -279,7 +279,7 @@ jobs:
           gh_action_benchmark_tool: "customBiggerIsBetter"
           gh_pages_branch: "nm-gh-pages-trial"
           benchmark_data_dir_path: "dev/bench/throughput"
-          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
+          auto_push: true
           reporting_enabled: "true"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -293,7 +293,7 @@ jobs:
           gh_action_benchmark_tool: "customSmallerIsBetter"
           gh_pages_branch: "nm-gh-pages-trial"
           benchmark_data_dir_path: "dev/bench/throughput"
-          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
+          auto_push: true
           reporting_enabled: "true"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -311,6 +311,6 @@ jobs:
           gh_action_benchmark_tool: "customBiggerIsBetter"
           gh_pages_branch: "nm-gh-pages-trial"
           benchmark_data_dir_path: "dev/bench/throughput"
-          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
+          auto_push: true
           reporting_enabled: "false"
           github_token: ${{ secrets.GITHUB_TOKEN }}
