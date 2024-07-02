@@ -44,6 +44,10 @@ runs:
       # disable usage stats (writes to protected /usr/local/apps)
       echo "VLLM_NO_USAGE_STATS=1" >> $GITHUB_ENV
       echo "DO_NOT_TRACK=1" >> $GITHUB_ENV
+      # build type based on wf_category: Release (RELEASE & NIGHTLY); RelWithDebInfo (REMOTE)
+      if [[ "${{inputs.wf_category}}" != "REMOTE" ]]; then
+          echo "CMAKE_BUILD_TYPE=Release" >> $GITHUB_ENV
+      fi
     env:
         HF_TOKEN_SECRET: ${{ inputs.hf_token }}
     shell: bash

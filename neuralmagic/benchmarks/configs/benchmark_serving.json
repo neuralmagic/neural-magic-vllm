@@ -1,74 +1,19 @@
 {
-	"configs": [
-		{
-			"description": "VLLM Serving - Dense",
-			"models": [
-                          "teknium/OpenHermes-2.5-Mistral-7B",
-                          "NousResearch/Llama-2-7b-chat-hf",
-                          "neuralmagic/OpenHermes-2.5-Mistral-7B-marlin",
-                          "TheBloke/OpenHermes-2.5-Mistral-7B-GPTQ"
-			],
-			"use_all_available_gpus" : "",
-			"max_model_lens": [
-				4096
-			],
-			"sparsity": [],
-			"script_name": "benchmark_serving",
-			"script_args": {
-				"nr-qps-pair_": [
-                                        "150,0.5",
-                                        "300,1",
-                                        "750,2.5",
-                                        "1500,5"
-				],
-				"dataset": [
-					"sharegpt"
-				]
-			}
-		},
-                {
-			"description": "VLLM Serving - Sparse",
-			"models": [
-                          "neuralmagic/OpenHermes-2.5-Mistral-7B-pruned50"
-			],
-			"use_all_available_gpus" : "",
-			"max_model_lens": [
-				4096
-			],
-			"sparsity": ["sparse_w16a16"],
-			"script_name": "benchmark_serving",
-			"script_args": {
-				"nr-qps-pair_": [
-                                        "300,1",
-                                        "750,2.5",
-                                        "1500,5"
-				],
-				"dataset": [
-					"sharegpt"
-				]
-			}
-		},
-                {
-			"description": "VLLM Serving - 2:4 Sparse",
-			"models": [
-                          "neuralmagic/OpenHermes-2.5-Mistral-7B-pruned2.4"
-			],
-			"use_all_available_gpus" : "",
-			"max_model_lens": [
-				4096
-			],
-			"sparsity": ["semi_structured_sparse_w16a16"],
-			"script_name": "benchmark_serving",
-			"script_args": {
-				"nr-qps-pair_": [
-                                        "150,0.5",
-                                        "750,2.5",
-                                        "1500,5"
-				],
-				"dataset": [
-					"sharegpt"
-				]
-			}
-		}
-	]
+  "configs": [
+    {
+      "description": "VLLM Serving - Dense",
+      "models": [
+        "facebook/opt-350m",
+        "meta-llama/Meta-Llama-3-8B-Instruct"
+      ],
+      "use_all_available_gpus": "",
+      "max_model_lens": [4096],
+      "sparsity": [],
+      "script_name": "benchmark_serving",
+      "script_args": {
+        "nr-qps-pair_": ["300,1"],
+        "dataset": ["sharegpt"]
+      }
+    }
+  ]
 }
