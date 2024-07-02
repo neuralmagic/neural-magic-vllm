@@ -185,7 +185,7 @@ class HfRunner:
         model_kwargs: Optional[Dict[str, Any]] = None,
         is_embedding_model: bool = False,
         is_vision_model: bool = False,
-        is_sparseml_model: bool = False,
+        is_compressed_tensors_model: bool = False,
         **kwargs,
     ) -> None:
         assert dtype in _STR_DTYPE_TO_TORCH_DTYPE
@@ -204,8 +204,8 @@ class HfRunner:
         else:
             if is_vision_model:
                 auto_cls = AutoModelForVision2Seq
-            elif is_sparseml_model:
-                from sparseml.transformers import SparseAutoModelForCausalLM
+            elif is_compressed_tensors_model:
+                from llmcompressor.transformers import SparseAutoModelForCausalLM
                 auto_cls = SparseAutoModelForCausalLM
             else:
                 auto_cls = AutoModelForCausalLM
