@@ -110,6 +110,7 @@ def main(args: argparse.Namespace) -> None:
     input_directory = Path(args.input_directory)
 
     json_file_paths = input_directory.glob('*/*.json')
+    print(f"{json_file_paths=}")
 
     type_records: List[Type_Record_T] = list(
         reduce(lambda whole, part: whole + part,
