@@ -121,8 +121,8 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                test-config: ${{ fromJson(inputs.test_configs ) }}
                 job-partition: ${{ fromJson(needs.Bu.outputs.job-partitions) }}
+                test-config: ${{ fromJson(inputs.test_configs ) }}
 
         runs-on: gcp-k8s-util
         timeout-minutes: ${{ fromJson(inputs.test_timeout) }}
