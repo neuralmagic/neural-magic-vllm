@@ -1,11 +1,12 @@
 import argparse
-import torch
-import sys
-import json
 import inspect
-
-from dataclasses import dataclass, asdict
+import json
+import sys
+from dataclasses import asdict, dataclass
 from typing import Optional
+
+import torch
+
 from vllm import LLM, SamplingParams
 from vllm.profiler import nm_profile
 
@@ -68,6 +69,7 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
     output_len = context.output_len
 
     scheduler_config = llm.llm_engine.scheduler_config
+    max_model_len = llm.llm_engine.model_config.max_model_len
     max_num_batched_tokens = scheduler_config.max_num_batched_tokens
     max_num_seqs = scheduler_config.max_num_seqs
 
@@ -89,9 +91,9 @@ def run_profile(context: ProfileContext, csv_output: Optional[str],
           llm.llm_engine.model_config.max_model_len)
     if prompt_len + output_len > llm.llm_engine.model_config.max_model_len:
         print(
-            f"ERROR: chosen prompt_len + output_len ({prompt_len} + {output_len} = "
-            f"{prompt_len + output_len}) is larger than the model's max_model_len "
-            f"({llm.llm_engine.model_config.max_model_len}), please choose a smaller "
+            f"ERROR: chosen prompt_len + output_len ({prompt_len} + "
+            f"{output_len} = {prompt_len + output_len}) is larger than the "
+            f"model's max_model_len ({max_model_len}), please choose a smaller "
             f"prompt_len or output_len, or increase --max-model-len")
         sys.exit(-1)
 
@@ -222,9 +224,8 @@ if __name__ == "__main__":
         type=str,
         choices=['awq', 'gptq', 'squeezellm', 'marlin', 'smoothquant', None],
         default=None,
-        help="The method used to quantize the model weights, "
-        "options are \"marlin\", \"awq\", \"gptq\", \"squeezellm\", \"smoothquant\""
-    )
+        help="The method used to quantize the model weights, options are "
+        "\"marlin\", \"awq\", \"gptq\", \"squeezellm\", \"smoothquant\"")
     parser.add_argument("--dtype",
                         type=str,
                         default='auto',
@@ -233,7 +234,7 @@ if __name__ == "__main__":
         "--max-model-len",
         type=int,
         default=None,
-        help=f"Maximum length of a sequence (including prompt and output)")
+        help="Maximum length of a sequence (including prompt and output)")
     parser.add_argument(
         "--max-num-batched-tokens",
         type=int,
