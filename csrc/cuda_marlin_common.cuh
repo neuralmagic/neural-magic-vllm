@@ -6,15 +6,45 @@
 #include <c10/cuda/CUDAGuard.h>
 #include <cuda.h>
 #include <cuda_fp16.h>
+#include <cuda_bf16.h>
+
 #include <cuda_runtime.h>
 
 #include <iostream>
 
 namespace marlin_common_cu {
 
-constexpr int ceildiv(int a, int b) { return (a + b - 1) / b; }
+// 8 warps are a good choice since every SM has 4 schedulers and having more
+// than 1 warp per schedule allows some more latency hiding. At the same time,
+// we want relatively few warps to have many registers per warp and small tiles.
+static constexpr int default_threads = 256;
+
+static constexpr int pipe_stages =
+    4;  // 4 pipeline stages fit into shared memory
+
+static constexpr int min_thread_n = 64;
+static constexpr int min_thread_k = 64;
+
+static constexpr int tile_size = 16;
+static constexpr int max_par = 16;
+
+template <typename T, int n>
+struct Vec {
+  T elems[n];
+  __device__ T& operator[](int i) { return elems[i]; }
+};
+
+using I4 = Vec<int, 4>;
+
+constexpr int div_ceil(int a, int b) { return (a + b - 1) / b; }
+
+#define STATIC_ASSERT_SCALAR_TYPE_VALID(scalar_t)               \
+  static_assert(std::is_same<scalar_t, half>::value ||          \
+                    std::is_same<scalar_t, nv_bfloat16>::value, \
+                "only float16 and bfloat16 is supported");
 
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 800
+// No support for async
 
 template <typename scalar_t,          // compute dtype, half or nv_float16
           const int num_bits,         // number of bits used for weights
@@ -29,7 +59,7 @@ template <typename scalar_t,          // compute dtype, half or nv_float16
           const bool has_act_order,    // whether act_order is enabled
           const int group_blocks = -1, // number of consecutive 16x16 blocks
                                        // with a separate quantization scale
-          const bool is_moe = False,   // is it MoE version of the kernel?
+          const bool is_moe = false    // is it MoE version of the kernel?
           >
 __global__ void Marlin(
     const int4* __restrict__ A,  // fp16 input matrix of shape mxk
@@ -52,9 +82,120 @@ __global__ void Marlin(
     int* locks,            // extra global storage for barrier synchronization
     bool replicate_input,  // do we use the same input for each expert?
     bool apply_weights     // apply weights to output
-) {}
+) {
+  // Marlin is not implemented yet for SM < 8.0
+  assert(false);
+  return;
+}
+
+__global__ void permute_cols_kernel(int4 const* __restrict__ a_int4_ptr,
+                                    int const* __restrict__ perm_int_ptr,
+                                    int4* __restrict__ out_int4_ptr, int size_m,
+                                    int size_k, int block_rows,
+                                    int num_threads) {
+  // Marlin is not implemented yet for SM < 8.0
+  assert(false);
+  return;
+}
 
 #else
+
+__device__ inline void cp_async4_pred(void* smem_ptr, const void* glob_ptr,
+                                      bool pred = true) {
+  const int BYTES = 16;
+  uint32_t smem = static_cast<uint32_t>(__cvta_generic_to_shared(smem_ptr));
+  asm volatile(
+      "{\n"
+      "   .reg .pred p;\n"
+      "   setp.ne.b32 p, %0, 0;\n"
+      "   @p cp.async.cg.shared.global [%1], [%2], %3;\n"
+      "}\n" ::"r"((int)pred),
+      "r"(smem), "l"(glob_ptr), "n"(BYTES));
+}
+
+__device__ inline void cp_async4(void* smem_ptr, const void* glob_ptr) {
+  const int BYTES = 16;
+  uint32_t smem = static_cast<uint32_t>(__cvta_generic_to_shared(smem_ptr));
+  asm volatile(
+      "{\n"
+      "   cp.async.cg.shared.global [%0], [%1], %2;\n"
+      "}\n" ::"r"(smem),
+      "l"(glob_ptr), "n"(BYTES));
+}
+
+__device__ inline void cp_async_fence() {
+  asm volatile("cp.async.commit_group;\n" ::);
+}
+
+template <int n>
+__device__ inline void cp_async_wait() {
+  asm volatile("cp.async.wait_group %0;\n" ::"n"(n));
+}
+
+template <typename scalar_t>
+class ScalarType {};
+
+template <>
+class ScalarType<half> {
+ public:
+  using scalar_t = half;
+  using scalar_t2 = half2;
+
+  // Matrix fragments for tensor core instructions; their precise layout is
+  // documented here:
+  // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#matrix-fragments-for-mma-m16n8k16-with-floating-point-type
+  using FragA = Vec<half2, 4>;
+  using FragB = Vec<half2, 2>;
+  using FragC = Vec<float, 4>;
+  using FragS = Vec<half2, 1>;
+
+  static __device__ float inline num2float(const half x) {
+    return __half2float(x);
+  }
+
+  static __device__ half2 inline num2num2(const half x) {
+    return __half2half2(x);
+  }
+
+  static __device__ half2 inline nums2num2(const half x1, const half x2) {
+    return __halves2half2(x1, x2);
+  }
+
+  static __host__ __device__ half inline float2num(const float x) {
+    return __float2half(x);
+  }
+};
+
+template <>
+class ScalarType<nv_bfloat16> {
+ public:
+  using scalar_t = nv_bfloat16;
+  using scalar_t2 = nv_bfloat162;
+
+  using FragA = Vec<nv_bfloat162, 4>;
+  using FragB = Vec<nv_bfloat162, 2>;
+  using FragC = Vec<float, 4>;
+  using FragS = Vec<nv_bfloat162, 1>;
+
+  static __device__ float inline num2float(const nv_bfloat16 x) {
+    return __bfloat162float(x);
+  }
+
+  static __device__ nv_bfloat162 inline num2num2(const nv_bfloat16 x) {
+    return __bfloat162bfloat162(x);
+  }
+
+  static __device__ nv_bfloat162 inline nums2num2(const nv_bfloat16 x1,
+                                                  const nv_bfloat16 x2) {
+    return __halves2bfloat162(x1, x2);
+  }
+
+  static __host__ __device__ nv_bfloat16 inline float2num(const float x) {
+    return __float2bfloat16(x);
+  }
+};
+
+constexpr int ceildiv(int a, int b) { return (a + b - 1) / b; }
 
 // m16n8k16 tensor core mma instruction with fp16 inputs and fp32
 // output/accumulation.
@@ -351,7 +492,7 @@ template <typename scalar_t,          // compute dtype, half or nv_float16
           const bool has_act_order,    // whether act_order is enabled
           const int group_blocks = -1, // number of consecutive 16x16 blocks
                                        // with a separate quantization scale
-          const bool is_moe = False,   // is it MoE version of the kernel?
+          const bool is_moe = false    // is it MoE version of the kernel?
           >
 __global__ void Marlin(
     const int4* __restrict__ A,  // fp16 input matrix of shape mxk
@@ -703,6 +844,7 @@ __global__ void Marlin(
               new_idx < a_gl_stride * tot_m * (replicate_input ? 1 : topk)) {
             cp_async4_pred(&sh_a_stage[a_sh_wr_trans[i]], &A[new_idx],
                           a_sh_wr_pred[i]);
+          }
         } else {
         cp_async4_pred(
             &sh_a_stage[a_sh_wr_trans[i]],
@@ -717,7 +859,6 @@ __global__ void Marlin(
         for (int j = 0; j < b_thread_vecs; j++) {
           cp_async4(&sh_b_stage[b_sh_wr_delta * i + b_sh_wr + j], B_ptr[i] + j);
         }
-
         B_ptr[i] += b_gl_rd_delta_o;
       }
 
@@ -1101,6 +1242,7 @@ __global__ void Marlin(
               if (row < tot_m * topk) {
                 int new_idx = row * c_gl_stride + c_idx % c_gl_stride;
                 C[new_idx] = c;
+              }
             }
             else {
               C[c_gl_wr + c_gl_wr_delta_o * (i / 2) + c_gl_wr_delta_i * (i % 2)] = c;
@@ -1111,6 +1253,331 @@ __global__ void Marlin(
     }
   };
 
-  #endif
+  // Write out the reduce final result in the correct layout. We only actually
+  // reshuffle matrix fragments in this step, the reduction above is performed
+  // in fragment layout.
+  auto write_result = [&]() {
+    int c_gl_stride = prob_n / 8;
+    constexpr int c_sh_stride = 2 * thread_n_blocks + 1;
+    int c_gl_wr_delta = c_gl_stride * (threads / (2 * thread_n_blocks));
+    constexpr int c_sh_rd_delta =
+        c_sh_stride * (threads / (2 * thread_n_blocks));
 
+    int c_gl_wr = c_gl_stride * (threadIdx.x / (2 * thread_n_blocks)) +
+                  (threadIdx.x % (2 * thread_n_blocks));
+    c_gl_wr += (2 * thread_n_blocks) * slice_col;
+    int c_sh_wr =
+        (4 * c_sh_stride) * ((threadIdx.x % 32) / 4) + (threadIdx.x % 32) % 4;
+    c_sh_wr += 32 * (threadIdx.x / 32);
+    int c_sh_rd = c_sh_stride * (threadIdx.x / (2 * thread_n_blocks)) +
+                  (threadIdx.x % (2 * thread_n_blocks));
+
+    int c_gl_wr_end = c_gl_stride * prob_m;
+
+    // We first reorder in shared memory to guarantee the most efficient final
+    // global write patterns
+    auto write = [&](int idx, float c0, float c1, FragS& s) {
+      scalar_t2 res =
+          Dtype::nums2num2(Dtype::float2num(c0), Dtype::float2num(c1));
+
+      // For per-column quantization we finally apply the scale here (only for
+      // 4-bit)
+      if constexpr (!has_act_order && group_blocks == -1 && num_bits == 4) {
+        res = __hmul2(res, s[0]);
+      }
+
+      ((scalar_t2*)sh)[idx] = res;
+    };
+
+    if (threadIdx.x / 32 < thread_n_blocks / 4) {
+  #pragma unroll
+      for (int i = 0; i < thread_m_blocks; i++) {
+  #pragma unroll
+        for (int j = 0; j < 4; j++) {
+          int wr = c_sh_wr + 8 * j;
+          write(wr + (4 * c_sh_stride) * 0 + 0, frag_c[i][j][0][0],
+                frag_c[i][j][0][1], frag_s[j / 2][2 * (j % 2) + 0]);
+          write(wr + (4 * c_sh_stride) * 8 + 0, frag_c[i][j][0][2],
+                frag_c[i][j][0][3], frag_s[j / 2][2 * (j % 2) + 0]);
+          write(wr + (4 * c_sh_stride) * 0 + 4, frag_c[i][j][1][0],
+                frag_c[i][j][1][1], frag_s[j / 2][2 * (j % 2) + 1]);
+          write(wr + (4 * c_sh_stride) * 8 + 4, frag_c[i][j][1][2],
+                frag_c[i][j][1][3], frag_s[j / 2][2 * (j % 2) + 1]);
+        }
+        c_sh_wr += 16 * (4 * c_sh_stride);
+      }
+    }
+    __syncthreads();
+
+  #pragma unroll
+    for (int i = 0;
+         i < div_ceil(16 * thread_m_blocks, threads / (2 * thread_n_blocks));
+         i++) {
+      if (c_gl_wr < c_gl_wr_end) {
+        if (is_moe) {
+          int row = sorted_ids[c_gl_wr / c_gl_stride];
+          if (row < tot_m * topk) {
+            int off = row * c_gl_stride + c_gl_wr % c_gl_stride;
+            if (!apply_weights) {
+              C[off] = sh[c_sh_rd];
+            } else {
+              __half* ctrg = reinterpret_cast<__half*>(&C[off]);
+              __half* csrc = reinterpret_cast<__half*>(&sh[c_sh_rd]);
+              for (int j = 0; j < 8; ++j) {
+                ctrg[j] = __float2half(topk_weights[row] * __half2float(csrc[j]));
+              }
+            }
+            c_gl_wr += c_gl_wr_delta;
+            c_sh_rd += c_sh_rd_delta;
+          }
+        } else {
+          C[c_gl_wr] = sh[c_sh_rd];
+          c_gl_wr += c_gl_wr_delta;
+          c_sh_rd += c_sh_rd_delta;
+        }
+      }
+    }
+  };
+
+  // Start global fetch and register load pipelines.
+  auto start_pipes = [&]() {
+
+  #pragma unroll
+    for (int i = 0; i < stages - 1; i++) {
+      if (has_act_order && i == 0) {
+        int last_g_idx = slice_k_start + stages * tb_k * 2;
+        if (last_g_idx >= prob_k) {
+          last_g_idx = prob_k - 1;
+        }
+        fetch_scales_to_shared(true, g_idx[slice_k_start], g_idx[last_g_idx]);
+      }
+      fetch_to_shared(i, i, i < slice_iters);
+    }
+
+    zero_accums();
+    wait_for_stage();
+    init_same_group(0);
+    fetch_to_registers(0, 0);
+    fetch_scales_to_registers(0, 0);
+    a_gl_rd += a_gl_rd_delta_o * (stages - 1);
+    slice_k_start_shared_fetch += tb_k * (stages - 1);
+  };
+  if (slice_iters) {
+    start_pipes();
   }
+
+  // Main loop.
+  while (slice_iters) {
+    // We unroll over both the global fetch and the register load pipeline to
+    // ensure all shared memory accesses are static. Note that both pipelines
+    // have even length meaning that the next iteration will always start at
+    // index 0.
+
+  #pragma unroll
+    for (int pipe = 0; pipe < stages;) {
+  #pragma unroll
+      for (int k = 0; k < b_sh_wr_iters; k++) {
+        fetch_to_registers(k + 1, pipe % stages);
+        fetch_scales_to_registers(k + 1, pipe);
+        if (k == b_sh_wr_iters - 2) {
+          fetch_to_shared((pipe + stages - 1) % stages, pipe,
+                          slice_iters >= stages);
+          pipe++;
+          wait_for_stage();
+          init_same_group(pipe % stages);
+        }
+        matmul(k);
+      }
+      slice_iters--;
+      if (slice_iters == 0) {
+        break;
+      }
+    }
+
+    a_gl_rd += a_gl_rd_delta_o * stages;
+    slice_k_start += tb_k * stages;
+    slice_k_start_shared_fetch += tb_k * stages;
+
+    if constexpr (has_act_order) {
+      int first_group_id = g_idx[slice_k_start];
+      int last_g_idx = slice_k_start + stages * tb_k * 2;
+      if (last_g_idx >= prob_k) {
+        last_g_idx = prob_k - 1;
+      }
+      int last_group_id = g_idx[last_g_idx];
+      if (last_group_id >= sh_first_group_id + sh_num_groups) {
+        fetch_scales_to_shared(false, first_group_id, last_group_id);
+        __syncthreads();
+      }
+    }
+
+    // Process results and, if necessary, proceed to the next column slice.
+    // While this pattern may not be the most readable, other ways of writing
+    // the loop seemed to noticeably worse performance after compilation.
+    if (slice_iters == 0) {
+      cp_async_wait<0>();
+      bool last = slice_idx == slice_count - 1;
+      // For per-column scales, we only fetch them here in the final step before
+      // write-out
+      if constexpr (!has_act_order && group_blocks == -1) {
+        if constexpr (num_bits == 8) {
+          if (s_sh_wr_pred) {
+            cp_async4(&sh_s[s_sh_wr], &scales_ptr[s_gl_rd]);
+          }
+          cp_async_fence();
+        } else {
+          if (last) {
+            if (s_sh_wr_pred) {
+              cp_async4(&sh_s[s_sh_wr], &scales_ptr[s_gl_rd]);
+            }
+            cp_async_fence();
+          }
+        }
+      }
+
+      thread_block_reduce();
+      if constexpr (!has_act_order && group_blocks == -1) {
+        if constexpr (num_bits == 8) {
+          cp_async_wait<0>();
+          __syncthreads();
+          if (threadIdx.x / 32 < thread_n_blocks / 4) {
+            reinterpret_cast<int4*>(&frag_s)[0] = sh_s[s_sh_rd + 0];
+            reinterpret_cast<int4*>(&frag_s)[1] = sh_s[s_sh_rd + 4];
+          }
+
+        } else {
+          if (last) {
+            cp_async_wait<0>();
+            __syncthreads();
+            if (threadIdx.x / 32 < thread_n_blocks / 4) {
+              reinterpret_cast<int4*>(&frag_s)[0] = sh_s[s_sh_rd + 0];
+              reinterpret_cast<int4*>(&frag_s)[1] = sh_s[s_sh_rd + 4];
+            }
+          }
+        }
+      }
+
+      // For 8-bit channelwise, we apply the scale before the global reduction
+      // that converts the fp32 results to fp16 (so that we avoid possible
+      // overflow in fp16)
+      if constexpr (!has_act_order && group_blocks == -1 && num_bits == 8) {
+        if (threadIdx.x / 32 < thread_n_blocks / 4) {
+  #pragma unroll
+          for (int i = 0; i < thread_m_blocks; i++) {
+  #pragma unroll
+            for (int j = 0; j < 4; j++) {
+              scale_float<scalar_t>(
+                  reinterpret_cast<float*>(&frag_c[i][j][0][0]),
+                  frag_s[j / 2][2 * (j % 2) + 0]);
+              scale_float<scalar_t>(
+                  reinterpret_cast<float*>(&frag_c[i][j][0][2]),
+                  frag_s[j / 2][2 * (j % 2) + 0]);
+
+              scale_float<scalar_t>(
+                  reinterpret_cast<float*>(&frag_c[i][j][1][0]),
+                  frag_s[j / 2][2 * (j % 2) + 1]);
+              scale_float<scalar_t>(
+                  reinterpret_cast<float*>(&frag_c[i][j][1][2]),
+                  frag_s[j / 2][2 * (j % 2) + 1]);
+            }
+          }
+        }
+      }
+
+      if (slice_count > 1) {  // only globally reduce if there is more than one
+                              // block in a slice
+        barrier_acquire(&locks[slice_col], slice_idx);
+        global_reduce(slice_idx == 0, last);
+        barrier_release(&locks[slice_col], last);
+      }
+      if (last)  // only the last block in a slice actually writes the result
+        write_result();
+      slice_row = 0;
+      slice_col_par++;
+      slice_col++;
+      init_slice();
+      if (slice_iters) {
+        a_gl_rd = a_gl_stride * (threadIdx.x / a_gl_rd_delta_o) +
+                  (threadIdx.x % a_gl_rd_delta_o);
+  #pragma unroll
+        for (int i = 0; i < b_sh_wr_iters; i++)
+          B_ptr[i] += b_sh_stride - b_gl_rd_delta_o * k_tiles;
+        if (slice_col == 0) {
+  #pragma unroll
+          for (int i = 0; i < b_sh_wr_iters; i++) B_ptr[i] -= b_gl_stride;
+        }
+
+        // Update slice k/n for scales loading
+        if constexpr (has_act_order) {
+          slice_k_start = tb_k * slice_row;
+          slice_k_finish = slice_k_start + tb_k * slice_iters;
+          slice_k_start_shared_fetch = slice_k_start;
+          slice_n_offset = act_s_col_tb_stride * slice_col;
+
+        } else {
+          s_gl_rd = s_sh_stride * slice_col + threadIdx.x;
+        }
+
+        start_pipes();
+      }
+    }
+  }
+}
+
+// For a given "a" of size [M,K] performs a permutation of the K columns based
+// on the given "perm" indices.
+__global__ void permute_cols_kernel(int4 const* __restrict__ a_int4_ptr,
+                                    int const* __restrict__ perm_int_ptr,
+                                    int4* __restrict__ out_int4_ptr, int size_m,
+                                    int size_k, int block_rows,
+                                    int num_threads) {
+  int start_row = block_rows * blockIdx.x;
+  int finish_row = start_row + block_rows;
+  if (finish_row > size_m) {
+    finish_row = size_m;
+  }
+  int cur_block_rows = finish_row - start_row;
+
+  int row_stride = size_k * sizeof(half) / 16;
+
+  auto permute_row = [&](int row) {
+    int iters = size_k / num_threads;
+    int rest = size_k % num_threads;
+
+    int offset = row * row_stride;
+
+    half const* a_row_half = reinterpret_cast<half const*>(a_int4_ptr + offset);
+    half* out_half = reinterpret_cast<half*>(out_int4_ptr + offset);
+
+    int base_k = 0;
+
+    for (int i = 0; i < iters; i++) {
+      int cur_k = base_k + threadIdx.x;
+      int src_pos = perm_int_ptr[cur_k];
+
+      out_half[cur_k] = a_row_half[src_pos];
+
+      base_k += num_threads;
+    }
+
+    if (rest) {
+      if (threadIdx.x < rest) {
+        int cur_k = base_k + threadIdx.x;
+        int src_pos = perm_int_ptr[cur_k];
+
+        out_half[cur_k] = a_row_half[src_pos];
+      }
+    }
+  };
+
+  for (int i = 0; i < cur_block_rows; i++) {
+    int cur_row = start_row + i;
+    if (cur_row < size_m) {
+      permute_row(cur_row);
+    }
+  }
+}
+
+#endif
+
+}
