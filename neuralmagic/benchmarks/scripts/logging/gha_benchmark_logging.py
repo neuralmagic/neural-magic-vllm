@@ -109,7 +109,7 @@ def process(json_file_path: Path) -> Iterable[Type_Record_T]:
 def process_folder(input_directory: Path):
     print(f"processing folder : {input_directory}")
 
-    json_file_paths = input_directory.glob('*/*.json')
+    json_file_paths = input_directory.glob('*.json')
 
     type_records: List[Type_Record_T] = list(
         reduce(lambda whole, part: whole + part,
