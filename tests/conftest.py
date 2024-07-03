@@ -398,14 +398,22 @@ class HfRunner:
                                                return_tensors="pt").input_ids
             decoder_input_ids = self.tokenizer(decoder_prompt,
                                                return_tensors="pt").input_ids
+
+            from transformers.generation.configuration_utils import GenerationConfig
+            generation_config = GenerationConfig.from_model_config(self.model.config)
+            generation_config.do_sample = False
+            generation_config.top_k = None
+            generation_config.num_beams = 1
+
+
             output = self.model.generate(
                 self.wrap_device(encoder_input_ids),
                 decoder_input_ids=self.wrap_device(decoder_input_ids),
                 use_cache=True,
-                do_sample=False,
                 max_new_tokens=max_tokens,
                 output_hidden_states=True,
                 return_dict_in_generate=True,
+                generation_config=generation_config
             )
 
             seq_logprobs: List[torch.Tensor] = []
