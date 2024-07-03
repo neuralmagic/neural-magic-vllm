@@ -1,0 +1,14 @@
+name: run coverage_report_breakdown
+description: 'run coverage_report_breakdown to generate markdown showing test coverage breakdown'
+inputs:
+  coverage_json:
+    description: 'file containing coverage report in JSON format'
+    required: true
+runs:
+  using: composite
+  steps:
+    - id: coverage_report_breakdown
+      run: |
+        COVERAGE_MD = `python3 ./.github/scripts/coverage_report_breakdown.py --coverage_json_file`
+        echo "markdown=${COVERAGE_MD}" >> $GITHUB_OUTPUT
+      shell: bash

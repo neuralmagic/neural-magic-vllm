@@ -22,6 +22,9 @@ inputs:
   test_status:
     description: 'status from test step'
     required: true
+  test_coverage_md:
+    description: 'test coverage summary markdown for this particular run'
+    required: false
 runs:
   using: composite
   steps:
@@ -42,4 +45,7 @@ runs:
       echo "| whl: | ${{ inputs.whl }} |" >> $GITHUB_STEP_SUMMARY
       echo "| magic_wand: | ${{ inputs.magic_wand }} |" >> $GITHUB_STEP_SUMMARY
       echo "| test: | ${TEST_EMOJI} |" >> $GITHUB_STEP_SUMMARY
+      echo "" >> $GITHUB_STEP_SUMMARY
+      echo "Test Coverage" >> $GITHUB_STEP_SUMMARY
+      echo "${{ inputs.test_coverage_md }}" >> $GITHUB_STEP_SUMMARY
     shell: bash

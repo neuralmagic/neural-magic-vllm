@@ -151,6 +151,14 @@ jobs:
                 path: cc-vllm-html
                 retention-days: 15
 
+            - name: upload code coverage json
+              uses: actions/upload-artifact@v4
+              if: success() || failure()
+              with:
+                name: cc-vllm-json-${{ inputs.test_label }}-${{ inputs.python }}
+                path: cc-vllm.json
+                retention-days: 5
+
             - name: report test results
               id: report_test
               uses: ./.github/actions/nm-testmo-run-submit-thread/
@@ -161,6 +169,13 @@ jobs:
                 testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
                 results: test-results
                 step_status: ${{ steps.test.outputs.status }}
+
+            - name: collect test coverage breakdown
+              id: coverage_breakdown
+              uses: ./.github/actions/nm-code-coverage-md/
+              if: success () | failure()
+              with:
+                coverage_json: cc-vllm.json
 
             - name: summary
               uses: ./.github/actions/nm-summary-test/
@@ -173,6 +188,7 @@ jobs:
                 whl: ${{ steps.test.outputs.whl }}
                 magic_wand: ${{ steps.test.outputs.magic_wand }}
                 test_status: ${{ steps.test.outputs.status }}
+                test_coverage_md: ${{ steps.coverage_breakdown.markdown }}
 
             - name: complete testmo run
               uses: ./.github/actions/nm-testmo-run-complete/
