@@ -11,4 +11,3 @@ except Exception as e:
     __commit__ = "COMMIT_HASH_PLACEHOLDER"
 
 __version__ = "0.5.1"
-__commit__ = "07abe05bea44b7f4cc8c567527063c3992a8f301"
