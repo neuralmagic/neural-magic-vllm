@@ -9,7 +9,7 @@ from vllm.utils import STR_XFORMERS_ATTN_VAL
 
 from .utils import check_logprobs_close, check_logprobs_close_encoder_decoder
 
-MODELS = ["facebook/bart-large-cnn"]
+MODELS = ["facebook/bart-base","facebook/bart-large-cnn"]
 
 # Backends under test
 #
@@ -51,9 +51,9 @@ def test_models(
         vllm_outputs = vllm_model.generate_encoder_decoder_greedy_logprobs(
             example_encoder_decoder_prompts, max_tokens, num_logprobs)
 
-    print(hf_outputs)
-    print("\n\n\n\n\n")
-    print(vllm_outputs)
+    # print(hf_outputs)
+    # print("\n\n\n\n\n")
+    # print(vllm_outputs)
 
     check_logprobs_close_encoder_decoder(
         outputs_0_lst=hf_outputs,

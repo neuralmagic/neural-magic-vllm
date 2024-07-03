@@ -41,7 +41,6 @@ for output in outputs:
     prompt = output.prompt
     generated_text = output.outputs[0].text
     print(f"Prompt: {prompt!r}, Generated text: {generated_text!r}")
-    print(output.outputs[0])
 
 
 from transformers import AutoTokenizer, BartForConditionalGeneration
@@ -59,5 +58,4 @@ inputs = tokenizer([ARTICLE_TO_SUMMARIZE], max_length=1024, return_tensors="pt")
 # Generate Summary
 #summary_ids = model.generate(inputs["input_ids"], num_beams=2, min_length=0, max_length=20)
 summary_ids = model.generate(inputs["input_ids"], min_length=0, max_length=20)
-print(summary_ids)
 print(tokenizer.batch_decode(summary_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False))
