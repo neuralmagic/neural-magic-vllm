@@ -173,7 +173,7 @@ jobs:
             - name: collect test coverage breakdown
               id: coverage_breakdown
               uses: ./.github/actions/nm-code-coverage-md/
-              if: success () | failure()
+              if: success () || failure()
               with:
                 coverage_json: cc-vllm.json
 
