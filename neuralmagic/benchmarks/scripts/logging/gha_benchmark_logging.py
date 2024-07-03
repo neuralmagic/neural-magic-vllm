@@ -106,8 +106,8 @@ def process(json_file_path: Path) -> Iterable[Type_Record_T]:
             GHARecord.from_metric_template(metric, extra=hover_data)), metrics)
 
 
-def main(args: argparse.Namespace) -> None:
-    input_directory = Path(args.input_directory)
+def process_folder(input_directory: Path):
+    print(f"processing folder : {input_directory}")
 
     json_file_paths = input_directory.glob('*/*.json')
 
@@ -125,6 +125,8 @@ def main(args: argparse.Namespace) -> None:
         If there are no records after we filter, don't dump json. otherwise,
         dump all records as JSON.
         """
+        # put output file in matching subdir (e.g. 'benchmark_serving')
+        output_path = output_path.joinpath(input_directory.parent.name)
         # Make output directory if it doesn't exist
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -154,6 +156,17 @@ def main(args: argparse.Namespace) -> None:
         type_records, BenchmarkMetricType.Observation,
         Path(args.output_directory).joinpath(
             args.observation_metrics_output_filename))
+
+
+def main(args: argparse.Namespace) -> None:
+    groups = ["benchmark_serving", "benchmark_throughput"]
+    input_base_directory = Path(args.input_directory)
+    input_directories = [
+        input_base_directory.joinpath(group) for group in groups
+    ]
+
+    for input_directory in input_directories:
+        process_folder(input_directory)
 
 
 if __name__ == '__main__':
