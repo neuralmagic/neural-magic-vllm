@@ -144,21 +144,19 @@ def process_folder(input_directory: Path):
         with open(output_path, 'w+') as f:
             json.dump(gha_record_dicts, f, indent=4)
 
+    output_directory = Path(args.output_directory).joinpath(
+        input_directory.parent.name)
     filter_and_dump_if_non_empty(
         type_records, BenchmarkMetricType.BiggerIsBetter,
-        Path(args.output_directory).joinpath(
-            input_directory.parent.name,
+        output_directory.joinpath(
             args.bigger_is_better_metrics_output_filename))
     filter_and_dump_if_non_empty(
         type_records, BenchmarkMetricType.SmallerIsBetter,
-        Path(args.output_directory).joinpath(
-            input_directory.parent.name,
+        output_directory.joinpath(
             args.smaller_is_better_metrics_output_filename))
     filter_and_dump_if_non_empty(
         type_records, BenchmarkMetricType.Observation,
-        Path(args.output_directory).joinpath(
-            input_directory.parent.name,
-            args.observation_metrics_output_filename))
+        output_directory.joinpath(args.observation_metrics_output_filename))
 
 
 def main(args: argparse.Namespace) -> None:
