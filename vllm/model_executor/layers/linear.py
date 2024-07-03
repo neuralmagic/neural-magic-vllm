@@ -707,7 +707,8 @@ class QKVParallelLinear(ColumnParallelLinear):
         # This is super hacky for now but we basically want to only
         # compress once all of the shards are loaded, for the QKV matrix
         # this means loading shards "q", "k" and "v"
-        self.loaded_shards.add(loaded_shard_id)
+        if isinstance(param, LazyCompressedParameter):
+           self.loaded_shards.add(loaded_shard_id)
         all_shards_loaded = (self.loaded_shards == set(["q", "k", "v"]))
         if all_shards_loaded and isinstance(param, LazyCompressedParameter):
             param.compress()
