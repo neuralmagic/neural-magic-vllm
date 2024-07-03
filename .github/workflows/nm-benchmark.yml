@@ -179,6 +179,7 @@ jobs:
         run: |
           GH_ACTION_BENCHMARK_INPUT_ARTIFACT_NAME=`echo "gh_action_benchmark_jsons-${{ github.run_id }}-${{ inputs.label }}-${{ inputs.python }}"`
           echo "gh_action_benchmark_input_artifact_name=$GH_ACTION_BENCHMARK_INPUT_ARTIFACT_NAME" >> $GITHUB_OUTPUT
+          ls -R gh-action-benchmark-jsons
 
       - name: store gh action benchmark input artifacts
         if: success()
@@ -231,9 +232,9 @@ jobs:
           gh_action_benchmark_name: "bigger_is_better"
           gh_action_benchmark_json_file_path: "downloads/benchmark_serving/bigger_is_better.json"
           gh_action_benchmark_tool: "customBiggerIsBetter"
-          gh_pages_branch: "nm-gh-pages-trial"
+          gh_pages_branch: "nm-gh-pages"
           benchmark_data_dir_path: "dev/bench/serving"
-          auto_push: true
+          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           reporting_enabled: "true"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -245,9 +246,9 @@ jobs:
           gh_action_benchmark_name: "smaller_is_better"
           gh_action_benchmark_json_file_path: "downloads/benchmark_serving/smaller_is_better.json"
           gh_action_benchmark_tool: "customSmallerIsBetter"
-          gh_pages_branch: "nm-gh-pages-trial"
+          gh_pages_branch: "nm-gh-pages"
           benchmark_data_dir_path: "dev/bench/serving"
-          auto_push: true
+          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           reporting_enabled: "true"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -263,9 +264,9 @@ jobs:
           # work around that. Since we mark the action to not report failures, this
           # is fine.
           gh_action_benchmark_tool: "customBiggerIsBetter"
-          gh_pages_branch: "nm-gh-pages-trial"
+          gh_pages_branch: "nm-gh-pages"
           benchmark_data_dir_path: "dev/bench/serving"
-          auto_push: true
+          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           reporting_enabled: "false"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -277,9 +278,9 @@ jobs:
           gh_action_benchmark_name: "bigger_is_better"
           gh_action_benchmark_json_file_path: "downloads/benchmark_throughput/bigger_is_better.json"
           gh_action_benchmark_tool: "customBiggerIsBetter"
-          gh_pages_branch: "nm-gh-pages-trial"
+          gh_pages_branch: "nm-gh-pages"
           benchmark_data_dir_path: "dev/bench/throughput"
-          auto_push: true
+          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           reporting_enabled: "true"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -291,9 +292,9 @@ jobs:
           gh_action_benchmark_name: "smaller_is_better"
           gh_action_benchmark_json_file_path: "downloads/benchmark_throughput/smaller_is_better.json"
           gh_action_benchmark_tool: "customSmallerIsBetter"
-          gh_pages_branch: "nm-gh-pages-trial"
+          gh_pages_branch: "nm-gh-pages"
           benchmark_data_dir_path: "dev/bench/throughput"
-          auto_push: true
+          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           reporting_enabled: "true"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -309,8 +310,8 @@ jobs:
           # work around that. Since we mark the action to not report failures, this
           # is fine.
           gh_action_benchmark_tool: "customBiggerIsBetter"
-          gh_pages_branch: "nm-gh-pages-trial"
+          gh_pages_branch: "nm-gh-pages"
           benchmark_data_dir_path: "dev/bench/throughput"
-          auto_push: true
+          auto_push: ${{ inputs.push_benchmark_results_to_gh_pages }}
           reporting_enabled: "false"
           github_token: ${{ secrets.GITHUB_TOKEN }}
