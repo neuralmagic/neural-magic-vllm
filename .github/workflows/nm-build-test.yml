@@ -173,8 +173,7 @@ jobs:
 
     # update docker
     DOCKER:
-        needs: [BUILD, UPLOAD]
-        if: ${{ inputs.push_to_pypi }}
+        needs: [BUILD]
         uses: ./.github/workflows/publish-docker.yml
         with:
             push_to_repository: ${{ inputs.push_to_pypi }}
