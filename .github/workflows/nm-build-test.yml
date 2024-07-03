@@ -169,6 +169,8 @@ jobs:
             label: gcp-k8s-util
             timeout: ${{ inputs.build_timeout }}
             gitref: ${{ github.ref }}
+            wf_category: ${{ inputs.wf_category }}
+            whl: ${{ needs.BUILD.outputs.whl }}
         secrets: inherit
 
     # update docker

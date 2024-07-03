@@ -16,7 +16,14 @@ on:
                 description: 'git commit hash or branch name'
                 type: string
                 required: true
-
+            wf_category:
+                description: "workflow category: REMOTE, NIGHTLY, RELEASE"
+                type: string
+                default: "REMOTE"
+            whl:
+                description: "wheel file path"
+                type: string
+                required: true
 jobs:
 
     PUBLISH:
@@ -53,6 +60,16 @@ jobs:
               with:
                   path: assets
 
+            - name: push wheel to pypi.org
+              # this workflow is only run if push-to-pypi is True, and we only
+              # want to push RELEASE wheels to the external pypi.org
+              if: ${{ inputs.wf_category }} == "RELEASE"
+              uses: neuralmagic/nm-actions/actions/publish_whl/action.yml@main
+              with:
+                username: ${{ secrets.PYPI_PUBLIC_USER }}
+                password: ${{ secrets.PYPI_PUBLIC_AUTH }}
+                whl: ${{ inputs.whl }}
+
             # GCP
             - name: 'Authenticate to Google Cloud'
               id: auth
@@ -70,3 +87,4 @@ jobs:
             - name: cp assets
               id: cp-assets
               uses: ./.github/actions/nm-cp-assets/
+
