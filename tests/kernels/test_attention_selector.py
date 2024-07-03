@@ -14,8 +14,8 @@ if should_skip_test_group(group_name="TEST_KERNELS"):
 
 
 @pytest.mark.parametrize(
-    "name", ["TORCH_SDPA", "ROCM_FLASH", "XFORMERS", "FLASHINFER"])
-@pytest.mark.parametrize("device", ["cpu", "hip", "cuda"])
+    "name", ["TORCH_SDPA", "ROCM_FLASH", "XFORMERS", "FLASHINFER", "OPENVINO"])
+@pytest.mark.parametrize("device", ["cpu", "openvino", "hip", "cuda"])
 def test_env(name: str, device: str, monkeypatch):
     """Test that the attention selector can be set via environment variable.
     Note that we do not test FlashAttn because it is the default backend.
@@ -33,6 +33,11 @@ def test_env(name: str, device: str, monkeypatch):
             backend = which_attn_to_use(8, 16, 8, None, torch.float16,
                                         torch.float16, 16)
         assert backend.name == "ROCM_FLASH"
+    elif device == "openvino":
+        with patch("vllm.attention.selector.is_openvino", return_value=True):
+            backend = which_attn_to_use(8, 16, 8, None, torch.float16,
+                                        torch.float16, 16)
+        assert backend.name == "OPENVINO"
     else:
         backend = which_attn_to_use(8, 16, 8, None, torch.float16,
                                     torch.float16, 16)
