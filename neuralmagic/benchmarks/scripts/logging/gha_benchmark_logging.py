@@ -128,8 +128,6 @@ def process_folder(input_directory: Path):
         If there are no records after we filter, don't dump json. otherwise,
         dump all records as JSON.
         """
-        # put output file in matching subdir (e.g. 'benchmark_serving')
-        output_path = output_path.joinpath(input_directory.parent.name)
         # Make output directory if it doesn't exist
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -150,14 +148,17 @@ def process_folder(input_directory: Path):
     filter_and_dump_if_non_empty(
         type_records, BenchmarkMetricType.BiggerIsBetter,
         Path(args.output_directory).joinpath(
+            input_directory.parent.name,
             args.bigger_is_better_metrics_output_filename))
     filter_and_dump_if_non_empty(
         type_records, BenchmarkMetricType.SmallerIsBetter,
         Path(args.output_directory).joinpath(
+            input_directory.parent.name,
             args.smaller_is_better_metrics_output_filename))
     filter_and_dump_if_non_empty(
         type_records, BenchmarkMetricType.Observation,
         Path(args.output_directory).joinpath(
+            input_directory.parent.name,
             args.observation_metrics_output_filename))
 
 
