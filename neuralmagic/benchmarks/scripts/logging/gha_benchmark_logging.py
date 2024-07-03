@@ -145,7 +145,7 @@ def process_folder(input_directory: Path):
             json.dump(gha_record_dicts, f, indent=4)
 
     output_directory = Path(args.output_directory).joinpath(
-        input_directory.parent.name)
+        input_directory.name)
     filter_and_dump_if_non_empty(
         type_records, BenchmarkMetricType.BiggerIsBetter,
         output_directory.joinpath(
