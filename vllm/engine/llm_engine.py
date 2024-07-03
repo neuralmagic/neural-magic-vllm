@@ -592,7 +592,12 @@ class LLMEngine:
                 decoder_prompt_token_ids = inputs["decoder_prompt_token_ids"]
                 encoder_prompt_token_ids = inputs["encoder_prompt_token_ids"]
 
-            decoder_prompt_token_ids = [2] + decoder_prompt_token_ids
+            if decoder_prompt_token_ids == [0,2]:
+                decoder_prompt_token_ids = [2]
+            elif decoder_prompt_token_ids[0] != 2:
+                decoder_prompt_token_ids = [2] + decoder_prompt_token_ids  
+
+            # decoder_prompt_token_ids = [2] + decoder_prompt_token_ids
 
             return EncoderDecoderLLMInputs(
                 decoder_prompt_token_ids=decoder_prompt_token_ids,
