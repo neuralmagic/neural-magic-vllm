@@ -128,6 +128,7 @@ def process_folder(input_directory: Path):
         If there are no records after we filter, don't dump json. otherwise,
         dump all records as JSON.
         """
+        print(f"{output_path=}")
         # Make output directory if it doesn't exist
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -147,6 +148,7 @@ def process_folder(input_directory: Path):
 
     output_directory = Path(args.output_directory).joinpath(
         input_directory.name)
+    print(f"{output_directory=}")
     filter_and_dump_if_non_empty(
         type_records, BenchmarkMetricType.BiggerIsBetter,
         output_directory.joinpath(
