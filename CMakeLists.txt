@@ -160,8 +160,6 @@ set(VLLM_EXT_SRC
   "csrc/moe_align_block_size_kernels.cu"
   "csrc/torch_bindings.cpp")
 
-add_subdirectory(csrc)
-
 if(VLLM_GPU_LANG STREQUAL "CUDA")
   include(FetchContent)
   SET(CUTLASS_ENABLE_HEADERS_ONLY=ON)
@@ -202,8 +200,11 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
   # automatically generate sources for various preselected input type pairs
   # and schedules.
   # Generate sources:
+  message(STATUS "PYTHONPATH=${CUTLASS_DIR}/python/:$PYTHONPATH ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/csrc/quantization/marlinv2/generate.py")
   execute_process(
-    COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/csrc/quantization/marlinv2/generate.py
+    COMMAND ${CMAKE_COMMAND} -E env 
+      PYTHONPATH=${CUTLASS_DIR}/python/:$PYTHONPATH 
+      ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/csrc/quantization/marlinv2/generate.py
     RESULT_VARIABLE marlinv2_generation_result
     OUTPUT_VARIABLE marlinv2_generation_output
     OUTPUT_FILE ${CMAKE_CURRENT_BINARY_DIR}/marlinv2_generation.log
@@ -211,19 +212,31 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
   )
 
   if (NOT marlinv2_generation_result EQUAL 0)
-    file(READ ${CMAKE_CURRENT_BINARY_DIR}/marlinv2_generation.log marlinv2_generation_log_content)
-    message(FATAL_ERROR "MarlinV2 generation failed. Check the log for details:\n${marlinv2_generation_log_content}")
+    file(READ ${CMAKE_CURRENT_BINARY_DIR}/marlinv2_generation.log log)
+    message(FATAL_ERROR "MarlinV2 generation failed."
+                        " Result: \"${marlinv2_generation_result}\"" 
+                        "\nCheck the log for details: "
+                        "${CMAKE_CURRENT_BINARY_DIR}/marlinv2_generation.log")
   else()
     message(STATUS "MarlinV2 generation completed successfully.")
   endif()
 
+  # Add marlinv2 generated sources
+  file(GLOB MARLINV2_GEN_SOURCES "csrc/quantization/marlinv2/generated/*.cu")
+  list(APPEND NM_OPS_SRC ${MARLINV2_GEN_SOURCES})
 
+  # See comment above for scaled_mm_c3x (same if condition)
+  if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER 12.0)
+    set_source_files_properties(
+          ${MARLINV2_GEN_SOURCES}
+          PROPERTIES
+          COMPILE_FLAGS
+          "-gencode arch=compute_90a,code=sm_90a")
+  endif()
 
+  # Add pytorch binding
   list(APPEND VLLM_EXT_SRC
-    csrc/cuda/marlinv2/marlinv2_pytorch.cu)
-
-  list(APPEND VLLM_EXT_SRC
-    csrc/cuda/marlinv2/marlinv2_pytorch.cu)
+    csrc/quantization/marlinv2/marlinv2_pytorch.cu)
 endif()
 
 define_gpu_extension_target(
