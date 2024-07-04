@@ -1,0 +1,29 @@
+# testing
+pytest
+tensorizer>=2.9.0
+pytest-forked
+pytest-asyncio
+pytest-rerunfailures
+pytest-shard
+
+# testing utils
+awscli
+einops # required for MPT
+httpx
+opentelemetry-sdk # required for test tracing
+opentelemetry-api # required for test tracing
+opentelemetry-exporter-otlp # required for test tracing
+opentelemetry-semantic-conventions-ai # required for test tracing
+peft
+requests==2.31  # required for python 3.8 testing
+ray
+sentence-transformers # required for embedding
+torchvision # required for the image processor of phi3v
+git+https://github.com/vllm-project/llm-compressor.git # required for compressed-tensors
+compressed-tensors==0.4.0
+
+# Benchmarking
+aiohttp
+
+# quantization
+bitsandbytes==0.42.0

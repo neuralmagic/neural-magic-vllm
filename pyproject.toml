@@ -69,7 +69,55 @@ skip_gitignore = true
 [tool.pytest.ini_options]
 markers = [
     "skip_global_cleanup",
-    "llm: run tests for vLLM API only",
-    "openai: run tests for OpenAI API only",
-    "llava: run tests for LLaVA models only",
+    "vlm: run tests for vision language models only",
 ]
+
+[tool.coverage.run]
+# collect context info for reporting, e.g. which tests exercised a line
+dynamic_context = "test_function"
+# do not examine any files matching these patterns
+omit = [
+    # coverage for these devices is to be ignored until we plan to deploy them
+    "*neuron*",
+    "*cpu*",
+    # these model pathways are to be ignored for now
+    "*arctic*",
+    "*falcon*",
+    "*deepspeedfp*",
+    # we are not testing AMD devices at the moment
+    "**/rocm_flash_attn.py"
+]
+
+[tool.coverage.report]
+# don't bother to report files w/out executable code, e.g. __init__.py
+skip_empty = true
+# coverage will not report on lines, or code blocks, matching these expressions
+exclude_also = [
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@(abc\\.)?abstractmethod",
+    # coverage for these devices is to be ignored until we plan to deploy them
+    'engine_config.device_config.device_type == "cpu"',
+    'engine_config.device_config.device_type == "neuron"',
+    "elif is_neuron():",
+    "elif is_cpu():",
+    # customop.py has some placeholder code not yet executed
+    "return self.forward_cuda",
+    # ignore some legacy code that we won't support in nm-vllm
+    "enable_hf_transfer()",
+    "def convert_bin_to_safetensor_file",
+    "def _shared_pointers",
+    "def np_cache_weights_iterator",
+    "def convert_pyslice_to_tensor",
+]
+
+[tool.coverage.html]
+# include the context info in the HTML report
+show_contexts = true
+
+[tool.coverage.json]
+# include the context info in the JSON report
+show_contexts = true

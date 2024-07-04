@@ -29,7 +29,7 @@ on:
         required: true
       push_benchmark_results_to_gh_pages:
         description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI"
-        type: string
+        type: boolean
         required: true
 
   # makes workflow manually callable
@@ -61,11 +61,8 @@ on:
         required: true
       push_benchmark_results_to_gh_pages:
         description: "When set to true, the workflow pushes all benchmarking results to gh-pages UI"
-        type: choice
-        options:
-          - 'true'
-          - 'false'
-        default: 'false'
+        type: boolean
+        default: false
 
 env:
     BENCHMARK_RESULTS: /model-cache/benchmark_results
@@ -109,11 +106,9 @@ jobs:
           Gi_per_thread: 1
           nvcc_threads: 0
 
-      - name: hf cache
-        id: hf_cache
-        uses: ./.github/actions/nm-hf-cache/
-        with:
-          fs_cache: ${{ secrets.HF_FS_CACHE }}
+      - name: caches
+        id: caches
+        uses: ./.github/actions/nm-caches/
 
       - name: download whl
         id: download

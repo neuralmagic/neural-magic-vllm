@@ -5,6 +5,7 @@ if TYPE_CHECKING:
     VLLM_HOST_IP: str = ""
     VLLM_PORT: Optional[int] = None
     VLLM_USE_MODELSCOPE: bool = False
+    VLLM_RINGBUFFER_WARNING_INTERVAL: int = 60
     VLLM_INSTANCE_ID: Optional[str] = None
     VLLM_NCCL_SO_PATH: Optional[str] = None
     LD_LIBRARY_PATH: Optional[str] = None
@@ -18,8 +19,8 @@ if TYPE_CHECKING:
     S3_ENDPOINT_URL: Optional[str] = None
     VLLM_CONFIG_ROOT: str = ""
     VLLM_USAGE_STATS_SERVER: str = "https://stats.vllm.ai"
-    VLLM_NO_USAGE_STATS: bool = False
-    VLLM_DO_NOT_TRACK: bool = False
+    VLLM_NO_USAGE_STATS: bool = True
+    VLLM_DO_NOT_TRACK: bool = True
     VLLM_USAGE_SOURCE: str = ""
     VLLM_CONFIGURE_LOGGING: int = 1
     VLLM_LOGGING_LEVEL: str = "INFO"
@@ -27,8 +28,13 @@ if TYPE_CHECKING:
     VLLM_TRACE_FUNCTION: int = 0
     VLLM_ATTENTION_BACKEND: Optional[str] = None
     VLLM_CPU_KVCACHE_SPACE: int = 0
+    VLLM_OPENVINO_KVCACHE_SPACE: int = 0
+    VLLM_OPENVINO_CPU_KV_CACHE_PRECISION: Optional[str] = None
+    VLLM_OPENVINO_ENABLE_QUANTIZED_WEIGHTS: bool = False
+    VLLM_XLA_CACHE_PATH: str = "~/.vllm/xla_cache/"
+    VLLM_FUSED_MOE_CHUNK_SIZE: int = 64 * 1024
     VLLM_USE_RAY_COMPILED_DAG: bool = False
-    VLLM_WORKER_MULTIPROC_METHOD: str = "spawn"
+    VLLM_WORKER_MULTIPROC_METHOD: str = "fork"
     VLLM_IMAGE_FETCH_TIMEOUT: int = 5
     VLLM_TARGET_DEVICE: str = "cuda"
     MAX_JOBS: Optional[str] = None
@@ -47,7 +53,8 @@ environment_variables: Dict[str, Callable[[], Any]] = {
 
     # ================== Installation Time Env Vars ==================
 
-    # Target device of vLLM, supporting [cuda (by default), rocm, neuron, cpu]
+    # Target device of vLLM, supporting [cuda (by default),
+    # rocm, neuron, cpu, openvino]
     "VLLM_TARGET_DEVICE":
     lambda: os.getenv("VLLM_TARGET_DEVICE", "cuda"),
 
@@ -113,6 +120,10 @@ environment_variables: Dict[str, Callable[[], Any]] = {
     "VLLM_INSTANCE_ID":
     lambda: os.environ.get("VLLM_INSTANCE_ID", None),
 
+    # Interval in seconds to log a warning message when the ring buffer is full
+    "VLLM_RINGBUFFER_WARNING_INTERVAL":
+    lambda: int(os.environ.get("VLLM_RINGBUFFER_WARNING_INTERVAL", "60")),
+
     # path to cudatoolkit home directory, under which should be bin, include,
     # and lib directories.
     "CUDA_HOME":
@@ -161,11 +172,11 @@ environment_variables: Dict[str, Callable[[], Any]] = {
     # Usage stats collection
     "VLLM_USAGE_STATS_SERVER":
     lambda: os.environ.get("VLLM_USAGE_STATS_SERVER", "https://stats.vllm.ai"),
+    # UPSTREAM SYNC: following changes force tracking to be disabled
     "VLLM_NO_USAGE_STATS":
-    lambda: os.environ.get("VLLM_NO_USAGE_STATS", "0") == "1",
+    lambda: True,
     "VLLM_DO_NOT_TRACK":
-    lambda: (os.environ.get("VLLM_DO_NOT_TRACK", None) or os.environ.get(
-        "DO_NOT_TRACK", None) or "0") == "1",
+    lambda: True,
     "VLLM_USAGE_SOURCE":
     lambda: os.environ.get("VLLM_USAGE_SOURCE", "production"),
 
@@ -202,6 +213,22 @@ environment_variables: Dict[str, Callable[[], Any]] = {
     "VLLM_CPU_KVCACHE_SPACE":
     lambda: int(os.getenv("VLLM_CPU_KVCACHE_SPACE", "0")),
 
+    # OpenVINO key-value cache space
+    # default is 4GB
+    "VLLM_OPENVINO_KVCACHE_SPACE":
+    lambda: int(os.getenv("VLLM_OPENVINO_KVCACHE_SPACE", "0")),
+
+    # OpenVINO KV cache precision
+    # default is bf16 if natively supported by platform, otherwise f16
+    # To enable KV cache compression, please, explicitly specify u8
+    "VLLM_OPENVINO_CPU_KV_CACHE_PRECISION":
+    lambda: os.getenv("VLLM_OPENVINO_CPU_KV_CACHE_PRECISION", None),
+
+    # Enables weights compression during model export via HF Optimum
+    # default is False
+    "VLLM_OPENVINO_ENABLE_QUANTIZED_WEIGHTS":
+    lambda: bool(os.getenv("VLLM_OPENVINO_ENABLE_QUANTIZED_WEIGHTS", False)),
+
     # If the env var is set, it uses the Ray's compiled DAG API
     # which optimizes the control plane overhead.
     # Run vLLM with VLLM_USE_RAY_COMPILED_DAG=1 to enable it.
@@ -211,12 +238,19 @@ environment_variables: Dict[str, Callable[[], Any]] = {
     # Use dedicated multiprocess context for workers.
     # Both spawn and fork work
     "VLLM_WORKER_MULTIPROC_METHOD":
-    lambda: os.getenv("VLLM_WORKER_MULTIPROC_METHOD", "spawn"),
+    lambda: os.getenv("VLLM_WORKER_MULTIPROC_METHOD", "fork"),
 
     # Timeout for fetching images when serving multimodal models
     # Default is 5 seconds
     "VLLM_IMAGE_FETCH_TIMEOUT":
     lambda: int(os.getenv("VLLM_IMAGE_FETCH_TIMEOUT", "5")),
+
+    # Path to the XLA persistent cache directory.
+    # Only used for XLA devices such as TPUs.
+    "VLLM_XLA_CACHE_PATH":
+    lambda: os.getenv("VLLM_XLA_CACHE_PATH", "~/.vllm/xla_cache/"),
+    "VLLM_FUSED_MOE_CHUNK_SIZE":
+    lambda: int(os.getenv("VLLM_FUSED_MOE_CHUNK_SIZE", "65536")),
 }
 
 # end-env-vars-definition

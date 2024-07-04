@@ -8,7 +8,6 @@ usage() {
     echo "  -s    - src directory, i.e. location of package *.py files."
     echo "  -t    - test directory, i.e. location of *.py test files. (default 'tests/')"
     echo "  -r    - desired results base directory. xml results will mirror provided tests directory structure. (default 'test-results/')"
-    echo "  -f    - file with test skip list, e.g. ' neuralmagic/tests/skip-for-remote-push.txt'. (default is to run all found tests)"
     echo "  -h    - this list of options"
     echo
     echo "note: all paths are relative to 'nm-vllm' root"
@@ -34,9 +33,6 @@ while getopts "hs:t:r:f:" OPT; do
 	    ;;
     r)
         RESULTS_DIR="${OPTARG}"
-        ;;
-    f)
-        SKIP_LIST="${OPTARG}"
         ;;
     esac
 done
@@ -71,36 +67,6 @@ for FOUND in "${TESTS_FOUND[@]}"; do
     echo "${FOUND}"
 done
 
-# build the skip list from provided file
-declare -a TESTS_TO_EXCLUDE
-if [ -f "${SKIP_LIST}" ]; then
-    while IFS= read -r line
-    do
-        TESTS_TO_EXCLUDE+=("${line}")
-    done < "${SKIP_LIST}"
-fi
-
-echo "..."
-for EXCLUDE in "${TESTS_TO_EXCLUDE[@]}"; do
-    for JJ in "${!TESTS_FOUND[@]}"; do
-        if [[ ${TESTS_FOUND[$JJ]} = ${EXCLUDE} ]]; then
-            echo "excluding: ${EXCLUDE}"
-            unset 'TESTS_FOUND[$JJ]'
-        fi
-    done
-done
-
-echo "..."
-echo "planning to run:"
-for TEST in "${TESTS_FOUND[@]}"
-do
-    echo "${TEST}"
-done
-echo "..."
-
-# download required artifacts for testing
-# (cd ${TEST_DIR} && sudo bash ../.buildkite/download-images.sh)
-
 # run selected tests
 SUCCESS=0
 CC_PYTEST_FLAGS="--cov=${SRC_DIR} --cov=${TEST_DIR} --cov-report=html:cc-vllm-html --cov-append"
@@ -109,12 +75,19 @@ do
     LOCAL_SUCCESS=0
     RESULT_XML=$(echo ${TEST} | sed -e "s/${TEST_DIR}/${RESULTS_DIR}/" | sed -e "s/.py/.xml/")
 
+    # report which test is being run
+    # (in CI, if a test hangs, this logs *which* test is running *before* it hangs)
+    echo "=== RUNNING TEST: ${TEST} ==="
+
     # this is a bit messy and brittle, but certain tests
     # need to be run with specific options
     if [[ "${TEST}" == *"kernels"* || "${TEST}" == *"samplers"* ]]; then
         CUDA_VISIBLE_DEVICES=0,1 pytest ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     elif [[ "${TEST}" == *"distributed/test_same_node"* ]]; then
         VLLM_TEST_SAME_HOST=1 torchrun --nproc-per-node=4 ${TEST} || LOCAL_SUCCESS=$?
+    elif [[ "${TEST}" == *"distributed/test_multimodal_broadcast.py"* ]]; then
+        TEST_DIST_MODEL=llava-hf/llava-1.5-7b-hf DISTRIBUTED_EXECUTOR_BACKEND=ray pytest ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
+        TEST_DIST_MODEL=microsoft/Phi-3-vision-128k-instruct DISTRIBUTED_EXECUTOR_BACKEND=mp pytest ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     elif [[ "${TEST}" == *"distributed"* ]]; then
         CUDA_VISIBLE_DEVICES=0,1 pytest ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     elif [[ "${TEST}" == *"test_models_logprobs"* ]]; then
@@ -125,7 +98,18 @@ do
         pytest ${CC_PYTEST_FLAGS} --junitxml=${RESULT_XML} ${TEST} || LOCAL_SUCCESS=$?
     fi
 
-    SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
+    # if a file gets exit code 0, we are good
+    if [[ $LOCAL_SUCCESS == 0 ]]; then
+        echo "=== PASSED TEST: ${TEST} ==="
+    # if a file does not run any tests, pytest reports exit code of 5
+    # since we skip full modules in our skipping strategy, this is common
+    elif [[ $LOCAL_SUCCESS == 5 ]]; then
+        echo "=== SKIPPED TEST: ${TEST} ==="
+    # otherwise, report failure
+    else
+        echo "=== FAILED TEST: ${TEST} ==="
+        SUCCESS=$((SUCCESS + LOCAL_SUCCESS))
+    fi
 
 done
 

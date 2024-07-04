@@ -28,6 +28,8 @@ runs:
       # HF Cache
       echo "HF_TOKEN=${HF_TOKEN_SECRET}" >> $GITHUB_ENV
       echo "HF_HOME=/model-cache" >> $GITHUB_ENV
+      # Python cache
+      echo "PIP_CACHE_DIR=/model-cache/python-cache" >> $GITHUB_ENV
       # build
       NUM_THREADS=$(./.github/scripts/determine-threading -G ${{ inputs.Gi_per_thread }})
       echo "MAX_JOBS=${NUM_THREADS}" >> $GITHUB_ENV
@@ -39,6 +41,13 @@ runs:
       # testmo
       echo "XDG_CONFIG_HOME=/usr/local/apps" >> $GITHUB_ENV
       echo "PROJECT_ID=12" >> $GITHUB_ENV
+      # disable usage stats (writes to protected /usr/local/apps)
+      echo "VLLM_NO_USAGE_STATS=1" >> $GITHUB_ENV
+      echo "DO_NOT_TRACK=1" >> $GITHUB_ENV
+      # build type based on wf_category: Release (RELEASE & NIGHTLY); RelWithDebInfo (REMOTE)
+      if [[ "${{inputs.wf_category}}" != "REMOTE" ]]; then
+          echo "CMAKE_BUILD_TYPE=Release" >> $GITHUB_ENV
+      fi
     env:
         HF_TOKEN_SECRET: ${{ inputs.hf_token }}
     shell: bash

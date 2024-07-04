@@ -13,9 +13,6 @@ inputs:
   python:
     description: 'python version info'
     required: true
-  build_status:
-    description: 'status from build step'
-    required: true
   whl_status:
     description: 'status from build step'
     required: true
@@ -23,8 +20,6 @@ runs:
   using: composite
   steps:
   - run: |
-      BUILD_STATUS=${{ inputs.build_status }}
-      BUILD_EMOJI=$(./.github/scripts/step-status ${BUILD_STATUS})
       WHL_STATUS=${{ inputs.whl_status }}
       WHL_EMOJI=$(./.github/scripts/step-status ${WHL_STATUS})
       echo "testmo URL: ${{ inputs.testmo_run_url }}" >> $GITHUB_STEP_SUMMARY
@@ -37,6 +32,5 @@ runs:
       echo "| gitref: | '${{ inputs.gitref }}' |" >> $GITHUB_STEP_SUMMARY
       echo "| branch name: | '${{ github.ref_name }}' |" >> $GITHUB_STEP_SUMMARY
       echo "| python: | ${{ inputs.python }} |" >> $GITHUB_STEP_SUMMARY
-      echo "| build: | ${BUILD_EMOJI} |" >> $GITHUB_STEP_SUMMARY
       echo "| whl: | ${WHL_EMOJI} |" >> $GITHUB_STEP_SUMMARY
     shell: bash

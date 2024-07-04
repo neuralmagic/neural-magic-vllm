@@ -22,8 +22,7 @@ runs:
           source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
         fi
         pip3 install -r requirements-dev.txt
-        BASE=$(./.github/scripts/convert-version ${{ inputs.python }})
-        WHL=$(find . -type f -iname "*${BASE}*.whl")
+        WHL=$(find . -type f -iname "nm_vllm*.whl")
         WHL_BASENAME=$(basename ${WHL})
         echo "whl=${WHL_BASENAME}" >> "$GITHUB_OUTPUT"
         pip3 install ${WHL}[sparse] --extra-index-url https://pypi.neuralmagic.com/simple

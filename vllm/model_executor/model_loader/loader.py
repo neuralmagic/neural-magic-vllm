@@ -24,7 +24,7 @@ from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig)
 from vllm.model_executor.model_loader.tensorizer import (
     TensorizerConfig, is_vllm_tensorized, load_with_tensorizer,
-    tensorizer_weights_iterator)
+    serialize_vllm_model, tensorizer_weights_iterator)
 from vllm.model_executor.model_loader.utils import (get_model_architecture,
                                                     set_default_torch_dtype)
 # UPSTREAM SYNC: needed for sparsity
@@ -34,8 +34,10 @@ from vllm.model_executor.model_loader.weight_utils import (
     get_quant_config, get_sparse_config, initialize_dummy_weights,
     np_cache_weights_iterator, pt_weights_iterator,
     safetensors_weights_iterator)
-from vllm.model_executor.models.vlm_base import VisionLanguageModelBase
+from vllm.model_executor.models.interfaces import (supports_lora,
+                                                   supports_vision)
 from vllm.model_executor.utils import set_weight_attrs
+from vllm.utils import get_device_capability_stateless, is_tpu
 
 logger = init_logger(__name__)
 
@@ -46,7 +48,7 @@ def _get_quantization_config(
     """Get the quantization config."""
     if model_config.quantization is not None:
         quant_config = get_quant_config(model_config, load_config)
-        capability = torch.cuda.get_device_capability()
+        capability = get_device_capability_stateless()
         capability = capability[0] * 10 + capability[1]
         if capability < quant_config.get_min_capability():
             raise ValueError(
@@ -60,7 +62,6 @@ def _get_quantization_config(
                 f"{model_config.dtype} is not supported for quantization "
                 f"method {model_config.quantization}. Supported dtypes: "
                 f"{supported_dtypes}")
-
         return quant_config
 
     elif model_config.sparsity is not None:
@@ -84,12 +85,15 @@ def _get_quantization_config(
 
 
 def _get_model_initialization_kwargs(
-        model_class: Type[nn.Module], lora_config: Optional[LoRAConfig],
-        vision_language_config: Optional[VisionLanguageConfig]
+    model_class: Type[nn.Module],
+    lora_config: Optional[LoRAConfig],
+    vlm_config: Optional[VisionLanguageConfig],
 ) -> Dict[str, Any]:
     """Get extra kwargs for model initialization."""
-    extra_kwargs = {}
-    if hasattr(model_class, "supported_lora_modules"):
+    extra_kwargs: Dict[str, Any] = {}
+
+    if supports_lora(model_class):
+        # lora_config=None is used to disable LoRA
         extra_kwargs["lora_config"] = lora_config
     elif lora_config:
         raise ValueError(
@@ -97,13 +101,15 @@ def _get_model_initialization_kwargs(
             "but LoRA is enabled. Support for this model may "
             "be added in the future. If this is important to you, "
             "please open an issue on github.")
-    elif issubclass(model_class, VisionLanguageModelBase):
-        if vision_language_config is None:
+
+    if supports_vision(model_class):
+        if vlm_config is None:
             raise ValueError("Provide `image_input_type` and other vision "
                              "related configurations through LLM entrypoint "
                              "or engine arguments.")
 
-        extra_kwargs["vision_language_config"] = vision_language_config
+        extra_kwargs["vlm_config"] = vlm_config
+
     return extra_kwargs
 
 
@@ -248,12 +254,26 @@ class DefaultModelLoader(BaseModelLoader):
         if self.load_config.load_format == LoadFormat.NPCACHE:
             # Currently np_cache only support *.bin checkpoints
             assert use_safetensors is False
-            return np_cache_weights_iterator(model_name_or_path,
-                                             self.load_config.download_dir,
-                                             hf_folder, hf_weights_files)
-        if use_safetensors:
-            return safetensors_weights_iterator(hf_weights_files)
-        return pt_weights_iterator(hf_weights_files)
+            weights_iterator = np_cache_weights_iterator(
+                model_name_or_path, self.load_config.download_dir, hf_folder,
+                hf_weights_files)
+        elif use_safetensors:
+            weights_iterator = safetensors_weights_iterator(hf_weights_files)
+        else:
+            weights_iterator = pt_weights_iterator(hf_weights_files)
+
+        if is_tpu():
+            # In PyTorch XLA, we should call `xm.mark_step` frequently so that
+            # not too many ops are accumulated in the XLA program.
+            import torch_xla.core.xla_model as xm
+
+            def _xla_weights_iterator(iterator: Generator):
+                for weights in iterator:
+                    yield weights
+                    xm.mark_step()
+
+            weights_iterator = _xla_weights_iterator(weights_iterator)
+        return weights_iterator
 
     def load_model(self, *, model_config: ModelConfig,
                    device_config: DeviceConfig,
@@ -398,6 +418,12 @@ class TensorizerLoader(BaseModelLoader):
                    cache_config: CacheConfig) -> nn.Module:
         self._verify_config(model_config, parallel_config)
 
+        if parallel_config.tensor_parallel_size > 1:
+            from vllm.distributed import get_tensor_model_parallel_rank
+            self.tensorizer_config.tensorizer_uri = \
+                self.tensorizer_config.tensorizer_uri \
+                    % get_tensor_model_parallel_rank()
+
         if is_vllm_tensorized(self.tensorizer_config):
             return self._load_model_serialized(model_config, device_config,
                                                lora_config,
@@ -407,6 +433,16 @@ class TensorizerLoader(BaseModelLoader):
                                                lora_config,
                                                vision_language_config,
                                                cache_config)
+
+    @staticmethod
+    def save_model(
+        model: torch.nn.Module,
+        tensorizer_config: TensorizerConfig,
+    ) -> None:
+        serialize_vllm_model(
+            model=model,
+            tensorizer_config=tensorizer_config,
+        )
 
 
 class ShardedStateLoader(BaseModelLoader):
@@ -436,7 +472,8 @@ class ShardedStateLoader(BaseModelLoader):
         Filter out all tensors that share the same memory or a subset of the
         memory of another tensor.
         """
-        same_storage_groups = collections.defaultdict(list)
+        same_storage_groups: Dict[Any, List[Tuple[
+            str, torch.Tensor]]] = collections.defaultdict(list)
         for key, tensor in tensors.items():
             if tensor.numel():
                 ptr = tensor.untyped_storage().data_ptr()
@@ -445,7 +482,7 @@ class ShardedStateLoader(BaseModelLoader):
         def get_end_ptr(tensor: torch.Tensor) -> int:
             return tensor.view(-1)[-1].data_ptr() + tensor.element_size()
 
-        result = {}
+        result: Dict[str, torch.Tensor] = {}
         for group in same_storage_groups.values():
             for k, t in group:
                 a, b = t.data_ptr(), get_end_ptr(t)

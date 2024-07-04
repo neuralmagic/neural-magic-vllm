@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+import warnings
 from shutil import which
 from typing import Dict, List
 
@@ -26,6 +27,29 @@ def load_module_from_path(module_name, path):
 
 ROOT_DIR = os.path.dirname(__file__)
 logger = logging.getLogger(__name__)
+
+
+def embed_commit_hash():
+    try:
+        commit_id = subprocess.check_output(["git", "rev-parse", "HEAD"],
+                                            encoding="utf-8").strip()
+        commit_contents = f'__commit__ = "{commit_id}"\n'
+
+        version_file = os.path.join(ROOT_DIR, "vllm", "commit_id.py")
+        with open(version_file, "w", encoding="utf-8") as f:
+            f.write(commit_contents)
+
+    except subprocess.CalledProcessError as e:
+        warnings.warn(f"failed to get commit hash:\n{e}",
+                      RuntimeWarning,
+                      stacklevel=2)
+    except Exception as e:
+        warnings.warn(f"failed to embed commit hash:\n{e}",
+                      RuntimeWarning,
+                      stacklevel=2)
+
+
+embed_commit_hash()
 
 # cannot import envs directly because it depends on vllm,
 #  which is not installed yet
@@ -141,6 +165,7 @@ class cmake_build_ext(build_ext):
             cmake_args += [
                 '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache',
                 '-DCMAKE_CUDA_COMPILER_LAUNCHER=sccache',
+                '-DCMAKE_C_COMPILER_LAUNCHER=sccache',
             ]
         elif is_ccache_available():
             cmake_args += [
@@ -172,7 +197,6 @@ class cmake_build_ext(build_ext):
         else:
             # Default build tool to whatever cmake picks.
             build_tool = []
-
         subprocess.check_call(
             ['cmake', ext.cmake_lists_dir, *build_tool, *cmake_args],
             cwd=self.build_temp)
@@ -207,9 +231,9 @@ class cmake_build_ext(build_ext):
 
 
 def _is_cuda() -> bool:
-    return VLLM_TARGET_DEVICE == "cuda" \
-            and torch.version.cuda is not None \
-            and not _is_neuron()
+    has_cuda = torch.version.cuda is not None
+    return (VLLM_TARGET_DEVICE == "cuda" and has_cuda
+            and not (_is_neuron() or _is_tpu()))
 
 
 def _is_hip() -> bool:
@@ -226,8 +250,24 @@ def _is_neuron() -> bool:
     return torch_neuronx_installed or VLLM_TARGET_DEVICE == "neuron"
 
 
+def _is_tpu() -> bool:
+    return VLLM_TARGET_DEVICE == "tpu"
+
+
 def _is_cpu() -> bool:
     return VLLM_TARGET_DEVICE == "cpu"
+
+
+def _is_openvino() -> bool:
+    return VLLM_TARGET_DEVICE == "openvino"
+
+
+def _is_xpu() -> bool:
+    return VLLM_TARGET_DEVICE == "xpu"
+
+
+def _build_custom_ops() -> bool:
+    return _is_cuda() or _is_hip() or _is_cpu()
 
 
 def _install_punica() -> bool:
@@ -321,7 +361,7 @@ def get_nm_vllm_package_name() -> str:
 
 
 def get_vllm_version() -> str:
-    version = find_version(get_path("vllm", "__init__.py"))
+    version = find_version(get_path("vllm", "version.py"))
 
     nm_release_type = os.getenv(NM_RELEASE_TYPE)
     if nm_release_type != 'RELEASE':
@@ -345,8 +385,14 @@ def get_vllm_version() -> str:
         if neuron_version != MAIN_CUDA_VERSION:
             neuron_version_str = neuron_version.replace(".", "")[:3]
             version += f"+neuron{neuron_version_str}"
+    elif _is_openvino():
+        version += "+openvino"
+    elif _is_tpu():
+        version += "+tpu"
     elif _is_cpu():
         version += "+cpu"
+    elif _is_xpu():
+        version += "+xpu"
     else:
         raise RuntimeError("Unknown runtime environment")
 
@@ -392,11 +438,18 @@ def get_requirements() -> List[str]:
         requirements = _read_requirements("requirements-rocm.txt")
     elif _is_neuron():
         requirements = _read_requirements("requirements-neuron.txt")
+    elif _is_openvino():
+        requirements = _read_requirements("requirements-openvino.txt")
+    elif _is_tpu():
+        requirements = _read_requirements("requirements-tpu.txt")
     elif _is_cpu():
         requirements = _read_requirements("requirements-cpu.txt")
+    elif _is_xpu():
+        requirements = _read_requirements("requirements-xpu.txt")
     else:
         raise ValueError(
-            "Unsupported platform, please use CUDA, ROCm, Neuron, or CPU.")
+            "Unsupported platform, please use CUDA, ROCm, Neuron, "
+            "OpenVINO, or CPU.")
     return requirements
 
 
@@ -405,7 +458,7 @@ ext_modules = []
 if _is_cuda() or _is_hip():
     ext_modules.append(CMakeExtension(name="vllm._moe_C"))
 
-if not _is_neuron():
+if _build_custom_ops():
     ext_modules.append(CMakeExtension(name="vllm._C"))
 
     if _install_punica():
@@ -468,6 +521,6 @@ setup(
         "sparse": _sparsity_deps,
         "sparsity": _sparsity_deps,
     },
-    cmdclass={"build_ext": cmake_build_ext} if not _is_neuron() else {},
+    cmdclass={"build_ext": cmake_build_ext} if _build_custom_ops() else {},
     package_data=package_data,
 )
