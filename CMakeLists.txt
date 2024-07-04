@@ -160,6 +160,8 @@ set(VLLM_EXT_SRC
   "csrc/moe_align_block_size_kernels.cu"
   "csrc/torch_bindings.cpp")
 
+add_subdirectory(csrc)
+
 if(VLLM_GPU_LANG STREQUAL "CUDA")
   include(FetchContent)
   SET(CUTLASS_ENABLE_HEADERS_ONLY=ON)
@@ -195,6 +197,33 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
           "-gencode arch=compute_90a,code=sm_90a")
   endif()
 
+  #
+  # For the CUTLASS-Marlin (marlinv2, mixed precision cutlass kernels) we 
+  # automatically generate sources for various preselected input type pairs
+  # and schedules.
+  # Generate sources:
+  execute_process(
+    COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/csrc/quantization/marlinv2/generate.py
+    RESULT_VARIABLE marlinv2_generation_result
+    OUTPUT_VARIABLE marlinv2_generation_output
+    OUTPUT_FILE ${CMAKE_CURRENT_BINARY_DIR}/marlinv2_generation.log
+    ERROR_FILE ${CMAKE_CURRENT_BINARY_DIR}/marlinv2_generation.log
+  )
+
+  if (NOT marlinv2_generation_result EQUAL 0)
+    file(READ ${CMAKE_CURRENT_BINARY_DIR}/marlinv2_generation.log marlinv2_generation_log_content)
+    message(FATAL_ERROR "MarlinV2 generation failed. Check the log for details:\n${marlinv2_generation_log_content}")
+  else()
+    message(STATUS "MarlinV2 generation completed successfully.")
+  endif()
+
+
+
+  list(APPEND VLLM_EXT_SRC
+    csrc/cuda/marlinv2/marlinv2_pytorch.cu)
+
+  list(APPEND VLLM_EXT_SRC
+    csrc/cuda/marlinv2/marlinv2_pytorch.cu)
 endif()
 
 define_gpu_extension_target(
