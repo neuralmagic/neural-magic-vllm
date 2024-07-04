@@ -8,35 +8,13 @@
 #include <cuda_fp16.h>
 #include <cuda_bf16.h>
 
+#include "gptq_marlin_dtypes.cuh"
+
 #include <cuda_runtime.h>
 
 #include <iostream>
 
-namespace marlin_common_cu {
-
-// 8 warps are a good choice since every SM has 4 schedulers and having more
-// than 1 warp per schedule allows some more latency hiding. At the same time,
-// we want relatively few warps to have many registers per warp and small tiles.
-static constexpr int default_threads = 256;
-
-static constexpr int pipe_stages =
-    4;  // 4 pipeline stages fit into shared memory
-
-static constexpr int min_thread_n = 64;
-static constexpr int min_thread_k = 64;
-
-static constexpr int tile_size = 16;
-static constexpr int max_par = 16;
-
-template <typename T, int n>
-struct Vec {
-  T elems[n];
-  __device__ T& operator[](int i) { return elems[i]; }
-};
-
-using I4 = Vec<int, 4>;
-
-constexpr int div_ceil(int a, int b) { return (a + b - 1) / b; }
+namespace gptq_marlin {
 
 #define STATIC_ASSERT_SCALAR_TYPE_VALID(scalar_t)               \
   static_assert(std::is_same<scalar_t, half>::value ||          \
@@ -56,10 +34,10 @@ template <typename scalar_t,          // compute dtype, half or nv_float16
           const int thread_k_blocks,  // same for k dimension (reduction)
           const int stages,  // number of stages for the async global->shared
                              // fetch pipeline
-          const bool has_act_order,    // whether act_order is enabled
-          const int group_blocks = -1, // number of consecutive 16x16 blocks
-                                       // with a separate quantization scale
-          const bool is_moe = false    // is it MoE version of the kernel?
+          const bool has_act_order,     // whether act_order is enabled
+          const int group_blocks = -1,  // number of consecutive 16x16 blocks
+                                        // with a separate quantization scale
+          const bool is_moe = false     // is it MoE version of the kernel?
           >
 __global__ void Marlin(
     const int4* __restrict__ A,  // fp16 input matrix of shape mxk
@@ -99,103 +77,6 @@ __global__ void permute_cols_kernel(int4 const* __restrict__ a_int4_ptr,
 }
 
 #else
-
-__device__ inline void cp_async4_pred(void* smem_ptr, const void* glob_ptr,
-                                      bool pred = true) {
-  const int BYTES = 16;
-  uint32_t smem = static_cast<uint32_t>(__cvta_generic_to_shared(smem_ptr));
-  asm volatile(
-      "{\n"
-      "   .reg .pred p;\n"
-      "   setp.ne.b32 p, %0, 0;\n"
-      "   @p cp.async.cg.shared.global [%1], [%2], %3;\n"
-      "}\n" ::"r"((int)pred),
-      "r"(smem), "l"(glob_ptr), "n"(BYTES));
-}
-
-__device__ inline void cp_async4(void* smem_ptr, const void* glob_ptr) {
-  const int BYTES = 16;
-  uint32_t smem = static_cast<uint32_t>(__cvta_generic_to_shared(smem_ptr));
-  asm volatile(
-      "{\n"
-      "   cp.async.cg.shared.global [%0], [%1], %2;\n"
-      "}\n" ::"r"(smem),
-      "l"(glob_ptr), "n"(BYTES));
-}
-
-__device__ inline void cp_async_fence() {
-  asm volatile("cp.async.commit_group;\n" ::);
-}
-
-template <int n>
-__device__ inline void cp_async_wait() {
-  asm volatile("cp.async.wait_group %0;\n" ::"n"(n));
-}
-
-template <typename scalar_t>
-class ScalarType {};
-
-template <>
-class ScalarType<half> {
- public:
-  using scalar_t = half;
-  using scalar_t2 = half2;
-
-  // Matrix fragments for tensor core instructions; their precise layout is
-  // documented here:
-  // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#matrix-fragments-for-mma-m16n8k16-with-floating-point-type
-  using FragA = Vec<half2, 4>;
-  using FragB = Vec<half2, 2>;
-  using FragC = Vec<float, 4>;
-  using FragS = Vec<half2, 1>;
-
-  static __device__ float inline num2float(const half x) {
-    return __half2float(x);
-  }
-
-  static __device__ half2 inline num2num2(const half x) {
-    return __half2half2(x);
-  }
-
-  static __device__ half2 inline nums2num2(const half x1, const half x2) {
-    return __halves2half2(x1, x2);
-  }
-
-  static __host__ __device__ half inline float2num(const float x) {
-    return __float2half(x);
-  }
-};
-
-template <>
-class ScalarType<nv_bfloat16> {
- public:
-  using scalar_t = nv_bfloat16;
-  using scalar_t2 = nv_bfloat162;
-
-  using FragA = Vec<nv_bfloat162, 4>;
-  using FragB = Vec<nv_bfloat162, 2>;
-  using FragC = Vec<float, 4>;
-  using FragS = Vec<nv_bfloat162, 1>;
-
-  static __device__ float inline num2float(const nv_bfloat16 x) {
-    return __bfloat162float(x);
-  }
-
-  static __device__ nv_bfloat162 inline num2num2(const nv_bfloat16 x) {
-    return __bfloat162bfloat162(x);
-  }
-
-  static __device__ nv_bfloat162 inline nums2num2(const nv_bfloat16 x1,
-                                                  const nv_bfloat16 x2) {
-    return __halves2bfloat162(x1, x2);
-  }
-
-  static __host__ __device__ nv_bfloat16 inline float2num(const float x) {
-    return __float2bfloat16(x);
-  }
-};
-
-constexpr int ceildiv(int a, int b) { return (a + b - 1) / b; }
 
 // m16n8k16 tensor core mma instruction with fp16 inputs and fp32
 // output/accumulation.
@@ -454,31 +335,6 @@ __device__ inline void barrier_release(int* lock, bool reset = false) {
   }
 }
 
-// __device__ inline void init_slice_vars(int& slice_iters, int& slice_count,
-//         int& slice_idx, int block_idx, int iters, int n_tiles, int k_tiles,
-//         int parallel, int slice_col_par, int slice_row) {
-//     slice_iters =
-//         iters * (block_idx + 1) - (k_tiles * slice_col_par + slice_row);
-//     if (slice_iters < 0 || slice_col_par >= n_tiles * parallel) slice_iters = 0;
-//     if (slice_iters == 0) return;
-//     if (slice_row + slice_iters > k_tiles) slice_iters = k_tiles - slice_row;
-//     slice_count = 1;
-//     slice_idx = 0;
-//     int col_first = iters * ceildiv(k_tiles * slice_col_par, iters);
-//     if (col_first <= k_tiles * (slice_col_par + 1)) {
-//       int col_off = col_first - k_tiles * slice_col_par;
-//       slice_count = ceildiv(k_tiles - col_off, iters);
-//       if (col_off > 0) slice_count++;
-//       int delta_first = iters * block_idx - col_first;
-//       if (delta_first < 0 || (col_off == 0 && delta_first == 0))
-//         slice_idx = slice_count - 1;
-//       else {
-//         slice_idx = slice_count - 1 - delta_first / iters;
-//         if (col_off > 0) slice_idx--;
-//       }
-//     }
-// }
-
 template <typename scalar_t,          // compute dtype, half or nv_float16
           const int num_bits,         // number of bits used for weights
           const int threads,          // number of threads in a threadblock
@@ -489,10 +345,10 @@ template <typename scalar_t,          // compute dtype, half or nv_float16
           const int thread_k_blocks,  // same for k dimension (reduction)
           const int stages,  // number of stages for the async global->shared
                              // fetch pipeline
-          const bool has_act_order,    // whether act_order is enabled
-          const int group_blocks = -1, // number of consecutive 16x16 blocks
-                                       // with a separate quantization scale
-          const bool is_moe = false    // is it MoE version of the kernel?
+          const bool has_act_order,     // whether act_order is enabled
+          const int group_blocks = -1,  // number of consecutive 16x16 blocks
+                                        // with a separate quantization scale
+          const bool is_moe = false     // is it MoE version of the kernel?
           >
 __global__ void Marlin(
     const int4* __restrict__ A,  // fp16 input matrix of shape mxk
@@ -737,12 +593,12 @@ __global__ void Marlin(
   #pragma unroll
   for (int i = 0; i < a_sh_wr_iters; i++) {
     int a_idx = a_sh_wr_delta * i + a_sh_wr;
-      int row = a_idx / a_gl_rd_delta_o;
-      if (is_moe && row >= prob_m) {
-        a_sh_wr_pred[i] = false;
-      } else {
-        a_sh_wr_pred[i] = a_sh_wr_delta * i + a_sh_wr < a_sh_stride * prob_m;
-      }
+    int row = a_idx / a_gl_rd_delta_o;
+    if (is_moe && row >= prob_m) {
+      a_sh_wr_pred[i] = false;
+    } else {
+      a_sh_wr_pred[i] = a_sh_wr_delta * i + a_sh_wr < a_sh_stride * prob_m;
+    }
   }
 
   // To ensure that writing and reading A tiles to/from shared memory, the
@@ -834,7 +690,7 @@ __global__ void Marlin(
       int4* sh_a_stage = sh_a + a_sh_stage * pipe;
   #pragma unroll
       for (int i = 0; i < a_sh_wr_iters; i++) {
-        if constexpr(is_moe) {
+        if constexpr (is_moe) {
           int a_idx = a_gl_rd_delta_i * i + a_gl_rd + a_gl_rd_delta_o * a_off;
           int row = a_idx / a_gl_stride;
           int sorted_row =
@@ -843,13 +699,13 @@ __global__ void Marlin(
           if (sorted_row < tot_m * (replicate_input ? 1 : topk) &&
               new_idx < a_gl_stride * tot_m * (replicate_input ? 1 : topk)) {
             cp_async4_pred(&sh_a_stage[a_sh_wr_trans[i]], &A[new_idx],
-                          a_sh_wr_pred[i]);
+                           a_sh_wr_pred[i]);
           }
         } else {
-        cp_async4_pred(
-            &sh_a_stage[a_sh_wr_trans[i]],
-            &A[a_gl_rd_delta_i * i + a_gl_rd + a_gl_rd_delta_o * a_off],
-            a_sh_wr_pred[i]);
+          cp_async4_pred(
+              &sh_a_stage[a_sh_wr_trans[i]],
+              &A[a_gl_rd_delta_i * i + a_gl_rd + a_gl_rd_delta_o * a_off],
+              a_sh_wr_pred[i]);
         }
       }
       int4* sh_b_stage = sh_b + b_sh_stage * pipe;
@@ -1193,21 +1049,22 @@ __global__ void Marlin(
   // though these fetches are not actually asynchronous.
   #pragma unroll
         for (int i = 0; i < thread_m_blocks * 4; i++) {
-          if constexpr(is_moe) {
+          if constexpr (is_moe) {
             int c_idx =
                 c_gl_wr + c_gl_wr_delta_o * (i / 2) + c_gl_wr_delta_i * (i % 2);
             int sorted_row = sorted_ids[c_idx / c_gl_stride];
             int new_idx = sorted_row * c_gl_stride + c_idx % c_gl_stride;
-            cp_async4_pred(&sh[c_sh_wr + c_sh_wr_delta * i], &C[new_idx],
-                          sorted_row < tot_m * topk &&
-                              (8 * (i / 2) + row < prob_m &&
-                                (i < (thread_m_blocks - 1) * 4 ||
-                                sorted_ids[8 * (i / 2) + row] < tot_m * topk)));
+            cp_async4_pred(
+                &sh[c_sh_wr + c_sh_wr_delta * i], &C[new_idx],
+                sorted_row < tot_m * topk &&
+                    (8 * (i / 2) + row < prob_m &&
+                     (i < (thread_m_blocks - 1) * 4 ||
+                      sorted_ids[8 * (i / 2) + row] < tot_m * topk)));
           } else {
             cp_async4_pred(
                 &sh[c_sh_wr + c_sh_wr_delta * i],
                 &C[c_gl_wr + c_gl_wr_delta_o * (i / 2) +
-                  c_gl_wr_delta_i * (i % 2)],
+                   c_gl_wr_delta_i * (i % 2)],
                 i < (thread_m_blocks - 1) * 4 || 8 * (i / 2) + row < prob_m);
           }
         }
@@ -1217,7 +1074,9 @@ __global__ void Marlin(
 
   #pragma unroll
       for (int i = 0; i < thread_m_blocks * 4; i++) {
-        if (i < (thread_m_blocks - 1) * 4 || 8 * (i / 2) + row < prob_m && (!is_moe || sorted_ids[8 * (i / 2) + row] < tot_m * topk)) {
+        if (i < (thread_m_blocks - 1) * 4 ||
+            8 * (i / 2) + row < prob_m &&
+                (!is_moe || sorted_ids[8 * (i / 2) + row] < tot_m * topk)) {
           if (!first) {
             int4 c_red = sh[c_sh_wr + i * c_sh_wr_delta];
   #pragma unroll
@@ -1236,16 +1095,16 @@ __global__ void Marlin(
                       &frag_c)[4 * 2 * 4 * (i / 4) + 4 * j + (i % 4)]);
             }
             if (is_moe) {
-              int c_idx =
-                  c_gl_wr + c_gl_wr_delta_o * (i / 2) + c_gl_wr_delta_i * (i % 2);
+              int c_idx = c_gl_wr + c_gl_wr_delta_o * (i / 2) +
+                          c_gl_wr_delta_i * (i % 2);
               int row = sorted_ids[c_idx / c_gl_stride];
               if (row < tot_m * topk) {
                 int new_idx = row * c_gl_stride + c_idx % c_gl_stride;
                 C[new_idx] = c;
               }
-            }
-            else {
-              C[c_gl_wr + c_gl_wr_delta_o * (i / 2) + c_gl_wr_delta_i * (i % 2)] = c;
+            } else {
+              C[c_gl_wr + c_gl_wr_delta_o * (i / 2) +
+                c_gl_wr_delta_i * (i % 2)] = c;
             }
           }
         }
@@ -1324,7 +1183,8 @@ __global__ void Marlin(
               __half* ctrg = reinterpret_cast<__half*>(&C[off]);
               __half* csrc = reinterpret_cast<__half*>(&sh[c_sh_rd]);
               for (int j = 0; j < 8; ++j) {
-                ctrg[j] = __float2half(topk_weights[row] * __half2float(csrc[j]));
+                ctrg[j] =
+                    __float2half(topk_weights[row] * __half2float(csrc[j]));
               }
             }
             c_gl_wr += c_gl_wr_delta;
@@ -1529,8 +1389,7 @@ __global__ void Marlin(
 __global__ void permute_cols_kernel(int4 const* __restrict__ a_int4_ptr,
                                     int const* __restrict__ perm_int_ptr,
                                     int4* __restrict__ out_int4_ptr, int size_m,
-                                    int size_k, int block_rows,
-                                    int num_threads) {
+                                    int size_k, int block_rows) {
   int start_row = block_rows * blockIdx.x;
   int finish_row = start_row + block_rows;
   if (finish_row > size_m) {
@@ -1541,8 +1400,8 @@ __global__ void permute_cols_kernel(int4 const* __restrict__ a_int4_ptr,
   int row_stride = size_k * sizeof(half) / 16;
 
   auto permute_row = [&](int row) {
-    int iters = size_k / num_threads;
-    int rest = size_k % num_threads;
+    int iters = size_k / blockDim.x;
+    int rest = size_k % blockDim.x;
 
     int offset = row * row_stride;
 
@@ -1557,7 +1416,7 @@ __global__ void permute_cols_kernel(int4 const* __restrict__ a_int4_ptr,
 
       out_half[cur_k] = a_row_half[src_pos];
 
-      base_k += num_threads;
+      base_k += blockDim.x;
     }
 
     if (rest) {
@@ -1578,6 +1437,263 @@ __global__ void permute_cols_kernel(int4 const* __restrict__ a_int4_ptr,
   }
 }
 
+typedef struct {
+  int thread_k;
+  int thread_n;
+  int num_threads;
+} thread_config_t;
+
+typedef struct {
+  int max_m_blocks;
+  thread_config_t tb_cfg;
+} exec_config_t;
+
+typedef struct {
+  int max_m_blocks;
+  thread_config_t tb_cfg;
+} block_config_t;
+
+thread_config_t small_batch_thread_configs[] = {
+    // Ordered by priority
+
+    // thread_k, thread_n, num_threads
+    // {128, 128, 256},
+    // {64, 128, 128},
+    // {128, 64, 128},
+
+    {128, 128, 256},  // Default
+    {128, 64, 128},   // Reduce N 2X, same K
+    // {64, 256, 256},   // Reduce K 2X, increase N 2X ///
+    {64, 128, 128},  // Reduce K 2X, same N
+};
+
+thread_config_t large_batch_thread_configs[] = {
+    // Ordered by priority
+
+    // thread_k, thread_n, num_threads
+    // {64, 256, 256},
+    // {64, 128, 128},
+    // {128, 64, 128},
+
+    {64, 256, 256},  // Default
+    // {128, 128, 256},  // Reduce N 2X, increase K 2X ///
+    {64, 128, 128},  // Reduce N 2X, same K
+    {128, 64, 128},  // Reduce N 4X, increase K 2X
+
+};
+
+int get_scales_cache_size(thread_config_t const& th_config, int prob_m,
+                          int prob_n, int prob_k, int num_bits, int group_size,
+                          bool has_act_order, bool is_k_full) {
+  bool cache_scales_chunk = has_act_order && !is_k_full;
+
+  int tb_n = th_config.thread_n;
+  int tb_k = th_config.thread_k;
+
+  // Get max scale groups per thread-block
+  int tb_groups;
+  if (group_size == -1) {
+    tb_groups = 1;
+  } else if (group_size == 0) {
+    tb_groups = div_ceil(tb_k, 32);  // Worst case is 32 group size
+  } else {
+    tb_groups = div_ceil(tb_k, group_size);
+  }
+
+  if (cache_scales_chunk) {
+    int load_groups =
+        tb_groups * pipe_stages * 2;     // Chunk size is 2x pipeline over dim K
+    load_groups = max(load_groups, 32);  // We load at least 32 scale groups
+    return load_groups * tb_n * 2;
+
+  } else {
+    int tb_scales = tb_groups * tb_n * 2;
+
+    return tb_scales * pipe_stages;
+  }
+}
+
+bool is_valid_cache_size(thread_config_t const& th_config, int max_m_blocks,
+                         int prob_m, int prob_n, int prob_k, int num_bits,
+                         int scales_cache_size, int max_shared_mem) {
+  int pack_factor = 32 / num_bits;
+
+  // Get B size
+  int tb_k = th_config.thread_k;
+  int tb_n = th_config.thread_n;
+
+  int b_size = (tb_k * tb_n / pack_factor) * 4;
+
+  // Get A size
+  int m_blocks = div_ceil(prob_m, 16);
+  int tb_max_m = 16;
+
+  while (true) {
+    if (m_blocks >= max_m_blocks) {
+      tb_max_m *= max_m_blocks;
+      break;
+    }
+
+    max_m_blocks--;
+    if (max_m_blocks == 0) {
+      TORCH_CHECK(false, "Unexpected m_blocks = ", m_blocks);
+    }
+  }
+
+  int a_size = (tb_max_m * tb_k) * 2;
+
+  float pipe_size = (a_size + b_size) * pipe_stages;
+
+  TORCH_CHECK(max_shared_mem / 2 > scales_cache_size);  // Sanity
+
+  return pipe_size < 0.95f * (max_shared_mem - scales_cache_size);
+}
+
+bool is_valid_config(thread_config_t const& th_config, int max_m_blocks,
+                     int prob_m, int prob_n, int prob_k, int num_bits,
+                     int group_size, bool has_act_order, bool is_k_full,
+                     int max_shared_mem) {
+  // Sanity
+  if (th_config.thread_k == -1 || th_config.thread_n == -1 ||
+      th_config.num_threads == -1) {
+    return false;
+  }
+
+  // Verify K/N are divisible by thread K/N
+  if (prob_k % th_config.thread_k != 0 || prob_n % th_config.thread_n != 0) {
+    return false;
+  }
+
+  // Verify min for thread K/N
+  if (th_config.thread_n < min_thread_n || th_config.thread_k < min_thread_k) {
+    return false;
+  }
+
+  // num_threads must be at least 128 (= 4 warps)
+  if (th_config.num_threads < 128) {
+    return false;
+  }
+
+  //  Determine cache for scales
+  int scales_cache_size =
+      get_scales_cache_size(th_config, prob_m, prob_n, prob_k, num_bits,
+                            group_size, has_act_order, is_k_full);
+
+  // Check that pipeline fits into cache
+  if (!is_valid_cache_size(th_config, max_m_blocks, prob_m, prob_n, prob_k,
+                           num_bits, scales_cache_size, max_shared_mem)) {
+    return false;
+  }
+
+  return true;
+}
+
+exec_config_t determine_thread_config(int prob_m, int prob_n, int prob_k,
+                                      int num_bits, int group_size,
+                                      bool has_act_order, bool is_k_full,
+                                      int max_shared_mem) {
+  int max_m_blocks = 4;
+  while (max_m_blocks > 0) {
+    if (prob_m <= 16) {
+      for (auto th_config : small_batch_thread_configs) {
+        if (is_valid_config(th_config, max_m_blocks, prob_m, prob_n, prob_k,
+                            num_bits, group_size, has_act_order, is_k_full,
+                            max_shared_mem)) {
+          // printf("returned small\n");
+          return exec_config_t{max_m_blocks, th_config};
+        }
+      }
+    } else {
+      for (auto th_config : large_batch_thread_configs) {
+        if (is_valid_config(th_config, max_m_blocks, prob_m, prob_n, prob_k,
+                            num_bits, group_size, has_act_order, is_k_full,
+                            max_shared_mem)) {
+          // printf("returned large %d %d %d\n",
+          //   th_config.thread_k, th_config.thread_n, th_config.num_threads);
+          return exec_config_t{max_m_blocks, th_config};
+        }
+      }
+    }
+
+    max_m_blocks--;  // Process less M blocks per invocation to reduce cache
+                     // usage
+
+    // printf("reduced max_m_blocks... %d\n", max_m_blocks);
+  }
+
+  // printf("failed to find anything!\n");
+
+  return exec_config_t{0, {-1, -1, -1}};
+}
+
 #endif
 
+inline exec_config_t get_and_check_exec_config(int prob_m, int prob_n,
+                                               int prob_k, int num_bits,
+                                               bool has_act_order,
+                                               bool is_k_full, int group_size,
+                                               int thread_k, int thread_n,
+                                               int& max_shared_mem) {
+  TORCH_CHECK(prob_n % thread_n == 0, "prob_n = ", prob_n,
+              " is not divisible by thread_n = ", thread_n);
+  TORCH_CHECK(prob_k % thread_k == 0, "prob_k = ", prob_k,
+              " is not divisible by thread_k = ", thread_k);
+
+  // Set thread config
+  exec_config_t exec_cfg;
+  if (thread_k != -1 && thread_n != -1) {
+    // User-defined config
+    exec_cfg =
+        exec_config_t{4, thread_config_t{thread_k, thread_n, default_threads}};
+  } else {
+    // Auto config
+    exec_cfg =
+        determine_thread_config(prob_m, prob_n, prob_k, num_bits, group_size,
+                                has_act_order, is_k_full, max_shared_mem);
+  }
+
+  TORCH_CHECK(exec_cfg.max_m_blocks > 0 &&
+                  is_valid_config(exec_cfg.tb_cfg, exec_cfg.max_m_blocks,
+                                  prob_m, prob_n, prob_k, num_bits, group_size,
+                                  has_act_order, is_k_full, max_shared_mem),
+              "Invalid thread config: max_m_blocks = ", exec_cfg.max_m_blocks,
+              ", thread_k = ", exec_cfg.tb_cfg.thread_k,
+              ", thread_n = ", exec_cfg.tb_cfg.thread_n,
+              ", num_threads = ", exec_cfg.tb_cfg.num_threads, " for MKN = [",
+              prob_m, ", ", prob_k, ", ", prob_n, "] and num_bits = ", num_bits,
+              ", group_size = ", group_size,
+              ", has_act_order = ", has_act_order, ", is_k_full = ", is_k_full,
+              ", max_shared_mem = ", max_shared_mem);
+
+  // printf("exec cfg: %d %d %d\n", exec_cfg.tb_cfg.num_threads,
+  // exec_cfg.tb_cfg.thread_k, exec_cfg.tb_cfg.thread_n);
+  return exec_cfg;
 }
+
+inline int get_and_check_group_blocks(int prob_k, bool has_act_order,
+                                      bool is_k_full, int group_size) {
+  if (has_act_order) {
+    if (is_k_full) {
+      TORCH_CHECK(group_size != -1);
+      int group_blocks = group_size / 16;
+      TORCH_CHECK(prob_k % group_blocks == 0, "prob_k = ", prob_k,
+                  " is not divisible by group_blocks = ", group_blocks);
+      return group_blocks;
+    } else {
+      TORCH_CHECK(group_size == 0);
+      return 0;
+    }
+
+  } else {
+    if (group_size == -1) {
+      return -1;
+    } else {
+      int group_blocks = group_size / 16;
+      TORCH_CHECK(prob_k % group_blocks == 0, "prob_k = ", prob_k,
+                  " is not divisible by group_blocks = ", group_blocks);
+      return group_blocks;
+    }
+  }
+}
+
+}  // namespace gptq_marlin
