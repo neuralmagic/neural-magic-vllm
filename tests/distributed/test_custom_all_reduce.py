@@ -7,12 +7,13 @@ import torch
 import torch.distributed as dist
 
 from tests.nm_utils.utils_skip import should_skip_test_group
-from tests.utils import (init_test_distributed_environment,
-                         multi_process_tensor_parallel)
 from vllm.distributed.communication_op import (  # noqa
-    graph_capture, tensor_model_parallel_all_reduce)
+    tensor_model_parallel_all_reduce)
 from vllm.distributed.parallel_state import (get_tensor_model_parallel_group,
-                                             get_tp_ca_communicator)
+                                             get_tp_group, graph_capture)
+
+from ..utils import (ensure_model_parallel_initialized,
+                     init_test_distributed_environment, multi_process_parallel)
 
 if should_skip_test_group(group_name="TEST_DISTRIBUTED"):
     pytest.skip("TEST_DISTRIBUTED=DISABLE, skipping distributed test group",
@@ -31,8 +32,8 @@ def graph_allreduce(tp_size, pp_size, rank, distributed_init_port):
     torch.cuda.set_device(device)
     init_test_distributed_environment(tp_size, pp_size, rank,
                                       distributed_init_port)
-
-    group = get_tensor_model_parallel_group()
+    ensure_model_parallel_initialized(tp_size, pp_size)
+    group = get_tensor_model_parallel_group().device_group
 
     # A small all_reduce for warmup.
     # this is needed because device communicators might be created lazily
@@ -95,7 +96,7 @@ def eager_allreduce(tp_size, pp_size, rank, distributed_init_port):
     # communicate independently
     num_communication = rank // tp_size + 1
     sz = 1024
-    fa = get_tp_ca_communicator()
+    fa = get_tp_group().ca_comm
     inp = torch.ones(sz, dtype=torch.float32, device=device)
     out = inp
     for _ in range(num_communication):
@@ -131,4 +132,4 @@ def test_custom_allreduce(tp_size, pipeline_parallel_size, test_target):
     world_size = tp_size * pipeline_parallel_size
     if world_size > torch.cuda.device_count():
         pytest.skip("Not enough GPUs to run the test.")
-    multi_process_tensor_parallel(tp_size, pipeline_parallel_size, test_target)
+    multi_process_parallel(tp_size, pipeline_parallel_size, test_target)

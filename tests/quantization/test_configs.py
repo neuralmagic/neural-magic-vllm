@@ -4,8 +4,10 @@ Run `pytest tests/quantization/test_configs.py --forked`.
 """
 
 from dataclasses import dataclass
+from typing import Tuple
 
 import pytest
+import torch
 
 from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.config import ModelConfig
@@ -55,8 +57,10 @@ MODEL_ARG_EXPTYPES = [
 ]
 
 
+@pytest.mark.skipif(torch.cuda.get_device_capability() < (8, 0),
+                    reason="skip for T4s, requires compute capability 8.0")
 @pytest.mark.parametrize("model_arg_exptype", MODEL_ARG_EXPTYPES)
-def test_auto_gptq(model_arg_exptype: str) -> None:
+def test_auto_gptq(model_arg_exptype: Tuple[str, None, str]) -> None:
     model_path, quantization_arg, expected_type = model_arg_exptype
 
     try:

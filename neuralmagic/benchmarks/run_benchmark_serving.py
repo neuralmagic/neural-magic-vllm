@@ -13,7 +13,7 @@ from .common import (benchmark_configs, download_model,
                      max_model_length_from_model_id, script_args_to_cla)
 from .scripts.common import num_available_gpus, warmup_server
 
-BENCH_SERVER_HOST = "localhost"
+BENCH_SERVER_HOST = "127.0.0.1"
 BENCH_SERVER_PORT = 9000
 
 

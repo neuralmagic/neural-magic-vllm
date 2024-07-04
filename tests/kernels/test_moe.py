@@ -53,12 +53,7 @@ def torch_moe_single(a, w, score, topk):
     return (out.view(B, -1, w.shape[1])).sum(dim=1)
 
 
-# UPSTREAM SYNC: breaks NM automation.
-@pytest.mark.skip("C compiler not installed in NM automation. "
-                  "This codepath follows a triton pathway, which "
-                  "JITs using clang or gcc. Since neither are installed "
-                  "in our test instances, we need to skip this for now.")
-@pytest.mark.parametrize("m", [512, 222, 33, 1])
+@pytest.mark.parametrize("m", [1024 * 128, 512, 222, 33, 1])
 @pytest.mark.parametrize("n", [2048, 256, 1024])
 @pytest.mark.parametrize("k", [128, 511, 1024])
 @pytest.mark.parametrize("e", [8, 64])
@@ -83,10 +78,6 @@ def test_fused_moe(
 
 
 # UPSTREAM SYNC: breaks NM automation.
-@pytest.mark.skip("C compiler not installed in NM automation. "
-                  "This codepath follows a triton pathway, which "
-                  "JITs using clang or gcc. Since neither are installed "
-                  "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("dtype",
                          [torch.float32, torch.float16, torch.bfloat16])
 @torch.inference_mode()

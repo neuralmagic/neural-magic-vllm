@@ -1,0 +1,46 @@
+name: Get docker image tags based on build type and the image version based on wheel name
+description: 'docker image tags for nm-vllm'
+inputs:
+  wf_category:
+    description: "type of nm-vllm to install for the docker image: NIGHTLY or RELEASE"
+    required: true
+  whl:
+    description: "name of nm-vllm wheel to install for the docker image"
+    required: true
+outputs:
+  tag:
+    description: "tag for the docker image based on wheel version"
+    value: ${{ steps.tags.outputs.tag }}
+  extra_tag:
+    description: "extra tag for the docker image based on build type, either latest (for RELEASE) or nightly (for NIGHTLY)"
+    value: ${{ steps.tags.outputs.extra_tag }}
+  build_version:
+    description: "version of nm-vllm, e.g. 0.4.0, 0.4.0.20240531"
+    value: ${{ steps.tags.outputs.build_version }}
+runs:
+  using: composite
+  steps:
+  - id: tags
+    run: |
+      BUILD_VERSION=`echo "${{ inputs.whl }}" | cut -d'-' -f2`
+      if [[ "${{ inputs.wf_category }}" == "RELEASE" ]]; then
+          if [[ "${BUILD_VERSION}" =~ ^[0-9]+.[0-9]+.[0-9]+$ ]]; then
+              TAG="v${BUILD_VERSION}"
+              EXTRA_TAG=latest
+          else
+              echo "ERROR: wheel version ${BUILD_VERSION} doesn't match RELEASE format. Check input."
+              exit 1
+          fi
+      else
+          if [[ "${BUILD_VERSION}" =~ ^[0-9]+.[0-9]+.[0-9]+.[0-9]{8}$ ]]; then
+              TAG=`echo "${BUILD_VERSION}" | cut -d'.' -f4`
+              EXTRA_TAG=nightly
+          else
+              echo "ERROR: wheel version ${BUILD_VERSION} doesn't match NIGHTLY format. Check input."
+              exit 1
+          fi
+      fi
+      echo "tag=${TAG}" >> $GITHUB_OUTPUT
+      echo "extra_tag=${EXTRA_TAG}" >> $GITHUB_OUTPUT
+      echo "build_version=${BUILD_VERSION}" >> $GITHUB_OUTPUT
+    shell: bash

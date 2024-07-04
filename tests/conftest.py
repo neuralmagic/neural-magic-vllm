@@ -1,10 +1,12 @@
 import contextlib
 import gc
-import logging
 import os
-import subprocess
-import sys
-from typing import Any, Dict, List, Optional, Tuple, TypeVar
+from collections import UserList
+from dataclasses import dataclass
+from functools import cached_property
+from pathlib import Path
+from typing import (TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple,
+                    TypedDict, TypeVar)
 
 import pytest
 import torch
@@ -12,18 +14,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 from PIL import Image
 from transformers import (AutoModelForCausalLM, AutoModelForVision2Seq,
-                          AutoProcessor, AutoTokenizer, BatchEncoding)
+                          AutoTokenizer, BatchEncoding)
 
-from tests.nm_utils.logging import make_logger
 from vllm import LLM, SamplingParams
 from vllm.config import TokenizerPoolConfig, VisionLanguageConfig
-from vllm.distributed import destroy_model_parallel
+from vllm.distributed import (destroy_distributed_environment,
+                              destroy_model_parallel)
 from vllm.inputs import TextPrompt
 from vllm.logger import init_logger
-from vllm.multimodal import MultiModalData
-from vllm.multimodal.image import ImageFeatureData, ImagePixelData
+
+if TYPE_CHECKING:
+    from vllm.multimodal import MultiModalData
+else:
+    # it will call torch.cuda.device_count()
+    MultiModalData = None
 from vllm.sequence import SampleLogprobs
-from vllm.utils import is_cpu
+from vllm.utils import cuda_device_count_stateless, is_cpu
 
 logger = init_logger(__name__)
 
@@ -31,21 +37,8 @@ _TEST_DIR = os.path.dirname(__file__)
 _TEST_PROMPTS = [os.path.join(_TEST_DIR, "prompts", "example.txt")]
 _LONG_PROMPTS = [os.path.join(_TEST_DIR, "prompts", "summary.txt")]
 
-# Multi modal related
-# You can use `.buildkite/download-images.sh` to download the assets
-PIXEL_VALUES_FILES = [
-    os.path.join(_TEST_DIR, "images", filename) for filename in
-    ["stop_sign_pixel_values.pt", "cherry_blossom_pixel_values.pt"]
-]
-IMAGE_FEATURES_FILES = [
-    os.path.join(_TEST_DIR, "images", filename) for filename in
-    ["stop_sign_image_features.pt", "cherry_blossom_image_features.pt"]
-]
-IMAGE_FILES = [
-    os.path.join(_TEST_DIR, "images", filename)
-    for filename in ["stop_sign.jpg", "cherry_blossom.jpg"]
-]
-assert len(PIXEL_VALUES_FILES) == len(IMAGE_FEATURES_FILES) == len(IMAGE_FILES)
+_IMAGE_DIR = Path(_TEST_DIR) / "images"
+"""You can use `.buildkite/download-images.sh` to download the assets."""
 
 
 def _read_prompts(filename: str) -> List[str]:
@@ -54,8 +47,71 @@ def _read_prompts(filename: str) -> List[str]:
         return prompts
 
 
+@dataclass(frozen=True)
+class ImageAsset:
+    name: Literal["stop_sign", "cherry_blossom"]
+
+    @cached_property
+    def pixel_values(self) -> torch.Tensor:
+        return torch.load(_IMAGE_DIR / f"{self.name}_pixel_values.pt")
+
+    @cached_property
+    def image_features(self) -> torch.Tensor:
+        return torch.load(_IMAGE_DIR / f"{self.name}_image_features.pt")
+
+    @cached_property
+    def pil_image(self) -> Image.Image:
+        return Image.open(_IMAGE_DIR / f"{self.name}.jpg")
+
+    def for_hf(self) -> Image.Image:
+        return self.pil_image
+
+    def for_vllm(self, vision_config: VisionLanguageConfig) -> MultiModalData:
+        # don't put this import at the top level
+        # it will call torch.cuda.device_count()
+        from vllm.multimodal.image import ImageFeatureData  # noqa: F401
+        from vllm.multimodal.image import ImagePixelData
+        image_input_type = vision_config.image_input_type
+        ImageInputType = VisionLanguageConfig.ImageInputType
+
+        if image_input_type == ImageInputType.IMAGE_FEATURES:
+            return ImageFeatureData(self.image_features)
+        if image_input_type == ImageInputType.PIXEL_VALUES:
+            return ImagePixelData(self.pil_image)
+
+        raise NotImplementedError
+
+
+class _ImageAssetPrompts(TypedDict):
+    stop_sign: str
+    cherry_blossom: str
+
+
+# UPSTREAM SYNC: Error in Python3.8 without Any
+class _ImageAssets(UserList):
+
+    def __init__(self) -> None:
+        super().__init__(
+            [ImageAsset("stop_sign"),
+             ImageAsset("cherry_blossom")])
+
+    def prompts(self, prompts: _ImageAssetPrompts) -> List[str]:
+        """
+        Convenience method to define the prompt for each test image.
+
+        The order of the returned prompts matches the order of the
+        assets when iterating through this object.
+        """
+        return [prompts["stop_sign"], prompts["cherry_blossom"]]
+
+
+IMAGE_ASSETS = _ImageAssets()
+"""Singleton instance of :class:`_ImageAssets`."""
+
+
 def cleanup():
     destroy_model_parallel()
+    destroy_distributed_environment()
     with contextlib.suppress(AssertionError):
         torch.distributed.destroy_process_group()
     gc.collect()
@@ -83,31 +139,6 @@ def cleanup_fixture(should_do_global_cleanup_after_test: bool):
         cleanup()
 
 
-@pytest.fixture(scope="session")
-def hf_images() -> List[Image.Image]:
-    return [Image.open(filename) for filename in IMAGE_FILES]
-
-
-@pytest.fixture()
-def vllm_images(request) -> List[MultiModalData]:
-    vision_language_config = request.getfixturevalue("model_and_config")[1]
-    if vision_language_config.image_input_type == (
-            VisionLanguageConfig.ImageInputType.IMAGE_FEATURES):
-        return [
-            ImageFeatureData(torch.load(filename))
-            for filename in IMAGE_FEATURES_FILES
-        ]
-    else:
-        return [
-            ImagePixelData(Image.open(filename)) for filename in IMAGE_FILES
-        ]
-
-
-@pytest.fixture()
-def vllm_image_tensors(request) -> List[torch.Tensor]:
-    return [torch.load(filename) for filename in PIXEL_VALUES_FILES]
-
-
 @pytest.fixture
 def example_prompts() -> List[str]:
     prompts = []
@@ -122,6 +153,11 @@ def example_long_prompts() -> List[str]:
     for filename in _LONG_PROMPTS:
         prompts += _read_prompts(filename)
     return prompts
+
+
+@pytest.fixture(scope="session")
+def image_assets() -> _ImageAssets:
+    return IMAGE_ASSETS
 
 
 _STR_DTYPE_TO_TORCH_DTYPE = {
@@ -146,8 +182,10 @@ class HfRunner:
         model_name: str,
         dtype: str = "half",
         *,
+        model_kwargs: Optional[Dict[str, Any]] = None,
         is_embedding_model: bool = False,
         is_vision_model: bool = False,
+        is_compressed_tensors_model: bool = False,
         **kwargs,
     ) -> None:
         assert dtype in _STR_DTYPE_TO_TORCH_DTYPE
@@ -166,15 +204,20 @@ class HfRunner:
         else:
             if is_vision_model:
                 auto_cls = AutoModelForVision2Seq
+            elif is_compressed_tensors_model:
+                from llmcompressor.transformers import (  # noqa: E501
+                    SparseAutoModelForCausalLM)
+                auto_cls = SparseAutoModelForCausalLM
             else:
                 auto_cls = AutoModelForCausalLM
 
+            model_kwargs = model_kwargs if model_kwargs is not None else {}
             self.model = self.wrap_device(
                 auto_cls.from_pretrained(
                     model_name,
                     torch_dtype=torch_dtype,
                     trust_remote_code=True,
-                    **kwargs,
+                    **model_kwargs,
                 ))
 
         self.tokenizer = AutoTokenizer.from_pretrained(
@@ -184,6 +227,9 @@ class HfRunner:
         )
 
         try:
+            # don't put this import at the top level
+            # it will call torch.cuda.device_count()
+            from transformers import AutoProcessor  # noqa: F401
             self.processor = AutoProcessor.from_pretrained(
                 model_name,
                 torch_dtype=torch_dtype,
@@ -234,11 +280,13 @@ class HfRunner:
         prompts: List[str],
         max_tokens: int,
         images: Optional[List[Image.Image]] = None,
+        **kwargs,
     ) -> List[Tuple[List[int], str]]:
         outputs = self.generate(prompts,
                                 do_sample=False,
                                 max_new_tokens=max_tokens,
-                                images=images)
+                                images=images,
+                                **kwargs)
 
         return [(output_ids[0], output_str[0])
                 for output_ids, output_str in outputs]
@@ -366,7 +414,7 @@ class HfRunner:
         cleanup()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def hf_runner():
     return HfRunner
 
@@ -478,7 +526,7 @@ class HfRunnerNM(HfRunner):
         input_ids_lst: List[torch.Tensor],
         max_tokens: int,
         topk_logprobs_count: int,
-    ) -> List[Tuple[List[int], str, List[Dict]]]:
+    ) -> List[Tuple[List[str], str, List[Dict[str, Any]]]]:
         all_logprobs = []
         all_output_tokens = []
         all_output_strs = []
@@ -567,6 +615,7 @@ class VllmRunner:
         block_size: int = 16,
         enable_chunked_prefill: bool = False,
         swap_space: int = 4,
+        enforce_eager: bool = False,
         **kwargs,
     ) -> None:
         self.model = LLM(
@@ -575,6 +624,7 @@ class VllmRunner:
             trust_remote_code=True,
             dtype=dtype,
             swap_space=swap_space,
+            enforce_eager=enforce_eager,
             disable_log_stats=disable_log_stats,
             tensor_parallel_size=tensor_parallel_size,
             max_model_len=max_model_len,
@@ -691,51 +741,6 @@ def vllm_runner():
     return VllmRunner
 
 
-# UPSTREAM SYNC: needed for nm-automation
-class VllmRunnerNm(VllmRunner):
-
-    def generate_w_logprobs(
-        self,
-        prompts: List[str],
-        sampling_params: SamplingParams,
-    ) -> List[Tuple[List[int], str]]:
-        assert sampling_params.logprobs is not None
-
-        req_outputs = self.model.generate(prompts,
-                                          sampling_params=sampling_params)
-        outputs = []
-        for req_output in req_outputs:
-            for sample in req_output.outputs:
-                output_str = sample.text
-                output_ids = sample.token_ids
-                output_logprobs = sample.logprobs
-            outputs.append((output_ids, output_str, output_logprobs))
-        return outputs
-
-    def generate_greedy_logprobs(
-        self,
-        prompts: List[str],
-        max_tokens: int,
-        num_logprobs: int,
-    ) -> List[Tuple[List[int], str]]:
-        greedy_logprobs_params = SamplingParams(temperature=0.0,
-                                                max_tokens=max_tokens,
-                                                logprobs=num_logprobs)
-        outputs = self.generate_w_logprobs(prompts, greedy_logprobs_params)
-
-        return [(output_ids, output_str, output_logprobs)
-                for output_ids, output_str, output_logprobs in outputs]
-
-    def __del__(self):
-        del self.model
-        cleanup()
-
-
-@pytest.fixture
-def vllm_runner_nm():
-    return VllmRunnerNm
-
-
 def get_tokenizer_pool_config(tokenizer_group_type):
     if tokenizer_group_type is None:
         return None
@@ -767,20 +772,4 @@ def num_gpus_available():
     """Get number of GPUs without initializing the CUDA context
     in current process."""
 
-    try:
-        out = subprocess.run([
-            sys.executable, "-c",
-            "import torch; print(torch.cuda.device_count())"
-        ],
-                             capture_output=True,
-                             check=True,
-                             text=True)
-    except subprocess.CalledProcessError as e:
-        logger.warning("Failed to get number of GPUs.", exc_info=e)
-        return 0
-    return int(out.stdout.strip())
-
-
-@pytest.fixture(scope="session")
-def logger() -> logging.Logger:
-    return make_logger("vllm_test")
+    return cuda_device_count_stateless()
