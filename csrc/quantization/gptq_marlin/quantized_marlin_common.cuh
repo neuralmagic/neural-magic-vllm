@@ -1611,8 +1611,6 @@ exec_config_t determine_thread_config(int prob_m, int prob_n, int prob_k,
   return exec_config_t{0, {-1, -1, -1}};
 }
 
-#endif
-
 inline exec_config_t get_and_check_exec_config(int prob_m, int prob_n,
                                                int prob_k, int num_bits,
                                                bool has_act_order,
@@ -1678,5 +1676,7 @@ inline int get_and_check_group_blocks(int prob_k, bool has_act_order,
     }
   }
 }
+
+#endif
 
 }  // namespace gptq_marlin
