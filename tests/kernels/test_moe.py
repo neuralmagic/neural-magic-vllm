@@ -38,6 +38,7 @@ def torch_moe(a, w1, w2, score, topk):
     return (out.view(B, -1, w2.shape[1]) *
             topk_weight.view(B, -1, 1).to(out.dtype)).sum(dim=1)
 
+
 def torch_moe_single(a, w, score, topk):
     B, D = a.shape
     a = a.view(B, -1, D).repeat(1, topk, 1).reshape(-1, D)
@@ -50,6 +51,7 @@ def torch_moe_single(a, w, score, topk):
         if mask.sum():
             out[mask] = a[mask] @ w[i].transpose(0, 1)
     return (out.view(B, -1, w.shape[1])).sum(dim=1)
+
 
 @pytest.mark.parametrize("m", [1024 * 128, 512, 222, 33, 1])
 @pytest.mark.parametrize("n", [2048, 256, 1024])

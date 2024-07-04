@@ -367,6 +367,7 @@ def fused_topk(
         topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
     return topk_weights, topk_ids
 
+
 # This is used by the Deepseek-V2 model
 def grouped_topk(
     hidden_states: torch.Tensor,
@@ -411,6 +412,7 @@ def get_expert_config(w1: torch.Tensor, w2: torch.Tensor, topk: int, M: int,
         # Else use the default config
         return get_default_config(M, E, N, w1.shape[2], topk,
                                   "float8" if use_fp8 else None)
+
 
 def fused_experts(hidden_states: torch.Tensor,
                   w1: torch.Tensor,
