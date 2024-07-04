@@ -1457,28 +1457,20 @@ thread_config_t small_batch_thread_configs[] = {
     // Ordered by priority
 
     // thread_k, thread_n, num_threads
-    // {128, 128, 256},
-    // {64, 128, 128},
-    // {128, 64, 128},
-
     {128, 128, 256},  // Default
     {128, 64, 128},   // Reduce N 2X, same K
-    // {64, 256, 256},   // Reduce K 2X, increase N 2X ///
-    {64, 128, 128},  // Reduce K 2X, same N
+    {64, 256, 256},   // Reduce K 2X, increase N 2X
+    {64, 128, 128},   // Reduce K 2X, same N
 };
 
 thread_config_t large_batch_thread_configs[] = {
     // Ordered by priority
 
     // thread_k, thread_n, num_threads
-    // {64, 256, 256},
-    // {64, 128, 128},
-    // {128, 64, 128},
-
-    {64, 256, 256},  // Default
-    // {128, 128, 256},  // Reduce N 2X, increase K 2X ///
-    {64, 128, 128},  // Reduce N 2X, same K
-    {128, 64, 128},  // Reduce N 4X, increase K 2X
+    {64, 256, 256},   // Default
+    {128, 128, 256},  // Reduce N 2X, increase K 2X
+    {64, 128, 128},   // Reduce N 2X, same K
+    {128, 64, 128},   // Reduce N 4X, increase K 2X
 
 };
 
@@ -1599,7 +1591,6 @@ exec_config_t determine_thread_config(int prob_m, int prob_n, int prob_k,
         if (is_valid_config(th_config, max_m_blocks, prob_m, prob_n, prob_k,
                             num_bits, group_size, has_act_order, is_k_full,
                             max_shared_mem)) {
-          // printf("returned small\n");
           return exec_config_t{max_m_blocks, th_config};
         }
       }
@@ -1608,8 +1599,6 @@ exec_config_t determine_thread_config(int prob_m, int prob_n, int prob_k,
         if (is_valid_config(th_config, max_m_blocks, prob_m, prob_n, prob_k,
                             num_bits, group_size, has_act_order, is_k_full,
                             max_shared_mem)) {
-          // printf("returned large %d %d %d\n",
-          //   th_config.thread_k, th_config.thread_n, th_config.num_threads);
           return exec_config_t{max_m_blocks, th_config};
         }
       }
@@ -1617,11 +1606,7 @@ exec_config_t determine_thread_config(int prob_m, int prob_n, int prob_k,
 
     max_m_blocks--;  // Process less M blocks per invocation to reduce cache
                      // usage
-
-    // printf("reduced max_m_blocks... %d\n", max_m_blocks);
   }
-
-  // printf("failed to find anything!\n");
 
   return exec_config_t{0, {-1, -1, -1}};
 }
@@ -1665,8 +1650,6 @@ inline exec_config_t get_and_check_exec_config(int prob_m, int prob_n,
               ", has_act_order = ", has_act_order, ", is_k_full = ", is_k_full,
               ", max_shared_mem = ", max_shared_mem);
 
-  // printf("exec cfg: %d %d %d\n", exec_cfg.tb_cfg.num_threads,
-  // exec_cfg.tb_cfg.thread_k, exec_cfg.tb_cfg.thread_n);
   return exec_cfg;
 }
 
