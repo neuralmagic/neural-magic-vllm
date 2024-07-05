@@ -101,6 +101,7 @@ exclude_also = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
     "@(abc\\.)?abstractmethod",
+    "@overload",
     # coverage for these devices is to be ignored until we plan to deploy them
     'engine_config.device_config.device_type == "cpu"',
     'engine_config.device_config.device_type == "neuron"',
@@ -114,6 +115,10 @@ exclude_also = [
     "def _shared_pointers",
     "def np_cache_weights_iterator",
     "def convert_pyslice_to_tensor",
+    "def _shared_pointers(",
+    "def convert_bin_to_safetensor_file(",
+    "def np_cache_weights_iterator(",
+    "def convert_pyslice_to_tensor(",
 ]
 
 [tool.coverage.html]

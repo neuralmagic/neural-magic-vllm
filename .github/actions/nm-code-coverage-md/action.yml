@@ -9,6 +9,6 @@ runs:
   steps:
     - id: coverage_report_breakdown
       run: |
-        COVERAGE_MD = `python3 ./.github/scripts/coverage_report_breakdown.py --coverage_json_file`
+        COVERAGE_MD = `python3 ./.github/scripts/coverage_report_breakdown.py --coverage_json_file ${{ coverage_json }}`
         echo "markdown=${COVERAGE_MD}" >> $GITHUB_OUTPUT
       shell: bash
