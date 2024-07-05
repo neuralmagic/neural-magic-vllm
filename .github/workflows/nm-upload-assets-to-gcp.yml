@@ -108,15 +108,15 @@ jobs:
 #                    https://api.github.com/repos/neuralmagic/stratus/dispatches \
 #                    -d "{\"event_type\": \"$event_type\", \"client_payload\": {\"service\": \"$service\", \"version\": \"$version\", \"unit\": false, \"integration\": true}}"
 
-            - name: trigger stratus nm-pypi update workflow
-              uses: actions/github-script@v6
-              with:
-                  github-token: ${{ secrets.CICD_GITHUB_PAT }}
-              script: |
-                  const result = await github.rest.actions.createWorkflowDispatch({
-                  owner: 'neuralmagic',
-                  repo: 'stratus',
-                  workflow_id: 'nm-pypi-update.yml'
-                  ref: 'trigger'
-                })
-                console.log(result)
+           - name: trigger stratus nm-pypi update workflow
+             uses: actions/github-script@v6
+             with:
+                 github-token: ${{ secrets.CICD_GITHUB_PAT }}
+             script: |
+                 const result = await github.rest.actions.createWorkflowDispatch({
+                   owner: 'neuralmagic',
+                   repo: 'stratus',
+                   workflow_id: 'nm-pypi-update.yml'
+                   ref: 'trigger'
+                 })
+                 console.log(result)
