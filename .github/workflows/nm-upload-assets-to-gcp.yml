@@ -112,11 +112,11 @@ jobs:
              uses: actions/github-script@v6
              with:
                  github-token: ${{ secrets.CICD_GITHUB_PAT }}
-             script: |
-                 const result = await github.rest.actions.createWorkflowDispatch({
-                   owner: 'neuralmagic',
-                   repo: 'stratus',
-                   workflow_id: 'nm-pypi-update.yml'
-                   ref: 'trigger'
-                 })
-                 console.log(result)
+                 script: |
+                   const result = await github.rest.actions.createWorkflowDispatch({
+                     owner: 'neuralmagic',
+                     repo: 'stratus',
+                     workflow_id: 'nm-pypi-update.yml'
+                     ref: 'trigger'
+                   })
+                   console.log(result)
