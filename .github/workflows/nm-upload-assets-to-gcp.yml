@@ -42,7 +42,7 @@ jobs:
         #runs-on: ${{ inputs.label }}
         #timeout-minutes: ${{ fromJson(inputs.timeout) }}
         runs-on: "gcp-k8s-util"
-        timeout-minutes: ${{ fromJson("30") }}
+        timeout-minutes: 30
 
         permissions:
             contents: 'read'
