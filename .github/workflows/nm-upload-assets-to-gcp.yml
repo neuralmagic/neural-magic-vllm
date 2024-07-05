@@ -65,6 +65,19 @@ jobs:
                 ref: "docker"
                 submodules: recursive
 
+            - name: trigger stratus nm-pypi update workflow
+              uses: actions/github-script@v6
+              with:
+                github-token: ${{ secrets.CICD_GITHUB_PAT }}
+                script: |
+                  const result = await github.rest.actions.createWorkflowDispatch({
+                    owner: 'neuralmagic',
+                    repo: 'stratus',
+                    workflow_id: 'nm-pypi-update.yml'
+                    ref: 'trigger'
+                  })
+                  console.log(result)
+
 #            - name: setenv
 #              id: setenv
 #              uses: ./.github/actions/nm-set-env/
@@ -107,16 +120,3 @@ jobs:
 #                    -H "X-GitHub-Api-Version: 2022-11-28" \
 #                    https://api.github.com/repos/neuralmagic/stratus/dispatches \
 #                    -d "{\"event_type\": \"$event_type\", \"client_payload\": {\"service\": \"$service\", \"version\": \"$version\", \"unit\": false, \"integration\": true}}"
-
-           - name: trigger stratus nm-pypi update workflow
-             uses: actions/github-script@v6
-             with:
-                 github-token: ${{ secrets.CICD_GITHUB_PAT }}
-                 script: |
-                   const result = await github.rest.actions.createWorkflowDispatch({
-                     owner: 'neuralmagic',
-                     repo: 'stratus',
-                     workflow_id: 'nm-pypi-update.yml'
-                     ref: 'trigger'
-                   })
-                   console.log(result)
