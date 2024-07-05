@@ -73,7 +73,7 @@ jobs:
                   const result = await github.rest.actions.createWorkflowDispatch({
                     owner: 'neuralmagic',
                     repo: 'stratus',
-                    workflow_id: 'nm-pypi-update.yml'
+                    workflow_id: 'nm-pypi-update.yml',
                     ref: 'trigger'
                   })
                   console.log(result)
