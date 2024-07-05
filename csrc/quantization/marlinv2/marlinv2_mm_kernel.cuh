@@ -2,7 +2,7 @@
 
 #include <ATen/cuda/CUDAContext.h>
 #include <c10/cuda/CUDAGuard.h>
-#include <torch/extension.h>
+#include <torch/all.h>
 
 // clang-format off
 // The cutlass inlcude order 
@@ -21,42 +21,53 @@
 
 #include "cutlass/util/device_memory.h"
 
-#include "cuda/cutlass_extensions/gemm/kernel/nm_tile_schedulers.cuh"
-#include "cuda/marlinv2/marlinv2_collective_builder.cuh"
-#include "cuda/marlinv2/marlinv2_prepacked_layout.cuh"
-#include "cuda/utilities/cute_utils.cuh"
+#include "cutlass_extensions/gemm/kernel/nm_tile_schedulers.cuh"
+#include "cutlass_extensions/cute_utils.cuh"
+#include "marlinv2_collective_builder.cuh"
+#include "marlinv2_prepacked_layout.cuh"
 
 namespace marlinv2 {
 
 using namespace cute;
 
-template <typename ElementA_, typename ElementB_, typename ElementD_, typename AccumulatorT,
-          typename ScaleT, typename ZeroT, class KernelSchedule>
+template <typename ElementA_, typename ElementB_, typename ElementD_,
+          typename AccumulatorT, typename ScaleT, typename ZeroT,
+          class KernelSchedule>
 // clang-format on
 struct KernelTemplate {
-  using MmaType            = ElementA_;
-  using ElementA           = ElementA_;
-  using ElementB           = ElementB_;
-  using ElementD           = ElementD_;
-  using ElementAccumulator = AccumulatorT; // Element type for internal accumulation
+  using MmaType = ElementA_;
+  using ElementA = ElementA_;
+  using ElementB = ElementB_;
+  using ElementD = ElementD_;
+  using ElementAccumulator =
+      AccumulatorT;  // Element type for internal accumulation
 
-  using LayoutA_     = cutlass::layout::RowMajor;    // Layout type for A matrix operand
-  using LayoutB_     = cutlass::layout::ColumnMajor; // Layout type for B matrix operand
-  using LayoutC_     = cutlass::layout::RowMajor;    // Layout type for C and D matrix operands
-  using LayoutD_     = LayoutC_;
+  using LayoutA_ =
+      cutlass::layout::RowMajor;  // Layout type for A matrix operand
+  using LayoutB_ =
+      cutlass::layout::ColumnMajor;  // Layout type for B matrix operand
+  using LayoutC_ =
+      cutlass::layout::RowMajor;  // Layout type for C and D matrix operands
+  using LayoutD_ = LayoutC_;
   using LayoutScale_ = cutlass::layout::RowMajor;
 
-  // This example manually swaps and transposes, so keep transpose of input layouts
-  using LayoutA_Transpose = typename cutlass::layout::LayoutTranspose<LayoutA_>::type;
-  using LayoutB_Transpose = typename cutlass::layout::LayoutTranspose<LayoutB_>::type;
-  using LayoutC_Transpose = typename cutlass::layout::LayoutTranspose<LayoutC_>::type;
-  using LayoutD_Transpose = typename cutlass::layout::LayoutTranspose<LayoutD_>::type;
+  // This example manually swaps and transposes, so keep transpose of input
+  // layouts
+  using LayoutA_Transpose =
+      typename cutlass::layout::LayoutTranspose<LayoutA_>::type;
+  using LayoutB_Transpose =
+      typename cutlass::layout::LayoutTranspose<LayoutB_>::type;
+  using LayoutC_Transpose =
+      typename cutlass::layout::LayoutTranspose<LayoutC_>::type;
+  using LayoutD_Transpose =
+      typename cutlass::layout::LayoutTranspose<LayoutD_>::type;
 
-  using ArchTag       = cutlass::arch::Sm90;
+  using ArchTag = cutlass::arch::Sm90;
   using OperatorClass = cutlass::arch::OpClassTensorOp;
 
-  using PrepackedLayoutB = PrepackedLayoutTemplate<ElementA_, ElementB_, ElementD_, AccumulatorT,
-                                                   LayoutA_Transpose, KernelSchedule>;
+  using PrepackedLayoutB =
+      PrepackedLayoutTemplate<ElementA_, ElementB_, ElementD_, AccumulatorT,
+                              LayoutA_Transpose, KernelSchedule>;
 
   // clang-format off
   template <typename ScheduleConfig,
@@ -65,40 +76,44 @@ struct KernelTemplate {
             bool with_zeropoints>
   // clang-format on
   struct Speacialization {
-    using MmaType            = ElementA_;
-    using ElementA           = ElementA_;
-    using ElementB           = ElementB_;
-    using ElementD           = ElementD_;
-    using ElementC           = cute::conditional_t<with_C, ElementD, void>;
-    using ElementZero        = ScaleT;
-    using ElementScale       = ScaleT;
-    using ElementAccumulator = AccumulatorT; // Element type for internal accumulation
-    using ElementCompute     = AccumulatorT; // For Epilogue
+    using MmaType = ElementA_;
+    using ElementA = ElementA_;
+    using ElementB = ElementB_;
+    using ElementD = ElementD_;
+    using ElementC = cute::conditional_t<with_C, ElementD, void>;
+    using ElementZero = ScaleT;
+    using ElementScale = ScaleT;
+    using ElementAccumulator =
+        AccumulatorT;  // Element type for internal accumulation
+    using ElementCompute = AccumulatorT;  // For Epilogue
 
     using BTypeTuple = cute::conditional_t<
         with_scales,
-        cute::conditional_t<with_zeropoints, cute::tuple<ElementB, ElementScale, ElementZero>,
+        cute::conditional_t<with_zeropoints,
+                            cute::tuple<ElementB, ElementScale, ElementZero>,
                             cute::tuple<ElementB, ElementScale>>,
         ElementB>;
 
-    using LayoutA     = LayoutA_; // Layout type for A matrix operand
-    using LayoutB     = LayoutB_; // Layout type for B matrix operand
-    using LayoutC     = LayoutC_; // Layout type for C and D matrix operands
-    using LayoutD     = LayoutC_;
+    using LayoutA = LayoutA_;  // Layout type for A matrix operand
+    using LayoutB = LayoutB_;  // Layout type for B matrix operand
+    using LayoutC = LayoutC_;  // Layout type for C and D matrix operands
+    using LayoutD = LayoutC_;
     using LayoutScale = LayoutScale_;
 
-    static int constexpr TileShapeK = 128 * 8 / cutlass::sizeof_bits<MmaType>::value;
+    static int constexpr TileShapeK =
+        128 * 8 / cutlass::sizeof_bits<MmaType>::value;
     static int constexpr AlignmentA = 128 / cutlass::sizeof_bits_v<ElementA>;
     static int constexpr AlignmentB = 128 / cutlass::sizeof_bits_v<ElementB>;
-    static int constexpr AlignmentC = (with_C) ? 128 / cutlass::sizeof_bits_v<ElementC> : 0;
+    static int constexpr AlignmentC =
+        (with_C) ? 128 / cutlass::sizeof_bits_v<ElementC> : 0;
     static int constexpr AlignmentD = 128 / cutlass::sizeof_bits_v<ElementD>;
 
-    using TileShape =
-        decltype(append(typename ScheduleConfig::TileShapeNM{}, cute::Int<TileShapeK>{}));
-    using ClusterShape     = typename ScheduleConfig::ClusterShape;
+    using TileShape = decltype(append(typename ScheduleConfig::TileShapeNM{},
+                                      cute::Int<TileShapeK>{}));
+    using ClusterShape = typename ScheduleConfig::ClusterShape;
     using EpilogueSchedule = typename ScheduleConfig::EpilogueSchedule;
     using EpilogueTileType = typename ScheduleConfig::EpilogueTileType;
-    using TileScheduler    = typename ScheduleConfig::TileScheduler;
+    using TileScheduler = typename ScheduleConfig::TileScheduler;
 
     // clang-format off
 
@@ -126,9 +141,9 @@ struct KernelTemplate {
 
     // clang-format on
 
-    using GemmKernel =
-        cutlass::gemm::kernel::GemmUniversal<Shape<int, int, int, int>, // Indicates ProblemShape
-                                             CollectiveMainloop, CollectiveEpilogue, TileScheduler>;
+    using GemmKernel = cutlass::gemm::kernel::GemmUniversal<
+        Shape<int, int, int, int>,  // Indicates ProblemShape
+        CollectiveMainloop, CollectiveEpilogue, TileScheduler>;
     using Gemm = cutlass::gemm::device::GemmUniversalAdapter<GemmKernel>;
 
     using StrideA = cutlass::detail::TagToStrideA_t<LayoutA>;
@@ -137,7 +152,7 @@ struct KernelTemplate {
     using StrideD = typename GemmKernel::StrideD;
     using StrideS = typename CollectiveMainloop::StrideScale;
 
-    using Arguments         = typename Gemm::Arguments;
+    using Arguments = typename Gemm::Arguments;
     using MainloopArguments = typename GemmKernel::MainloopArguments;
     using EpilogueArguments = typename GemmKernel::EpilogueArguments;
 
@@ -165,13 +180,13 @@ struct KernelTemplate {
       TORCH_CHECK(with_zeropoints || !zeros);
 
       static int constexpr L = 1;
-      int const group_size   = maybe_group_size.value_or(K);
-      int const scale_k      = (K + group_size - 1) / group_size;
+      int const group_size = maybe_group_size.value_or(K);
+      int const scale_k = (K + group_size - 1) / group_size;
 
-      auto const shape_bt         = cute::make_shape(N, K, L);
-      auto const shape_a          = cute::make_shape(M, K, L);
-      auto const shape_ct         = cute::make_shape(N, M, L);
-      auto const shape_c          = cute::make_shape(M, N, L);
+      auto const shape_bt = cute::make_shape(N, K, L);
+      auto const shape_a = cute::make_shape(M, K, L);
+      auto const shape_ct = cute::make_shape(N, M, L);
+      auto const shape_c = cute::make_shape(M, N, L);
       auto const shape_scale_zero = cute::make_shape(N, scale_k, L);
 
       StrideA stride_A = make_cute_packed_stride(StrideA{}, shape_a);
@@ -181,14 +196,15 @@ struct KernelTemplate {
       StrideS stride_S = make_cute_packed_stride(StrideS{}, shape_scale_zero);
 
       MainloopArguments mainloop_arguments{};
-      EpilogueArguments epilogue_arguments{{alpha, beta}, C, stride_C, D, stride_D};
+      EpilogueArguments epilogue_arguments{
+          {alpha, beta}, C, stride_C, D, stride_D};
 
       if constexpr (with_scales && with_zeropoints) {
-        mainloop_arguments =
-            MainloopArguments{B, stride_B, A, stride_A, scales, stride_S, group_size, zeros};
+        mainloop_arguments = MainloopArguments{
+            B, stride_B, A, stride_A, scales, stride_S, group_size, zeros};
       } else if constexpr (with_scales) {
-        mainloop_arguments =
-            MainloopArguments{B, stride_B, A, stride_A, scales, stride_S, group_size};
+        mainloop_arguments = MainloopArguments{
+            B, stride_B, A, stride_A, scales, stride_S, group_size};
       } else {
         mainloop_arguments = MainloopArguments{B, stride_B, A, stride_A};
       }
@@ -207,7 +223,8 @@ struct KernelTemplate {
       return Gemm::can_implement(args) == cutlass::Status::kSuccess;
     }
 
-    static void run(Arguments const& args, void* workspace, cudaStream_t stream) {
+    static void run(Arguments const& args, void* workspace,
+                    cudaStream_t stream) {
       Gemm gemm_op;
 
       // print("Initializing Marlinv2 kernel\n");
@@ -217,9 +234,10 @@ struct KernelTemplate {
 
       // print("Running Marlinv2 kernel\n");
       status = gemm_op(stream);
-      TORCH_CHECK(status == cutlass::Status::kSuccess, "Marlinv2 kernel failed");
+      TORCH_CHECK(status == cutlass::Status::kSuccess,
+                  "Marlinv2 kernel failed");
     }
   };
 };
 
-}; // namespace marlinv2
+};  // namespace marlinv2

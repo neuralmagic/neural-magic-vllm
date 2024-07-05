@@ -1,7 +1,7 @@
 #pragma once
 
-#include "cuda/marlinv2/marlinv2_prepack_kernel.cuh"
-#include "cuda/utilities/torch_utils.cuh"
+#include "marlinv2_prepack_kernel.cuh"
+#include "cutlass_extensions/torch_utils.hpp"
 
 namespace marlinv2 {
 
@@ -13,11 +13,12 @@ torch::Tensor prepack_impl(torch::Tensor const B) {
   auto stream = at::cuda::getCurrentCUDAStream(device.index());
 
   using ElementB = typename PrepackedLayout::ElementB;
-  using StrideB  = cutlass::detail::TagToStrideB_t<cutlass::layout::ColumnMajor>;
+  using StrideB = cutlass::detail::TagToStrideB_t<cutlass::layout::ColumnMajor>;
 
   auto B_ptr = data_ptr<ElementB const, cutlass::layout::ColumnMajor>(B, "B");
 
-  auto elements_per_storage_item = (B.dtype().itemsize() * 8) / cute::sizeof_bits_v<ElementB>;
+  auto elements_per_storage_item =
+      (B.dtype().itemsize() * 8) / cute::sizeof_bits_v<ElementB>;
 
   int N = B.size(0) * elements_per_storage_item;
   int M = B.size(1);
@@ -36,10 +37,11 @@ torch::Tensor prepack_impl(torch::Tensor const B) {
   return D;
 };
 
-template <typename ElementA, typename ElementB, typename ElementD, typename AccumulatorT = float,
-          typename ScaleT = cutlass::half_t, typename ZeroT = cutlass::half_t>
+template <typename ElementA, typename ElementB, typename ElementD,
+          typename AccumulatorT = float, typename ScaleT = cutlass::half_t,
+          typename ZeroT = cutlass::half_t>
 struct PrepackDispatcher {
   static torch::Tensor dispatch(torch::Tensor B);
 };
 
-}; // namespace marlinv2
+};  // namespace marlinv2

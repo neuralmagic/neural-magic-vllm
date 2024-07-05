@@ -19,7 +19,7 @@ from cutlass_library import (
 
 
 DISPATCH_TEMPLATE = """
-#include "cuda/marlinv2/marlinv2_mm_launcher.cuh"
+#include "marlinv2_mm_launcher.cuh"
 
 namespace marlinv2 {
 using KernelDispatcher_ = KernelDispatcher<
@@ -50,7 +50,7 @@ torch::Tensor KernelDispatcher_::dispatch(PytorchArguments args) {
 """
 
 IMPL_TEMPLATE = """
-#include "cuda/marlinv2/marlinv2_mm_launcher.cuh"
+#include "marlinv2_mm_launcher.cuh"
 
 namespace marlinv2 {
 template <typename Config, bool with_C, bool with_scales, bool with_zeropoints>
@@ -99,7 +99,7 @@ impl_{{type_name}}_sch_{{schedule_name}}(PytorchArguments args) {
 
 
 PREPACK_TEMPLATE = """
-#include "cuda/marlinv2/marlinv2_prepack_launcher.cuh"
+#include "marlinv2_prepack_launcher.cuh"
 
 namespace marlinv2 {
 using PrepackDispatcher_ = PrepackDispatcher<
@@ -125,12 +125,16 @@ torch::Tensor PrepackDispatcher_::dispatch(torch::Tensor B) {
 }; // namespace marlinv2
 """
 
+
 class NMTileSchedulerType(enum.Enum):
-  StreamK = enum_auto()
+    StreamK = enum_auto()
+
+
 #
-TileSchedulerTag.update({
-  NMTileSchedulerType.StreamK: 'cutlass::gemm::NMStreamKScheduler'
-})
+TileSchedulerTag.update(
+    {NMTileSchedulerType.StreamK: "cutlass::gemm::NMStreamKScheduler"}
+)
+
 
 class MixedInputKernelScheduleType(enum.Enum):
     TmaWarpSpecializedMixedInput = enum_auto()
@@ -138,14 +142,13 @@ class MixedInputKernelScheduleType(enum.Enum):
     TmaWarpSpecializedCooperativeMixedInput = enum_auto()
 
 
-KernelScheduleTag.update({
-    MixedInputKernelScheduleType.TmaWarpSpecializedMixedInput:
-        "cutlass::gemm::KernelTmaWarpSpecializedMixedInput",
-    MixedInputKernelScheduleType.TmaWarpSpecializedPingpongMixedInput:
-        "cutlass::gemm::KernelTmaWarpSpecializedPingpongMixedInput",
-    MixedInputKernelScheduleType.TmaWarpSpecializedCooperativeMixedInput:
-        "cutlass::gemm::KernelTmaWarpSpecializedCooperativeMixedInput",
-})
+KernelScheduleTag.update(
+    {
+        MixedInputKernelScheduleType.TmaWarpSpecializedMixedInput: "cutlass::gemm::KernelTmaWarpSpecializedMixedInput",
+        MixedInputKernelScheduleType.TmaWarpSpecializedPingpongMixedInput: "cutlass::gemm::KernelTmaWarpSpecializedPingpongMixedInput",
+        MixedInputKernelScheduleType.TmaWarpSpecializedCooperativeMixedInput: "cutlass::gemm::KernelTmaWarpSpecializedCooperativeMixedInput",
+    }
+)
 
 
 TmaMI = MixedInputKernelScheduleType.TmaWarpSpecializedCooperativeMixedInput
@@ -175,18 +178,21 @@ def generate_schedule_name(schedule_config: ScheduleConfig) -> str:
     tile_shape = (
         f"{schedule_config.tile_shape_mn[0]}x{schedule_config.tile_shape_mn[1]}"
     )
-    cluster_shape = f"{schedule_config.cluster_shape_mnk[0]}" + \
-                    f"x{schedule_config.cluster_shape_mnk[1]}" + \
-                    f"x{schedule_config.cluster_shape_mnk[2]}"
-    kernel_schedule = KernelScheduleTag[schedule_config.kernel_schedule]\
-        .split("::")[-1]
-    epilogue_schedule = EpilogueScheduleTag[schedule_config.epilogue_schedule]\
-        .split("::")[-1]
-    tile_scheduler = TileSchedulerTag[schedule_config.tile_scheduler]\
-        .split("::")[-1]
+    cluster_shape = (
+        f"{schedule_config.cluster_shape_mnk[0]}"
+        + f"x{schedule_config.cluster_shape_mnk[1]}"
+        + f"x{schedule_config.cluster_shape_mnk[2]}"
+    )
+    kernel_schedule = KernelScheduleTag[schedule_config.kernel_schedule].split("::")[-1]
+    epilogue_schedule = EpilogueScheduleTag[schedule_config.epilogue_schedule].split(
+        "::"
+    )[-1]
+    tile_scheduler = TileSchedulerTag[schedule_config.tile_scheduler].split("::")[-1]
 
-    return f"{tile_shape}_{cluster_shape}_{kernel_schedule}" + \
-           f"_{epilogue_schedule}_{tile_scheduler}"
+    return (
+        f"{tile_shape}_{cluster_shape}_{kernel_schedule}"
+        + f"_{epilogue_schedule}_{tile_scheduler}"
+    )
 
 
 # mostly unique shorter schedule_name
@@ -271,28 +277,40 @@ def create_sources(type_config, schedule_configs):
     type_name = generate_kernel_type_name(type_config)
     terse_type_name = generate_terse_kernel_type_name(type_config)
 
-    sources.append((f"marlinv2_mm_{terse_type_name}",
-        mm_dispatch_template.render(
-            type_name=type_name,
-            type_config=type_config,
-            schedules=schedules_with_names,
-    )))
+    sources.append(
+        (
+            f"marlinv2_mm_{terse_type_name}",
+            mm_dispatch_template.render(
+                type_name=type_name,
+                type_config=type_config,
+                schedules=schedules_with_names,
+            ),
+        )
+    )
 
-    sources.append((f"marlinv2_prepack_{terse_type_name}",
-        prepack_dispatch_template.render(
-            type_name=type_name,
-            type_config=type_config,
-    )))
+    sources.append(
+        (
+            f"marlinv2_prepack_{terse_type_name}",
+            prepack_dispatch_template.render(
+                type_name=type_name,
+                type_config=type_config,
+            ),
+        )
+    )
 
     for schedule in schedule_configs:
         schedule_name = generate_terse_schedule_name(schedule)
-        sources.append((f"marlinv2_mm_{terse_type_name}_{schedule_name}",
-            mm_impl_template.render(
-                type_name=type_name,
-                type_config=type_config,
-                schedule=schedule,
-                schedule_name=schedule_name,
-        )))
+        sources.append(
+            (
+                f"marlinv2_mm_{terse_type_name}_{schedule_name}",
+                mm_impl_template.render(
+                    type_name=type_name,
+                    type_config=type_config,
+                    schedule=schedule,
+                    schedule_name=schedule_name,
+                ),
+            )
+        )
     return sources
 
 
@@ -306,44 +324,50 @@ def jit(type_config, schedules):
 def AOT_generate():
     SCRIPT_DIR = os.path.dirname(__file__)
 
-    AOT_schedules = list((
-        ScheduleConfig(
-            tile_shape_mn=tile_shape_mn,
-            cluster_shape_mnk=cluster_shape_mnk,
-            kernel_schedule=kernel_schedule,
-            epilogue_schedule=epilogue_schedule,
-            tile_scheduler=tile_scheduler,
+    AOT_schedules = list(
+        (
+            ScheduleConfig(
+                tile_shape_mn=tile_shape_mn,
+                cluster_shape_mnk=cluster_shape_mnk,
+                kernel_schedule=kernel_schedule,
+                epilogue_schedule=epilogue_schedule,
+                tile_scheduler=tile_scheduler,
+            )
+            for tile_shape_mn, cluster_shape_mnk in (
+                ((128, 16), (1, 1, 1)),
+                ((128, 64), (1, 1, 1)),
+                ((128, 128), (1, 1, 1)),
+                # ((128, 256), (1, 1, 1)),
+            )
+            for kernel_schedule in (TmaMI,)
+            for epilogue_schedule in (TmaCoop,)
+            for tile_scheduler in (
+                TileSchedulerType.Default,
+                NMTileSchedulerType.StreamK,
+            )
         )
-        for tile_shape_mn, cluster_shape_mnk in (
-            ((128, 16), (1, 1, 1)),
-            ((128, 64), (1, 1, 1)),
-            ((128, 128), (1, 1, 1)),
-            #((128, 256), (1, 1, 1)),
-        )
-        for kernel_schedule in (TmaMI,)
-        for epilogue_schedule in (TmaCoop,)
-        for tile_scheduler in (
-            TileSchedulerType.Default,
-            NMTileSchedulerType.StreamK)
-    ))
+    )
 
-    AOT_kernel_type_configs = list((
-        KernelTypeConfig(
-            element_a=DataType.f16,
-            element_b=element_b,
-            element_b_scale=DataType.f16,
-            element_b_zeropoint=DataType.f16,
-            element_d=DataType.f16,
-            accumulator=DataType.f32,
+    AOT_kernel_type_configs = list(
+        (
+            KernelTypeConfig(
+                element_a=DataType.f16,
+                element_b=element_b,
+                element_b_scale=DataType.f16,
+                element_b_zeropoint=DataType.f16,
+                element_d=DataType.f16,
+                accumulator=DataType.f32,
+            )
+            for element_b in (DataType.s4, DataType.u4)
         )
-        for element_b in (DataType.s4, DataType.u4)
-    ))
+    )
 
     output_dir = os.path.join(SCRIPT_DIR, "generated")
 
     # Delete the "generated" directory if it exists
     if os.path.exists(output_dir):
         import shutil
+
         shutil.rmtree(output_dir)
 
     # Create the "generated" directory

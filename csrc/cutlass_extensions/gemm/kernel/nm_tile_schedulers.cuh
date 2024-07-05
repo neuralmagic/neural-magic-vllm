@@ -9,7 +9,7 @@
 #include "cutlass/detail/dependent_false.hpp"
 #include "cutlass/gemm/kernel/tile_scheduler.hpp"
 
-#include "csrc/cutlass_extensions/gemm/kernel/nm_sm90_tile_scheduler_stream_k.cuh"
+#include "cutlass_extensions/gemm/kernel/nm_sm90_tile_scheduler_stream_k.cuh"
 
 namespace cutlass::gemm {
 

@@ -18,7 +18,7 @@
 #include "cute/layout.hpp"
 #include "cute/tensor.hpp"
 
-#include "csrc/cutlass_extensions/gemm/kernel/nm_tile_scheduler_params.hpp"
+#include "cutlass_extensions/gemm/kernel/nm_tile_scheduler_params.hpp"
 
 namespace cutlass::gemm::kernel::detail {
 
