@@ -58,19 +58,6 @@ jobs:
                 ref: ${{ inputs.gitref }}
                 submodules: recursive
 
-            - name: trigger stratus nm-pypi update workflow
-              uses: actions/github-script@v6
-              with:
-                github-token: ${{ secrets.CICD_GITHUB_PAT }}
-                script: |
-                  const result = await github.rest.actions.createWorkflowDispatch({
-                    owner: 'neuralmagic',
-                    repo: 'stratus',
-                    workflow_id: 'nm-pypi-update.yml',
-                    ref: 'trigger'
-                  })
-                  console.log(result)
-
             - name: setenv
               id: setenv
               uses: ./.github/actions/nm-set-env/
