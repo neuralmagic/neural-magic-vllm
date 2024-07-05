@@ -12,5 +12,6 @@ runs:
         # the pandas.DataFrame.to_markdown() method requires the `tabulate` package
         pip3 install tabulate
         COVERAGE_MD = $(python3 ./.github/scripts/coverage_report_breakdown.py ${{ inputs.coverage_json }})
+        echo "markdown: ${COVERAGE_MD}"
         echo "markdown=${COVERAGE_MD}" >> $GITHUB_OUTPUT
       shell: bash
