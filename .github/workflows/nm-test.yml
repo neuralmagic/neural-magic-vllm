@@ -188,7 +188,7 @@ jobs:
                 whl: ${{ steps.test.outputs.whl }}
                 magic_wand: ${{ steps.test.outputs.magic_wand }}
                 test_status: ${{ steps.test.outputs.status }}
-                test_coverage_md: ${{ steps.coverage_breakdown.markdown }}
+                test_coverage_md: ${{ steps.coverage_breakdown.outputs.markdown }}
 
             - name: complete testmo run
               uses: ./.github/actions/nm-testmo-run-complete/
