@@ -7,11 +7,16 @@ from typing import Tuple
 import pytest
 import torch
 
+from tests.nm_utils.utils_skip import should_skip_test_group
 from vllm.model_executor.layers.linear import UnquantizedLinearMethod
 from vllm.model_executor.layers.quantization.gptq import GPTQLinearMethod
 from vllm.model_executor.layers.quantization.gptq_marlin import (
     GPTQMarlinLinearMethod)
 from vllm.model_executor.layers.quantization.marlin import MarlinLinearMethod
+
+if should_skip_test_group(group_name="TEST_QUANTIZATION"):
+    pytest.skip("TEST_QUANTIZATION=DISABLE, skipping quantization test group",
+                allow_module_level=True)
 
 PROMPT = "On the surface of Mars, we found"
 
