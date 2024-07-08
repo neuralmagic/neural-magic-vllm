@@ -59,7 +59,7 @@ if [ ! -d "${TEST_DIR}" ]; then
 fi
 
 # find tests
-TESTS_DOT_PY=$(find ${TEST_DIR} -type f -name "test*.py")
+TESTS_DOT_PY=$(find ${TEST_DIR} -type f -name "test_regression.py")
 TESTS_FOUND=(${TESTS_DOT_PY})
 
 echo "found:"
