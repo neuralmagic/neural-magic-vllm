@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import pytest
 import torch
@@ -8,7 +8,8 @@ from tests.nm_utils.utils_skip import should_skip_test_group
 if TYPE_CHECKING:
     import flashinfer as flashinfer_t
 
-lm_eval: "flashinfer_t" = pytest.importorskip("flashinfer",
+flashinfer: "flashinfer_t" = pytest.importorskip(
+    "flashinfer",
     reason="RE-ENABLE TEST: Need to install FlashInfer in NM Automation")
 
 if should_skip_test_group(group_name="TEST_KERNELS"):
