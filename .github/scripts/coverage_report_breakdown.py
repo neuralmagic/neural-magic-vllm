@@ -146,7 +146,7 @@ class CodeCoverage:
         summary_df = summary_df.astype(str)
         summary_df.replace({"nan": None}, inplace=True)
 
-        return summary_df.to_markdown(index=False, tablefmt="github", missingval="", floatfmt=(".0f", ".0f", ".0f", ".0f", ".0f", ".1%"))
+        return summary_df.to_markdown(index=False, tablefmt="github", missingval="", floatfmt=(".0f", ".0f", ".0f", ".0f", ".0f", ".1%"), colalign=("left", "right", "right", "right", "right", "decimal"))
 
 
 if __name__ == "__main__":
