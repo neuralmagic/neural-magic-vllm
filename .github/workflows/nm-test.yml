@@ -72,7 +72,7 @@ jobs:
                 python-version: ${{ inputs.python }}
 
             - name: install automation components
-              uses: neuralmagic/nm-actions/actions/install-automation-components@install-prereqs
+              uses: neuralmagic/nm-actions/actions/install-automation-components@main
 
             - name: checkout
               id: checkout
