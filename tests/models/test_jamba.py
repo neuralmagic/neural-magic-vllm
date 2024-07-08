@@ -3,6 +3,8 @@ import pytest
 MODELS = ["ai21labs/Jamba-tiny-random"]
 
 
+@pytest.mark.skip(
+    reason="REENABLE TEST: Need to install causal_conv1d in NM Automation")
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("dtype", ["float"])
 @pytest.mark.parametrize("max_tokens", [20])
