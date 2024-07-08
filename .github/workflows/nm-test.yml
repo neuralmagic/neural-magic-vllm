@@ -170,6 +170,13 @@ jobs:
                 results: test-results
                 step_status: ${{ steps.test.outputs.status }}
 
+            - name: collect test coverage breakdown
+              id: coverage_breakdown
+              uses: ./.github/actions/nm-code-coverage-md/
+              if: success () || failure()
+              with:
+                coverage_json: cc-vllm.json
+
             - name: summary
               uses: ./.github/actions/nm-summary-test/
               if: success() || failure()
@@ -181,7 +188,7 @@ jobs:
                 whl: ${{ steps.test.outputs.whl }}
                 magic_wand: ${{ steps.test.outputs.magic_wand }}
                 test_status: ${{ steps.test.outputs.status }}
-                coverage_json: cc-vllm.json
+                test_coverage_md: ${{ steps.coverage_breakdown.outputs.markdown }}
 
             - name: complete testmo run
               uses: ./.github/actions/nm-testmo-run-complete/
