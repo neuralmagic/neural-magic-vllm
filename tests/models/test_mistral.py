@@ -19,7 +19,7 @@ MODELS = [
 
 
 # UPSTREAM SYNC: we run OOM on the A10g instances.
-# @pytest.mark.skip("Not enough memory in automation testing.")
+@pytest.mark.skip("Not enough memory in automation testing.")
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("dtype", ["bfloat16"])
 @pytest.mark.parametrize("max_tokens", [64])

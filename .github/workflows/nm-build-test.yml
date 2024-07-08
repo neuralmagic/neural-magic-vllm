@@ -133,52 +133,52 @@ jobs:
             test_skip_env_vars: ${{ matrix.test_config.test }}
         secrets: inherit
 
-#    BENCHMARK:
-#        needs: [BUILD]
-#        if: success()
-#        uses: ./.github/workflows/nm-benchmark.yml
-#        with:
-#            label: ${{ inputs.benchmark_label }}
-#            benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
-#            timeout: ${{ inputs.benchmark_timeout }}
-#            gitref: ${{ github.ref }}
-#            python: ${{ inputs.python }}
-#            whl: ${{ needs.BUILD.outputs.whl }}
-#            # Always push if it is a scheduled job
-#            push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
-#        secrets: inherit
-#
-#    LM-EVAL:
-#      needs: [BUILD]
-#      uses: ./.github/workflows/nm-lm-eval.yml
-#      with:
-#        label: ${{ inputs.lm_eval_label }}
-#        timeout: ${{ inputs.lm_eval_timeout }}
-#        gitref: ${{ inputs.gitref }}
-#        python: ${{ inputs.python }}
-#        whl: ${{ needs.BUILD.outputs.whl }}
-#        lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
-#      secrets: inherit
-#
-#    # uploading is only available when using GCP autoscaling group
-#    UPLOAD:
-#        needs: [TEST, BENCHMARK, LM-EVAL]
-#        if: ${{ inputs.push_to_pypi }}
-#        uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
-#        with:
-#            label: gcp-k8s-util
-#            timeout: ${{ inputs.build_timeout }}
-#            gitref: ${{ github.ref }}
-#        secrets: inherit
-#
-#    # update docker
-#    DOCKER:
-#        needs: [BUILD, UPLOAD]
-#        if: ${{ inputs.push_to_pypi }}
-#        uses: ./.github/workflows/publish-docker.yml
-#        with:
-#            push_to_repository: ${{ inputs.push_to_pypi }}
-#            gitref: ${{ inputs.gitref }}
-#            wf_category: ${{ inputs.wf_category }}
-#            wheel: ${{ needs.BUILD.outputs.whl }}
-#        secrets: inherit
+    BENCHMARK:
+        needs: [BUILD]
+        if: success()
+        uses: ./.github/workflows/nm-benchmark.yml
+        with:
+            label: ${{ inputs.benchmark_label }}
+            benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
+            timeout: ${{ inputs.benchmark_timeout }}
+            gitref: ${{ github.ref }}
+            python: ${{ inputs.python }}
+            whl: ${{ needs.BUILD.outputs.whl }}
+            # Always push if it is a scheduled job
+            push_benchmark_results_to_gh_pages: "${{ github.event_name == 'schedule' || inputs.push_benchmark_results_to_gh_pages }}"
+        secrets: inherit
+
+    LM-EVAL:
+      needs: [BUILD]
+      uses: ./.github/workflows/nm-lm-eval.yml
+      with:
+        label: ${{ inputs.lm_eval_label }}
+        timeout: ${{ inputs.lm_eval_timeout }}
+        gitref: ${{ inputs.gitref }}
+        python: ${{ inputs.python }}
+        whl: ${{ needs.BUILD.outputs.whl }}
+        lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
+      secrets: inherit
+
+    # uploading is only available when using GCP autoscaling group
+    UPLOAD:
+        needs: [TEST, BENCHMARK, LM-EVAL]
+        if: ${{ inputs.push_to_pypi }}
+        uses: ./.github/workflows/nm-upload-assets-to-gcp.yml
+        with:
+            label: gcp-k8s-util
+            timeout: ${{ inputs.build_timeout }}
+            gitref: ${{ github.ref }}
+        secrets: inherit
+
+    # update docker
+    DOCKER:
+        needs: [BUILD, UPLOAD]
+        if: ${{ inputs.push_to_pypi }}
+        uses: ./.github/workflows/publish-docker.yml
+        with:
+            push_to_repository: ${{ inputs.push_to_pypi }}
+            gitref: ${{ inputs.gitref }}
+            wf_category: ${{ inputs.wf_category }}
+            wheel: ${{ needs.BUILD.outputs.whl }}
+        secrets: inherit

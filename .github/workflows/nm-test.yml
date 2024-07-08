@@ -124,7 +124,6 @@ jobs:
               uses: ./.github/actions/nm-install-whl/
               with:
                 python: ${{ inputs.python }}
-                venv:
 
             - name: run buildkite script
               run: |
@@ -169,13 +168,6 @@ jobs:
                 testmo_run_id: ${{ steps.create_testmo_run.outputs.id }}
                 results: test-results
                 step_status: ${{ steps.test.outputs.status }}
-
-#            - name: collect test coverage breakdown
-#              id: coverage_breakdown
-#              uses: ./.github/actions/nm-code-coverage-md/
-#              if: success () || failure()
-#              with:
-#                coverage_json: cc-vllm.json
 
             - name: summary
               uses: ./.github/actions/nm-summary-test/

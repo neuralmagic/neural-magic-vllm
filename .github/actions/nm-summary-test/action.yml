@@ -32,9 +32,6 @@ runs:
       TESTMO_URL=${{ inputs.testmo_run_url }}
       TEST_STATUS=${{ inputs.test_status }}
       TEST_EMOJI=$(./.github/scripts/step-status ${TEST_STATUS})
-      echo "## TestMo URL: " >> $GITHUB_STEP_SUMMARY
-      echo "${TESTMO_URL}" >> $GITHUB_STEP_SUMMARY
-      echo ""
       echo "| Parameter | |" >> $GITHUB_STEP_SUMMARY
       echo "|---|---|" >> $GITHUB_STEP_SUMMARY
       echo "| label: | \`${{ inputs.test_label }}\` |" >> $GITHUB_STEP_SUMMARY
@@ -47,8 +44,10 @@ runs:
       echo "| magic_wand: | ${{ inputs.magic_wand }} |" >> $GITHUB_STEP_SUMMARY
       echo "| test: | ${TEST_EMOJI} |" >> $GITHUB_STEP_SUMMARY
       echo "" >> $GITHUB_STEP_SUMMARY
+      echo "#### TestMo URL: ${TESTMO_URL}" >> $GITHUB_STEP_SUMMARY
       echo "## Test Coverage" >> $GITHUB_STEP_SUMMARY
-      # the pandas.DataFrame.to_markdown() method requires the `tabulate` package
+      # coverage_report_breakdown.py requires the `tabulate` package
+      # to generate the markdown for the summary.
       pip3 install tabulate
       # As a multiline response we cannot pass the table directly to github
       # so redirect it to a file, then cat the file to the output
