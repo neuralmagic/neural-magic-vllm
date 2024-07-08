@@ -1,10 +1,15 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
-import flashinfer
 import pytest
 import torch
 
 from tests.nm_utils.utils_skip import should_skip_test_group
+
+if TYPE_CHECKING:
+    import flashinfer as flashinfer_t
+
+lm_eval: "flashinfer_t" = pytest.importorskip("flashinfer",
+    reason="RE-ENABLE TEST: Need to install FlashInfer in NM Automation")
 
 if should_skip_test_group(group_name="TEST_KERNELS"):
     pytest.skip("TEST_KERNELS=DISABLE, skipping kernels test group",

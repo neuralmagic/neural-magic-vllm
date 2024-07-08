@@ -34,6 +34,8 @@ def test_models(
             f"Test{i}:\nHF: {hf_output_ids}\nvLLM: {vllm_output_ids}")
 
 
+@pytest.mark.skip(
+    reason="RE-ENABLE TEST: Need to install causal_conv1d in NM Automation")
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("dtype", ["float"])
 def test_state_cleanup(
@@ -53,6 +55,8 @@ def test_state_cleanup(
                     "could be related to finished_requests_ids")
 
 
+@pytest.mark.skip(
+    reason="RE-ENABLE TEST: Need to install causal_conv1d in NM Automation")
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.parametrize("dtype", ["float"])
 def test_model_print(
