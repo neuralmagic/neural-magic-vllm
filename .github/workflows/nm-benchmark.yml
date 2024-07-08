@@ -122,7 +122,6 @@ jobs:
         uses: ./.github/actions/nm-install-whl/
         with:
             python: ${{ inputs.python }}
-            venv:
 
       - name: run benchmarks
         uses: ./.github/actions/nm-benchmark/
@@ -130,7 +129,6 @@ jobs:
           benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
           output_directory: benchmark-results
           python: ${{ inputs.python }}
-          venv:
 
       - name: store benchmark result artifacts
         if: success()
@@ -171,7 +169,6 @@ jobs:
           # Metrics that we only want to observe are stored here
           observation_metrics_output_file_path: gh-action-benchmark-jsons/observation_metrics.json
           python: ${{ inputs.python }}
-          venv:
 
       - name: set gh action benchmark input artifact name
         id: set_gh_action_benchmark_input_artifact_name

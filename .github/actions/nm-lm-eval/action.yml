@@ -6,7 +6,8 @@ inputs:
     required: true
   venv:
     description: 'name for python virtual environment'
-    required: true
+    required: false
+    default: ""
   lm_eval_configuration:
     description: 'file containing test configuration'
     required: true
@@ -15,7 +16,7 @@ runs:
   steps:
   - id: lm-eval
     run: |
-      if [ -n "${{ inputs.venv }}" ]; then
+      if [ ! -z "${{ inputs.venv }}" ]; then
         COMMIT=${{ github.sha }}
         VENV="${{ inputs.venv }}-${COMMIT:0:7}"
         source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate

@@ -17,7 +17,8 @@ inputs:
     required: true
   venv:
     description: 'name for python virtual environment'
-    required: true
+    required: false
+    default: ""
 runs:
   using: composite
   steps:

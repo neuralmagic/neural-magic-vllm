@@ -107,11 +107,9 @@ jobs:
         uses: ./.github/actions/nm-install-whl/
         with:
             python: ${{ inputs.python }}
-            venv:
 
       - name: run lm-eval-accuracy
         uses: ./.github/actions/nm-lm-eval/
         with:
           python: ${{ inputs.python }}
-          venv:
           lm_eval_configuration: ${{ inputs.lm_eval_configuration }}
