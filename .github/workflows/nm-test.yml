@@ -72,10 +72,7 @@ jobs:
                 python-version: ${{ inputs.python }}
 
             - name: install automation components
-              run: |
-                sudo apt-get update --fix-missing
-                sudo apt-get install -y git-all
-                sudo apt-get install -y curl
+              uses: neuralmagic/nm-actions/actions/install-automation-components@v1.0.0
 
             - name: checkout
               id: checkout
@@ -94,7 +91,7 @@ jobs:
                 nvcc_threads: 0
 
             - name: install testmo
-              uses: neuralmagic/nm-actions/actions/install-testmo@main
+              uses: neuralmagic/nm-actions/actions/install-testmo@v1.0.0
 
             - name: create testmo run
               id: create_testmo_run
