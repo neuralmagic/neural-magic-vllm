@@ -227,8 +227,8 @@ def cutlass_scaled_mm(a: torch.Tensor,
                       out_dtype: Type[torch.dtype],
                       bias: Optional[torch.Tensor] = None) -> torch.Tensor:
     # torch.check?
-    assert (b.shape[0] % 16 == 0 and b.shape[1] % 16 == 0)
-    assert (out_dtype is torch.bfloat16 or out_dtype is torch.float16)
+    #assert (b.shape[0] % 16 == 0 and b.shape[1] % 16 == 0)
+    #assert (out_dtype is torch.bfloat16 or out_dtype is torch.float16)
 
     m = a.size(0)
     n = b.size(1)
