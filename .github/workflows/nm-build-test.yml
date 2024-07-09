@@ -176,7 +176,7 @@ jobs:
 
     # update docker
     DOCKER:
-        needs: [TEST, BENCHMARK, LM-EVAL]
+        needs: [BUILD, UPLOAD]
         if: ${{ inputs.wf_category != 'REMOTE' }}
         uses: ./.github/workflows/publish-docker.yml
         with:
