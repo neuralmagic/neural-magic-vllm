@@ -58,10 +58,10 @@ on:
         required: true
 
       # benchmark related parameters
-      benchmark_label:
-        description: "requested benchmark label (specifies instance)"
+      benchmark_labels:
+        description: "stringified Json array of benchmark labels"
         type: string
-        default: ""
+        required: true
       benchmark_config_list_file:
         description: "benchmark configs file, e.g. 'nm_benchmark_nightly_configs_list.txt'"
         type: string
@@ -136,9 +136,12 @@ jobs:
     BENCHMARK:
         needs: [BUILD]
         if: success()
+        strategy:
+            matrix:
+                benchmark_label: ${{ fromJson(inputs.benchmark_labels) }}
         uses: ./.github/workflows/nm-benchmark.yml
         with:
-            label: ${{ inputs.benchmark_label }}
+            label: ${{ matrix.benchmark_label }}
             benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
             timeout: ${{ inputs.benchmark_timeout }}
             gitref: ${{ github.ref }}
