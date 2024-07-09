@@ -118,7 +118,7 @@ if __name__ == "__main__":
 
     for root in profile_data["prefill"]["summary_stats"]:
         get_entries_at_depth(depth, prefill_entries_and_traces, root)
-    for root in profile_data["decode"]["summary_stats"]:
+    for root in profile_data["decode_1"]["summary_stats"]:
         get_entries_at_depth(depth, decode_entries_and_traces, root)
 
     def attempt_to_make_names_unique(entries_and_traces):
@@ -199,12 +199,11 @@ if __name__ == "__main__":
     shorten_plot_legend_strings(legend, 50)
 
     context = profile_data["context"]
-    plt.suptitle(
-        f"{context['model']}\n"
-        f"Batch={context['batch_size']}, "
-        f"PromptLen={context['prompt_len']}, "
-        f"NumGpus={context['tensor_parallel_size']}"
-        f"{', Sparsity ' +  context['sparsity'] if context['sparsity'] else ''}"
-    )
+    sparsity = context.get('sparsity', None)
+    plt.suptitle(f"{context['model']}\n"
+                 f"Batch={context['batch_size']}, "
+                 f"PromptLen={context['prompt_len']}, "
+                 f"NumGpus={context['tensor_parallel_size']}"
+                 f"{', Sparsity ' + sparsity if sparsity else ''}")
     plt.savefig(output, bbox_inches='tight')
     print("Created: ", output)

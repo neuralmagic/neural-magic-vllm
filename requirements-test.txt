@@ -18,9 +18,9 @@ peft
 requests==2.31  # required for python 3.8 testing
 ray
 sentence-transformers # required for embedding
-optimum     # required for hf gptq baselines
-auto-gptq   # required for hf gptq baselines
 torchvision # required for the image processor of phi3v
+git+https://github.com/vllm-project/llm-compressor.git # required for compressed-tensors
+compressed-tensors==0.4.0
 
 # Benchmarking
 aiohttp

@@ -176,11 +176,11 @@ jobs:
     # update docker
     DOCKER:
         needs: [BUILD, UPLOAD]
-        if: ${{ inputs.push_to_pypi }}
+        if: ${{ inputs.wf_category != 'REMOTE' }}
         uses: ./.github/workflows/publish-docker.yml
         with:
             push_to_repository: ${{ inputs.push_to_pypi }}
             gitref: ${{ inputs.gitref }}
             wf_category: ${{ inputs.wf_category }}
-            wheel: ${{ needs.BUILD.outputs.whl }}
+            whl: ${{ needs.BUILD.outputs.whl }}
         secrets: inherit

@@ -24,6 +24,30 @@ on:
                 description: "wheel file path"
                 type: string
                 required: true
+
+    workflow_dispatch:
+        inputs:
+            label:
+                description: "requested runner label (specifies instance)"
+                type: string
+                required: true
+            timeout:
+                description: "time limit for run in minutes "
+                type: string
+                required: true
+            gitref:
+                description: 'git commit hash or branch name'
+                type: string
+                required: true
+            wf_category:
+                description: "workflow category: REMOTE, NIGHTLY, RELEASE"
+                type: string
+                default: "REMOTE"
+            whl:
+                description: "wheel file path"
+                type: string
+                required: true
+
 jobs:
 
     PUBLISH:
@@ -88,3 +112,15 @@ jobs:
               id: cp-assets
               uses: ./.github/actions/nm-cp-assets/
 
+            - name: trigger stratus nm-pypi update workflow to update nm-pypi index
+              uses: actions/github-script@v6
+              with:
+                github-token: ${{ secrets.CICD_GITHUB_PAT }}
+                script: |
+                  const result = await github.rest.actions.createWorkflowDispatch({
+                    owner: 'neuralmagic',
+                    repo: 'stratus',
+                    workflow_id: 'nm-pypi-update.yml',
+                    ref: 'main'
+                  })
+                  console.log(result)

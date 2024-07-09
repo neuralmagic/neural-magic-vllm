@@ -5,19 +5,12 @@ import pytest
 import ray
 
 from tests.nm_utils.utils_skip import should_skip_test_group
-from tests.utils import VLLM_PATH, RemoteOpenAIServer
+
+from ..utils import RemoteOpenAIServer
 
 if should_skip_test_group(group_name="TEST_ASYNC_ENGINE"):
     pytest.skip("TEST_ASYNC_ENGINE=DISABLE, skipping async engine test group",
                 allow_module_level=True)
-
-# TODO: @robertgshaw2
-# Remove this once we land the single whl - failing due to size of workspace
-# being moved into ray.
-if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
-    pytest.skip(
-        "TEST_ENTRYPOINTS=DISABLE, skipping entrypoints engine test group",
-        allow_module_level=True)
 
 # any model with a chat template should work here
 MODEL_NAME = "facebook/opt-125m"
@@ -25,7 +18,7 @@ MODEL_NAME = "facebook/opt-125m"
 
 @pytest.fixture(scope="module")
 def ray_ctx():
-    ray.init(runtime_env={"working_dir": VLLM_PATH})
+    ray.init()
     yield
     ray.shutdown()
 

@@ -15,10 +15,10 @@ on:
         description: "type of nm-vllm to install for the docker image: NIGHTLY (default) or RELEASE"
         type: string
         default: 'NIGHTLY'
-      wheel:
-        description: "nm-vllm wheel to install for the docker image: latest (default) or specific wheel name"
+      whl:
+        description: "nm-vllm wheel to install for the docker image"
         type: string
-        default: 'latest'
+        required: true
 
   workflow_dispatch:
     inputs:
@@ -34,10 +34,10 @@ on:
         description: "type of nm-vllm to install for the docker image: NIGHTLY (default) or RELEASE"
         type: string
         default: 'NIGHTLY'
-      wheel:
-        description: "nm-vllm wheel to install for the docker image: latest (default) or specific wheel name"
+      whl:
+        description: "nm-vllm wheel to install for the docker image"
         type: string
-        default: 'latest'
+        required: true
 
 jobs:
     build-docker-image:
@@ -70,7 +70,7 @@ jobs:
             uses: ./.github/actions/nm-get-docker-tags/
             with:
               wf_category: ${{ inputs.wf_category }}
-              wheel: ${{ inputs.wheel }}
+              whl: ${{ inputs.whl }}
 
           - name: Build image
             id: build

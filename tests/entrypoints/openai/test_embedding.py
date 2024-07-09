@@ -1,10 +1,13 @@
+import base64
+
+import numpy as np
 import openai
 import pytest
 import ray
 
 from tests.nm_utils.utils_skip import should_skip_test_group
 
-from ..utils import VLLM_PATH, RemoteOpenAIServer
+from ...utils import RemoteOpenAIServer
 
 if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
     pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
@@ -12,12 +15,10 @@ if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
 
 EMBEDDING_MODEL_NAME = "intfloat/e5-mistral-7b-instruct"
 
-pytestmark = pytest.mark.openai
-
 
 @pytest.fixture(scope="module")
 def ray_ctx():
-    ray.init(runtime_env={"working_dir": VLLM_PATH})
+    ray.init()
     yield
     ray.shutdown()
 
@@ -117,3 +118,33 @@ async def test_batch_embedding(embedding_client: openai.AsyncOpenAI,
     assert embeddings.usage.completion_tokens == 0
     assert embeddings.usage.prompt_tokens == 17
     assert embeddings.usage.total_tokens == 17
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "model_name",
+    [EMBEDDING_MODEL_NAME],
+)
+async def test_batch_base64_embedding(embedding_client: openai.AsyncOpenAI,
+                                      model_name: str):
+    input_texts = [
+        "Hello my name is",
+        "The best thing about vLLM is that it supports many different models"
+    ]
+
+    responses_float = await embedding_client.embeddings.create(
+        input=input_texts, model=model_name, encoding_format="float")
+
+    responses_base64 = await embedding_client.embeddings.create(
+        input=input_texts, model=model_name, encoding_format="base64")
+
+    decoded_responses_base64_data = []
+    for data in responses_base64.data:
+        decoded_responses_base64_data.append(
+            np.frombuffer(base64.b64decode(data.embedding),
+                          dtype="float").tolist())
+
+    assert responses_float.data[0].embedding == decoded_responses_base64_data[
+        0]
+    assert responses_float.data[1].embedding == decoded_responses_base64_data[
+        1]
