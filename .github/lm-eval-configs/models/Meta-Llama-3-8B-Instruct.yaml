@@ -1,11 +1,11 @@
-# ./nm-run-lm-eval-gsm-hf-baseline.sh -m meta-llama/Meta-Llama-3-8B-Instruct -b 32 -l 250 -f 5
+# ./nm-run-lm-eval-gsm-hf-baseline.sh -m meta-llama/Meta-Llama-3-8B-Instruct -b 16 -l 1000 -f 5
 model_name: "meta-llama/Meta-Llama-3-8B-Instruct"
 tasks:
 - name: "gsm8k"
   metrics:
   - name: "exact_match,strict-match"
-    value: 0.74
+    value: 0.762
   - name: "exact_match,flexible-extract"
-    value: 0.74
-limit: 250
+    value: 0.761
+limit: 1000
 num_fewshot: 5

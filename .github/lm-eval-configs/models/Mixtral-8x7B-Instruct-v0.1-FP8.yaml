@@ -1,11 +1,11 @@
-# ./nm-run-lm-eval-gsm-hf-baseline.sh -m mistralai/Mixtral-8x7B-Instruct-v0.1 -b 32 -l 250 -f 5
-model_name: "mistralai/Mixtral-8x7B-Instruct-v0.1"
+# ./nm-run-lm-eval-gsm-hf-baseline.sh -m neuralmagic/Mixtral-8x7B-Instruct-v0.1-FP8 -b 16 -l 1000 -f 5
+model_name: "neuralmagic/Mixtral-8x7B-Instruct-v0.1-FP8"
 tasks:
 - name: "gsm8k"
   metrics:
   - name: "exact_match,strict-match"
-    value: 0.616
+    value: 0.619
   - name: "exact_match,flexible-extract"
-    value: 0.620
-limit: 250
+    value: 0.627
+limit: 1000
 num_fewshot: 5
