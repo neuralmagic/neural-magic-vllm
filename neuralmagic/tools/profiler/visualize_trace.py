@@ -268,7 +268,7 @@ def plot_trace_df(traces_df: pd.DataFrame,
 
     # Setup labels and title
     plt.setp(ax.get_xticklabels(), rotation=90)
-    ax.set_ylabel("time ms")
+    ax.set_ylabel(plot_metric)
     plt.suptitle(plot_title)
 
     plt.savefig(output, bbox_inches='tight')
