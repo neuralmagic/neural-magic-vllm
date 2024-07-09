@@ -401,7 +401,8 @@ if __name__ == "__main__":
     parser.add_argument("--plot-metric", 
                         type=str,
                         default="cuda_time_ms",
-                        help='Metric to plot. some options are cuda_time_us, cuda_time_ms, pct_cuda_time')
+                        help='Metric to plot. some options are cuda_time_ms, \
+                                pct_cuda_time')
     parser.add_argument(
         "--step-plot-interval",
         type=int,
