@@ -223,16 +223,14 @@ def group_trace_by_operations(trace_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def plot_trace_df(traces_df: pd.DataFrame,
+                  plot_metric: str,
                   plot_title: str,
                   output: Optional[Path] = None):
-
-    traces_df["cuda_time_ms"] = traces_df["cuda_time_us"] / 1000
-    traces_df = traces_df.fillna(0)
 
     phases = traces_df['phase'].unique()
     traces_df = traces_df.pivot_table(index="phase",
                                       columns="name",
-                                      values="cuda_time_ms",
+                                      values=plot_metric,
                                       aggfunc="sum")
 
     traces_df = group_trace_by_operations(traces_df)
@@ -281,6 +279,7 @@ def main(
         json_trace: Path,
         output_directory: Path,
         depth: int,  # Fetch/Plot operations at this depth of the Json tree
+        plot_metric: str,
         make_names_unique: bool,
         top_k: int,
         json_nodes_to_fold: List[str]):
@@ -329,6 +328,11 @@ def main(
 
         # Combine all data frames so they can be put in a single plot
         traces_df = pd.concat(trace_dfs)
+
+        # Add a derived metric `cuda_time_ms`
+        traces_df["cuda_time_ms"] = traces_df["cuda_time_us"] / 1000
+        traces_df = traces_df.fillna(0)
+
         return traces_df
 
     def make_plot_title_suffix(profile_json: dict) -> str:
@@ -365,9 +369,9 @@ def main(
 
     plot_title_suffix = make_plot_title_suffix(profile_json)
 
-    plot_trace_df(prefill_traces, "prefill " + plot_title_suffix,
+    plot_trace_df(prefill_traces, plot_metric, "prefill " + plot_title_suffix,
                   output_directory / Path("prefill.png"))
-    plot_trace_df(decode_traces, "decodes " + plot_title_suffix,
+    plot_trace_df(decode_traces, plot_metric, "decodes " + plot_title_suffix,
                   output_directory / Path("decode_steps.png"))
 
 
@@ -394,6 +398,10 @@ if __name__ == "__main__":
     parser.add_argument("--fold-json-node",
                         nargs='+',
                         default=['Sampler', 'LogitsProcessor'])
+    parser.add_argument("--plot-metric", 
+                        type=str,
+                        default="cuda_time_ms",
+                        help='Metric to plot. some options are cuda_time_us, cuda_time_ms, pct_cuda_time')
     parser.add_argument(
         "--step-plot-interval",
         type=int,
@@ -415,5 +423,5 @@ if __name__ == "__main__":
     output_directory = args.output_directory if args.output_directory else Path(
         args.json_trace).parent
 
-    main(Path(args.json_trace), output_directory, depth, make_names_unique,
-         args.top_k, args.fold_json_node)
+    main(Path(args.json_trace), output_directory, depth, 
+         args.plot_metric, make_names_unique, args.top_k, args.fold_json_node)
