@@ -31,7 +31,7 @@ jobs:
             benchmark_timeout: 480
 
             lm_eval_label: gcp-k8s-l4-solo
-            lm_eval_label_large: k8s-h100-quad
+            lm_eval_label_large: k8s-h100-duo
             lm_eval_configuration: ./.github/lm-eval-configs/smoke-small-models.txt
             lm_eval_configuration_large: ./.github/lm-eval-configs/smoke-large-models.txt
             lm_eval_timeout: 300
