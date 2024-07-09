@@ -30,8 +30,8 @@ def get_entries_at_depth(depth: int,
 
     if curr_depth == 0 and largest_dist_from_leaf(node) <= (abs(depth) - 1):
         # The tree is not tall enough!
-        entries_and_traces.append((node["entry"] , trace))
-        return 
+        entries_and_traces.append((node["entry"], trace))
+        return
 
     if largest_dist_from_leaf(node) == (abs(depth) - 1):
         entries_and_traces.append((node["entry"], trace))
@@ -44,9 +44,10 @@ def get_entries_at_depth(depth: int,
                              curr_depth=curr_depth + 1,
                              trace=trace)
 
-def fold_nodes(root: dict, nodes_to_fold : List[str]):
 
-    stack : List[dict] = [root]
+def fold_nodes(root: dict, nodes_to_fold: List[str]):
+
+    stack: List[dict] = [root]
     while len(stack) != 0:
         node = stack.pop()
         if node['entry']['name'] in nodes_to_fold:
@@ -55,6 +56,7 @@ def fold_nodes(root: dict, nodes_to_fold : List[str]):
         for child in node["children"]:
             stack.append(child)
     return root
+
 
 ## Operation name cleanup utils ####
 
@@ -273,6 +275,7 @@ def plot_trace_df(traces_df: pd.DataFrame,
 
     plt.savefig(output, bbox_inches='tight')
     print("Created: ", output)
+
 
 def main(
         json_trace: Path,
