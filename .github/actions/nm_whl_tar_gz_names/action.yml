@@ -1,0 +1,25 @@
+name: get wheel and tar.gz names
+description: "retrieve the whl and tarfile names from existing assets"
+outputs:
+  whl:
+    description: "the wheel asset file path"
+    value: ${{ steps.whl_targz_names.outputs.whl }}
+  targz:
+    description: "the tar.gz asset file path"
+    value: ${{ steps.whl_targz_names.outputs.targz }}
+runs:
+  using: composite
+  steps:
+    - id: whl_targz_names
+      run: |
+        WHL=$(find assets -type f -name "*nm_vllm*.whl")
+        WHL_FILE=$(basename ${WHL})
+        echo "whl: ${WHL}"
+        echo "whl_file: ${WHL_FILE}"
+        TAR=$(find assets -path "*nm-vllm*.tar.gz" -type f -name "nm-vllm*.tar.gz")
+        TAR_FILE=$(basename ${TAR})
+        echo "tar: ${TAR}"
+        echo "tar_file: ${TAR_FILE}"
+        echo "whl=${WHL_FILE}" >> $GITHUB_OUTPUT
+        echo "targz=${TAR_FILE}" >> $GITHUB_OUTPUT
+      shell: bash

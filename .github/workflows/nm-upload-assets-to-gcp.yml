@@ -20,10 +20,6 @@ on:
                 description: "workflow category: REMOTE, NIGHTLY, RELEASE"
                 type: string
                 default: "REMOTE"
-            whl:
-                description: "wheel file path"
-                type: string
-                required: true
 
     workflow_dispatch:
         inputs:
@@ -84,15 +80,29 @@ jobs:
               with:
                   path: assets
 
+            - name: get wheel and tar.gz names
+              id: whl_targz_names
+              uses: ./.github/actions/nm_whl_tar_gz_names
+
+            # this workflow is only run if push-to-pypi is True, and we only
+            # want to push RELEASE assets to the external pypi.org
+            # publish the wheel file
             - name: push wheel to pypi.org
-              # this workflow is only run if push-to-pypi is True, and we only
-              # want to push RELEASE wheels to the external pypi.org
-              if: ${{ inputs.wf_category }} == "RELEASE"
-              uses: neuralmagic/nm-actions/actions/publish_whl/action.yml@main
+              if: ${{ inputs.wf_category == "RELEASE" }}
+              uses: neuralmagic/nm-actions/actions/publish_whl/action.yml@v1.0.0
               with:
                 username: ${{ secrets.PYPI_PUBLIC_USER }}
                 password: ${{ secrets.PYPI_PUBLIC_AUTH }}
-                whl: ${{ inputs.whl }}
+                whl: ${{ steps.whl_targz_names.outputs.whl }}
+
+            # publish the tar.gz file
+            - name: push tar.gz to pypi.org
+              if: ${{ inputs.wf_category == "RELEASE" }}
+              uses: neuralmagic/nm-actions/actions/publish_whl/action.yml@v1.0.0
+              with:
+                username: ${{ secrets.PYPI_PUBLIC_USER }}
+                password: ${{ secrets.PYPI_PUBLIC_AUTH }}
+                whl: ${{ steps.whl_targz_names.outputs.targz }}
 
             # GCP
             - name: 'Authenticate to Google Cloud'
@@ -111,6 +121,9 @@ jobs:
             - name: cp assets
               id: cp-assets
               uses: ./.github/actions/nm-cp-assets/
+              with:
+                whl: ${{ steps.whl_targz_names.outputs.whl }}
+                targz: ${{ steps.whl_targz_names.outputs.targz }}
 
             - name: trigger stratus nm-pypi update workflow to update nm-pypi index
               uses: actions/github-script@v6
