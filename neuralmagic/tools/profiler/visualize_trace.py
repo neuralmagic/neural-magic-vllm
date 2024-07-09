@@ -23,24 +23,38 @@ def largest_dist_from_leaf(node: dict, depth: int = 0):
 def get_entries_at_depth(depth: int,
                          entries_and_traces: List[Tuple[Any, Any]],
                          node: dict,
-                         ignore_sampler: bool,
                          curr_depth: int = 0,
                          trace=()):
-    if ignore_sampler and node["entry"]["name"] == "Sampler":
-        return
+    # assert that the query is at kernel or module level
+    assert depth == -1 or depth == -2
 
-    if (depth >= 0 and depth == curr_depth) or (
-            depth < 0 and largest_dist_from_leaf(node) == (abs(depth) - 1)):
+    if curr_depth == 0 and largest_dist_from_leaf(node) <= (abs(depth) - 1):
+        # The tree is not tall enough!
+        entries_and_traces.append((node["entry"] , trace))
+        return 
+
+    if largest_dist_from_leaf(node) == (abs(depth) - 1):
         entries_and_traces.append((node["entry"], trace))
+
     trace = (node["entry"]["name"], ) + trace
     for child in node["children"]:
         get_entries_at_depth(depth,
                              entries_and_traces,
                              child,
-                             ignore_sampler,
                              curr_depth=curr_depth + 1,
                              trace=trace)
 
+def fold_nodes(root: dict, nodes_to_fold : List[str]):
+
+    stack : List[dict] = [root]
+    while len(stack) != 0:
+        node = stack.pop()
+        if node['entry']['name'] in nodes_to_fold:
+            node["children"] = []
+            continue
+        for child in node["children"]:
+            stack.append(child)
+    return root
 
 ## Operation name cleanup utils ####
 
@@ -260,22 +274,23 @@ def plot_trace_df(traces_df: pd.DataFrame,
     plt.savefig(output, bbox_inches='tight')
     print("Created: ", output)
 
-
 def main(
         json_trace: Path,
         output_directory: Path,
         depth: int,  # Fetch/Plot operations at this depth of the Json tree
         make_names_unique: bool,
         top_k: int,
-        ignore_sampler: bool):
+        json_nodes_to_fold: List[str]):
 
     def prepare_data(profile_json: dict, step_keys: List[str]) -> pd.DataFrame:
 
         def get_entries_and_traces(key: str):
             entries_and_traces: List[Tuple[Any, Any]] = []
             for root in profile_json[key]["summary_stats"]:
-                get_entries_at_depth(depth, entries_and_traces, root,
-                                     ignore_sampler)
+                # Fold nodes in the traces as per user request. i.e. simply
+                # make the requested nodes leaf-nodes.
+                root = fold_nodes(root, json_nodes_to_fold)
+                get_entries_at_depth(depth, entries_and_traces, root)
             return entries_and_traces
 
         def keep_only_top_entries(df: pd.DataFrame,
@@ -290,8 +305,8 @@ def main(
 
         # Attempt some cleanup
         if make_names_unique:
-            traces = list(
-                map(lambda x: attempt_to_make_names_unique(x), traces))
+            for trace in traces:
+                attempt_to_make_names_unique(trace)
 
         # To pandas dataframe
         trace_dfs = list(
@@ -371,11 +386,11 @@ if __name__ == "__main__":
                         choices=["module", "kernel"])
     parser.add_argument("--top-k",
                         type=int,
-                        default=9,
+                        default=12,
                         help="Only graph the top `top_k` entries by time.")
-    parser.add_argument("--ignore_sampler",
-                        action='store_true',
-                        help="Ignore everything under the \"Sampler\" module")
+    parser.add_argument("--fold-json-node",
+                        nargs='+',
+                        default=['Sampler', 'LogitsProcessor'])
     parser.add_argument(
         "--step-plot-interval",
         type=int,
@@ -397,9 +412,5 @@ if __name__ == "__main__":
     output_directory = args.output_directory if args.output_directory else Path(
         args.json_trace).parent
 
-    if args.ignore_sampler:
-        print("WARNING: ignoring Sampler time so the pct_cuda_time will not "
-              "add up to 100%")
-
     main(Path(args.json_trace), output_directory, depth, make_names_unique,
-         args.top_k, args.ignore_sampler)
+         args.top_k, args.fold_json_node)
