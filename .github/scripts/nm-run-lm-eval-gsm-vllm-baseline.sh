@@ -4,6 +4,7 @@
 #
 # Make sure you have lm-eval-harness installed:
 #   pip install git+https://github.com/EleutherAI/lm-evaluation-harness.git@9516087b81a61d0e220b22cc1b75be76de23bc10
+# nm-vllm: use the latest release v0.4.3
 
 usage() {
     echo``
