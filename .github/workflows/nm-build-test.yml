@@ -137,6 +137,7 @@ jobs:
         needs: [BUILD]
         if: success()
         strategy:
+            fail-fast: false
             matrix:
                 benchmark_label: ${{ fromJson(inputs.benchmark_labels) }}
         uses: ./.github/workflows/nm-benchmark.yml
