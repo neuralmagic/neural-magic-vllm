@@ -1,11 +1,13 @@
 import enum
 import os
+import shutil
+import jinja2
+
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import auto as enum_auto
 from typing import List, Tuple
 
-import jinja2
 from cutlass_library import (DataType, DataTypeNames, DataTypeTag,
                              EpilogueScheduleTag, EpilogueScheduleType,
                              KernelScheduleTag, KernelScheduleType,
@@ -16,12 +18,12 @@ DISPATCH_TEMPLATE = """
 
 namespace marlinv2 {
 using KernelDispatcher_ = KernelDispatcher<
-    {{ DataTypeTag[type_config.element_a] }},  // ElementA
-    {{ DataTypeTag[type_config.element_b] }},  // ElementB
-    {{ DataTypeTag[type_config.element_d] }},  // ElementD
-    {{ DataTypeTag[type_config.accumulator] }}, // Accumulator
-    {{ DataTypeTag[type_config.element_b_scale] }}, // Scales
-    {{ DataTypeTag[type_config.element_b_zeropoint] }}>; // Zeropoints
+    {{DataTypeTag[type_config.element_a]}},  // ElementA
+    {{DataTypeTag[type_config.element_b]}},  // ElementB
+    {{DataTypeTag[type_config.element_d]}},  // ElementD
+    {{DataTypeTag[type_config.accumulator]}}, // Accumulator
+    {{DataTypeTag[type_config.element_b_scale]}}, // Scales
+    {{DataTypeTag[type_config.element_b_zeropoint]}}>; // Zeropoints
 
 {% for _, schedule_name in schedules %}extern torch::Tensor 
 impl_{{type_name}}_sch_{{schedule_name}}(PytorchArguments args);
@@ -58,24 +60,24 @@ IMPL_TEMPLATE = """
 namespace marlinv2 {
 template <typename Config, bool with_C, bool with_scales, bool with_zeropoints>
 using Kernel = KernelTemplate<
-    {{ DataTypeTag[type_config.element_a] }},  // ElementA
-    {{ DataTypeTag[type_config.element_b] }},  // ElementB
-    {{ DataTypeTag[type_config.element_d] }},  // ElementD
-    {{ DataTypeTag[type_config.accumulator] }}, // Accumulator
-    {{ DataTypeTag[type_config.element_b_scale] }}, // Scales
-    {{ DataTypeTag[type_config.element_b_zeropoint] }}, // Zeropoints
+    {{DataTypeTag[type_config.element_a]}},  // ElementA
+    {{DataTypeTag[type_config.element_b]}},  // ElementB
+    {{DataTypeTag[type_config.element_d]}},  // ElementD
+    {{DataTypeTag[type_config.accumulator]}}, // Accumulator
+    {{DataTypeTag[type_config.element_b_scale]}}, // Scales
+    {{DataTypeTag[type_config.element_b_zeropoint]}}, // Zeropoints
     cutlass::gemm::KernelTmaWarpSpecializedCooperativeMixedInput
 >::Speacialization<Config, with_C, with_scales, with_zeropoints>;
 
-struct sch_{{ schedule_name }} {
+struct sch_{{schedule_name}} {
   using TileShapeNM = Shape<
-    {{ to_cute_constant(schedule.tile_shape_mn)|join(', ') }}>;
+    {{to_cute_constant(schedule.tile_shape_mn)|join(', ')}}>;
   using ClusterShape = Shape<
-    {{ to_cute_constant(schedule.cluster_shape_mnk)|join(', ') }}>;
+    {{to_cute_constant(schedule.cluster_shape_mnk)|join(', ')}}>;
   // TODO: Reimplement
-  // using KernelSchedule   = {{ KernelScheduleTag[schedule.kernel_schedule] }};
-  using EpilogueSchedule = {{ EpilogueScheduleTag[schedule.epilogue_schedule]}};
-  using TileScheduler    = {{ TileSchedulerTag[schedule.tile_scheduler] }};
+  // using KernelSchedule   = {{KernelScheduleTag[schedule.kernel_schedule]}};
+  using EpilogueSchedule = {{EpilogueScheduleTag[schedule.epilogue_schedule]}};
+  using TileScheduler    = {{TileSchedulerTag[schedule.tile_scheduler]}};
   using EpilogueTileType = cutlass::epilogue::collective::EpilogueTileAuto;
 };
 
@@ -105,18 +107,18 @@ PREPACK_TEMPLATE = """
 
 namespace marlinv2 {
 using PrepackDispatcher_ = PrepackDispatcher<
-  {{ DataTypeTag[type_config.element_a] }}, // ElementA
-  {{ DataTypeTag[type_config.element_b] }}, // ElementB
-  {{ DataTypeTag[type_config.element_d] }}, // ElementD
-  {{ DataTypeTag[type_config.accumulator] }}, // Accumulator
-  {{ DataTypeTag[type_config.element_b_scale] }}, // Scales
-  {{ DataTypeTag[type_config.element_b_zeropoint] }}>; // Zeropoints
+  {{DataTypeTag[type_config.element_a]}}, // ElementA
+  {{DataTypeTag[type_config.element_b]}}, // ElementB
+  {{DataTypeTag[type_config.element_d]}}, // ElementD
+  {{DataTypeTag[type_config.accumulator]}}, // Accumulator
+  {{DataTypeTag[type_config.element_b_scale]}}, // Scales
+  {{DataTypeTag[type_config.element_b_zeropoint]}}>; // Zeropoints
 
 using PrepackedLayout = PrepackedLayoutTemplate<
-  {{ DataTypeTag[type_config.element_a] }}, // ElementA
-  {{ DataTypeTag[type_config.element_b] }}, // ElementB
-  {{ DataTypeTag[type_config.element_d] }}, // ElementD
-  {{ DataTypeTag[type_config.accumulator] }}, // Accumulator
+  {{DataTypeTag[type_config.element_a]}}, // ElementA
+  {{DataTypeTag[type_config.element_b]}}, // ElementB
+  {{DataTypeTag[type_config.element_d]}}, // ElementD
+  {{DataTypeTag[type_config.accumulator]}}, // Accumulator
   cutlass::layout::ColumnMajor,
   cutlass::gemm::KernelTmaWarpSpecializedCooperativeMixedInput>;
 
@@ -347,8 +349,6 @@ def AOT_generate():
 
     # Delete the "generated" directory if it exists
     if os.path.exists(output_dir):
-        import shutil
-
         shutil.rmtree(output_dir)
 
     # Create the "generated" directory
@@ -356,15 +356,6 @@ def AOT_generate():
 
     # Render each group of configurations into separate files
     for type_config in AOT_kernel_type_configs:
-        terse_type_name = generate_terse_kernel_type_name(type_config)
-
-        schedules_filename = f"marlinv2_mm_{terse_type_name}_schedules.txt"
-        schedules_filepath = os.path.join(output_dir, schedules_filename)
-        with open(schedules_filepath, "w") as schedules_file:
-            for schedule in AOT_schedules:
-                schedule_name = generate_terse_schedule_name(schedule)
-                schedules_file.write(f"{schedule_name}\n")
-
         for source in create_sources(type_config, AOT_schedules):
             filename, code = source
             filepath = os.path.join(output_dir, f"{filename}.cu")
