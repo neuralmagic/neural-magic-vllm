@@ -84,7 +84,7 @@ jobs:
             # want to push RELEASE assets to the external pypi.org
             # publish the wheel file
             - name: push wheel to pypi.org
-              if: ${{ inputs.wf_category == "RELEASE" }}
+              if: ${{ inputs.wf_category == 'RELEASE' }}
               uses: neuralmagic/nm-actions/actions/publish_whl/action.yml@v1.0.0
               with:
                 username: ${{ secrets.PYPI_PUBLIC_USER }}
@@ -93,7 +93,7 @@ jobs:
 
             # publish the tar.gz file
             - name: push tar.gz to pypi.org
-              if: ${{ inputs.wf_category == "RELEASE" }}
+              if: ${{ inputs.wf_category == 'RELEASE' }}
               uses: neuralmagic/nm-actions/actions/publish_whl/action.yml@v1.0.0
               with:
                 username: ${{ secrets.PYPI_PUBLIC_USER }}
