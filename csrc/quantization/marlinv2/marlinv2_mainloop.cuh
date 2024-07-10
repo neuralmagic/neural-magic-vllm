@@ -1043,17 +1043,8 @@ struct MarlinV2CollectiveMma {
     Tensor sA = as_position_independent_swizzle_tensor(
         sA_);  // (T, MMA, MMA_M, MMA_K, pipe)
 
-    Tensor sB_ = make_tensor(make_smem_ptr(shared_tensors.smem_B.begin()),
-                             SmemLayoutB{});  // (BLK_N,BLK_K,PIPE)
-    Tensor sB =
-        as_position_independent_swizzle_tensor(sB_);  // (BLK_M,BLK_K,PIPE)
-
-    // If TransposeB, GMMA will read from transposed B layout SMEM
-    Tensor gmma_sB_position_dependent =
-        make_tensor(make_smem_ptr(shared_tensors.smem_B.begin()),
-                    GmmaSmemLayoutB{});  // (BLK_N,BLK_K,PIPE)
-    Tensor gmma_sB = as_position_independent_swizzle_tensor(
-        gmma_sB_position_dependent);  // (BLK_N,BLK_K,PIPE)
+    Tensor sB = make_tensor(make_smem_ptr(shared_tensors.smem_B.begin()),
+                            SmemLayoutB{});  // (BLK_N,BLK_K,PIPE)
 
     //
     // Define C accumulators and A/B partitioning
@@ -1063,8 +1054,7 @@ struct MarlinV2CollectiveMma {
     auto thread_mma = tiled_mma.get_thread_slice(thread_idx);
 
     Tensor tCsA = sA(thread_idx, _, _, _, _);  // (MMA,MMA_M,MMA_K,PIPE)
-    Tensor tCsB = thread_mma.partition_B(
-        gmma_sB_position_dependent);  // (MMA,MMA_N,MMA_K,PIPE)
+    Tensor tCsB = thread_mma.partition_B(sB);  // (MMA,MMA_N,MMA_K,PIPE)
 
     // Allocate fragments and descriptors
     Tensor tCrA_load = make_tensor<ElementA>(
@@ -1128,6 +1118,8 @@ struct MarlinV2CollectiveMma {
 
     warpgroup_fence_operand(accum);
 
+    constexpr int K_BLOCK_MAX = size<2>(tCrA_load);
+
     ConsumerToken barrier_token = {BarrierStatus::WaitAgain};
     // first k tile
     {
@@ -1142,15 +1134,13 @@ struct MarlinV2CollectiveMma {
       // copy smem->rmem for A operand
       load_A_to_registers(read_stage);
       convert_A(0, read_stage);
-      // transpose B operand in SMEM
-      transpose(sB, gmma_sB, read_stage, 0);
 
       // Unroll the K mode manually to set scale D to 1
       CUTLASS_PRAGMA_UNROLL
-      for (int k_block = 0; k_block < size<2>(tCrA_load) - 1; ++k_block) {
-        convert_A(k_block + 1, smem_pipe_read.index());
-        transpose.synchronize(k_block);
-        transpose(sB, gmma_sB, read_stage, k_block + 1);
+      for (int k_block = 0; k_block < K_BLOCK_MAX; ++k_block) {
+        if (k_block < K_BLOCK_MAX - 1) {
+          convert_A(k_block + 1, smem_pipe_read.index());
+        }
         warpgroup_arrive();
         // (V,M) x (V,N) => (V,M,N)
         cute::gemm(tiled_mma, tCrA_mma(_, _, k_block),
@@ -1159,22 +1149,15 @@ struct MarlinV2CollectiveMma {
         warpgroup_commit_batch();
       }
 
-      warpgroup_wait<2>();
-
       --k_tile_count;
       if (k_tile_count > 0) {
+        // Wait for K_BLOCK_MAX - 1 to be in flight to ensure that it is safe to
+        // overwrite the A registers for the first mma.
+        warpgroup_wait<K_BLOCK_MAX - 1>();
+        pipeline.consumer_wait(smem_pipe_read, barrier_token);
         load_A_to_registers(smem_pipe_read.index());
         convert_A(0, smem_pipe_read.index());
-        transpose(sB, gmma_sB, smem_pipe_read.index(), 0);
       }
-      warpgroup_arrive();
-      // (V,M) x (V,N) => (V,M,N)
-      const int final_k = size<2>(tCrA_load) - 1;
-      cute::gemm(tiled_mma, tCrA_mma(_, _, final_k),
-                 tCrB(_, _, final_k, read_stage), accum);
-      tiled_mma.accumulate_ = GMMA::ScaleOut::One;
-      warpgroup_commit_batch();
-      warpgroup_wait<2>();
     }
 
     if (k_tile_count == 0) {
@@ -1195,37 +1178,34 @@ struct MarlinV2CollectiveMma {
       warpgroup_fence_operand(accum);
       // Unroll the K mode manually to set scale D to 1
       CUTLASS_PRAGMA_UNROLL
-      for (int k_block = 0; k_block < size<2>(tCrA_load); ++k_block) {
-        if (k_block == 0) {
-          barrier_token = pipeline.consumer_try_wait(smem_pipe_read);
-        }
-        if (k_block == size<2>(tCrA_load) - 1) {
-          pipeline.consumer_wait(smem_pipe_read, barrier_token);
-          load_A_to_registers(smem_pipe_read.index());
-          convert_A(0, smem_pipe_read.index());
-          // transpose B operand in SMEM
-          transpose(sB, gmma_sB, smem_pipe_read.index(), 0);
-        } else {
-          convert_A(k_block + 1, read_stage);
-          // transpose B operand in SMEM
-          transpose.synchronize(
-              k_block);  // make transpose of k_block available
-          transpose(sB, gmma_sB, read_stage, k_block + 1);
-        }
-
+      for (int k_block = 0; k_block < K_BLOCK_MAX; ++k_block) {
         warpgroup_arrive();
         // (V,M) x (V,N) => (V,M,N)
         cute::gemm(tiled_mma, tCrA_mma(_, _, k_block),
                    tCrB(_, _, k_block, read_stage), accum);
         tiled_mma.accumulate_ = GMMA::ScaleOut::One;
         warpgroup_commit_batch();
-        warpgroup_wait<2>();
-        if (k_block == 1) {
-          // release prior barrier
+
+        warpgroup_wait<K_BLOCK_MAX - 1>();
+        if (k_block == K_BLOCK_MAX - 1) {
+          // We have K_BLOCK_MAX - 1 GMMA instructions pending for this stage,
+          // so we can release prior barrier
           pipeline.consumer_release(
               smem_pipe_release);  // UNLOCK smem_pipe_release, done _computing_
                                    // on it
           ++smem_pipe_release;
+        }
+
+        if (k_block == 0) {
+          barrier_token = pipeline.consumer_try_wait(smem_pipe_read);
+        }
+
+        if (k_block == K_BLOCK_MAX - 1) {
+          pipeline.consumer_wait(smem_pipe_read, barrier_token);
+          load_A_to_registers(smem_pipe_read.index());
+          convert_A(0, smem_pipe_read.index());
+        } else {
+          convert_A(k_block + 1, read_stage);
         }
       }
       warpgroup_fence_operand(accum);
@@ -1244,33 +1224,26 @@ struct MarlinV2CollectiveMma {
 
       // Unroll the K mode manually to set scale D to 1
       CUTLASS_PRAGMA_UNROLL
-      for (int k_block = 0; k_block < size<2>(tCrA_load) - 1; ++k_block) {
-        convert_A(k_block + 1, read_stage);
-        transpose.synchronize(k_block);  // make k_block transpose available
-        transpose(sB, gmma_sB, read_stage, k_block + 1);
+      for (int k_block = 0; k_block < K_BLOCK_MAX; ++k_block) {
         warpgroup_arrive();
         // (V,M) x (V,N) => (V,M,N)
         cute::gemm(tiled_mma, tCrA_mma(_, _, k_block),
                    tCrB(_, _, k_block, read_stage), accum);
         tiled_mma.accumulate_ = GMMA::ScaleOut::One;
         warpgroup_commit_batch();
-        warpgroup_wait<2>();
-        if (k_block == 1) {
+        warpgroup_wait<K_BLOCK_MAX - 1>();
+        if (k_block == K_BLOCK_MAX - 1) {
           // release prior barrier
           pipeline.consumer_release(
               smem_pipe_release);  // UNLOCK smem_pipe_release, done _computing_
                                    // on it
           ++smem_pipe_release;
         }
-      }
 
-      warpgroup_arrive();
-      // (V,M) x (V,N) => (V,M,N)
-      const int final_k = size<2>(tCrA_load) - 1;
-      cute::gemm(tiled_mma, tCrA_mma(_, _, final_k),
-                 tCrB(_, _, final_k, read_stage), accum);
-      tiled_mma.accumulate_ = GMMA::ScaleOut::One;
-      warpgroup_commit_batch();
+        if (k_block < K_BLOCK_MAX - 1) {
+          convert_A(k_block + 1, read_stage);
+        }
+      }
     }
 
     warpgroup_fence_operand(accum);
