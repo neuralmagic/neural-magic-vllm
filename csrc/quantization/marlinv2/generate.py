@@ -1,21 +1,15 @@
-import jinja2
-import os
 import enum
-from enum import auto as enum_auto
-from typing import Tuple, List
-from dataclasses import dataclass
+import os
 from collections.abc import Iterable
-from cutlass_library import (
-    DataType,
-    KernelScheduleType,
-    EpilogueScheduleType,
-    TileSchedulerType,
-    KernelScheduleTag,
-    EpilogueScheduleTag,
-    TileSchedulerTag,
-    DataTypeTag,
-    DataTypeNames,
-)
+from dataclasses import dataclass
+from enum import auto as enum_auto
+from typing import List, Tuple
+
+import jinja2
+from cutlass_library import (DataType, DataTypeNames, DataTypeTag,
+                             EpilogueScheduleTag, EpilogueScheduleType,
+                             KernelScheduleTag, KernelScheduleType,
+                             TileSchedulerTag, TileSchedulerType)
 
 DISPATCH_TEMPLATE = """
 #include "../marlinv2_mm_launcher.cuh"
@@ -222,7 +216,8 @@ def generate_kernel_type_name(kernel_type_config: KernelTypeConfig):
     element_scale = DataTypeNames[kernel_type_config.element_b_scale]
     element_zeropoint = DataTypeNames[kernel_type_config.element_b_zeropoint]
 
-    return f"{element_a}{element_b}{element_d}{accumulator}{element_scale}{element_zeropoint}"
+    return (f"{element_a}{element_b}{element_d}"
+            f"{accumulator}{element_scale}{element_zeropoint}")
 
 
 # non-unique shorter type_name

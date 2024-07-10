@@ -4,8 +4,8 @@ from typing import List, Optional, Tuple, Type
 
 import torch
 
-from vllm.logger import init_logger
 from vllm._custom_classes import VLLMType
+from vllm.logger import init_logger
 
 logger = init_logger(__name__)
 
@@ -396,6 +396,30 @@ def marlinv2_supported_schedules(b_type: VLLMType) -> List[str]:
     return torch.ops._C.marlinv2_supported_schedules(b_type)
 
 
+def marlinv2_gemm_schedule_heuristic(M: int, N: int, K: int, b_type: VLLMType):
+    assert b_type.size_bits == 4
+
+    tile_scheduler = "void"
+    if 4096 * 2 < K:
+        tile_scheduler = "NMstreamK"
+
+    if M >= 128:
+        tile_shape_mn = (128, 128)
+    elif M > 16:
+        tile_shape_mn = (128, 64)
+    else:
+        tile_shape_mn = (128, 16)
+
+    cluster_shape_mnk = (1, 1, 1)
+
+    tile_shape_mn_str = "x".join(map(str, tile_shape_mn))
+    cluster_shape_mnk_str = "x".join(map(str, cluster_shape_mnk))
+    schedule_name = (f"{tile_shape_mn_str}_{cluster_shape_mnk_str}"
+                     f"_TmaMI_TmaCoop_{tile_scheduler}")
+
+    return schedule_name
+
+
 def marlinv2_gemm(
     a: torch.Tensor,
     b_q_weight: torch.Tensor,
@@ -408,6 +432,10 @@ def marlinv2_gemm(
     beta: Optional[float] = None,
     schedule: Optional[str] = None,
 ) -> torch.Tensor:
+    if schedule is None:
+        M, K, N = (a.shape[0], a.shape[1], b_q_weight.shape[1])
+        schedule = marlinv2_gemm_schedule_heuristic(M, N, K, b_type)
+
     return torch.ops._C.marlinv2_gemm(a, b_q_weight, b_type, b_scales, b_zeros,
                                       b_group_size, c, alpha, beta, schedule)
 

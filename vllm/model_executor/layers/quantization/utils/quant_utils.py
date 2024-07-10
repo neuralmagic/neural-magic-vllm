@@ -1,5 +1,7 @@
 """This file is used for /tests and /benchmarks"""
 
+from typing import Union
+
 import numpy
 import torch
 
@@ -18,7 +20,7 @@ def permute_rows(q_w: torch.Tensor, w_ref: torch.Tensor, group_size: int):
     orig_device = q_w.device
     k_size, _ = q_w.shape
 
-    g_idx = torch.zeros((k_size,), dtype=torch.int32)
+    g_idx = torch.zeros((k_size, ), dtype=torch.int32)
     for i in range(k_size):
         g_idx[i] = i // group_size
 
@@ -37,7 +39,19 @@ def permute_rows(q_w: torch.Tensor, w_ref: torch.Tensor, group_size: int):
     )
 
 
-def quantize_weights(w: torch.Tensor, num_bits: int, group_size: int, act_order: bool):
+def quantize_weights(
+    w: torch.Tensor,
+    num_bits: int,
+    group_size: int,
+    act_order: bool,
+    zero_point: Union[int, str] = "symmetric",
+):
+    if zero_point == "symmetric":
+        zero_point = 2**num_bits // 2
+
+    if isinstance(zero_point, str):
+        raise ValueError("zero_point must be an integer or 'symmetric'")
+
     orig_device = w.device
     size_k, size_n = w.shape
 
@@ -52,7 +66,8 @@ def quantize_weights(w: torch.Tensor, num_bits: int, group_size: int, act_order:
     assert group_size <= size_k
 
     max_q_val = 2**num_bits - 1
-    half_q_val = (max_q_val + 1) // 2
+    max_q_val_pos = max_q_val - zero_point
+    max_q_val_neg = int(zero_point)
 
     # Reshape to [groupsize, -1]
     if group_size < size_k:
@@ -61,16 +76,22 @@ def quantize_weights(w: torch.Tensor, num_bits: int, group_size: int, act_order:
         w = w.reshape((group_size, -1))
 
     # Compute scale for each group
-    s = torch.max(torch.abs(w), 0, keepdim=True)[0]
-    s *= 2 / max_q_val  # 2 => symmetric
+    max_pos_val = torch.abs(torch.max(w, 0, keepdim=True).values)
+    max_neg_val = torch.abs(torch.min(w, 0, keepdim=True).values)
+
+    # If the zero_point is such that there are no possible negative/positive
+    #  values, set the max value to inf to avoid divide by 0
+    max_q_val_pos = max_q_val_pos if max_q_val_pos > 0 else torch.inf
+    max_q_val_neg = max_q_val_neg if max_q_val_neg > 0 else torch.inf
+    s = torch.max(max_pos_val / max_q_val_pos, max_neg_val / max_q_val_neg)
 
     # Quantize
     q_w = torch.round(w / s).int()
-    q_w += half_q_val
+    q_w += zero_point
     q_w = torch.clamp(q_w, 0, max_q_val)
 
     # Compute ref (dequantized)
-    w_ref = (q_w - half_q_val).half() * s
+    w_ref = (q_w - zero_point).half() * s
 
     # Restore original shapes
     if group_size < size_k:
@@ -93,8 +114,7 @@ def quantize_weights(w: torch.Tensor, num_bits: int, group_size: int, act_order:
         assert (
             group_size < size_k
         ), "For act_order, groupsize = {} must be less than size_k = {}".format(
-            group_size, size_k
-        )
+            group_size, size_k)
 
         w_ref, q_w, g_idx, rand_perm = permute_rows(q_w, w_ref, group_size)
 
@@ -110,7 +130,8 @@ def quantize_weights(w: torch.Tensor, num_bits: int, group_size: int, act_order:
 def sort_weights(q_w: torch.Tensor, g_idx: torch.Tensor):
     orig_device = q_w.device
 
-    sort_indices = torch.argsort(g_idx).to(dtype=torch.int32)  # Sort based on g_idx
+    sort_indices = torch.argsort(g_idx).to(
+        dtype=torch.int32)  # Sort based on g_idx
 
     g_idx = g_idx[sort_indices].contiguous()
     q_w = q_w[sort_indices, :].contiguous()
