@@ -39,10 +39,6 @@ on:
                 description: "workflow category: REMOTE, NIGHTLY, RELEASE"
                 type: string
                 default: "REMOTE"
-            whl:
-                description: "wheel file path"
-                type: string
-                required: true
 
 jobs:
 
