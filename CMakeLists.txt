@@ -217,7 +217,8 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
 
   # Add marlinv2 generated sources
   file(GLOB MARLINV2_GEN_SOURCES "csrc/quantization/marlinv2/generated/*.cu")
-  list(APPEND NM_OPS_SRC ${MARLINV2_GEN_SOURCES})
+  list(APPEND VLLM_EXT_SRC ${MARLINV2_GEN_SOURCES})
+  message(STATUS "MarlinV2 generated sources: ${MARLINV2_GEN_SOURCES}")
 
   # See comment above for scaled_mm_c3x (same if condition)
   if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER 12.0)

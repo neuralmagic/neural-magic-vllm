@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple, Type
 import torch
 
 from vllm.logger import init_logger
+from vllm._custom_classes import VLLMType
 
 logger = init_logger(__name__)
 
@@ -92,10 +93,25 @@ def paged_attention_v1(
     blocksparse_head_sliding_step: int = 0,
 ) -> None:
     torch.ops._C.paged_attention_v1(
-        out, query, key_cache, value_cache, num_kv_heads, scale, block_tables,
-        seq_lens, block_size, max_seq_len, alibi_slopes, kv_cache_dtype,
-        kv_scale, tp_rank, blocksparse_local_blocks, blocksparse_vert_stride,
-        blocksparse_block_size, blocksparse_head_sliding_step)
+        out,
+        query,
+        key_cache,
+        value_cache,
+        num_kv_heads,
+        scale,
+        block_tables,
+        seq_lens,
+        block_size,
+        max_seq_len,
+        alibi_slopes,
+        kv_cache_dtype,
+        kv_scale,
+        tp_rank,
+        blocksparse_local_blocks,
+        blocksparse_vert_stride,
+        blocksparse_block_size,
+        blocksparse_head_sliding_step,
+    )
 
 
 def paged_attention_v2(
@@ -122,11 +138,28 @@ def paged_attention_v2(
     blocksparse_head_sliding_step: int = 0,
 ) -> None:
     torch.ops._C.paged_attention_v2(
-        out, exp_sum, max_logits, tmp_out, query, key_cache, value_cache,
-        num_kv_heads, scale, block_tables, seq_lens, block_size, max_seq_len,
-        alibi_slopes, kv_cache_dtype, kv_scale, tp_rank,
-        blocksparse_local_blocks, blocksparse_vert_stride,
-        blocksparse_block_size, blocksparse_head_sliding_step)
+        out,
+        exp_sum,
+        max_logits,
+        tmp_out,
+        query,
+        key_cache,
+        value_cache,
+        num_kv_heads,
+        scale,
+        block_tables,
+        seq_lens,
+        block_size,
+        max_seq_len,
+        alibi_slopes,
+        kv_cache_dtype,
+        kv_scale,
+        tp_rank,
+        blocksparse_local_blocks,
+        blocksparse_vert_stride,
+        blocksparse_block_size,
+        blocksparse_head_sliding_step,
+    )
 
 
 # pos encoding ops
@@ -142,14 +175,26 @@ def rotary_embedding(
                                   cos_sin_cache, is_neox)
 
 
-def batched_rotary_embedding(positions: torch.Tensor, query: torch.Tensor,
-                             key: torch.Tensor, head_size: int,
-                             cos_sin_cache: torch.Tensor, is_neox: bool,
-                             rot_dim: int,
-                             cos_sin_cache_offsets: torch.Tensor) -> None:
-    torch.ops._C.batched_rotary_embedding(positions, query, key, head_size,
-                                          cos_sin_cache, is_neox, rot_dim,
-                                          cos_sin_cache_offsets)
+def batched_rotary_embedding(
+    positions: torch.Tensor,
+    query: torch.Tensor,
+    key: torch.Tensor,
+    head_size: int,
+    cos_sin_cache: torch.Tensor,
+    is_neox: bool,
+    rot_dim: int,
+    cos_sin_cache_offsets: torch.Tensor,
+) -> None:
+    torch.ops._C.batched_rotary_embedding(
+        positions,
+        query,
+        key,
+        head_size,
+        cos_sin_cache,
+        is_neox,
+        rot_dim,
+        cos_sin_cache_offsets,
+    )
 
 
 # layer norm ops
@@ -165,23 +210,38 @@ def fused_add_rms_norm(input: torch.Tensor, residual: torch.Tensor,
 
 # quantization ops
 # awq
-def awq_dequantize(qweight: torch.Tensor, scales: torch.Tensor,
-                   zeros: torch.Tensor, split_k_iters: int, thx: int,
-                   thy: int) -> torch.Tensor:
+def awq_dequantize(
+    qweight: torch.Tensor,
+    scales: torch.Tensor,
+    zeros: torch.Tensor,
+    split_k_iters: int,
+    thx: int,
+    thy: int,
+) -> torch.Tensor:
     return torch.ops._C.awq_dequantize(qweight, scales, zeros, split_k_iters,
                                        thx, thy)
 
 
-def awq_gemm(input: torch.Tensor, qweight: torch.Tensor, qzeros: torch.Tensor,
-             scales: torch.Tensor, split_k_iters: int) -> torch.Tensor:
+def awq_gemm(
+    input: torch.Tensor,
+    qweight: torch.Tensor,
+    qzeros: torch.Tensor,
+    scales: torch.Tensor,
+    split_k_iters: int,
+) -> torch.Tensor:
     return torch.ops._C.awq_gemm(input, qweight, qzeros, scales, split_k_iters)
 
 
 # gptq
-def gptq_gemm(a: torch.Tensor, b_q_weight: torch.Tensor,
-              b_gptq_qzeros: torch.Tensor, b_gptq_scales: torch.Tensor,
-              b_g_idx: torch.Tensor, use_exllama: bool,
-              bit: int) -> torch.Tensor:
+def gptq_gemm(
+    a: torch.Tensor,
+    b_q_weight: torch.Tensor,
+    b_gptq_qzeros: torch.Tensor,
+    b_gptq_scales: torch.Tensor,
+    b_g_idx: torch.Tensor,
+    use_exllama: bool,
+    bit: int,
+) -> torch.Tensor:
     return torch.ops._C.gptq_gemm(a, b_q_weight, b_gptq_qzeros, b_gptq_scales,
                                   b_g_idx, use_exllama, bit)
 
@@ -198,18 +258,31 @@ def squeezellm_gemm(vec: torch.Tensor, mat: torch.Tensor, mul: torch.Tensor,
 
 
 # marlin
-def marlin_gemm(a: torch.Tensor, b_q_weight: torch.Tensor,
-                b_scales: torch.Tensor, workspace: torch.Tensor, size_m: int,
-                size_n: int, size_k: int) -> torch.Tensor:
+def marlin_gemm(
+    a: torch.Tensor,
+    b_q_weight: torch.Tensor,
+    b_scales: torch.Tensor,
+    workspace: torch.Tensor,
+    size_m: int,
+    size_n: int,
+    size_k: int,
+) -> torch.Tensor:
     return torch.ops._C.marlin_gemm(a, b_q_weight, b_scales, workspace, size_m,
                                     size_n, size_k)
 
 
 # marlin_24
-def gptq_marlin_24_gemm(a: torch.Tensor, b_q_weight: torch.Tensor,
-                        b_meta: torch.Tensor, b_scales: torch.Tensor,
-                        workspace: torch.Tensor, num_bits: int, size_m: int,
-                        size_n: int, size_k: int) -> torch.Tensor:
+def gptq_marlin_24_gemm(
+    a: torch.Tensor,
+    b_q_weight: torch.Tensor,
+    b_meta: torch.Tensor,
+    b_scales: torch.Tensor,
+    workspace: torch.Tensor,
+    num_bits: int,
+    size_m: int,
+    size_n: int,
+    size_k: int,
+) -> torch.Tensor:
     return torch.ops._C.gptq_marlin_24_gemm(a, b_q_weight, b_meta, b_scales,
                                             workspace, num_bits, size_m,
                                             size_n, size_k)
@@ -220,14 +293,16 @@ def cutlass_scaled_mm_supports_fp8(cuda_device_capability: int) -> bool:
     return torch.ops._C.cutlass_scaled_mm_supports_fp8(cuda_device_capability)
 
 
-def cutlass_scaled_mm(a: torch.Tensor,
-                      b: torch.Tensor,
-                      scale_a: torch.Tensor,
-                      scale_b: torch.Tensor,
-                      out_dtype: Type[torch.dtype],
-                      bias: Optional[torch.Tensor] = None) -> torch.Tensor:
-    assert (b.shape[0] % 16 == 0 and b.shape[1] % 16 == 0)
-    assert (out_dtype is torch.bfloat16 or out_dtype is torch.float16)
+def cutlass_scaled_mm(
+    a: torch.Tensor,
+    b: torch.Tensor,
+    scale_a: torch.Tensor,
+    scale_b: torch.Tensor,
+    out_dtype: Type[torch.dtype],
+    bias: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
+    assert b.shape[0] % 16 == 0 and b.shape[1] % 16 == 0
+    assert out_dtype is torch.bfloat16 or out_dtype is torch.float16
 
     m = a.shape[0]
     n = b.shape[1]
@@ -239,10 +314,14 @@ def cutlass_scaled_mm(a: torch.Tensor,
 
 
 # aqlm
-def aqlm_gemm(input: torch.Tensor, codes: torch.Tensor,
-              codebooks: torch.Tensor, scales: torch.Tensor,
-              codebook_partition_sizes: torch.Tensor,
-              bias: Optional[torch.Tensor]) -> torch.Tensor:
+def aqlm_gemm(
+    input: torch.Tensor,
+    codes: torch.Tensor,
+    codebooks: torch.Tensor,
+    scales: torch.Tensor,
+    codebook_partition_sizes: torch.Tensor,
+    bias: Optional[torch.Tensor],
+) -> torch.Tensor:
     return torch.ops._C.aqlm_gemm(input, codes, codebooks, scales,
                                   codebook_partition_sizes, bias)
 
@@ -254,30 +333,88 @@ def aqlm_dequant(codes: torch.Tensor, codebooks: torch.Tensor,
 
 
 # gptq_marlin
-def gptq_marlin_repack(b_q_weight: torch.Tensor, perm: torch.Tensor,
-                       size_k: int, size_n: int,
-                       num_bits: int) -> torch.Tensor:
+def gptq_marlin_repack(
+    b_q_weight: torch.Tensor,
+    perm: torch.Tensor,
+    size_k: int,
+    size_n: int,
+    num_bits: int,
+) -> torch.Tensor:
     return torch.ops._C.gptq_marlin_repack(b_q_weight, perm, size_k, size_n,
                                            num_bits)
 
 
-def gptq_marlin_gemm(a: torch.Tensor, b_q_weight: torch.Tensor,
-                     b_scales: torch.Tensor, g_idx: torch.Tensor,
-                     perm: torch.Tensor, workspace: torch.Tensor,
-                     num_bits: int, size_m: int, size_n: int, size_k: int,
-                     is_k_full: bool) -> torch.Tensor:
-    return torch.ops._C.gptq_marlin_gemm(a, b_q_weight, b_scales, g_idx, perm,
-                                         workspace, num_bits, size_m, size_n,
-                                         size_k, is_k_full)
+def gptq_marlin_gemm(
+    a: torch.Tensor,
+    b_q_weight: torch.Tensor,
+    b_scales: torch.Tensor,
+    g_idx: torch.Tensor,
+    perm: torch.Tensor,
+    workspace: torch.Tensor,
+    num_bits: int,
+    size_m: int,
+    size_n: int,
+    size_k: int,
+    is_k_full: bool,
+) -> torch.Tensor:
+    return torch.ops._C.gptq_marlin_gemm(
+        a,
+        b_q_weight,
+        b_scales,
+        g_idx,
+        perm,
+        workspace,
+        num_bits,
+        size_m,
+        size_n,
+        size_k,
+        is_k_full,
+    )
 
 
 # fp8 marlin
-def fp8_marlin_gemm(a: torch.Tensor, b_q_weight: torch.Tensor,
-                    b_scales: torch.Tensor, workspace: torch.Tensor,
-                    num_bits: int, size_m: int, size_n: int,
-                    size_k: int) -> torch.Tensor:
+def fp8_marlin_gemm(
+    a: torch.Tensor,
+    b_q_weight: torch.Tensor,
+    b_scales: torch.Tensor,
+    workspace: torch.Tensor,
+    num_bits: int,
+    size_m: int,
+    size_n: int,
+    size_k: int,
+) -> torch.Tensor:
     return torch.ops._C.fp8_marlin_gemm(a, b_q_weight, b_scales, workspace,
                                         num_bits, size_m, size_n, size_k)
+
+
+# marlinv2
+def marlinv2_supported_types() -> List[VLLMType]:
+    return torch.ops._C.marlinv2_supported_types()
+
+
+def marlinv2_supported_schedules(b_type: VLLMType) -> List[str]:
+    return torch.ops._C.marlinv2_supported_schedules(b_type)
+
+
+def marlinv2_gemm(
+    a: torch.Tensor,
+    b_q_weight: torch.Tensor,
+    b_type: VLLMType,
+    b_scales: Optional[torch.Tensor] = None,
+    b_zeros: Optional[torch.Tensor] = None,
+    b_group_size: Optional[int] = None,
+    c: Optional[torch.Tensor] = None,
+    alpha: Optional[float] = None,
+    beta: Optional[float] = None,
+    schedule: Optional[str] = None,
+) -> torch.Tensor:
+    return torch.ops._C.marlinv2_gemm(a, b_q_weight, b_type, b_scales, b_zeros,
+                                      b_group_size, c, alpha, beta, schedule)
+
+
+def marlinv2_prepack_B(b_q_weight: torch.Tensor,
+                       b_type: VLLMType) -> torch.Tensor:
+    return torch.ops._C.marlinv2_prepack_B(b_q_weight, b_type)
 
 
 # fp8
@@ -351,18 +488,30 @@ def scaled_int8_quant(
 
 
 # moe
-def moe_align_block_size(topk_ids: torch.Tensor, num_experts: int,
-                         block_size: int, sorted_token_ids: torch.Tensor,
-                         experts_ids: torch.Tensor,
-                         num_tokens_post_pad: torch.Tensor) -> None:
-    torch.ops._C.moe_align_block_size(topk_ids, num_experts, block_size,
-                                      sorted_token_ids, experts_ids,
-                                      num_tokens_post_pad)
+def moe_align_block_size(
+    topk_ids: torch.Tensor,
+    num_experts: int,
+    block_size: int,
+    sorted_token_ids: torch.Tensor,
+    experts_ids: torch.Tensor,
+    num_tokens_post_pad: torch.Tensor,
+) -> None:
+    torch.ops._C.moe_align_block_size(
+        topk_ids,
+        num_experts,
+        block_size,
+        sorted_token_ids,
+        experts_ids,
+        num_tokens_post_pad,
+    )
 
 
-def topk_softmax(topk_weights: torch.Tensor, topk_ids: torch.Tensor,
-                 token_expert_indicies: torch.Tensor,
-                 gating_output: float) -> None:
+def topk_softmax(
+    topk_weights: torch.Tensor,
+    topk_ids: torch.Tensor,
+    token_expert_indicies: torch.Tensor,
+    gating_output: float,
+) -> None:
     torch.ops._moe_C.topk_softmax(topk_weights, topk_ids,
                                   token_expert_indicies, gating_output)
 
@@ -394,9 +543,11 @@ def reshape_and_cache_flash(
                                                    kv_cache_dtype)
 
 
-def copy_blocks(key_caches: List[torch.Tensor],
-                value_caches: List[torch.Tensor],
-                block_mapping: torch.Tensor) -> None:
+def copy_blocks(
+    key_caches: List[torch.Tensor],
+    value_caches: List[torch.Tensor],
+    block_mapping: torch.Tensor,
+) -> None:
     torch.ops._C_cache_ops.copy_blocks(key_caches, value_caches, block_mapping)
 
 
@@ -423,9 +574,14 @@ def get_max_shared_memory_per_block_device_attribute(device: int) -> int:
 
 
 # custom ar
-def init_custom_ar(meta: torch.Tensor, rank_data: torch.Tensor,
-                   handles: List[str], offsets: List[int], rank: int,
-                   full_nvlink: bool) -> int:
+def init_custom_ar(
+    meta: torch.Tensor,
+    rank_data: torch.Tensor,
+    handles: List[str],
+    offsets: List[int],
+    rank: int,
+    full_nvlink: bool,
+) -> int:
     return torch.ops._C_custom_ar.init_custom_ar(meta, rank_data, handles,
                                                  offsets, rank, full_nvlink)
 
@@ -516,10 +672,9 @@ for k, v in names_and_values.items():
     # in their annotations. `arg == "torch.Tensor"` is used to handle
     # the case when users use `import __annotations__` to turn type
     # hints into strings.
-    if isinstance(v, fn_type) \
-        and v.__code__.co_filename == __file__ \
-        and any(arg is torch.Tensor or arg == "torch.Tensor"
-                   for arg in v.__annotations__.values()):
+    if (isinstance(v, fn_type) and v.__code__.co_filename == __file__
+            and any(arg is torch.Tensor or arg == "torch.Tensor"
+                    for arg in v.__annotations__.values())):
         names_and_values_to_update[k] = hint_on_error(v)
 
 names_and_values.update(names_and_values_to_update)

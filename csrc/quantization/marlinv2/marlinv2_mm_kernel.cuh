@@ -227,13 +227,11 @@ struct KernelTemplate {
                     cudaStream_t stream) {
       Gemm gemm_op;
 
-      // print("Initializing Marlinv2 kernel\n");
       cutlass::Status status = gemm_op.initialize(args, workspace, stream);
       TORCH_CHECK(status == cutlass::Status::kSuccess,
                   "Marlinv2 kernel failed to initialize workspace");
 
-      // print("Running Marlinv2 kernel\n");
-      status = gemm_op(stream);
+      status = gemm_op.run(stream);
       TORCH_CHECK(status == cutlass::Status::kSuccess,
                   "Marlinv2 kernel failed");
     }

@@ -2,6 +2,7 @@
 #include "cuda_utils.h"
 #include "ops.h"
 #include "registration.h"
+#include "vllm_type.hpp"
 
 #include <torch/library.h>
 
@@ -17,6 +18,33 @@
 
 TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, ops) {
   // vLLM custom ops
+
+  ops.class_<VLLMTypeTorch>("VLLMType")
+      .def(torch::init<int64_t, int64_t, bool>())
+      .def("__eq__",
+           [](VLLMTypeTorchPtr const& self, VLLMTypeTorchPtr const& other) {
+             return *self == *other;
+           })
+      .def("__str__",
+           [](VLLMTypeTorchPtr const& self) { return self.get()->str(); })
+      .def_property(
+          "mantissa",
+          [](VLLMTypeTorchPtr const& self) { return self.get()->mantissa; })
+      .def_property(
+          "exponent",
+          [](VLLMTypeTorchPtr const& self) { return self.get()->exponent; })
+      .def_property(
+          "signed",
+          [](VLLMTypeTorchPtr const& self) { return self.get()->_signed; })
+      .def_property(
+          "size_bits",
+          [](VLLMTypeTorchPtr const& self) { return self.get()->size_bits(); })
+      .def_property(
+          "integer",
+          [](VLLMTypeTorchPtr const& self) { return self.get()->integer(); })
+      .def_property("floating_point", [](VLLMTypeTorchPtr const& self) {
+        return self.get()->floating_point();
+      });
 
   // Attention ops
   // Compute the attention between an input query and the cached
@@ -128,6 +156,17 @@ TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, ops) {
   // Marlin_24 (Sparse) Optimized Quantized GEMM for GPTQ.
   ops.def("gptq_marlin_24_gemm", &gptq_marlin_24_gemm);
   ops.impl("gptq_marlin_24_gemm", torch::kCUDA, &gptq_marlin_24_gemm);
+
+  // MarlinV2 (Dense) Optimized Weight Quantized GEMM for Hopper.
+  ops.def("marlinv2_supported_schedules", &marlinv2::supported_schedules);
+  ops.impl("marlinv2_supported_schedules", torch::kCPU,
+           &marlinv2::supported_schedules);
+  ops.def("marlinv2_supported_types", &marlinv2::supported_types);
+  ops.impl("marlinv2_supported_types", torch::kCPU, &marlinv2::supported_types);
+  ops.def("marlinv2_gemm", &marlinv2::gemm);
+  ops.impl("marlinv2_gemm", torch::kCUDA, &marlinv2::gemm);
+  ops.def("marlinv2_prepack_B", &marlinv2::prepack_B);
+  ops.impl("marlinv2_prepack_B", torch::kCUDA, &marlinv2::prepack_B);
 
   // gptq_marlin Optimized Quantized GEMM for GPTQ.
   ops.def("gptq_marlin_gemm", &gptq_marlin_gemm);

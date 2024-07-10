@@ -1,4 +1,5 @@
 """This file is used for /tests and /benchmarks"""
+
 import numpy
 import torch
 
@@ -17,7 +18,7 @@ def permute_rows(q_w: torch.Tensor, w_ref: torch.Tensor, group_size: int):
     orig_device = q_w.device
     k_size, _ = q_w.shape
 
-    g_idx = torch.zeros((k_size, ), dtype=torch.int32)
+    g_idx = torch.zeros((k_size,), dtype=torch.int32)
     for i in range(k_size):
         g_idx[i] = i // group_size
 
@@ -36,8 +37,7 @@ def permute_rows(q_w: torch.Tensor, w_ref: torch.Tensor, group_size: int):
     )
 
 
-def quantize_weights(w: torch.Tensor, num_bits: int, group_size: int,
-                     act_order: bool):
+def quantize_weights(w: torch.Tensor, num_bits: int, group_size: int, act_order: bool):
     orig_device = w.device
     size_k, size_n = w.shape
 
@@ -93,7 +93,8 @@ def quantize_weights(w: torch.Tensor, num_bits: int, group_size: int,
         assert (
             group_size < size_k
         ), "For act_order, groupsize = {} must be less than size_k = {}".format(
-            group_size, size_k)
+            group_size, size_k
+        )
 
         w_ref, q_w, g_idx, rand_perm = permute_rows(q_w, w_ref, group_size)
 
@@ -109,8 +110,7 @@ def quantize_weights(w: torch.Tensor, num_bits: int, group_size: int,
 def sort_weights(q_w: torch.Tensor, g_idx: torch.Tensor):
     orig_device = q_w.device
 
-    sort_indices = torch.argsort(g_idx).to(
-        dtype=torch.int32)  # Sort based on g_idx
+    sort_indices = torch.argsort(g_idx).to(dtype=torch.int32)  # Sort based on g_idx
 
     g_idx = g_idx[sort_indices].contiguous()
     q_w = q_w[sort_indices, :].contiguous()
@@ -140,7 +140,7 @@ def gptq_pack(
     q_res = numpy.zeros((size_k // pack_factor, size_n), dtype=numpy.uint32)
 
     for i in range(pack_factor):
-        q_res |= q_w[i::pack_factor, :] << num_bits * i
+        q_res |= (q_w[i::pack_factor, :] & 0xF) << num_bits * i
 
     q_res = torch.from_numpy(q_res.astype(numpy.int32)).to(orig_device)
     return q_res

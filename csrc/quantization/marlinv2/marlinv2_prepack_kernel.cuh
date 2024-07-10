@@ -26,11 +26,11 @@ static __global__ void prepack_B_kernel(BInTensor B_in,
 
   // Construct a register-backed Tensor with the same shape as each thread's
   // partition
-  auto fragment = make_fragment_like(thr_tile_D);
+  auto fragment = make_tensor<ElementB>(shape(thr_tile_D));
 
   // Copy from GMEM to RMEM and from RMEM to GMEM
   copy(tiled_copy, thr_tile_S, fragment);
-  copy(tiled_copy, fragment, thr_tile_D);
+  copy(Copy_Atom<DefaultCopy, uint8_t>{}, fragment, thr_tile_D);
 }
 
 template <typename PrepackedLayout, typename InLayout>

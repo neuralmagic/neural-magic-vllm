@@ -46,7 +46,8 @@ torch::Tensor run_impl(PytorchArguments args) {
   int K = args.A.size(1);
 
   // Allocate output
-  torch::Tensor D = args.B.new_empty({M, N}, torch::kF16);
+  torch::Tensor D = torch::empty(
+      {M, N}, torch::TensorOptions().dtype(torch::kF16).device(device));
 
   auto A_ptr = data_ptr<ElementA const, LayoutA>(args.A, "A");
   auto B_ptr = data_ptr<ElementB const, LayoutB>(args.B, "B");
@@ -66,9 +67,10 @@ torch::Tensor run_impl(PytorchArguments args) {
               "Marlinv2 kernel cannot be run with these arguments");
 
   size_t workspace_size = KernelSpeacialization::get_workspace_size(arguments);
-  torch::Tensor workspace = args.B.new_empty(workspace_size, torch::kU8);
+  torch::Tensor workspace = torch::empty(
+      workspace_size, torch::TensorOptions().dtype(torch::kF16).device(device));
 
-  KernelSpeacialization::run(arguments, workspace.data_ptr(), stream);
+  KernelSpeacialization::run(arguments, workspace.mutable_data_ptr(), stream);
 
   return D;
 };
@@ -78,6 +80,7 @@ template <typename ElementA, typename ElementB, typename ElementD,
           typename ZeroT = cutlass::half_t>
 struct KernelDispatcher {
   static torch::Tensor dispatch(PytorchArguments args);
+  static std::vector<std::string> supported_schedules();
 };
 
 };  // namespace marlinv2
