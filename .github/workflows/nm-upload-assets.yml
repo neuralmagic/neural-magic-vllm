@@ -1,4 +1,4 @@
-name: nm upload assets to GCP
+name: nm upload assets to GCP and pypi.org
 run-name: ${{ github.actor }} publishing whl on branch '${{ github.ref}}'
 on:
 
