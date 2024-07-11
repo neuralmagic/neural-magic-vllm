@@ -120,7 +120,7 @@ def test_lm_eval_correctness(num_gpus_available):
         destroy_model_parallel()
         gc.collect()
         torch.cuda.empty_cache()
-        torch.distributed.destroy_process_group()
+        #torch.distributed.destroy_process_group()
         ray.shutdown()
 
         # Make sure the server finishes tearing down.
