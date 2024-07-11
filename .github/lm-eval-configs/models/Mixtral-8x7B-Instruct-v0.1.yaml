@@ -6,6 +6,6 @@ tasks:
   - name: "exact_match,strict-match"
     value: 0.660
   - name: "exact_match,flexible-extract"
-    value: 0.624
+    value: 0.662
 limit: 1000
 num_fewshot: 5
