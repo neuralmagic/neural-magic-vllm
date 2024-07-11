@@ -1,5 +1,5 @@
-# ./nm-run-lm-eval-gsm-hf-baseline.sh -m neuralmagic/Mixtral-8x7B-Instruct-v0.1-FP8 -b 16 -l 1000 -f 5
-model_name: "neuralmagic/Mixtral-8x7B-Instruct-v0.1-FP8"
+# ./nm-run-lm-eval-gsm-hf-baseline.sh -m neuralmagic/Mixtral-8x22B-Instruct-v0.1-FP8 -b 16 -l 1000 -f 5
+model_name: "neuralmagic/Mixtral-8x22B-Instruct-v0.1-FP8"
 tasks:
 - name: "gsm8k"
   metrics:

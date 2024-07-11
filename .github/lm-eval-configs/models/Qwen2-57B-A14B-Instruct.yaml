@@ -1,5 +1,5 @@
-# ./nm-run-lm-eval-gsm-hf-baseline.sh -m Qwen/Qwen2-7B-Instruct -b 16 -l 1000 -f 5
-model_name: "Qwen/Qwen2-7B-Instruct"
+# ./nm-run-lm-eval-gsm-hf-baseline.sh -m Qwen/Qwen2-57B-A14B-Instruct -b 16 -l 1000 -f 5
+model_name: "Qwen/Qwen2-57B-A14B-Instruct"
 tasks:
 - name: "gsm8k"
   metrics:

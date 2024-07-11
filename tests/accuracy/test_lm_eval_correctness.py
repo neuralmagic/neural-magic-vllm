@@ -9,6 +9,11 @@ import pytest
 import requests
 import yaml
 
+import gc
+import torch
+import ray
+from vllm.distributed.parallel_state import destroy_model_parallel
+
 from tests.nm_utils.utils_skip import should_skip_test_group
 
 if should_skip_test_group(group_name="TEST_ACCURACY"):
@@ -110,6 +115,13 @@ def test_lm_eval_correctness(num_gpus_available):
     finally:
         assert server_process is not None
         server_process.terminate()
+
+        # clean up memory
+        destroy_model_parallel()
+        torch.cuda.empty_cache()
+        torch.distributed.destroy_process_group()
+        ray.shutdown()
+        gc.collect()
 
         # Make sure the server finishes tearing down.
         time.sleep(10.)
