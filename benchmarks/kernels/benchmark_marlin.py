@@ -14,7 +14,7 @@ from vllm.model_executor.layers.quantization.gptq_marlin_24 import (
 from vllm.model_executor.layers.quantization.utils.marlin_utils import (
     MarlinWorkspace, marlin_24_quantize, marlin_quantize)
 from vllm.model_executor.layers.quantization.utils.quant_utils import (
-    gptq_pack, quantize_weights, sort_weights)
+    gptq_pack, gptq_quantize_weights, sort_weights)
 from vllm.utils import FlexibleArgumentParser
 
 DEFAULT_MODELS = ["meta-llama/Llama-2-7b-hf/TP1"]
@@ -56,7 +56,7 @@ def bench_run(results: List[benchmark.Measurement], model: str,
 
     # GPTQ quant
     (w_ref, q_w, s, g_idx,
-     rand_perm) = quantize_weights(b, num_bits, group_size, act_order)
+     rand_perm) = gptq_quantize_weights(b, num_bits, group_size, act_order)
     q_w_gptq = gptq_pack(q_w, num_bits, size_k, size_n)
 
     # For act_order, sort the "weights" and "g_idx"
