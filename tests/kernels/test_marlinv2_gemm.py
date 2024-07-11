@@ -14,7 +14,7 @@ from vllm._custom_classes import VLLMType
 from vllm.model_executor.layers.quantization.utils.marlin_utils import (
     is_marlin_supported)
 from vllm.model_executor.layers.quantization.utils.quant_utils import (
-    gptq_pack, quantize_weights)
+    pack_weights, quantize_weights)
 
 MNK_SHAPES = [
     (1, 128, 128),
@@ -56,10 +56,8 @@ def marlinv2_quantize_and_pack(b_weight, wtype: VLLMType, group_size: int):
 
     assert wtype.integer, "TODO: support floating point weights"
 
-    # Pack to GPTQ format
-    q_w_gptq = gptq_pack(q_w, wtype.size_bits, *b_weight.shape)
-    q_w_gptq = q_w_gptq.t().contiguous().t()
-    q_w_marlinv2 = ops.marlinv2_prepack_B(q_w_gptq, wtype)
+    q_w = pack_weights(q_w, wtype)
+    q_w_marlinv2 = ops.marlinv2_prepack_B(q_w, wtype)
 
     return w_ref, q_w_marlinv2, s
 

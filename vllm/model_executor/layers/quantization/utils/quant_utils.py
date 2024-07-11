@@ -5,6 +5,8 @@ from typing import Union
 import numpy
 import torch
 
+from vllm._custom_classes import VLLMType
+
 SUPPORTED_NUM_BITS = [4, 8]
 SUPPORTED_GROUP_SIZES = [-1, 32, 64, 128]
 
@@ -161,7 +163,33 @@ def gptq_pack(
     q_res = numpy.zeros((size_k // pack_factor, size_n), dtype=numpy.uint32)
 
     for i in range(pack_factor):
-        q_res |= (q_w[i::pack_factor, :] & 0xF) << num_bits * i
+        q_res |= q_w[i::pack_factor, :] << num_bits * i
 
     q_res = torch.from_numpy(q_res.astype(numpy.int32)).to(orig_device)
+    return q_res
+
+
+def pack_weights(q_w: torch.Tensor, wtype: VLLMType, dim: int = 0):
+    orig_device = q_w.device
+
+    # move dim to pack to the end
+    perm = (*[i for i in range(len(q_w.shape)) if i != dim], dim)
+    inv_perm = tuple(perm.index(i) for i in range(len(perm)))
+    q_w_perm = q_w.permute(perm)
+
+    q_w_perm = q_w_perm.cpu().numpy().astype(numpy.uint32)
+    pack_factor = (q_w_perm.dtype.itemsize * 8) // wtype.size_bits
+    mask = (1 << wtype.size_bits) - 1
+    
+    new_shape_perm = list(q_w_perm.shape)
+    new_shape_perm[-1] //= pack_factor
+    assert new_shape_perm[-1] % pack_factor == 0
+    
+    q_res = numpy.zeros(new_shape_perm, dtype=numpy.uint32)
+    for i in range(pack_factor):
+        q_res |= (q_w_perm[..., i::pack_factor] & mask) << wtype.size_bits * i
+        
+    q_res = torch.from_numpy(q_res.astype(numpy.int32)).to(orig_device)
+    q_res = q_res.permute(inv_perm)
+
     return q_res
