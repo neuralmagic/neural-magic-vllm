@@ -222,6 +222,51 @@ class ReplicatedLinear(LinearBase):
         s += f", output_features={self.output_size}"
         s += f", bias={self.bias is not None}"
         return s
+    
+class FusedLinearMarlin(LinearBase):
+
+    """
+    Args:
+        input_size: input dimension of the linear layer.
+        output_size: output dimension of the linear layer.
+        bias: If true, add bias.
+        skip_bias_add: If true, skip adding bias but instead return it.
+        params_dtype: Data type for the parameters.
+        quant_config: Quantization configure.
+    """
+
+    def __init__(self,
+                 input_size13: int,
+                 input_size2: int,
+                 quant_config: Optional[QuantizationConfig] = None):
+        # calling with inputsize13 is a bit of an ugly workaround,
+        # it's not used for anything
+        super().__init__(input_size13, input_size13, False, None,
+                         quant_config)
+        self.input_size13 = input_size13
+        self.input_size2 = input_size2
+        self.output_size13 = input_size2
+        self.output_size2 = input_size13
+
+        # All the linear layer supports quant method.
+        assert self.quant_method is not None
+        self.quant_method.create_weights(self, self.input_size13, self.input_size2,
+                                         self.output_size13, self.output_size2,
+                                         self.input_size13, self.input_size2,
+                                         self.params_dtype)
+
+        self.register_parameter("bias", None)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        assert self.quant_method is not None
+        output = self.quant_method.apply(self, x, None)
+        return output, None
+
+    def extra_repr(self) -> str:
+        s = f"in_features={self.input_size}"
+        s += f", output_features={self.output_size}"
+        s += f", bias={self.bias is not None}"
+        return s
 
 
 class ColumnParallelLinear(LinearBase):

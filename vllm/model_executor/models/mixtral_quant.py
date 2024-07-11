@@ -25,18 +25,22 @@ from typing import Iterable, List, Optional, Tuple
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch import nn
 from transformers import MixtralConfig
+import re
 
 from vllm import _custom_ops as ops
 from vllm.attention import Attention, AttentionMetadata
 from vllm.config import CacheConfig
 from vllm.distributed import (get_tensor_model_parallel_rank,
-                              get_tensor_model_parallel_world_size)
-from vllm.model_executor.layers.fused_moe import fused_marlin_moe
+                              get_tensor_model_parallel_world_size,
+                              tensor_model_parallel_all_reduce)
+from vllm.model_executor.layers.fused_moe import fused_marlin_moe, FusedMoE
 from vllm.model_executor.layers.layernorm import RMSNorm
 from vllm.model_executor.layers.linear import (QKVParallelLinear,
                                                ReplicatedLinear,
+                                               FusedLinearMarlin,
                                                RowParallelLinear)
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization.base_config import (
@@ -59,36 +63,48 @@ class MixtralMLP(nn.Module):
         num_experts: int,
         hidden_size: int,
         intermediate_size: int,
+        experimental_fused_moe: bool,
         quant_config: Optional[QuantizationConfig] = None,
     ) -> None:
         super().__init__()
         self.num_experts = num_experts
         self.ffn_dim = intermediate_size
         self.hidden_dim = hidden_size
+        self.experimental_fused_moe = experimental_fused_moe
 
-        self.w1 = ReplicatedLinear(self.hidden_dim,
-                                   self.ffn_dim,
-                                   bias=False,
-                                   quant_config=quant_config)
-        self.w2 = ReplicatedLinear(self.ffn_dim,
-                                   self.hidden_dim,
-                                   bias=False,
-                                   quant_config=quant_config)
-        self.w3 = ReplicatedLinear(self.hidden_dim,
-                                   self.ffn_dim,
-                                   bias=False,
-                                   quant_config=quant_config)
+        # TODO
+        # print("hidden dim:", self.hidden_dim, "ffn_dim:", self.ffn_dim)
+        if self.experimental_fused_moe:
+            self.ws = FusedLinearMarlin(self.hidden_dim, self.ffn_dim,
+                                        quant_config=quant_config)
+        else:
+            self.w1 = ReplicatedLinear(self.hidden_dim,
+                                    self.ffn_dim,
+                                    bias=False,
+                                    quant_config=quant_config)
+            self.w2 = ReplicatedLinear(self.ffn_dim,
+                                    self.hidden_dim,
+                                    bias=False,
+                                    quant_config=quant_config)
+            self.w3 = ReplicatedLinear(self.hidden_dim,
+                                    self.ffn_dim,
+                                    bias=False,
+                                    quant_config=quant_config)
 
-        # TODO: Use vllm's SiluAndMul
-        self.act_fn = nn.SiLU()
+            # TODO: Use vllm's SiluAndMul
+            self.act_fn = nn.SiLU()
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        w1_out, _ = self.w1(hidden_states)
-        w1_out = self.act_fn(w1_out)
-        w3_out, _ = self.w3(hidden_states)
-        current_hidden_states = w1_out * w3_out
-        current_hidden_states, _ = self.w2(current_hidden_states)
-        return current_hidden_states
+        if self.experimental_fused_moe:
+            current_hidden_states = self.ws(hidden_states)
+            return current_hidden_states
+        else:
+            w1_out, _ = self.w1(hidden_states)
+            w1_out = self.act_fn(w1_out)
+            w3_out, _ = self.w3(hidden_states)
+            current_hidden_states = w1_out * w3_out
+            current_hidden_states, _ = self.w2(current_hidden_states)
+            return current_hidden_states
 
 
 class MixtralMoE(nn.Module):
@@ -96,10 +112,12 @@ class MixtralMoE(nn.Module):
     def __init__(
         self,
         config: MixtralConfig,
+        experimental_fused_moe: bool,
         quant_config: Optional[QuantizationConfig] = None,
     ):
         super().__init__()
         self.config = config
+        self.experimental_fused_moe = experimental_fused_moe
         self.quant_config = quant_config
         self.rank = get_tensor_model_parallel_rank()
         self.tp_size = get_tensor_model_parallel_world_size()
@@ -116,14 +134,26 @@ class MixtralMoE(nn.Module):
             raise ValueError(
                 f"Rank {self.rank} has no experts assigned to it.")
 
-        self.experts = nn.ModuleList([
-            MixtralMLP(self.num_total_experts,
-                       config.hidden_size,
-                       config.intermediate_size,
-                       quant_config=quant_config)
-            if idx in self.expert_indicies else None
-            for idx in range(self.num_total_experts)
-        ])
+        # self.experts = nn.ModuleList([
+        #     MixtralMLP(self.num_total_experts,
+        #                config.hidden_size,
+        #                config.intermediate_size,
+        #                self.experimental_fused_moe,
+        #                quant_config=quant_config)
+        #     if idx in self.expert_indicies else None
+        #     for idx in range(self.num_total_experts)
+        # ])
+        # TODO type
+        params_dtype = torch.float16
+        self.experts = FusedMoE(num_experts=self.num_total_experts,
+                                top_k=self.top_k,
+                                hidden_size=config.hidden_size,
+                                intermediate_size=config.intermediate_size,
+                                params_dtype=params_dtype,
+                                reduce_results=True,
+                                renormalize=True,
+                                quant_config=quant_config,
+                                tp_size=self.tp_size)
         self.gate = ReplicatedLinear(config.hidden_size,
                                      self.num_total_experts,
                                      bias=False,
@@ -134,88 +164,137 @@ class MixtralMoE(nn.Module):
         hidden_states = hidden_states.view(-1, hidden_dim)
         router_logits, _ = self.gate(hidden_states)
 
-        qweight13_l = []
-        scales13_l = []
-        qweight2_l = []
-        scales2_l = []
-        g_idx13_l = []
-        g_idx2_l = []
-        g_idx_sort_idx13_l = []
-        g_idx_sort_idx2_l = []
+        if self.experimental_fused_moe:
 
-        for i in range(len(self.experts)):
-            w1_qw = self.experts[i].w1.get_parameter("qweight").int()
-            w3_qw = self.experts[i].w3.get_parameter("qweight").int()
-            w1_s = self.experts[i].w1.get_parameter("scales").half()
-            w3_s = self.experts[i].w3.get_parameter("scales").half()
-            w2_qw = self.experts[i].w2.get_parameter("qweight").int()
-            w2_s = self.experts[i].w2.get_parameter("scales").half()
-            if self.quant_config.desc_act:
-                g_idx13 = self.experts[i].w1.get_parameter("g_idx")
-                g_idx2 = self.experts[i].w2.get_parameter("g_idx")
-            else:
-                g_idx13 = torch.empty(0, device=w1_qw.device)
-                g_idx2 = torch.empty(0, device=w2_qw.device)
-            g_idx_sort_idx13 = torch.argsort(g_idx13).int()
-            g_idx_sort_idx2 = torch.argsort(g_idx2).int()
+            return self.experts(hidden_states, router_logits)
 
-            w13_qw = torch.cat((w1_qw, w3_qw), 1)
-            w13_s = torch.cat((w1_s, w3_s), 1)
-            size_k = hidden_states.shape[1]
-            size_n = w13_qw.shape[1]
-            w13_qw = ops.gptq_marlin_repack(w13_qw, g_idx_sort_idx13, size_k,
-                                            size_n,
-                                            self.quant_config.weight_bits)
-            w13_s = marlin_permute_scales_numbits(
-                w13_s, size_k, size_n, self.quant_config.group_size,
-                self.quant_config.weight_bits)
+            qweight13_l = []
+            scales13_l = []
+            qweight2_l = []
+            scales2_l = []
+            g_idx13_l = []
+            g_idx2_l = []
+            g_idx_sort_idx13_l = []
+            g_idx_sort_idx2_l = []
 
-            size_k = w2_qw.shape[0] * 8
-            size_n = w2_qw.shape[1]
-            w2_qw = ops.gptq_marlin_repack(w2_qw, g_idx_sort_idx2, size_k,
-                                           size_n,
-                                           self.quant_config.weight_bits)
-            w2_s = marlin_permute_scales_numbits(w2_s, size_k, size_n,
-                                                 self.quant_config.group_size,
-                                                 self.quant_config.weight_bits)
+            for i in range(len(self.experts)):
+                current_expert = self.experts[i].ws
+                current_expert(hidden_states)
+                # print("get weights")
+                # w1_qw = current_expert.get_parameter("qweight1").int()
+                # w3_qw = current_expert.get_parameter("qweight3").int()
+                # w1_s = current_expert.get_parameter("scales1").half()
+                # w3_s = current_expert.get_parameter("scales3").half()
+                w2_qw = current_expert.get_parameter("qweight2").int()
+                w2_s = current_expert.get_parameter("scales2").half()
+                w13_qw = current_expert.get_parameter("qweight13").int()
+                w13_s = current_expert.get_parameter("scales13").half()
+                # w1_qw = self.experts[i].w1.get_parameter("qweight").int()
+                # w3_qw = self.experts[i].w3.get_parameter("qweight").int()
+                # w1_s = self.experts[i].w1.get_parameter("scales").half()
+                # w3_s = self.experts[i].w3.get_parameter("scales").half()
+                # w2_qw = self.experts[i].w2.get_parameter("qweight").int()
+                # w2_s = self.experts[i].w2.get_parameter("scales").half()
+                if self.quant_config.desc_act:
+                    # g_idx13 = self.experts[i].w1.get_parameter("g_idx")
+                    # g_idx2 = self.experts[i].w2.get_parameter("g_idx")
+                    g_idx13 = current_expert.get_parameter("g_idx13")
+                    g_idx2 = current_expert.get_parameter("g_idx2")
+                    g_idx_sort_idx13 = current_expert.get_parameter("g_idx_sort_indices13")
+                    g_idx_sort_idx2 = current_expert.get_parameter("g_idx_sort_indices2")
+                else:
+                    g_idx13 = torch.empty(0, device=w13_qw.device)
+                    g_idx2 = torch.empty(0, device=w2_qw.device)
+                    g_idx_sort_idx13 = torch.empty(0, device=w13_qw.device)
+                    g_idx_sort_idx2 = torch.empty(0, device=w2_qw.device)
+                # g_idx_sort_idx13 = torch.argsort(g_idx13).int()
+                # g_idx_sort_idx2 = torch.argsort(g_idx2).int()
 
-            qweight13_l.append(w13_qw)
-            scales13_l.append(w13_s)
-            qweight2_l.append(w2_qw)
-            scales2_l.append(w2_s)
-            g_idx13_l.append(g_idx13)
-            g_idx2_l.append(g_idx2)
-            g_idx_sort_idx13_l.append(g_idx_sort_idx13)
-            g_idx_sort_idx2_l.append(g_idx_sort_idx2)
+                # w13_qw = torch.cat((w1_qw, w3_qw), 0)
+                # w13_s = torch.cat((w1_s, w3_s), 0)
+                # w13_qw = torch.cat((w1_qw, w3_qw), 1)
+                # w13_s = torch.cat((w1_s, w3_s), 1)
+                # size_k = hidden_states.shape[1]
+                # size_n = w13_qw.shape[1]
+                # print("do repack 13", w13_qw.shape, g_idx_sort_idx13.shape)
+                # w13_qw = ops.gptq_marlin_repack(w13_qw, g_idx_sort_idx13, size_k,
+                #                                 size_n,
+                #                                 self.quant_config.weight_bits)
+                # w13_s = marlin_permute_scales_numbits(
+                #     w13_s, size_k, size_n, self.quant_config.group_size,
+                #     self.quant_config.weight_bits)
 
-        qweight13 = torch.stack(qweight13_l, dim=0).to(qweight13_l[0].device)
-        scales13 = torch.stack(scales13_l, dim=0).to(scales13_l[0].device)
-        qweight2 = torch.stack(qweight2_l, dim=0).to(qweight2_l[0].device)
-        scales2 = torch.stack(scales2_l, dim=0).to(scales2_l[0].device)
-        g_idx13 = torch.stack(g_idx13_l, dim=0).to(g_idx13_l[0].device)
-        g_idx2 = torch.stack(g_idx2_l, dim=0).to(g_idx2_l[0].device)
-        g_idx_sort_idx13 = torch.stack(g_idx_sort_idx13_l,
-                                       dim=0).to(g_idx_sort_idx13_l[0].device)
-        g_idx_sort_idx2 = torch.stack(g_idx_sort_idx2_l,
-                                      dim=0).to(g_idx_sort_idx2_l[0].device)
+                # size_k = w2_qw.shape[0] * 8
+                # size_n = w2_qw.shape[1]
+                # print("do repack 2", w2_qw.shape, g_idx_sort_idx2.shape)
+                # w2_qw = ops.gptq_marlin_repack(w2_qw, g_idx_sort_idx2, size_k,
+                #                             size_n,
+                #                             self.quant_config.weight_bits)
+                # w2_s = marlin_permute_scales_numbits(w2_s, size_k, size_n,
+                #                                     self.quant_config.group_size,
+                #                                     self.quant_config.weight_bits)
 
-        final_hidden_states = fused_marlin_moe(
-            hidden_states.half(),
-            qweight13,
-            qweight2,
-            router_logits,
-            g_idx13,
-            g_idx2,
-            g_idx_sort_idx13,
-            g_idx_sort_idx2,
-            self.top_k,
-            renormalize=True,
-            w1_scale=scales13,
-            w2_scale=scales2,
-        )
+                qweight13_l.append(w13_qw)
+                scales13_l.append(w13_s)
+                qweight2_l.append(w2_qw)
+                scales2_l.append(w2_s)
+                g_idx13_l.append(g_idx13)
+                g_idx2_l.append(g_idx2)
+                g_idx_sort_idx13_l.append(g_idx_sort_idx13)
+                g_idx_sort_idx2_l.append(g_idx_sort_idx2)
 
-        return final_hidden_states.bfloat16()
+            qweight13 = torch.stack(qweight13_l, dim=0).to(qweight13_l[0].device)
+            scales13 = torch.stack(scales13_l, dim=0).to(scales13_l[0].device)
+            qweight2 = torch.stack(qweight2_l, dim=0).to(qweight2_l[0].device)
+            scales2 = torch.stack(scales2_l, dim=0).to(scales2_l[0].device)
+            g_idx13 = torch.stack(g_idx13_l, dim=0).to(g_idx13_l[0].device)
+            g_idx2 = torch.stack(g_idx2_l, dim=0).to(g_idx2_l[0].device)
+            g_idx_sort_idx13 = torch.stack(g_idx_sort_idx13_l,
+                                        dim=0).to(g_idx_sort_idx13_l[0].device)
+            g_idx_sort_idx2 = torch.stack(g_idx_sort_idx2_l,
+                                        dim=0).to(g_idx_sort_idx2_l[0].device)
 
+            final_hidden_states = fused_marlin_moe(
+                hidden_states.half(),
+                qweight13,
+                qweight2,
+                router_logits,
+                g_idx13,
+                g_idx2,
+                g_idx_sort_idx13,
+                g_idx_sort_idx2,
+                self.top_k,
+                renormalize=True,
+                w1_scale=scales13,
+                w2_scale=scales2,
+            )
+
+            return final_hidden_states.bfloat16()
+
+        else:
+
+            routing_weights = F.softmax(router_logits, dim=1, dtype=torch.float)
+            routing_weights, selected_experts = torch.topk(routing_weights,
+                                                            self.top_k,
+                                                            dim=-1)
+            routing_weights /= routing_weights.sum(dim=-1, keepdim=True)
+
+            final_hidden_states = None
+            for expert_idx in self.expert_indicies:
+                expert_layer = self.experts[expert_idx]
+                expert_mask = (selected_experts == expert_idx)
+                expert_weights = (routing_weights * expert_mask).sum(dim=-1,
+                                                                    keepdim=True)
+
+                current_hidden_states = expert_layer(hidden_states).mul_(
+                    expert_weights)
+                if final_hidden_states is None:
+                    final_hidden_states = current_hidden_states
+                else:
+                    final_hidden_states.add_(current_hidden_states)
+
+            return tensor_model_parallel_all_reduce(final_hidden_states).view(
+                                                    num_tokens, hidden_dim)
 
 class MixtralAttention(nn.Module):
 
@@ -299,6 +378,7 @@ class MixtralDecoderLayer(nn.Module):
     def __init__(
         self,
         config: MixtralConfig,
+        experimental_fused_moe: bool,
         cache_config: Optional[CacheConfig] = None,
         quant_config: Optional[QuantizationConfig] = None,
     ) -> None:
@@ -315,6 +395,7 @@ class MixtralDecoderLayer(nn.Module):
             cache_config=cache_config,
             quant_config=quant_config)
         self.block_sparse_moe = MixtralMoE(config=config,
+                                           experimental_fused_moe=experimental_fused_moe,
                                            quant_config=quant_config)
         self.input_layernorm = RMSNorm(config.hidden_size,
                                        eps=config.rms_norm_eps)
@@ -355,6 +436,7 @@ class MixtralModel(nn.Module):
     def __init__(
         self,
         config: MixtralConfig,
+        experimental_fused_moe: bool,
         cache_config: Optional[CacheConfig] = None,
         quant_config: Optional[QuantizationConfig] = None,
     ) -> None:
@@ -368,6 +450,7 @@ class MixtralModel(nn.Module):
         )
         self.layers = nn.ModuleList([
             MixtralDecoderLayer(config,
+                                experimental_fused_moe,
                                 cache_config,
                                 quant_config=quant_config)
             for _ in range(config.num_hidden_layers)
@@ -402,9 +485,12 @@ class MixtralForCausalLM(nn.Module):
         quant_config: Optional[QuantizationConfig] = None,
     ) -> None:
         super().__init__()
+
+        self.experimental_fused_moe = True
+
         self.config = config
         self.quant_config = quant_config
-        self.model = MixtralModel(config, cache_config, quant_config)
+        self.model = MixtralModel(config, self.experimental_fused_moe, cache_config, quant_config)
         self.lm_head = ParallelLMHead(config.vocab_size,
                                       config.hidden_size,
                                       quant_config=quant_config)
@@ -445,17 +531,41 @@ class MixtralForCausalLM(nn.Module):
             ("qkv_proj", "v_proj", "v"),
         ]
 
+        # weight names: [w[0] for w in weights]
+        # 'model.layers.0.block_sparse_moe.experts.0.w1.bias',
+        # 'model.layers.0.block_sparse_moe.experts.0.w1.g_idx',
+        # 'model.layers.0.block_sparse_moe.experts.0.w1.qweight',
+        # 'model.layers.0.block_sparse_moe.experts.0.w1.qzeros',
+        # 'model.layers.0.block_sparse_moe.experts.0.w1.scales',
+        # 'model.layers.0.block_sparse_moe.experts.0.w2.bias',
+        # 'model.layers.0.block_sparse_moe.experts.0.w2.g_idx',
+        # 'model.layers.0.block_sparse_moe.experts.0.w2.qweight',
+        # 'model.layers.0.block_sparse_moe.experts.0.w2.qzeros',
+        # 'model.layers.0.block_sparse_moe.experts.0.w2.scales',
+        # 'model.layers.0.block_sparse_moe.experts.0.w3.bias',
+        # 'model.layers.0.block_sparse_moe.experts.0.w3.g_idx',
+        # 'model.layers.0.block_sparse_moe.experts.0.w3.qweight',
+        # 'model.layers.0.block_sparse_moe.experts.0.w3.qzeros',
+        # 'model.layers.0.block_sparse_moe.experts.0.w3.scales',
+        # 'model.layers.0.block_sparse_moe.experts.1.w1.bias'
+        # ...
+
         params_dict = dict(self.named_parameters())
+        # print(params_dict.keys())
+        # print("weights:", [w[0] for w in weights])
+        # raise ValueError("stop")
         for name, loaded_weight in weights:
             if "rotary_emb.inv_freq" in name:
                 continue
             for (param_name, weight_name, shard_id) in stacked_params_mapping:
+                # print("try", param_name, weight_name, shard_id, name)
                 if weight_name not in name:
                     continue
                 name = name.replace(weight_name, param_name)
                 # Skip loading extra bias for GPTQ models.
                 if name.endswith(".bias") and name not in params_dict:
                     continue
+                # print("load loop", name, "into", param.shape)
                 param = params_dict[name]
                 weight_loader = param.weight_loader
                 weight_loader(param, loaded_weight, shard_id)
@@ -464,11 +574,56 @@ class MixtralForCausalLM(nn.Module):
                 # Skip loading extra bias for GPTQ models.
                 if name.endswith(".bias") and name not in params_dict:
                     continue
-                # Skip experts that are not assigned to this worker.
-                if ("block_sparse_moe.experts." in name
-                        and name not in params_dict):
-                    continue
+
+                if self.experimental_fused_moe:
+                    if("block_sparse_moe.experts." in name
+                       and ".w1." not in name and ".w2." not in name
+                       and ".w3." not in name 
+                       and name not in params_dict):
+                        continue
+            
+                    if (".qzeros" in name):
+                        continue
+
+                    shard_id = None
+                    expert_id = 0
+
+                    # print("process:", name)
+
+                    has_any_numbered = (".qweight" in name or ".scales" in name or ".g_idx" in name)
+                    if (has_any_numbered and (".w1." in name)):
+                        name = name.replace(".w1.", ".w13_")
+                        shard_id = 0
+                    if (has_any_numbered and (".w2." in name)):
+                        name = name.replace(".w2.", ".w2_")
+                        shard_id = 0
+                    if (has_any_numbered and (".w3." in name)):
+                        name = name.replace(".w3.", ".w13_")
+                        shard_id = 1
+
+                    exp_string = re.search(r"\.experts\.\d+.", name)
+                    if exp_string:
+                        exp_string = exp_string.group(0)
+                        # print("Exp string:", exp_string)
+                        expert_id = int(exp_string.split(".")[2])
+                        # print("I found:", expert_shard, "in", name)
+                        name = name.replace(exp_string, ".experts.")
+
+                else:
+                    if("block_sparse_moe.experts." in name
+                       and name not in params_dict):
+                        continue
+
                 param = params_dict[name]
-                weight_loader = getattr(param, "weight_loader",
-                                        default_weight_loader)
-                weight_loader(param, loaded_weight)
+                
+                # print("load", name, "into", param.shape)
+                if shard_id is not None:
+                    weight_loader = getattr(param, "weight_loader",
+                                            default_weight_loader)
+                    # print("load:", name, "with shard", shard_id)
+                    weight_loader(param, loaded_weight, name, shard_id, expert_id, True)
+                else:
+                    weight_loader = getattr(param, "weight_loader",
+                                            default_weight_loader)
+                    # print("load:", name, "without shard")
+                    weight_loader(param, loaded_weight)

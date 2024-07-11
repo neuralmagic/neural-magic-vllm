@@ -8,6 +8,7 @@ from torch.nn.parameter import Parameter
 from vllm import _custom_ops as ops
 from vllm.logger import init_logger
 from vllm.model_executor.layers.linear import (LinearBase, LinearMethodBase,
+                                               FusedLinearMarlin,
                                                set_weight_attrs)
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig)
@@ -151,6 +152,8 @@ class GPTQMarlinConfig(QuantizationConfig):
     def get_quant_method(
             self,
             layer: torch.nn.Module) -> Optional["GPTQMarlinLinearMethod"]:
+        if isinstance(layer, FusedLinearMarlin):
+            return GPTQMarlinFusedLinearMethod(self)
         if (isinstance(layer, LinearBase) or
             (isinstance(layer, ParallelLMHead) and self.lm_head_quantized)):
             return GPTQMarlinLinearMethod(self)
@@ -386,6 +389,10 @@ class GPTQMarlinLinearMethod(LinearMethodBase):
 
         out_shape = x.shape[:-1] + (part_size_n, )
 
+        #TODO should make the new implementation also depend on repacking / not repacking here
+        # otherwise we lose 2x time doing superfluous computations
+        # maybe also repack q1/q3 separately before merging, depending on how fast it is compared to q13
+
         if layer.marlin_state == GPTQMarlinState.REPACK:
             layer.marlin_state = GPTQMarlinState.READY
 
@@ -421,6 +428,8 @@ class GPTQMarlinLinearMethod(LinearMethodBase):
                     requires_grad=False,
                 )
 
+            # print("do repack", layer.qweight.shape, layer.g_idx_sort_indices.shape)
+
             # Repack weights
             marlin_qweight = ops.gptq_marlin_repack(
                 layer.qweight,
@@ -446,6 +455,9 @@ class GPTQMarlinLinearMethod(LinearMethodBase):
             )
             replace_tensor("scales", marlin_scales)
 
+        # else:
+            # print("do not repack")
+
         output = ops.gptq_marlin_gemm(
             reshaped_x,
             layer.qweight,
@@ -464,3 +476,452 @@ class GPTQMarlinLinearMethod(LinearMethodBase):
             output.add_(bias)  # In-place add
 
         return output.reshape(out_shape)
+
+class GPTQMarlinFusedLinearMethod(LinearMethodBase):
+    """Linear method for fused GPTQ Marlin.
+
+    Args:
+        quant_config: The GPTQ Marlin quantization config.
+    """
+
+    def __init__(self, quant_config: GPTQMarlinConfig) -> None:
+        self.quant_config = quant_config
+
+    def create_weights(
+        self,
+        layer: torch.nn.Module,
+        input_size_per_partition13: int,
+        input_size_per_partition2: int,
+        output_size_per_partition13: int,
+        output_size_per_partition2: int,
+        input_size13: int,
+        input_size2: int,
+        params_dtype: torch.dtype,
+        **extra_weight_attrs,
+    ) -> None:
+        # Normalize group_size
+        if self.quant_config.group_size != -1:
+            group_size13 = self.quant_config.group_size
+            group_size2 = self.quant_config.group_size
+        else:
+            group_size13 = input_size13
+            group_size2 = input_size2
+
+        # Validate dtype
+        if params_dtype not in [torch.float16, torch.bfloat16]:
+            raise ValueError(f"The params dtype must be float16 "
+                             f"or bfloat16, but got {params_dtype}")
+
+        # Validate output_size_per_partition
+        if output_size_per_partition13 % self.quant_config.min_thread_n != 0:
+            raise ValueError(
+                f"Weight output_size_per_partition = "
+                f"{output_size_per_partition13} is not divisible by "
+                f" min_thread_n = {self.quant_config.min_thread_n}.")
+        if output_size_per_partition2 % self.quant_config.min_thread_n != 0:
+            raise ValueError(
+                f"Weight output_size_per_partition = "
+                f"{output_size_per_partition2} is not divisible by "
+                f" min_thread_n = {self.quant_config.min_thread_n}.")
+
+        # Validate input_size_per_partition
+        if input_size_per_partition13 % self.quant_config.min_thread_k != 0:
+            raise ValueError(
+                f"Weight input_size_per_partition = "
+                f"{input_size_per_partition13} is not divisible "
+                f"by min_thread_k = {self.quant_config.min_thread_k}.")
+        if input_size_per_partition2 % self.quant_config.min_thread_k != 0:
+            raise ValueError(
+                f"Weight input_size_per_partition = "
+                f"{input_size_per_partition2} is not divisible "
+                f"by min_thread_k = {self.quant_config.min_thread_k}.")
+
+        if (group_size13 < input_size13
+                and input_size_per_partition13 % group_size13 != 0):
+            raise ValueError(
+                f"Weight input_size_per_partition = {input_size_per_partition13}"
+                f" is not divisible by group_size = {group_size13}.")
+        if (group_size2 < input_size2
+                and input_size_per_partition2 % group_size2 != 0):
+            raise ValueError(
+                f"Weight input_size_per_partition = {input_size_per_partition2}"
+                f" is not divisible by group_size = {group_size2}.")
+
+        # Detect sharding of scales/zp
+
+        # By default, no sharding over "input dim"
+        scales_and_zp_size13 = input_size13 // group_size13
+        scales_and_zp_size2 = input_size2 // group_size2
+        scales_and_zp_input_dim13 = None
+        scales_and_zp_input_dim2 = None
+
+        if self.quant_config.desc_act:
+            # Act-order case
+            assert self.quant_config.group_size != -1
+
+            is_k_full = (input_size_per_partition13 == input_size13 and
+                         input_size_per_partition2 == input_size2)
+
+        else:
+            # No act-order case
+
+            # K is always full due to full alignment with
+            # group-size and shard of scales/zp
+            is_k_full = True
+
+            # If this is a row-parallel case, then shard scales/zp
+            if (input_size13 != input_size_per_partition13
+                    and self.quant_config.group_size != -1):
+                scales_and_zp_size13 = input_size_per_partition13 // group_size13
+                scales_and_zp_input_dim13 = 0
+            if (input_size2 != input_size_per_partition2
+                    and self.quant_config.group_size != -1):
+                scales_and_zp_size2 = input_size_per_partition2 // group_size2
+                scales_and_zp_input_dim2 = 0
+
+        # Init buffers
+
+        # Quantized weights
+        qweight1 = Parameter(
+            torch.empty(
+                input_size_per_partition13 // self.quant_config.pack_factor,
+                output_size_per_partition13,
+                dtype=torch.int32,
+            ),
+            requires_grad=False,
+        )
+        qweight2 = Parameter(
+            torch.empty(
+                input_size_per_partition2 // self.quant_config.pack_factor,
+                output_size_per_partition2,
+                dtype=torch.int32,
+            ),
+            requires_grad=False,
+        )
+        qweight3 = Parameter(
+            torch.empty(
+                input_size_per_partition13 // self.quant_config.pack_factor,
+                output_size_per_partition13,
+                dtype=torch.int32,
+            ),
+            requires_grad=False,
+        )
+        qweight13 = Parameter(
+            torch.empty(
+                input_size_per_partition13 // self.quant_config.pack_factor * 2,
+                output_size_per_partition13,
+                dtype=torch.int32,
+            ),
+            requires_grad=False,
+        )
+        qweight_attrs = {
+                **extra_weight_attrs,
+                "input_dim": 0,
+                "output_dim": 1,
+                "packed_dim": 0,
+                "pack_factor": self.quant_config.pack_factor,
+            }
+
+        set_weight_attrs(qweight1, qweight_attrs)
+        set_weight_attrs(qweight2, qweight_attrs)
+        set_weight_attrs(qweight3, qweight_attrs)
+        set_weight_attrs(qweight13, qweight_attrs)
+
+        # Activation order
+        g_idx13 = Parameter(
+            torch.empty(
+                input_size_per_partition13,
+                dtype=torch.int32,
+            ),
+            requires_grad=False,
+        )
+        g_idx2 = Parameter(
+            torch.empty(
+                input_size_per_partition2,
+                dtype=torch.int32,
+            ),
+            requires_grad=False,
+        )
+        g_idx_attrs = {
+                **extra_weight_attrs, "input_dim": 0,
+                "ignore_warning": True
+            }
+        # Ignore warning from fused linear layers such as QKVParallelLinear.
+        set_weight_attrs(g_idx13, g_idx_attrs)
+        set_weight_attrs(g_idx2, g_idx_attrs)
+
+        g_idx_sort_indices13 = Parameter(
+            torch.empty(
+                g_idx13.shape,
+                dtype=torch.int32,
+            ),
+            requires_grad=False,
+        )
+        g_idx_sort_indices2 = Parameter(
+            torch.empty(
+                g_idx2.shape,
+                dtype=torch.int32,
+            ),
+            requires_grad=False,
+        )
+
+        # Scales
+        scales1 = Parameter(
+            torch.empty(
+                scales_and_zp_size13,
+                output_size_per_partition13,
+                dtype=params_dtype,
+            ),
+            requires_grad=False,
+        )
+        scales2 = Parameter(
+            torch.empty(
+                scales_and_zp_size2,
+                output_size_per_partition2,
+                dtype=params_dtype,
+            ),
+            requires_grad=False,
+        )
+        scales3 = Parameter(
+            torch.empty(
+                scales_and_zp_size13,
+                output_size_per_partition13,
+                dtype=params_dtype,
+            ),
+            requires_grad=False,
+        )
+        scales13 = Parameter(
+            torch.empty(
+                scales_and_zp_size13 * 2,
+                output_size_per_partition13,
+                dtype=params_dtype,
+            ),
+            requires_grad=False,
+        )
+        set_weight_attrs(
+            scales1,
+            {
+                **extra_weight_attrs,
+                "input_dim": scales_and_zp_input_dim13,
+                "output_dim": 1,
+            },
+        )
+        set_weight_attrs(
+            scales2,
+            {
+                **extra_weight_attrs,
+                "input_dim": scales_and_zp_input_dim2,
+                "output_dim": 1,
+            },
+        )
+        set_weight_attrs(
+            scales3,
+            {
+                **extra_weight_attrs,
+                "input_dim": scales_and_zp_input_dim13,
+                "output_dim": 1,
+            },
+        )
+        set_weight_attrs(
+            scales13,
+            {
+                **extra_weight_attrs,
+                "input_dim": scales_and_zp_input_dim13,
+                "output_dim": 1,
+            },
+        )
+
+        # No zero-point support
+
+        # Allocate marlin workspace
+        # TODO we'll need multiple output sizes per partition (take max)
+        max_workspace_size = (
+            max(output_size_per_partition13, output_size_per_partition2) //
+            self.quant_config.min_thread_n) * self.quant_config.max_parallel
+        workspace = torch.zeros(max_workspace_size,
+                                dtype=torch.int,
+                                requires_grad=False)
+
+        layer.register_parameter("qweight1", qweight1)
+        layer.register_parameter("qweight2", qweight2)
+        layer.register_parameter("qweight3", qweight3)
+        layer.register_parameter("qweight13", qweight13)
+        layer.register_parameter("g_idx13", g_idx13)
+        layer.register_parameter("g_idx2", g_idx2)
+        layer.register_parameter("scales1", scales1)
+        layer.register_parameter("scales2", scales2)
+        layer.register_parameter("scales3", scales3)
+        layer.register_parameter("scales13", scales13)
+        layer.register_parameter("g_idx_sort_indices13", g_idx_sort_indices13)
+        layer.register_parameter("g_idx_sort_indices2", g_idx_sort_indices2)
+        layer.g_idx_sort_indices13 = g_idx_sort_indices13
+        layer.g_idx_sort_indices2 = g_idx_sort_indices2
+        layer.workspace = workspace
+        layer.input_size_per_partition13 = input_size_per_partition13
+        layer.input_size_per_partition2 = input_size_per_partition2
+        layer.output_size_per_partition13 = output_size_per_partition13
+        layer.output_size_per_partition2 = output_size_per_partition2
+        layer.input_size13 = input_size13
+        layer.input_size2 = input_size2
+        layer.is_k_full = is_k_full
+        layer.marlin_state = GPTQMarlinState.REPACK
+
+    def apply(
+        self,
+        layer: torch.nn.Module,
+        x: torch.Tensor,
+        bias: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        # reshaped_x = x.reshape(-1, x.shape[-1])
+
+        # size_m = reshaped_x.shape[0]
+        part_size_k = layer.input_size_per_partition13
+        part_size_n = layer.input_size_per_partition2
+        full_size_k = layer.input_size13
+        full_size_n = layer.input_size2
+
+        # out_shape = x.shape[:-1] + (part_size_n, )
+
+        #TODO should make the new implementation also depend on repacking / not repacking here
+        # otherwise we lose 2x time doing superfluous computations
+        # maybe also repack q1/q3 separately before merging, depending on how fast it is compared to q13
+
+        if layer.marlin_state == GPTQMarlinState.REPACK:
+            layer.marlin_state = GPTQMarlinState.READY
+
+            # Newly generated tensors need to replace existing tensors that are
+            # already registered as parameters by vLLM (and won't be freed)
+            def replace_tensor(name, new_t):
+                # It is important to use resize_() here since it ensures
+                # the same buffer is reused
+                getattr(layer, name).resize_(new_t.shape)
+                getattr(layer, name).copy_(new_t)
+                del new_t
+
+            cur_device = layer.qweight1.device
+
+            # Process act_order
+            if self.quant_config.desc_act:
+                # Get sorting based on g_idx
+                g_idx_sort_indices13 = torch.argsort(layer.g_idx13).to(torch.int)
+                g_idx_sort_indices2 = torch.argsort(layer.g_idx2).to(torch.int)
+    
+                sorted_g_idx13 = layer.g_idx13[g_idx_sort_indices13]
+                sorted_g_idx2 = layer.g_idx2[g_idx_sort_indices2]
+
+                replace_tensor("g_idx13", sorted_g_idx13)
+                replace_tensor("g_idx2", sorted_g_idx2)
+                replace_tensor("g_idx_sort_indices13", g_idx_sort_indices13)
+                replace_tensor("g_idx_sort_indices2", g_idx_sort_indices2)
+
+            else:
+                # Reset g_idx related tensors
+                layer.g_idx13 = Parameter(
+                    torch.empty(0, dtype=torch.int, device=cur_device),
+                    requires_grad=False,
+                )
+                layer.g_idx2 = Parameter(
+                    torch.empty(0, dtype=torch.int, device=cur_device),
+                    requires_grad=False,
+                )
+                layer.g_idx_sort_indices13 = Parameter(
+                    torch.empty(0, dtype=torch.int, device=cur_device),
+                    requires_grad=False,
+                )
+                layer.g_idx_sort_indices2 = Parameter(
+                    torch.empty(0, dtype=torch.int, device=cur_device),
+                    requires_grad=False,
+                )
+
+            # print("do repack", layer.qweight1.shape, layer.qweight2.shape, layer.qweight3.shape)
+
+            layer_qweight13 = torch.cat((layer.qweight1, layer.qweight3), 1)
+
+            # Repack weights
+            # marlin_qweight1 = ops.gptq_marlin_repack(
+            #     layer.qweight1,
+            #     layer.g_idx_sort_indices13,
+            #     part_size_k,
+            #     part_size_n,
+            #     self.quant_config.weight_bits,
+            # )
+            # replace_tensor("qweight1", marlin_qweight1)
+            marlin_qweight2 = ops.gptq_marlin_repack(
+                layer.qweight2,
+                layer.g_idx_sort_indices2,
+                part_size_n,
+                part_size_k,
+                self.quant_config.weight_bits,
+            )
+            replace_tensor("qweight2", marlin_qweight2)
+            # marlin_qweight3 = ops.gptq_marlin_repack(
+            #     layer.qweight3,
+            #     layer.g_idx_sort_indices13,
+            #     part_size_k,
+            #     part_size_n,
+            #     self.quant_config.weight_bits,
+            # )
+            # replace_tensor("qweight3", marlin_qweight3)
+
+            # print("13:", layer_qweight13.shape, part_size_k * 2, part_size_n)
+            marlin_qweight13 = ops.gptq_marlin_repack(
+                layer_qweight13,
+                layer.g_idx_sort_indices13,
+                part_size_k,
+                layer_qweight13.shape[1],
+                self.quant_config.weight_bits,
+            )
+            replace_tensor("qweight13", marlin_qweight13)
+
+            # print("done repack", layer.get_parameter("qweight1").shape,
+            #       layer.get_parameter("qweight2").shape,
+            #       layer.get_parameter("qweight3").shape)
+
+            # Permute scales
+            scales_size_k = part_size_k
+            scales_size_n = part_size_n
+            if self.quant_config.desc_act:
+                scales_size_k = full_size_k
+                scales_size_n = full_size_n
+
+            layer_scales13 = torch.cat((layer.scales1, layer.scales3), 1)
+
+            # marlin_scales1 = marlin_permute_scales(
+            #     layer.scales1,
+            #     scales_size_k,
+            #     scales_size_n,
+            #     self.quant_config.group_size,
+            #     self.quant_config.weight_bits,
+            # )
+            # replace_tensor("scales1", marlin_scales1)
+            marlin_scales2 = marlin_permute_scales(
+                layer.scales2,
+                layer.scales2.shape[0] * 8,
+                layer.scales2.shape[1],
+                self.quant_config.group_size,
+                self.quant_config.weight_bits,
+            )
+            replace_tensor("scales2", marlin_scales2)
+            # marlin_scales3 = marlin_permute_scales(
+            #     layer.scales3,
+            #     scales_size_k,
+            #     scales_size_n,
+            #     self.quant_config.group_size,
+            #     self.quant_config.weight_bits,
+            # )
+            # replace_tensor("scales3", marlin_scales3)
+            marlin_scales13 = marlin_permute_scales(
+                layer_scales13,
+                part_size_k,
+                layer_qweight13.shape[1],
+                self.quant_config.group_size,
+                self.quant_config.weight_bits,
+            )
+            replace_tensor("scales13", marlin_scales13)
+
+        # else:
+            # print("do not repack")
+
+        # return output.reshape(out_shape)
+        return None #the computation is done elsewhere
+
