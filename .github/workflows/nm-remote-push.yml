@@ -25,7 +25,7 @@ jobs:
                             {"python":"3.11.4","label":"gcp-k8s-l4-solo","test":"neuralmagic/tests/test_skip_env_vars/smoke.txt"}]'
             test_timeout: 480
 
-            benchmark_label: gcp-k8s-l4-solo
+            benchmark_labels: '["gcp-k8s-l4-solo", "k8s-h100-solo"]'
             benchmark_config_list_file: ./.github/data/nm_benchmark_base_config_list.txt
             benchmark_timeout: 480
 

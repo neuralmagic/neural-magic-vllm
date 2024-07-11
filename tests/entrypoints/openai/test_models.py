@@ -8,7 +8,7 @@ from huggingface_hub import snapshot_download
 
 from tests.nm_utils.utils_skip import should_skip_test_group
 
-from ...utils import RemoteOpenAIServer
+from ...utils import VLLM_PATH, RemoteOpenAIServer
 
 if should_skip_test_group(group_name="TEST_ENTRYPOINTS"):
     pytest.skip("TEST_ENTRYPOINTS=DISABLE, skipping entrypoints group",
@@ -28,7 +28,7 @@ def zephyr_lora_files():
 
 @pytest.fixture(scope="module")
 def ray_ctx():
-    ray.init()
+    ray.init(runtime_env={"working_dir": VLLM_PATH})
     yield
     ray.shutdown()
 

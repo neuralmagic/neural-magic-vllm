@@ -1,6 +1,8 @@
 from vllm.model_executor.layers.fused_moe.fused_moe import (
     fused_experts, fused_marlin_moe, fused_moe, fused_topk,
     get_config_file_name, grouped_topk, single_marlin_moe)
+from vllm.model_executor.layers.fused_moe.layer import (FusedMoE,
+                                                        FusedMoEMethodBase)
 
 __all__ = [
     "fused_moe",
@@ -10,4 +12,6 @@ __all__ = [
     "single_marlin_moe",
     "get_config_file_name",
     "grouped_topk",
+    "FusedMoE",
+    "FusedMoEMethodBase",
 ]
