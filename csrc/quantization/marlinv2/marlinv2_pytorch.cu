@@ -8,9 +8,9 @@ using cutlass::half_t;
 
 template <typename Fn>
 static auto vllm_type_dispatch(VLLMType const& type, Fn fn) {
-  if (type == kUint4) {
+  if (type == kU4) {
     return fn(cutlass::uint4b_t{});
-  } else if (type == kInt4) {
+  } else if (type == kS4) {
     return fn(cutlass::int4b_t{});
   } else {
     TORCH_CHECK(false, "Unsupported type ", type.str());
@@ -18,8 +18,8 @@ static auto vllm_type_dispatch(VLLMType const& type, Fn fn) {
 }
 
 std::vector<VLLMTypeTorchPtr> supported_types() {
-  return {c10::make_intrusive<VLLMTypeTorch>(kUint4),
-          c10::make_intrusive<VLLMTypeTorch>(kInt4)};
+  return {c10::make_intrusive<VLLMTypeTorch>(kU4),
+          c10::make_intrusive<VLLMTypeTorch>(kS4)};
 }
 
 std::vector<std::string> supported_schedules(VLLMTypeTorchPtr const& btype) {

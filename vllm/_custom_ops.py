@@ -293,9 +293,7 @@ def marlinv2_supported_schedules(b_type: VLLMType) -> List[str]:
 def marlinv2_gemm_schedule_heuristic(M: int, N: int, K: int, b_type: VLLMType):
     assert b_type.size_bits == 4
 
-    tile_scheduler = "void"
-    if 4096 * 2 < K:
-        tile_scheduler = "NMstreamK"
+    tile_scheduler = "NMstreamK"
 
     if M >= 128:
         tile_shape_mn = (128, 128)

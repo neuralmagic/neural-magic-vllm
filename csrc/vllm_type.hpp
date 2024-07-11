@@ -5,7 +5,7 @@
 class VLLMType {
  public:
   constexpr VLLMType(int64_t mantissa, int64_t exponent, bool _signed)
-      : mantissa(mantissa), exponent(exponent), _signed(_signed){};
+      : mantissa(mantissa), exponent(exponent), _signed(_signed) {};
 
   int64_t const mantissa = 0;
   int64_t const exponent = 0;
@@ -73,13 +73,13 @@ class VLLMType {
 class VLLMTypeTorch : public torch::CustomClassHolder, public VLLMType {
  public:
   VLLMTypeTorch(int64_t mantissa, int64_t exponent, bool _signed)
-      : VLLMType(mantissa, exponent, _signed){};
+      : VLLMType(mantissa, exponent, _signed) {};
 
-  VLLMTypeTorch(VLLMType type) : VLLMType(type){};
+  VLLMTypeTorch(VLLMType type) : VLLMType(type) {};
 };
 
 using VLLMTypeTorchPtr = c10::intrusive_ptr<VLLMTypeTorch>;
 
 // Common types
-static inline constexpr VLLMType kI4(3, 0, true);
+static inline constexpr VLLMType kS4(3, 0, true);
 static inline constexpr VLLMType kU4(4, 0, false);

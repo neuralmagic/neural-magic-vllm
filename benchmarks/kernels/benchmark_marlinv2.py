@@ -3,6 +3,7 @@ import copy
 import itertools
 import pickle as pkl
 import time
+import math
 from typing import Callable, Iterable, List, Tuple
 from functools import partial
 
@@ -37,15 +38,21 @@ def marlinv2_pack_weights(w_q: torch.tensor, wtype: VLLMType) -> torch.tensor:
 def make_bench_tensors(
         atype: torch.dtype, wtype: VLLMType, group_size: int,
         m: int, n: int, k: int
-) -> Tuple[torch.tensor, torch.tensor, torch.tensor, torch.tensor]:
+) -> Tuple[torch.tensor, List[Tuple[torch.tensor, torch.tensor, torch.tensor]]]:
     assert wtype.is_integer(), "TODO: support floating point weights"
 
+    # we want to make sure that weights don't fit into L2 cache between runs so 
+    #  we construct enough weights to exceed L2 cache, which is 50mb on a H100
+    #  so we target total weight size > 2*50mb
+    num_weights = math.ceil(2 * 50 * 1024**2 * 8 / (k * n * wtype.size_bits))
+
     a = torch.randn((m, k), device="cuda", dtype=atype) * 5
-    w = torch.randn((k, n), device="cuda", dtype=atype)
+    weights = [torch.randn((k, n), device="cuda", dtype=atype) 
+               for _ in range(num_weights)]
+    quanitized_weights = [quantize_weights(w, wtype, group_size) 
+                          for w in weights]
 
-    w_ref, w_q, w_s = quantize_weights(w, wtype, group_size)
-
-    return a, w_ref, w_q, w_s
+    return a, quanitized_weights
 
 
 # impl
@@ -67,14 +74,26 @@ def bench_fn(
         sub_label=sub_label,
         description=description,
     ).blocked_autorange(min_run_time=min_run_time)
+    
+def loop_over_weights(
+    a: torch.tensor, 
+    weights: List[Tuple[torch.tensor, torch.tensor, torch.tensor]],
+    fn: Callable[[torch.tensor, torch.tensor, torch.tensor, torch.tensor], None]
+):
+    for w_ref, w_q, w_s in weights:
+        fn(a, w_ref, w_q, w_s)
 
 
 def bench(atype: torch.dtype, wtype: VLLMType, group_size: int, m: int, k: int,
           n: int, label: str, sub_label: str, benchmark_marlinv1: bool = True,
           benchmark_marlinv2_best: bool = True
     ) -> Iterable[TMeasurement]:
-    a, w_ref, w_q, w_s = make_bench_tensors(atype, wtype, group_size, m, n, k)
-    w_q_marlinv2 = marlinv2_pack_weights(w_q, wtype)
+    a, weights = make_bench_tensors(atype, wtype, group_size, m, n, k)
+    sub_label += f", L={len(weights)}"
+
+    weights_marlinv2 = [(w_ref, marlinv2_pack_weights(w_q, wtype), w_s)
+                    for w_ref, w_q, w_s in weights]
+
 
     timers = []
     # pytorch impl
@@ -83,17 +102,31 @@ def bench(atype: torch.dtype, wtype: VLLMType, group_size: int, m: int, k: int,
             label,
             sub_label,
             "torch.matmul",
-            partial(torch.matmul, a, w_ref),
+            lambda: loop_over_weights(
+                a, weights, 
+                lambda a, w_ref, w_q, w_s: torch.matmul(a, w_ref),
+            )
         ))
 
     if benchmark_marlinv1:
+        w_ref = weights[0][0]
+        
         sort_indices = torch.empty(0, dtype=torch.int, device=w_ref.device)
         g_idx = torch.empty(0, dtype=torch.int, device=w_ref.device)
-        w_q_gptq = gptq_pack(w_q, wtype.size_bits, *w_ref.shape)
-        w_q_marlinv1 = ops.gptq_marlin_repack(
-            w_q_gptq, sort_indices, *w_ref.shape, wtype.size_bits)
-        w_s_marlinv1 = marlin_permute_scales(
-            w_s, *w_ref.shape, group_size=group_size, num_bits=wtype.size_bits)
+        
+        def marlinv1_pack_weights(w_q: torch.tensor) -> torch.tensor:
+            w_q_gptq = gptq_pack(w_q, wtype.size_bits, *w_ref.shape)
+            return ops.gptq_marlin_repack(
+                w_q_gptq, sort_indices, *w_ref.shape, wtype.size_bits)
+        
+        def marlinv1_permute_scales(w_s: torch.tensor) -> torch.tensor:
+            return marlin_permute_scales(
+                w_s, *w_ref.shape, group_size, wtype.size_bits)
+        
+        weights_marlinv1 = [(w_ref, marlinv1_pack_weights(w_q), 
+                             marlinv1_permute_scales(w_s))
+                            for w_ref, w_q, w_s in weights]
+            
         workspace = MarlinWorkspace(
             w_ref.shape[1], GPTQ_MARLIN_MIN_THREAD_N, GPTQ_MARLIN_MAX_PARALLEL)
         
@@ -103,12 +136,16 @@ def bench(atype: torch.dtype, wtype: VLLMType, group_size: int, m: int, k: int,
                 label,
                 sub_label,
                 "marlin_orig",
-                partial(ops.gptq_marlin_gemm, 
-                        a, w_q_marlinv1, w_s_marlinv1, g_idx, sort_indices,
+                lambda: loop_over_weights(
+                    a, weights_marlinv1, 
+                    lambda a, w_ref, w_q, w_s:
+                        ops.gptq_marlin_gemm(a, w_q, w_s, g_idx, sort_indices,
                         workspace.scratch, wtype.size_bits, size_m=a.shape[0], 
                         size_n=w_ref.shape[1], size_k=w_ref.shape[0], 
-                        is_k_full=True),
-            ))
+                        is_k_full=True)
+                    )
+                )
+            )
 
     # marlinv2
     timers.append(
@@ -116,10 +153,14 @@ def bench(atype: torch.dtype, wtype: VLLMType, group_size: int, m: int, k: int,
             label,
             sub_label,
             "marlinv2_heuristic",
-            partial(ops.marlinv2_gemm, 
-                    a, w_q_marlinv2, wtype, b_scales=w_s, 
-                    b_group_size=group_size),
-        ))
+            lambda: loop_over_weights(
+                a, weights_marlinv2, 
+                lambda a, _, w_q, w_s:
+                    ops.marlinv2_gemm(a, w_q, wtype, 
+                                      b_scales=w_s, b_group_size=group_size)
+                )
+            )
+        )
 
     if benchmark_marlinv2_best:
         print("Finding best schedule for marlinv2")
@@ -130,9 +171,13 @@ def bench(atype: torch.dtype, wtype: VLLMType, group_size: int, m: int, k: int,
                 label,
                 sub_label,
                 f"marlinv2_best",
-                partial(ops.marlinv2_gemm, 
-                        a, w_q_marlinv2, wtype, b_scales=w_s, 
-                        b_group_size=group_size, schedule=schedule),
+                lambda: loop_over_weights(
+                    a, weights_marlinv2, 
+                    lambda a, _, w_q, w_s:
+                        ops.marlinv2_gemm(a, w_q, wtype, 
+                                          b_scales=w_s, b_group_size=group_size,
+                                          schedule=schedule)
+                    )
             )
             print(f"  {res.median:5.5} ", schedule)
             if not best or res.median < best.median:

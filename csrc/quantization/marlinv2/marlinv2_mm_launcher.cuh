@@ -68,7 +68,7 @@ torch::Tensor run_impl(PytorchArguments args) {
 
   size_t workspace_size = KernelSpeacialization::get_workspace_size(arguments);
   torch::Tensor workspace = torch::empty(
-      workspace_size, torch::TensorOptions().dtype(torch::kF16).device(device));
+      workspace_size, torch::TensorOptions().dtype(torch::kU8).device(device));
 
   KernelSpeacialization::run(arguments, workspace.mutable_data_ptr(), stream);
 
