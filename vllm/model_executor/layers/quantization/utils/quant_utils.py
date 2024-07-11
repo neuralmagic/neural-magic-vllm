@@ -169,7 +169,7 @@ def gptq_pack(
     return q_res
 
 
-def pack_weights(q_w: torch.Tensor, wtype: VLLMType, dim: int = 0):
+def pack_weights_into_int32(q_w: torch.Tensor, wtype: VLLMType, dim: int = 0):
     orig_device = q_w.device
 
     # move dim to pack to the end
@@ -178,7 +178,7 @@ def pack_weights(q_w: torch.Tensor, wtype: VLLMType, dim: int = 0):
     q_w_perm = q_w.permute(perm)
 
     q_w_perm = q_w_perm.cpu().numpy().astype(numpy.uint32)
-    pack_factor = (q_w_perm.dtype.itemsize * 8) // wtype.size_bits
+    pack_factor = 32 // wtype.size_bits
     mask = (1 << wtype.size_bits) - 1
     
     new_shape_perm = list(q_w_perm.shape)
