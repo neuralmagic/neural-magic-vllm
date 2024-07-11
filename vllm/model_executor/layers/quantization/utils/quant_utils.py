@@ -43,6 +43,7 @@ def quantize_weights(w: torch.Tensor, wtype: VLLMType, group_size: int):
     assert wtype.is_integer()
 
     orig_device = w.device
+    orig_type = w.dtype
     size_k, size_n = w.shape
 
     assert w.is_floating_point(), "w must be float"
@@ -72,7 +73,7 @@ def quantize_weights(w: torch.Tensor, wtype: VLLMType, group_size: int):
     w_q = torch.clamp(w_q, min_q_val, max_q_val)
 
     # Compute ref (dequantized)
-    w_ref = w_q.half() * w_s
+    w_ref = w_q.to(orig_type) * w_s
 
     # Restore original shapes
     if group_size < size_k:
@@ -94,6 +95,32 @@ def quantize_weights(w: torch.Tensor, wtype: VLLMType, group_size: int):
         w_s.to(device=orig_device),
     )
 
+
+def pack_weights_into_int32(w_q: torch.Tensor, wtype: VLLMType, dim: int = 0):
+    orig_device = w_q.device
+
+    # move dim to pack to the end
+    perm = (*[i for i in range(len(w_q.shape)) if i != dim], dim)
+    inv_perm = tuple(perm.index(i) for i in range(len(perm)))
+    w_q_perm = w_q.permute(perm)
+
+    w_q_perm = w_q_perm.cpu().numpy().astype(numpy.uint32)
+    pack_factor = 32 // wtype.size_bits
+    mask = (1 << wtype.size_bits) - 1
+
+    new_shape_perm = list(w_q_perm.shape)
+    new_shape_perm[-1] //= pack_factor
+    assert new_shape_perm[-1] % pack_factor == 0
+
+    w_q_res = numpy.zeros(new_shape_perm, dtype=numpy.uint32)
+    for i in range(pack_factor):
+        w_q_res |= (w_q_perm[..., i::pack_factor]
+                    & mask) << wtype.size_bits * i
+
+    w_q_res = torch.from_numpy(w_q_res.astype(numpy.int32)).to(orig_device)
+    w_q_res = w_q_res.permute(inv_perm)
+
+    return w_q_res
 
 def gptq_quantize_weights(w: torch.Tensor, num_bits: int, group_size: int,
                           act_order: bool):
@@ -164,30 +191,3 @@ def gptq_pack(
 
     q_res = torch.from_numpy(q_res.astype(numpy.int32)).to(orig_device)
     return q_res
-
-
-def pack_weights_into_int32(w_q: torch.Tensor, wtype: VLLMType, dim: int = 0):
-    orig_device = w_q.device
-
-    # move dim to pack to the end
-    perm = (*[i for i in range(len(w_q.shape)) if i != dim], dim)
-    inv_perm = tuple(perm.index(i) for i in range(len(perm)))
-    w_q_perm = w_q.permute(perm)
-
-    w_q_perm = w_q_perm.cpu().numpy().astype(numpy.uint32)
-    pack_factor = 32 // wtype.size_bits
-    mask = (1 << wtype.size_bits) - 1
-
-    new_shape_perm = list(w_q_perm.shape)
-    new_shape_perm[-1] //= pack_factor
-    assert new_shape_perm[-1] % pack_factor == 0
-
-    w_q_res = numpy.zeros(new_shape_perm, dtype=numpy.uint32)
-    for i in range(pack_factor):
-        w_q_res |= (w_q_perm[..., i::pack_factor]
-                    & mask) << wtype.size_bits * i
-
-    w_q_res = torch.from_numpy(w_q_res.astype(numpy.int32)).to(orig_device)
-    w_q_res = w_q_res.permute(inv_perm)
-
-    return w_q_res

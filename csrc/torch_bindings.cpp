@@ -27,6 +27,10 @@ TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, ops) {
            })
       .def("__str__",
            [](VLLMTypeTorchPtr const& self) { return self.get()->str(); })
+      .def("__repr__",
+           [](VLLMTypeTorchPtr const& self) {
+             return "VLLMType." + self.get()->str();
+           })
       .def_property(
           "mantissa",
           [](VLLMTypeTorchPtr const& self) { return self.get()->mantissa; })

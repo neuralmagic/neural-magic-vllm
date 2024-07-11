@@ -19,6 +19,8 @@ class VLLMType {
   std::variant<int64_t, double> max() const {
     if (is_floating_point()) {
       // TODO: return max floating point value as double
+      //   see `dequant_8bit<bfloat16>` in `csrc/quantization/fp8/fp8_marlin.cu`
+      //   to see how this could be done
       TORCH_CHECK_NOT_IMPLEMENTED(is_floating_point(), "Not implemented");
       return {nan("")};
     } else {
@@ -31,6 +33,8 @@ class VLLMType {
   std::variant<int64_t, double> min() const {
     if (is_floating_point()) {
       // TODO: return min floating point value as double
+      //   see `dequant_8bit<bfloat16>` in `csrc/quantization/fp8/fp8_marlin.cu`
+      //   to see how this could be done
       TORCH_CHECK_NOT_IMPLEMENTED(is_floating_point(), "Not implemented");
       return {nan("")};
     } else {
@@ -76,5 +80,6 @@ class VLLMTypeTorch : public torch::CustomClassHolder, public VLLMType {
 
 using VLLMTypeTorchPtr = c10::intrusive_ptr<VLLMTypeTorch>;
 
-static inline constexpr VLLMType kInt4(3, 0, true);
-static inline constexpr VLLMType kUint4(4, 0, false);
+// Common types
+static inline constexpr VLLMType kI4(3, 0, true);
+static inline constexpr VLLMType kU4(4, 0, false);
