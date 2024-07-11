@@ -34,16 +34,25 @@ TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, ops) {
           "exponent",
           [](VLLMTypeTorchPtr const& self) { return self.get()->exponent; })
       .def_property(
-          "signed",
-          [](VLLMTypeTorchPtr const& self) { return self.get()->_signed; })
-      .def_property(
           "size_bits",
           [](VLLMTypeTorchPtr const& self) { return self.get()->size_bits(); })
-      .def_property(
-          "integer",
-          [](VLLMTypeTorchPtr const& self) { return self.get()->integer(); })
-      .def_property("floating_point", [](VLLMTypeTorchPtr const& self) {
-        return self.get()->floating_point();
+      .def("max",
+           [](VLLMTypeTorchPtr const& self) {
+             return std::visit([](auto arg) { return c10::IValue(arg); },
+                               self.get()->max());
+           })
+      .def("min",
+           [](VLLMTypeTorchPtr const& self) {
+             return std::visit([](auto arg) { return c10::IValue(arg); },
+                               self.get()->min());
+           })
+      .def("is_signed",
+           [](VLLMTypeTorchPtr const& self) { return self.get()->is_signed(); })
+      .def(
+          "is_integer",
+          [](VLLMTypeTorchPtr const& self) { return self.get()->is_integer(); })
+      .def("is_floating_point", [](VLLMTypeTorchPtr const& self) {
+        return self.get()->is_floating_point();
       });
 
   // Attention ops

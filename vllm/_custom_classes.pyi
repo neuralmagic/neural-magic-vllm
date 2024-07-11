@@ -1,3 +1,6 @@
+from typing import Union
+
+
 class VLLMType:
 
     def __init__(self, mantissa: int, exponent: int, signed: bool) -> None:
@@ -12,19 +15,22 @@ class VLLMType:
         ...
 
     @property
-    def signed(self) -> bool:
-        ...
-
-    @property
     def size_bits(self) -> int:
         ...
 
-    @property
-    def integer(self) -> bool:
+    def max(self) -> Union[int, float]:
         ...
 
-    @property
-    def floating_point(self) -> bool:
+    def min(self) -> Union[int, float]:
+        ...
+
+    def is_signed(self) -> bool:
+        ...
+
+    def is_integer(self) -> bool:
+        ...
+
+    def is_floating_point(self) -> bool:
         ...
 
     def __eq__(self, value: object) -> bool:

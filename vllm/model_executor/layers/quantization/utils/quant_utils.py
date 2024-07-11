@@ -1,7 +1,5 @@
 """This file is used for /tests and /benchmarks"""
 
-from typing import Union
-
 import numpy
 import torch
 
@@ -41,35 +39,17 @@ def permute_rows(q_w: torch.Tensor, w_ref: torch.Tensor, group_size: int):
     )
 
 
-def quantize_weights(
-    w: torch.Tensor,
-    num_bits: int,
-    group_size: int,
-    act_order: bool,
-    zero_point: Union[int, str] = "symmetric",
-):
-    if zero_point == "symmetric":
-        zero_point = 2**num_bits // 2
-
-    if isinstance(zero_point, str):
-        raise ValueError("zero_point must be an integer or 'symmetric'")
+def quantize_weights(w: torch.Tensor, wtype: VLLMType, group_size: int):
+    assert wtype.is_integer()
 
     orig_device = w.device
     size_k, size_n = w.shape
 
     assert w.is_floating_point(), "w must be float"
-    assert num_bits in SUPPORTED_NUM_BITS, f"Unsupported num_bits = {num_bits}"
-    assert group_size in SUPPORTED_GROUP_SIZES + [
-        size_k
-    ], f"Unsupported groupsize = {group_size}"
 
     if group_size == -1:
         group_size = size_k
     assert group_size <= size_k
-
-    max_q_val = 2**num_bits - 1
-    max_q_val_pos = max_q_val - zero_point
-    max_q_val_neg = int(zero_point)
 
     # Reshape to [groupsize, -1]
     if group_size < size_k:
@@ -78,22 +58,21 @@ def quantize_weights(
         w = w.reshape((group_size, -1))
 
     # Compute scale for each group
-    max_pos_val = torch.abs(torch.max(w, 0, keepdim=True).values)
-    max_neg_val = torch.abs(torch.min(w, 0, keepdim=True).values)
+    max_val = torch.abs(torch.max(w, 0, keepdim=True).values)
+    min_val = torch.abs(torch.min(w, 0, keepdim=True).values)
 
     # If the zero_point is such that there are no possible negative/positive
     #  values, set the max value to inf to avoid divide by 0
-    max_q_val_pos = max_q_val_pos if max_q_val_pos > 0 else torch.inf
-    max_q_val_neg = max_q_val_neg if max_q_val_neg > 0 else torch.inf
-    s = torch.max(max_pos_val / max_q_val_pos, max_neg_val / max_q_val_neg)
+    max_q_val = wtype.max() if wtype.max() != 0 else torch.inf
+    min_q_val = wtype.min() if wtype.min() != 0 else torch.inf
+    w_s = torch.max(abs(max_val / max_q_val), abs(min_val / min_q_val))
 
     # Quantize
-    q_w = torch.round(w / s).int()
-    q_w += zero_point
-    q_w = torch.clamp(q_w, 0, max_q_val)
+    w_q = torch.round(w / w_s).int()
+    w_q = torch.clamp(w_q, min_q_val, max_q_val)
 
     # Compute ref (dequantized)
-    w_ref = (q_w - zero_point).half() * s
+    w_ref = w_q.half() * w_s
 
     # Restore original shapes
     if group_size < size_k:
@@ -104,10 +83,34 @@ def quantize_weights(
             w = w.reshape((size_k, size_n)).contiguous()
             return w
 
-        q_w = reshape_w(q_w)
+        w_q = reshape_w(w_q)
         w_ref = reshape_w(w_ref)
 
-    s = s.reshape((-1, size_n)).contiguous()
+    w_s = w_s.reshape((-1, size_n)).contiguous()
+
+    return (
+        w_ref.to(device=orig_device),
+        w_q.to(device=orig_device),
+        w_s.to(device=orig_device),
+    )
+
+
+def gptq_quantize_weights(w: torch.Tensor, num_bits: int, group_size: int,
+                          act_order: bool):
+    size_k, _ = w.shape
+
+    assert w.is_floating_point(), "w must be float"
+    assert num_bits in SUPPORTED_NUM_BITS, f"Unsupported num_bits = {num_bits}"
+    assert group_size in SUPPORTED_GROUP_SIZES + [
+        size_k
+    ], f"Unsupported groupsize = {group_size}"
+
+    # gptq uses unisigned values with a symmetric zero point so quantize
+    # weights using signed type then add the zero point
+    wtype = VLLMType(num_bits - 1, 0, True)
+    w_ref, w_q, w_s = quantize_weights(w, wtype, group_size)
+    zero_point = (2**num_bits) // 2
+    w_q += zero_point
 
     # Apply act_order
     g_idx = torch.empty(0, dtype=torch.int, device=w.device)
@@ -118,15 +121,9 @@ def quantize_weights(
         ), "For act_order, groupsize = {} must be less than size_k = {}".format(
             group_size, size_k)
 
-        w_ref, q_w, g_idx, rand_perm = permute_rows(q_w, w_ref, group_size)
+        w_ref, w_q, g_idx, rand_perm = permute_rows(w_q, w_ref, group_size)
 
-    return (
-        w_ref.to(device=orig_device),
-        q_w.to(device=orig_device),
-        s.to(device=orig_device),
-        g_idx.to(device=orig_device),
-        rand_perm.to(device=orig_device),
-    )
+    return w_ref, w_q, w_s, g_idx, rand_perm
 
 
 def sort_weights(q_w: torch.Tensor, g_idx: torch.Tensor):
@@ -169,27 +166,28 @@ def gptq_pack(
     return q_res
 
 
-def pack_weights_into_int32(q_w: torch.Tensor, wtype: VLLMType, dim: int = 0):
-    orig_device = q_w.device
+def pack_weights_into_int32(w_q: torch.Tensor, wtype: VLLMType, dim: int = 0):
+    orig_device = w_q.device
 
     # move dim to pack to the end
-    perm = (*[i for i in range(len(q_w.shape)) if i != dim], dim)
+    perm = (*[i for i in range(len(w_q.shape)) if i != dim], dim)
     inv_perm = tuple(perm.index(i) for i in range(len(perm)))
-    q_w_perm = q_w.permute(perm)
+    w_q_perm = w_q.permute(perm)
 
-    q_w_perm = q_w_perm.cpu().numpy().astype(numpy.uint32)
+    w_q_perm = w_q_perm.cpu().numpy().astype(numpy.uint32)
     pack_factor = 32 // wtype.size_bits
     mask = (1 << wtype.size_bits) - 1
-    
-    new_shape_perm = list(q_w_perm.shape)
+
+    new_shape_perm = list(w_q_perm.shape)
     new_shape_perm[-1] //= pack_factor
     assert new_shape_perm[-1] % pack_factor == 0
-    
-    q_res = numpy.zeros(new_shape_perm, dtype=numpy.uint32)
-    for i in range(pack_factor):
-        q_res |= (q_w_perm[..., i::pack_factor] & mask) << wtype.size_bits * i
-        
-    q_res = torch.from_numpy(q_res.astype(numpy.int32)).to(orig_device)
-    q_res = q_res.permute(inv_perm)
 
-    return q_res
+    w_q_res = numpy.zeros(new_shape_perm, dtype=numpy.uint32)
+    for i in range(pack_factor):
+        w_q_res |= (w_q_perm[..., i::pack_factor]
+                    & mask) << wtype.size_bits * i
+
+    w_q_res = torch.from_numpy(w_q_res.astype(numpy.int32)).to(orig_device)
+    w_q_res = w_q_res.permute(inv_perm)
+
+    return w_q_res

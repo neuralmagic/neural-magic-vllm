@@ -23,10 +23,8 @@ torch::Tensor prepack_impl(torch::Tensor const B) {
   int N = B.size(0) * elements_per_storage_item;
   int M = B.size(1);
 
-  // elements per storage type
-
   auto const shape_Bt = cute::make_shape(M, N, 1);
-  auto const stride_B = make_cute_packed_stride(StrideB{}, shape_Bt);
+  auto const stride_B = make_cute_stride(StrideB{}, shape_Bt);
 
   // Allocate output
   torch::Tensor D = torch::empty_like(B);

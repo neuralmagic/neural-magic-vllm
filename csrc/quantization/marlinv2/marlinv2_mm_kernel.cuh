@@ -5,7 +5,7 @@
 #include <torch/all.h>
 
 // clang-format off
-// The cutlass inlcude order 
+// The cutlass inlcude order matters (annoyingly)
 #include "cutlass/cutlass.h"
 
 #include "cute/tensor.hpp"
@@ -30,37 +30,28 @@ namespace marlinv2 {
 
 using namespace cute;
 
+// NOTE This kernel computes D = alpha * A * B + beta * C by computing
+//   D^t = alpha * B^t * A^t + beta * C^t, this is because the wgmma
+//   instructions only support sourcing from registers for the left-hand
+//   operand, we want to upconvert/decompress the quantized oprand in
+//   register. Since the primary use case we want to support is Y = XW^t where
+//   W is quantized, in this situation or right-hand operand is quantized so
+//   we compute the transpose to move it to the left-hand side.
 template <typename ElementA_, typename ElementB_, typename ElementD_,
           typename AccumulatorT, typename ScaleT, typename ZeroT,
           class KernelSchedule>
-// clang-format on
 struct KernelTemplate {
   using MmaType = ElementA_;
   using ElementA = ElementA_;
   using ElementB = ElementB_;
   using ElementD = ElementD_;
-  using ElementAccumulator =
-      AccumulatorT;  // Element type for internal accumulation
+  using ElementAccumulator = AccumulatorT;
 
-  using LayoutA_ =
-      cutlass::layout::RowMajor;  // Layout type for A matrix operand
-  using LayoutB_ =
-      cutlass::layout::ColumnMajor;  // Layout type for B matrix operand
-  using LayoutC_ =
-      cutlass::layout::RowMajor;  // Layout type for C and D matrix operands
-  using LayoutD_ = LayoutC_;
+  using LayoutA_ = cutlass::layout::RowMajor;
   using LayoutScale_ = cutlass::layout::RowMajor;
 
-  // This example manually swaps and transposes, so keep transpose of input
-  // layouts
   using LayoutA_Transpose =
       typename cutlass::layout::LayoutTranspose<LayoutA_>::type;
-  using LayoutB_Transpose =
-      typename cutlass::layout::LayoutTranspose<LayoutB_>::type;
-  using LayoutC_Transpose =
-      typename cutlass::layout::LayoutTranspose<LayoutC_>::type;
-  using LayoutD_Transpose =
-      typename cutlass::layout::LayoutTranspose<LayoutD_>::type;
 
   using ArchTag = cutlass::arch::Sm90;
   using OperatorClass = cutlass::arch::OpClassTensorOp;
@@ -94,11 +85,18 @@ struct KernelTemplate {
                             cute::tuple<ElementB, ElementScale>>,
         ElementB>;
 
-    using LayoutA = LayoutA_;  // Layout type for A matrix operand
-    using LayoutB = LayoutB_;  // Layout type for B matrix operand
-    using LayoutC = LayoutC_;  // Layout type for C and D matrix operands
-    using LayoutD = LayoutC_;
-    using LayoutScale = LayoutScale_;
+    using LayoutA = LayoutA_;
+    using LayoutB = cutlass::layout::ColumnMajor;
+    using LayoutC = cutlass::layout::RowMajor;
+    using LayoutD = LayoutC;
+    using LayoutScale = cutlass::layout::RowMajor;
+
+    using LayoutB_Transpose =
+        typename cutlass::layout::LayoutTranspose<LayoutB>::type;
+    using LayoutC_Transpose =
+        typename cutlass::layout::LayoutTranspose<LayoutC>::type;
+    using LayoutD_Transpose =
+        typename cutlass::layout::LayoutTranspose<LayoutD>::type;
 
     static int constexpr TileShapeK =
         128 * 8 / cutlass::sizeof_bits<MmaType>::value;
@@ -115,31 +113,22 @@ struct KernelTemplate {
     using EpilogueTileType = typename ScheduleConfig::EpilogueTileType;
     using TileScheduler = typename ScheduleConfig::TileScheduler;
 
-    // clang-format off
+    using CollectiveEpilogue =
+        typename cutlass::epilogue::collective::CollectiveBuilder<
+            ArchTag, OperatorClass, TileShape, ClusterShape, EpilogueTileType,
+            ElementAccumulator, ElementAccumulator, ElementC, LayoutC_Transpose,
+            AlignmentC, ElementD, LayoutD_Transpose, AlignmentD,
+            EpilogueSchedule>::CollectiveOp;
 
-  using CollectiveEpilogue = typename cutlass::epilogue::collective::CollectiveBuilder<
-    ArchTag, OperatorClass, TileShape, ClusterShape, 
-    EpilogueTileType, ElementAccumulator, ElementAccumulator,
-    // Transpose layout of D here since we use explicit swap + transpose
-    // the void type for C tells the builder to allocate 0 smem for the C matrix.
-    // We can enable this if beta == 0 by changing ElementC to void below.
-    ElementC, LayoutC_Transpose, AlignmentC, 
-    ElementD, LayoutD_Transpose, AlignmentD,
-    EpilogueSchedule // This is the only epi supporting the required swap + transpose.
-    >::CollectiveOp;
-
-  using CollectiveMainloop = typename cutlass::gemm::collective::NMCollectiveBuilder<
-    cutlass::gemm::collective::MarlinV2KernelTag,
-    ArchTag, OperatorClass, 
-    BTypeTuple, PrepackedLayoutB, AlignmentB, 
-    ElementA, LayoutA_Transpose, AlignmentA,
-    ElementAccumulator, 
-    TileShape, ClusterShape,
-    cutlass::gemm::collective::StageCountAutoCarveout<static_cast<int>(
-        sizeof(typename CollectiveEpilogue::SharedStorage))>,
-    KernelSchedule>::CollectiveOp;
-
-    // clang-format on
+    using CollectiveMainloop =
+        typename cutlass::gemm::collective::NMCollectiveBuilder<
+            cutlass::gemm::collective::MarlinV2KernelTag, ArchTag,
+            OperatorClass, BTypeTuple, PrepackedLayoutB, AlignmentB, ElementA,
+            LayoutA_Transpose, AlignmentA, ElementAccumulator, TileShape,
+            ClusterShape,
+            cutlass::gemm::collective::StageCountAutoCarveout<static_cast<int>(
+                sizeof(typename CollectiveEpilogue::SharedStorage))>,
+            KernelSchedule>::CollectiveOp;
 
     using GemmKernel = cutlass::gemm::kernel::GemmUniversal<
         Shape<int, int, int, int>,  // Indicates ProblemShape
@@ -156,20 +145,13 @@ struct KernelTemplate {
     using MainloopArguments = typename GemmKernel::MainloopArguments;
     using EpilogueArguments = typename GemmKernel::EpilogueArguments;
 
-    // clang-format off
-  static Arguments create_arguments(cudaStream_t stream,
-                             int M, int N, int K, 
-                             ElementA const* A,
-                             ElementB const* B, 
-                             ElementC const* C,
-                             ElementD* D, 
-                             ElementScale const* scales,
-                             ElementZero const* zeros, 
-                             ElementCompute alpha, 
-                             ElementCompute beta,
-                             std::optional<int> maybe_group_size)
-    // clang-format on
-    {
+    static Arguments create_arguments(cudaStream_t stream, int M, int N, int K,
+                                      ElementA const* A, ElementB const* B,
+                                      ElementC const* C, ElementD* D,
+                                      ElementScale const* scales,
+                                      ElementZero const* zeros,
+                                      ElementCompute alpha, ElementCompute beta,
+                                      std::optional<int> maybe_group_size) {
       // if we have zeropoints we need scales
       static_assert(!with_zeropoints || with_scales);
       // if beta != 0 then we need C
@@ -183,17 +165,12 @@ struct KernelTemplate {
       int const group_size = maybe_group_size.value_or(K);
       int const scale_k = (K + group_size - 1) / group_size;
 
-      auto const shape_bt = cute::make_shape(N, K, L);
-      auto const shape_a = cute::make_shape(M, K, L);
-      auto const shape_ct = cute::make_shape(N, M, L);
-      auto const shape_c = cute::make_shape(M, N, L);
-      auto const shape_scale_zero = cute::make_shape(N, scale_k, L);
-
-      StrideA stride_A = make_cute_packed_stride(StrideA{}, shape_a);
-      StrideB stride_B = make_cute_packed_stride(StrideB{}, shape_bt);
-      StrideC stride_C = make_cute_packed_stride(StrideC{}, shape_ct);
-      StrideD stride_D = make_cute_packed_stride(StrideD{}, shape_ct);
-      StrideS stride_S = make_cute_packed_stride(StrideS{}, shape_scale_zero);
+      // not stride_B is unused
+      auto stride_A = make_cute_stride(StrideA{}, N, K, L);
+      auto stride_B = make_cute_stride(StrideB{}, M, K, L);
+      auto stride_C = make_cute_stride(StrideC{}, N, M, L);
+      auto stride_D = make_cute_stride(StrideD{}, N, M, L);
+      auto stride_S = make_cute_stride(StrideS{}, N, scale_k, L);
 
       MainloopArguments mainloop_arguments{};
       EpilogueArguments epilogue_arguments{

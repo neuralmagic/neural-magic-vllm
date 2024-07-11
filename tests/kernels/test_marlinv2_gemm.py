@@ -12,7 +12,7 @@ from vllm import _custom_ops as ops
 from vllm import common_types as vllm_type
 from vllm._custom_classes import VLLMType
 from vllm.model_executor.layers.quantization.utils.marlin_utils import (
-    is_marlin_supported)
+    is_marlinv2_supported)
 from vllm.model_executor.layers.quantization.utils.quant_utils import (
     pack_weights_into_int32, quantize_weights)
 
@@ -39,31 +39,17 @@ def rand_data(shape, dtype=torch.float16):
 
 
 def marlinv2_quantize_and_pack(b_weight, wtype: VLLMType, group_size: int):
-    # Quantize (and apply act_order if provided)
-    w_ref, q_w, s, _, _ = quantize_weights(
-        b_weight,
-        wtype.size_bits,
-        group_size,
-        False,
-        zero_point="symmetric" if wtype.signed else 0,
-    )
+    assert wtype.is_integer(), "TODO: support floating point weights"
 
-    if wtype.signed:
-        # quantize_weights uses the midpoint as the zero-point,
-        #  and always produces unsigned values
-        zero_point = (2**wtype.size_bits) // 2
-        q_w -= zero_point
+    w_ref, w_q, w_s = quantize_weights(b_weight, wtype, group_size)
+    w_q = pack_weights_into_int32(w_q, wtype)
+    w_q_marlinv2 = ops.marlinv2_prepack_B(w_q, wtype)
 
-    assert wtype.integer, "TODO: support floating point weights"
-
-    q_w = pack_weights_into_int32(q_w, wtype)
-    q_w_marlinv2 = ops.marlinv2_prepack_B(q_w, wtype)
-
-    return w_ref, q_w_marlinv2, s
+    return w_ref, w_q_marlinv2, w_s
 
 
-@pytest.mark.skipif(not is_marlin_supported(),
-                    reason="Marlin is not supported on this GPU type.")
+@pytest.mark.skipif(not is_marlinv2_supported(),
+                    reason="MarlinV2 is not supported on this GPU type.")
 @pytest.mark.parametrize("shape",
                          MNK_SHAPES,
                          ids=lambda x: "x".join(str(v) for v in x))
@@ -84,7 +70,7 @@ def test_marlinv2_all_schedules(shape, atype: torch.dtype, wtype: VLLMType,
     a_input = rand_data((size_m, size_k), atype)
     b_weight = rand_data((size_k, size_n))
 
-    w_ref, q_w_marlinv2, s = marlinv2_quantize_and_pack(
+    w_ref, w_q_marlinv2, w_s = marlinv2_quantize_and_pack(
         b_weight, wtype, group_size)
 
     output_ref = torch.matmul(a_input, w_ref)
@@ -92,9 +78,9 @@ def test_marlinv2_all_schedules(shape, atype: torch.dtype, wtype: VLLMType,
     for schedule in ops.marlinv2_supported_schedules(wtype):
         output = ops.marlinv2_gemm(
             a_input,
-            b_q_weight=q_w_marlinv2,
+            b_q_weight=w_q_marlinv2,
             b_type=wtype,
-            b_scales=s,
+            b_scales=w_s,
             b_group_size=group_size,
             schedule=schedule,
         )
@@ -102,8 +88,8 @@ def test_marlinv2_all_schedules(shape, atype: torch.dtype, wtype: VLLMType,
                               atol=1), f"Schedule failed {schedule}"
 
 
-@pytest.mark.skipif(not is_marlin_supported(),
-                    reason="Marlin is not supported on this GPU type.")
+@pytest.mark.skipif(not is_marlinv2_supported(),
+                    reason="MarlinV2 is not supported on this GPU type.")
 @pytest.mark.parametrize("shape",
                          MNK_SHAPES,
                          ids=lambda x: "x".join(str(v) for v in x))
@@ -124,16 +110,16 @@ def test_marlinv2_heuristic(shape, atype: torch.dtype, wtype: VLLMType,
     a_input = rand_data((size_m, size_k), atype)
     b_weight = rand_data((size_k, size_n))
 
-    w_ref, q_w_marlinv2, s = marlinv2_quantize_and_pack(
+    w_ref, w_q_packed, w_s = marlinv2_quantize_and_pack(
         b_weight, wtype, group_size)
 
     output_ref = torch.matmul(a_input, w_ref)
 
     output = ops.marlinv2_gemm(
         a_input,
-        b_q_weight=q_w_marlinv2,
+        b_q_weight=w_q_packed,
         b_type=wtype,
-        b_scales=s,
+        b_scales=w_s,
         b_group_size=group_size,
     )
     assert torch.allclose(output, output_ref, rtol=1e-1, atol=1)

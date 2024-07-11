@@ -12,7 +12,7 @@ from vllm.model_executor.layers.quantization.utils.marlin_24_perms import (
 from vllm.model_executor.layers.quantization.utils.marlin_perms import (
     marlin_perm, marlin_scale_perm, marlin_scale_perm_single)
 from vllm.model_executor.layers.quantization.utils.quant_utils import (
-    get_pack_factor, quantize_weights, sort_weights)
+    get_pack_factor, gptq_quantize_weights, sort_weights)
 from vllm.platforms import current_platform
 
 MARLIN_TILE = 16
@@ -21,6 +21,11 @@ MARLIN_TILE = 16
 def is_marlin_supported():
     capability = current_platform.get_device_capability()
     return capability[0] >= 8
+
+
+def is_marlinv2_supported():
+    capability = current_platform.get_device_capability()
+    return capability[0] >= 9
 
 
 def marlin_permute_weights(q_w, size_k, size_n, perm, tile=MARLIN_TILE):
@@ -51,7 +56,7 @@ def marlin_weights(q_w, size_k, size_n, num_bits, perm):
     q_packed = numpy.zeros((q_w.shape[0], q_w.shape[1] // pack_factor),
                            dtype=numpy.uint32)
     for i in range(pack_factor):
-        q_packed |= (q_w[:, i::pack_factor] & 0xF) << num_bits * i
+        q_packed |= q_w[:, i::pack_factor] << num_bits * i
 
     q_packed = torch.from_numpy(q_packed.astype(numpy.int32)).to(orig_device)
 
@@ -83,8 +88,8 @@ def marlin_quantize(
     assert group_size <= size_k
 
     # Quantize (and apply act_order if provided)
-    w_ref, q_w, s, g_idx, rand_perm = quantize_weights(w, num_bits, group_size,
-                                                       act_order)
+    w_ref, q_w, s, g_idx, rand_perm = gptq_quantize_weights(
+        w, num_bits, group_size, act_order)
 
     # For act_order, sort the "weights" and "g_idx" so that group ids are
     # increasing
@@ -186,10 +191,8 @@ def marlin_24_quantize(
     w_24, mask_24 = inject_24(w, size_k, size_n)
 
     # Quantize
-    w_24_ref, q_w_24, s, g_idx, rand_perm = quantize_weights(w_24,
-                                                             num_bits,
-                                                             group_size,
-                                                             act_order=False)
+    w_24_ref, q_w_24, s, g_idx, rand_perm = gptq_quantize_weights(
+        w_24, num_bits, group_size, act_order=False)
 
     # Compress quantized weight
     q_w_24_comp, meta = compress_quantized_24_weight(q_w_24, size_k, size_n,
