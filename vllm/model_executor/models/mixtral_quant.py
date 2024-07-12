@@ -171,7 +171,7 @@ class MixtralMoE(nn.Module):
         if self.experimental_fused_moe:
 
             if not self.old_code:
-                return self.experts(hidden_states, router_logits)
+                return self.experts(hidden_states.half(), router_logits).bfloat16()
 
             qweight13_l = []
             scales13_l = []

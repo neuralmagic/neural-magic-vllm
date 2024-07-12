@@ -215,8 +215,8 @@ class MarlinFusedMoEMethod(FusedMoEMethodBase):
                 w13_sorted_g_idx = torch.empty_like(layer.w13_g_idx)
                 w2_sorted_g_idx = torch.empty_like(layer.w2_g_idx)
                 for e in range(num_experts):
-                    w13_g_idx_sort_indices[e] = torch.argsort(layer.w13_g_idx[e])#.to(torch.int)
-                    w2_g_idx_sort_indices[e] = torch.argsort(layer.w2_g_idx[e])#.to(torch.int)
+                    w13_g_idx_sort_indices[e] = torch.argsort(layer.w13_g_idx[e]).to(torch.int32)
+                    w2_g_idx_sort_indices[e] = torch.argsort(layer.w2_g_idx[e]).to(torch.int32)
                     w13_sorted_g_idx[e] = layer.w13_g_idx[e][w13_g_idx_sort_indices[e]]
                     w2_sorted_g_idx[e] = layer.w2_g_idx[e][w2_g_idx_sort_indices[e]]
 
@@ -246,16 +246,16 @@ class MarlinFusedMoEMethod(FusedMoEMethodBase):
 
             # print("3", layer.w13_scales)
 
-            print("*")
-            print("hidden:", x.shape)
-            print("w13 before:", layer.w13_qweight.shape)
-            print("w2 before:", layer.w2_qweight.shape)
-            print("w13 args:", layer.w13_qweight.shape[1]
-                               * self.quant_config.pack_factor,
-                               layer.w13_qweight.shape[2])
-            print("w2 args:", layer.w2_qweight.shape[1]
-                               * self.quant_config.pack_factor,
-                               layer.w2_qweight.shape[2])
+            # print("*")
+            # print("hidden:", x.shape)
+            # print("w13 before:", layer.w13_qweight.shape)
+            # print("w2 before:", layer.w2_qweight.shape)
+            # print("w13 args:", layer.w13_qweight.shape[1]
+            #                    * self.quant_config.pack_factor,
+            #                    layer.w13_qweight.shape[2])
+            # print("w2 args:", layer.w2_qweight.shape[1]
+            #                    * self.quant_config.pack_factor,
+            #                    layer.w2_qweight.shape[2])
 
             # print("weight type:", layer.w13_qweight.dtype)
 
@@ -277,14 +277,14 @@ class MarlinFusedMoEMethod(FusedMoEMethodBase):
             )
             replace_tensor("w2_qweight", marlin_w2_qweight)
             
-            print("w13 after:", marlin_w13_qweight.shape)
-            print("w2 after:", marlin_w2_qweight.shape)
+            # print("w13 after:", marlin_w13_qweight.shape)
+            # print("w2 after:", marlin_w2_qweight.shape)
 
-            print("w13 scales before:", layer.w13_scales.shape)
-            print("w2 scales before:", layer.w2_scales.shape)
-            print("w13 args:", x.shape[1], layer.w13_scales.shape[2])
-            print("w2 args:", layer.w2_scales.shape[1] * self.quant_config.pack_factor,
-                   x.shape[1])
+            # print("w13 scales before:", layer.w13_scales.shape)
+            # print("w2 scales before:", layer.w2_scales.shape)
+            # print("w13 args:", x.shape[1], layer.w13_scales.shape[2])
+            # print("w2 args:", layer.w2_scales.shape[1] * self.quant_config.pack_factor,
+            #        x.shape[1])
 
             # Repack scales
             marlin_w13_scales = marlin_moe_permute_scales(
@@ -305,12 +305,8 @@ class MarlinFusedMoEMethod(FusedMoEMethodBase):
             )
             replace_tensor("w2_scales", marlin_w2_scales)
 
-            print("w13 scales after:", marlin_w13_scales.shape)
-            print("w2 scales after:", marlin_w2_scales.shape)
-
-        print(x.shape)
-        print(layer.w13_qweight.shape)
-        print(layer.w2_qweight.shape)
+            # print("w13 scales after:", marlin_w13_scales.shape)
+            # print("w2 scales after:", marlin_w2_scales.shape)
 
         return fused_marlin_moe(x,
                                 layer.w13_qweight,
