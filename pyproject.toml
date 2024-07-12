@@ -119,6 +119,7 @@ exclude_also = [
     "def convert_bin_to_safetensor_file",
     "def np_cache_weights_iterator",
     "def convert_pyslice_to_tensor",
+    "if is_usage_stats_enabled"
 ]
 
 [tool.coverage.html]
