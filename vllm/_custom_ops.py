@@ -260,9 +260,10 @@ def gptq_marlin_repack(b_q_weight: torch.Tensor, perm: torch.Tensor,
     return torch.ops._C.gptq_marlin_repack(b_q_weight, perm, size_k, size_n,
                                            num_bits)
 
+
 def gptq_marlin_moe_repack(b_q_weight: torch.Tensor, perm: torch.Tensor,
-                       size_k: int, size_n: int,
-                       num_bits: int) -> torch.Tensor:
+                           size_k: int, size_n: int,
+                           num_bits: int) -> torch.Tensor:
     num_experts = b_q_weight.shape[0]
     output = torch.empty((num_experts, size_k // 16, size_n * 2),
                          device=b_q_weight.device,

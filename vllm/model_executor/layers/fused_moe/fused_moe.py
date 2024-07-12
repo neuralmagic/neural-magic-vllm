@@ -737,17 +737,6 @@ def fused_marlin_moe(hidden_states: torch.Tensor,
     E = w1.shape[0]
     N = w2.shape[1] * 16
 
-    # print("hidden_states shape:", hidden_states)
-    # print("w1 shape:", w1)
-    # print("w2 shape:", w2)
-    # print("gating_output shape:", gating_output)
-    # print("g_idx1 shape:", g_idx1)
-    # print("g_idx2 shape:", g_idx2)
-    # print("w1_scale shape:", w1_scale)
-    # print("w2_scale shape:", w2_scale)
-
-    # raise ValueError("stop")
-
     topk_weights, topk_ids = fused_topk(hidden_states, gating_output, topk,
                                         renormalize)
 

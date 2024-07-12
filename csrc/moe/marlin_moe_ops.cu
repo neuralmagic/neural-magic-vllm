@@ -23,10 +23,7 @@
 #include <cuda_fp16.h>
 #include <cuda_runtime.h>
 
-// #include "marlin_moe_ops.h"
-
 #include <iostream>
-// #include <torch/extension.h>
 
 template <typename T>
 inline std::string str(T x) {
