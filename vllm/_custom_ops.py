@@ -295,10 +295,12 @@ def marlinv2_gemm_schedule_heuristic(M: int, N: int, K: int, b_type: VLLMType):
 
     tile_scheduler = "NMstreamK"
 
-    if M >= 128:
+    if M > 64:
         tile_shape_mn = (128, 128)
-    elif M > 16:
+    elif M > 32:
         tile_shape_mn = (128, 64)
+    elif M > 16:
+        tile_shape_mn = (128, 32)
     else:
         tile_shape_mn = (128, 16)
 
@@ -314,7 +316,7 @@ def marlinv2_gemm_schedule_heuristic(M: int, N: int, K: int, b_type: VLLMType):
 
 def marlinv2_gemm(
     a: torch.Tensor,
-    b_q_weight: torch.Tensor,
+    b_q: torch.Tensor,
     b_type: VLLMType,
     b_scales: Optional[torch.Tensor] = None,
     b_zeros: Optional[torch.Tensor] = None,
@@ -325,10 +327,10 @@ def marlinv2_gemm(
     schedule: Optional[str] = None,
 ) -> torch.Tensor:
     if schedule is None:
-        M, K, N = (a.shape[0], a.shape[1], b_q_weight.shape[1])
+        M, K, N = (a.shape[0], a.shape[1], b_q.shape[1])
         schedule = marlinv2_gemm_schedule_heuristic(M, N, K, b_type)
 
-    return torch.ops._C.marlinv2_gemm(a, b_q_weight, b_type, b_scales, b_zeros,
+    return torch.ops._C.marlinv2_gemm(a, b_q, b_type, b_scales, b_zeros,
                                       b_group_size, c, alpha, beta, schedule)
 
 

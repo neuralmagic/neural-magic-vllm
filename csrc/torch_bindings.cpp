@@ -19,6 +19,9 @@
 TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, ops) {
   // vLLM custom ops
 
+  // VLLMType, a custom class for representing data types that supports
+  // quantized types, declared here so it can be used when creating interfaces
+  // for custom ops.
   ops.class_<VLLMTypeTorch>("VLLMType")
       .def(torch::init<int64_t, int64_t, bool>())
       .def("__eq__",

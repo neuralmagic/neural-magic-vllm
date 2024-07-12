@@ -4,7 +4,7 @@ import itertools
 import pickle as pkl
 import time
 import math
-from typing import Callable, Iterable, List, Tuple
+from typing import Callable, Iterable, List, Tuple, Optional
 from functools import partial
 
 import torch
@@ -63,7 +63,7 @@ def bench_fn(
     label: str,
     sub_label: str,
     description: str,
-    fn: Callable,
+    fn: Callable
 ) -> TMeasurement:
 
     min_run_time = 1
@@ -93,7 +93,6 @@ def bench(atype: torch.dtype, wtype: VLLMType, group_size: int, m: int, k: int,
 
     weights_marlinv2 = [(w_ref, marlinv2_pack_weights(w_q, wtype), w_s)
                     for w_ref, w_q, w_s in weights]
-
 
     timers = []
     # pytorch impl
@@ -294,15 +293,15 @@ def run_model_bench(args):
 if __name__ == "__main__":
 
     def to_torch_dtype(dt):
-        if dt == "int8":
-            return torch.int8
-        if dt == "fp8":
+        if dt == "bfloat16":
+            return torch.bfloat16
+        if dt == "float16":
             return torch.float16
         raise ValueError("unsupported dtype")
 
     parser = FlexibleArgumentParser(
         description="""
-Benchmark Cutlass GEMM.
+Benchmark MarlinV2 GEMM.
 
     To run square GEMMs:
         python3 ./benchmarks/kernels/benchmark_marlinv2.py --dtype float16 square_bench --dim-start 128 --dim-end 512 --dim-increment 64
@@ -323,7 +322,7 @@ Benchmark Cutlass GEMM.
         "--dtype",
         type=to_torch_dtype,
         required=True,
-        help="Available options are ['int8', 'fp8']",
+        help="Available options are ['bfloat16', 'float16']",
     )
     subparsers = parser.add_subparsers(dest="cmd")
 

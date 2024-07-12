@@ -9,7 +9,7 @@ import pytest
 import torch
 
 from vllm import _custom_ops as ops
-from vllm import common_types as vllm_type
+from vllm import vllm_type as vllm_type
 from vllm._custom_classes import VLLMType
 from vllm.model_executor.layers.quantization.utils.marlin_utils import (
     is_marlinv2_supported)
@@ -21,7 +21,7 @@ MNK_SHAPES = [
     (1, 512, 1024),
     (1, 4096, 4096),
     (13, 8192, 4096),
-    (26, 4096, 4224),
+    (26, 4096, 8192),
     (1, 4096, 4096),
     (257, 128, 4096),
     (257, 4224, 4096),
@@ -29,8 +29,8 @@ MNK_SHAPES = [
     (64, 4096, 4096),
 ]
 
-ACT_TYPES = [torch.float16]  # torch.bfloat16 TODO
-WEIGHT_TYPES = [vllm_type.int4, vllm_type.uint4]
+ACT_TYPES = [torch.float16, torch.bfloat16]
+WEIGHT_TYPES = [vllm_type.s4, vllm_type.u4]
 GROUP_SIZES = [128, None]
 
 
@@ -38,10 +38,10 @@ def rand_data(shape, dtype=torch.float16):
     return torch.randn(shape, dtype=dtype, device="cuda")
 
 
-def marlinv2_quantize_and_pack(b_weight, wtype: VLLMType, group_size: int):
+def marlinv2_quantize_and_pack(w, wtype: VLLMType, group_size: int):
     assert wtype.is_integer(), "TODO: support floating point weights"
 
-    w_ref, w_q, w_s = quantize_weights(b_weight, wtype, group_size)
+    w_ref, w_q, w_s = quantize_weights(w, wtype, group_size)
     w_q = pack_weights_into_int32(w_q, wtype)
     w_q_marlinv2 = ops.marlinv2_prepack_B(w_q, wtype)
 
@@ -67,25 +67,27 @@ def test_marlinv2_all_schedules(shape, atype: torch.dtype, wtype: VLLMType,
         group_size = size_k
     assert group_size <= size_k
 
-    a_input = rand_data((size_m, size_k), atype)
-    b_weight = rand_data((size_k, size_n))
+    a = rand_data((size_m, size_k), atype)
+    w = rand_data((size_k, size_n), atype)
 
-    w_ref, w_q_marlinv2, w_s = marlinv2_quantize_and_pack(
-        b_weight, wtype, group_size)
+    w_ref, w_q_marlinv2, w_s = marlinv2_quantize_and_pack(w, wtype, group_size)
 
-    output_ref = torch.matmul(a_input, w_ref)
+    output_ref = torch.matmul(a, w_ref)
+    
+    print(a.dtype, output_ref.dtype)
 
     for schedule in ops.marlinv2_supported_schedules(wtype):
         output = ops.marlinv2_gemm(
-            a_input,
-            b_q_weight=w_q_marlinv2,
+            a,
+            b_q=w_q_marlinv2,
             b_type=wtype,
             b_scales=w_s,
             b_group_size=group_size,
             schedule=schedule,
         )
-        assert torch.allclose(output, output_ref, rtol=1e-1,
-                              atol=1), f"Schedule failed {schedule}"
+        print("output:", output.dtype, output_ref.dtype)
+        assert torch.allclose(output, output_ref, rtol=1e-1, atol=1e-1
+                              ), f"Schedule failed {schedule}"
 
 
 @pytest.mark.skipif(not is_marlinv2_supported(),
@@ -108,7 +110,7 @@ def test_marlinv2_heuristic(shape, atype: torch.dtype, wtype: VLLMType,
     assert group_size <= size_k
 
     a_input = rand_data((size_m, size_k), atype)
-    b_weight = rand_data((size_k, size_n))
+    b_weight = rand_data((size_k, size_n), atype)
 
     w_ref, w_q_packed, w_s = marlinv2_quantize_and_pack(
         b_weight, wtype, group_size)
@@ -117,9 +119,9 @@ def test_marlinv2_heuristic(shape, atype: torch.dtype, wtype: VLLMType,
 
     output = ops.marlinv2_gemm(
         a_input,
-        b_q_weight=w_q_packed,
+        b_q=w_q_packed,
         b_type=wtype,
         b_scales=w_s,
         b_group_size=group_size,
     )
-    assert torch.allclose(output, output_ref, rtol=1e-1, atol=1)
+    assert torch.allclose(output, output_ref, rtol=1e-1, atol=1e-1)

@@ -46,8 +46,10 @@ torch::Tensor run_impl(PytorchArguments args) {
   int K = args.A.size(1);
 
   // Allocate output
-  torch::Tensor D = torch::empty(
-      {M, N}, torch::TensorOptions().dtype(torch::kF16).device(device));
+  torch::Tensor D =
+      torch::empty({M, N}, torch::TensorOptions()
+                               .dtype(equivalent_scalar_type_v<ElementD>)
+                               .device(device));
 
   auto A_ptr = data_ptr<ElementA const, LayoutA>(args.A, "A");
   auto B_ptr = data_ptr<ElementB const, LayoutB>(args.B, "B");
@@ -75,9 +77,9 @@ torch::Tensor run_impl(PytorchArguments args) {
   return D;
 };
 
-template <typename ElementA, typename ElementB, typename ElementD,
-          typename AccumulatorT = float, typename ScaleT = cutlass::half_t,
-          typename ZeroT = cutlass::half_t>
+template <typename ElementA, typename ElementB, typename ElementD = ElementA,
+          typename AccumulatorT = float, typename ScaleT = ElementA,
+          typename ZeroT = ElementA>
 struct KernelDispatcher {
   static torch::Tensor dispatch(PytorchArguments args);
   static std::vector<std::string> supported_schedules();

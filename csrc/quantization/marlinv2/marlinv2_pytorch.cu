@@ -6,6 +6,10 @@ namespace marlinv2 {
 
 using cutlass::half_t;
 
+//
+//  Utils (type dispatching)
+//
+
 template <typename Fn>
 static auto vllm_type_dispatch(VLLMType const& type, Fn fn) {
   if (type == kU4) {
@@ -17,6 +21,17 @@ static auto vllm_type_dispatch(VLLMType const& type, Fn fn) {
   }
 }
 
+#define AT_DISPATCH_CASE_SUPPORTED_COMPUTE_TYPES(...) \
+  AT_DISPATCH_CASE_REDUCED_FLOATING_TYPES(__VA_ARGS__)
+
+#define AT_DISPATCH_SUPPORTED_COMPUTE_TYPES(TYPE, NAME, ...) \
+  AT_DISPATCH_SWITCH(TYPE, NAME,                             \
+                     AT_DISPATCH_CASE_SUPPORTED_COMPUTE_TYPES(__VA_ARGS__))
+
+//
+//  Interface
+//
+
 std::vector<VLLMTypeTorchPtr> supported_types() {
   return {c10::make_intrusive<VLLMTypeTorch>(kU4),
           c10::make_intrusive<VLLMTypeTorch>(kS4)};
@@ -24,8 +39,7 @@ std::vector<VLLMTypeTorchPtr> supported_types() {
 
 std::vector<std::string> supported_schedules(VLLMTypeTorchPtr const& btype) {
   return vllm_type_dispatch(*btype, [&](auto BType) {
-    return KernelDispatcher<half_t, decltype(BType),
-                            half_t>::supported_schedules();
+    return KernelDispatcher<half_t, decltype(BType)>::supported_schedules();
   });
 }
 
@@ -50,7 +64,11 @@ torch::Tensor gemm(torch::Tensor const A, torch::Tensor const B,
                                .schedule = schedule};
 
   return vllm_type_dispatch(*btype, [&](auto BType) {
-    return KernelDispatcher<half_t, decltype(BType), half_t>::dispatch(args);
+    return AT_DISPATCH_SUPPORTED_COMPUTE_TYPES(
+        A.scalar_type(), "marlinv2_gemm", [&] {
+          using ComputeType = equivalent_cutlass_type_t<scalar_t>;
+          return KernelDispatcher<ComputeType, decltype(BType)>::dispatch(args);
+        });
   });
 }
 

@@ -2,6 +2,7 @@ import enum
 import os
 import shutil
 import jinja2
+import math
 
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -69,11 +70,12 @@ using Kernel = KernelTemplate<
     cutlass::gemm::KernelTmaWarpSpecializedCooperativeMixedInput
 >::Speacialization<Config, with_C, with_scales, with_zeropoints>;
 
+{% for schedule, schedule_name in schedules %}
 struct sch_{{schedule_name}} {
-  using TileShapeNM = Shape<
-    {{to_cute_constant(schedule.tile_shape_mn)|join(', ')}}>;
-  using ClusterShape = Shape<
-    {{to_cute_constant(schedule.cluster_shape_mnk)|join(', ')}}>;
+  using TileShapeNM = Shape<{{
+      to_cute_constant(schedule.tile_shape_mn)|join(', ')}}>;
+  using ClusterShape = Shape<{{
+      to_cute_constant(schedule.cluster_shape_mnk)|join(', ')}}>;
   // TODO: Reimplement
   // using KernelSchedule   = {{KernelScheduleTag[schedule.kernel_schedule]}};
   using EpilogueSchedule = {{EpilogueScheduleTag[schedule.epilogue_schedule]}};
@@ -99,6 +101,8 @@ impl_{{type_name}}_sch_{{schedule_name}}(PytorchArguments args) {
       "for with_C=", with_C, ", with_scales=", with_scales, 
       ", with_zeropoints=", with_zeropoints);
 }
+{% endfor %}
+
 }; // namespace marlinv2
 """
 
@@ -268,7 +272,7 @@ mm_impl_template = create_template(IMPL_TEMPLATE)
 prepack_dispatch_template = create_template(PREPACK_TEMPLATE)
 
 
-def create_sources(type_config, schedule_configs):
+def create_sources(type_config, schedule_configs, num_impl_files=2):
     sources = []
     # Render the template with the provided configurations
     schedules_with_names = [(schedule, generate_terse_schedule_name(schedule))
@@ -294,15 +298,17 @@ def create_sources(type_config, schedule_configs):
         ),
     ))
 
-    for schedule in schedule_configs:
-        schedule_name = generate_terse_schedule_name(schedule)
+    num_schedules = len(schedule_configs)
+    schedules_per_file = math.ceil(num_schedules / num_impl_files)
+    for part, i in enumerate(range(0, num_schedules, schedules_per_file)):
+        file_schedules = schedules_with_names[i:i+schedules_per_file]
+        
         sources.append((
-            f"marlinv2_mm_{terse_type_name}_{schedule_name}",
+            f"marlinv2_mm_{terse_type_name}_impl_part{part}",
             mm_impl_template.render(
                 type_name=type_name,
                 type_config=type_config,
-                schedule=schedule,
-                schedule_name=schedule_name,
+                schedules=file_schedules
             ),
         ))
     return sources
@@ -327,6 +333,7 @@ def AOT_generate():
             tile_scheduler=tile_scheduler,
         ) for tile_shape_mn, cluster_shape_mnk in (
             ((128, 16), (1, 1, 1)),
+            ((128, 32), (1, 1, 1)),
             ((128, 64), (1, 1, 1)),
             ((128, 128), (1, 1, 1)),
             # ((128, 256), (1, 1, 1)),
@@ -337,13 +344,14 @@ def AOT_generate():
         )))
 
     AOT_kernel_type_configs = list((KernelTypeConfig(
-        element_a=DataType.f16,
+        element_a=element_a,
         element_b=element_b,
-        element_b_scale=DataType.f16,
-        element_b_zeropoint=DataType.f16,
-        element_d=DataType.f16,
+        element_b_scale=element_a,
+        element_b_zeropoint=element_a,
+        element_d=element_a,
         accumulator=DataType.f32,
-    ) for element_b in (DataType.s4, DataType.u4)))
+    ) for element_b in (DataType.s4, DataType.u4)
+      for element_a in (DataType.f16, DataType.bf16)))
 
     output_dir = os.path.join(SCRIPT_DIR, "generated")
 
