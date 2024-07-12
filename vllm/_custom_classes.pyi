@@ -1,9 +1,21 @@
-from typing import Union
+from typing import Union, Optional
 
 
 class ScalarType:
 
     def __init__(self, mantissa: int, exponent: int, bias: int, signed: bool) -> None:
+        ...
+        
+    @classmethod
+    def s(cls, size_bits: int, bias: Optional[int]) -> ScalarType:
+        ...
+
+    @classmethod
+    def u(cls, size_bits: int, bias: Optional[int]) -> ScalarType:
+        ...
+        
+    @classmethod
+    def f(cls, mantissa: int, exponent: int) -> ScalarType:
         ...
 
     @property

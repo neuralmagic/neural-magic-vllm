@@ -1,13 +1,13 @@
 from ._custom_classes import ScalarType
 
-s4 = ScalarType(3, 0, 0, True)
-u4 = ScalarType(4, 0, 0, False)
-i8 = ScalarType(7, 0, 0, True)
-u8 = ScalarType(8, 0, 0, False)
-fE3M4 = ScalarType(4, 3, 0, True)
-fE4M3 = ScalarType(3, 4, 0, True)
-fE8M7 = ScalarType(7, 8, 0, True)
-fE5M10 = ScalarType(5, 11, 0, True)
+s4 = ScalarType.s(4, None)
+u4 = ScalarType.u(4, None)
+s8 = ScalarType.s(8, None)
+u8 = ScalarType.u(8, None)
+fE3M4 = ScalarType.f(4, 3)
+fE4M3 = ScalarType.f(3, 4)
+fE8M7 = ScalarType.f(7, 8)
+fE5M10 = ScalarType.f(5, 11)
 
 # colloquial names
 bfloat16 = fE8M7

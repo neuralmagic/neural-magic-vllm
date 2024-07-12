@@ -98,6 +98,20 @@ class ScalarTypeTorch : public torch::CustomClassHolder, public ScalarType {
   using Self = ScalarTypeTorch;
   using SelfPtr = c10::intrusive_ptr<Self>;
 
+  static SelfPtr s(int64_t size_bits, c10::optional<int64_t> bias) {
+    return c10::make_intrusive<Self>(
+        ScalarType::s(size_bits, bias.value_or(0)));
+  }
+
+  static SelfPtr u(int64_t size_bits, c10::optional<int64_t> bias) {
+    return c10::make_intrusive<Self>(
+        ScalarType::u(size_bits, bias.value_or(0)));
+  }
+
+  static SelfPtr f(int64_t mantissa, int64_t exponent) {
+    return c10::make_intrusive<Self>(ScalarType::f(mantissa, exponent));
+  }
+
   template <typename T>
   static void bind_readonly_property(torch::class_<Self>& cls,
                                      std::string const& name, T Base::*field) {
@@ -112,9 +126,9 @@ class ScalarTypeTorch : public torch::CustomClassHolder, public ScalarType {
     cls.def_property(name, getter_func);
   }
 
-  template <typename MemberFunc>
+  template <typename MemberFunc, typename Cls>
   static void bind_function(torch::class_<Self>& cls, const std::string& name,
-                            MemberFunc Base::*member) {
+                            MemberFunc Cls::*member) {
     cls.def(name, [member = std::move(member)](SelfPtr const& self) {
       return (self.get()->*member)();
     });
@@ -124,6 +138,12 @@ class ScalarTypeTorch : public torch::CustomClassHolder, public ScalarType {
   static void bind_function(torch::class_<Self>& cls, const std::string& name,
                             Func func) {
     cls.def(name, func);
+  }
+
+  template <typename Func>
+  static void bind_static_function(torch::class_<Self>& cls,
+                                   const std::string& name, Func func) {
+    cls.def_static(name, func);
   }
 
   static void bind_class(torch::Library& lib) {
@@ -156,6 +176,11 @@ class ScalarTypeTorch : public torch::CustomClassHolder, public ScalarType {
                   [](SelfPtr const& self, SelfPtr const& other) {
                     return "ScalarType." + self.get()->str();
                   });
+
+    // Bind static functions (convience constructors)
+    bind_static_function(cls, "s", &ScalarTypeTorch::s);
+    bind_static_function(cls, "u", &ScalarTypeTorch::u);
+    bind_static_function(cls, "f", &ScalarTypeTorch::f);
   }
 };
 
