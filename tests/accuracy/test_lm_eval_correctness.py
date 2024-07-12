@@ -87,7 +87,7 @@ def test_lm_eval_correctness(num_gpus_available):
         # shut down cleanly (it works, but not clean).
         "distributed-executor-backend": "ray",
         "disable-log-requests": "",
-        "engine-use-ray": True,
+        "engine-use-ray": "",
     }
 
     server_cmd = "python3 -m vllm.entrypoints.openai.api_server " + \
@@ -122,7 +122,7 @@ def test_lm_eval_correctness(num_gpus_available):
         del server_process
         gc.collect()
         torch.cuda.empty_cache()
-        torch.distributed.destroy_process_group()
+        #torch.distributed.destroy_process_group()
         ray.shutdown()
 
         # Make sure the server finishes tearing down.
