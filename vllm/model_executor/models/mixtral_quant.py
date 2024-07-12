@@ -113,11 +113,13 @@ class MixtralMoE(nn.Module):
         self,
         config: MixtralConfig,
         experimental_fused_moe: bool,
+        old_code: bool,
         quant_config: Optional[QuantizationConfig] = None,
     ):
         super().__init__()
         self.config = config
         self.experimental_fused_moe = experimental_fused_moe
+        self.old_code = old_code
         self.quant_config = quant_config
         self.rank = get_tensor_model_parallel_rank()
         self.tp_size = get_tensor_model_parallel_world_size()
@@ -134,26 +136,28 @@ class MixtralMoE(nn.Module):
             raise ValueError(
                 f"Rank {self.rank} has no experts assigned to it.")
 
-        # self.experts = nn.ModuleList([
-        #     MixtralMLP(self.num_total_experts,
-        #                config.hidden_size,
-        #                config.intermediate_size,
-        #                self.experimental_fused_moe,
-        #                quant_config=quant_config)
-        #     if idx in self.expert_indicies else None
-        #     for idx in range(self.num_total_experts)
-        # ])
-        # TODO type
-        params_dtype = torch.float16
-        self.experts = FusedMoE(num_experts=self.num_total_experts,
-                                top_k=self.top_k,
-                                hidden_size=config.hidden_size,
-                                intermediate_size=config.intermediate_size,
-                                params_dtype=params_dtype,
-                                reduce_results=True,
-                                renormalize=True,
-                                quant_config=quant_config,
-                                tp_size=self.tp_size)
+        if self.old_code:
+            self.experts = nn.ModuleList([
+                MixtralMLP(self.num_total_experts,
+                        config.hidden_size,
+                        config.intermediate_size,
+                        self.experimental_fused_moe,
+                        quant_config=quant_config)
+                if idx in self.expert_indicies else None
+                for idx in range(self.num_total_experts)
+            ])
+        else:
+            # TODO type
+            params_dtype = torch.float16
+            self.experts = FusedMoE(num_experts=self.num_total_experts,
+                                    top_k=self.top_k,
+                                    hidden_size=config.hidden_size,
+                                    intermediate_size=config.intermediate_size,
+                                    params_dtype=params_dtype,
+                                    reduce_results=True,
+                                    renormalize=True,
+                                    quant_config=quant_config,
+                                    tp_size=self.tp_size)
         self.gate = ReplicatedLinear(config.hidden_size,
                                      self.num_total_experts,
                                      bias=False,
@@ -166,7 +170,8 @@ class MixtralMoE(nn.Module):
 
         if self.experimental_fused_moe:
 
-            return self.experts(hidden_states, router_logits)
+            if not self.old_code:
+                return self.experts(hidden_states, router_logits)
 
             qweight13_l = []
             scales13_l = []
@@ -379,6 +384,7 @@ class MixtralDecoderLayer(nn.Module):
         self,
         config: MixtralConfig,
         experimental_fused_moe: bool,
+        old_code: bool,
         cache_config: Optional[CacheConfig] = None,
         quant_config: Optional[QuantizationConfig] = None,
     ) -> None:
@@ -396,6 +402,7 @@ class MixtralDecoderLayer(nn.Module):
             quant_config=quant_config)
         self.block_sparse_moe = MixtralMoE(config=config,
                                            experimental_fused_moe=experimental_fused_moe,
+                                           old_code=old_code,
                                            quant_config=quant_config)
         self.input_layernorm = RMSNorm(config.hidden_size,
                                        eps=config.rms_norm_eps)
@@ -437,6 +444,7 @@ class MixtralModel(nn.Module):
         self,
         config: MixtralConfig,
         experimental_fused_moe: bool,
+        old_code: bool,
         cache_config: Optional[CacheConfig] = None,
         quant_config: Optional[QuantizationConfig] = None,
     ) -> None:
@@ -451,6 +459,7 @@ class MixtralModel(nn.Module):
         self.layers = nn.ModuleList([
             MixtralDecoderLayer(config,
                                 experimental_fused_moe,
+                                old_code,
                                 cache_config,
                                 quant_config=quant_config)
             for _ in range(config.num_hidden_layers)
@@ -487,13 +496,14 @@ class MixtralForCausalLM(nn.Module):
         super().__init__()
 
         self.experimental_fused_moe = True
+        self.old_code = False
 
         self.config = config
         self.quant_config = quant_config
-        self.model = MixtralModel(config, self.experimental_fused_moe, cache_config, quant_config)
+        self.model = MixtralModel(config, self.experimental_fused_moe, self.old_code, cache_config, quant_config)
         self.lm_head = ParallelLMHead(config.vocab_size,
-                                      config.hidden_size,
-                                      quant_config=quant_config)
+                                    config.hidden_size,
+                                    quant_config=quant_config)
         self.logits_processor = LogitsProcessor(config.vocab_size)
         self.sampler = Sampler()
 
@@ -512,7 +522,7 @@ class MixtralForCausalLM(nn.Module):
     def compute_logits(self, hidden_states: torch.Tensor,
                        sampling_metadata: SamplingMetadata) -> torch.Tensor:
         logits = self.logits_processor(self.lm_head, hidden_states,
-                                       sampling_metadata)
+                                    sampling_metadata)
         return logits
 
     def sample(
@@ -551,21 +561,16 @@ class MixtralForCausalLM(nn.Module):
         # ...
 
         params_dict = dict(self.named_parameters())
-        # print(params_dict.keys())
-        # print("weights:", [w[0] for w in weights])
-        # raise ValueError("stop")
         for name, loaded_weight in weights:
             if "rotary_emb.inv_freq" in name:
                 continue
             for (param_name, weight_name, shard_id) in stacked_params_mapping:
-                # print("try", param_name, weight_name, shard_id, name)
                 if weight_name not in name:
                     continue
                 name = name.replace(weight_name, param_name)
                 # Skip loading extra bias for GPTQ models.
                 if name.endswith(".bias") and name not in params_dict:
                     continue
-                # print("load loop", name, "into", param.shape)
                 param = params_dict[name]
                 weight_loader = param.weight_loader
                 weight_loader(param, loaded_weight, shard_id)
@@ -575,55 +580,98 @@ class MixtralForCausalLM(nn.Module):
                 if name.endswith(".bias") and name not in params_dict:
                     continue
 
-                if self.experimental_fused_moe:
-                    if("block_sparse_moe.experts." in name
-                       and ".w1." not in name and ".w2." not in name
-                       and ".w3." not in name 
-                       and name not in params_dict):
-                        continue
-            
-                    if (".qzeros" in name):
-                        continue
-
-                    shard_id = None
-                    expert_id = 0
-
-                    # print("process:", name)
-
-                    has_any_numbered = (".qweight" in name or ".scales" in name or ".g_idx" in name)
-                    if (has_any_numbered and (".w1." in name)):
-                        name = name.replace(".w1.", ".w13_")
-                        shard_id = 0
-                    if (has_any_numbered and (".w2." in name)):
-                        name = name.replace(".w2.", ".w2_")
-                        shard_id = 0
-                    if (has_any_numbered and (".w3." in name)):
-                        name = name.replace(".w3.", ".w13_")
-                        shard_id = 1
-
-                    exp_string = re.search(r"\.experts\.\d+.", name)
-                    if exp_string:
-                        exp_string = exp_string.group(0)
-                        # print("Exp string:", exp_string)
-                        expert_id = int(exp_string.split(".")[2])
-                        # print("I found:", expert_shard, "in", name)
-                        name = name.replace(exp_string, ".experts.")
-
-                else:
-                    if("block_sparse_moe.experts." in name
-                       and name not in params_dict):
-                        continue
-
-                param = params_dict[name]
+                if self.old_code:
+                    if self.experimental_fused_moe:
+                        if("block_sparse_moe.experts." in name
+                           and ".w1." not in name and ".w2." not in name
+                           and ".w3." not in name 
+                           and name not in params_dict):
+                            continue
                 
-                # print("load", name, "into", param.shape)
-                if shard_id is not None:
+                        if (".qzeros" in name):
+                            continue
+
+                        has_weight_or_scale = (".qweight" in name or ".scales" in name)
+                        has_g_idx = ".g_idx" in name
+                        if (has_weight_or_scale and ".w1." in name):
+                            name = name.replace(".w1.", ".ws.")
+                            name += "1"
+                        if ((has_weight_or_scale or has_g_idx) and ".w2." in name):
+                            name = name.replace(".w2.", ".ws.")
+                            name += "2"
+                        if (has_weight_or_scale and ".w3." in name):
+                            name = name.replace(".w3.", ".ws.")
+                            name += "3"
+                        if (has_g_idx and ".w1." in name):
+                            name = name.replace(".w1.", ".ws.")
+                            name += "13"
+                        if (has_g_idx and ".w3." in name):
+                            name = name.replace(".w3.", ".ws.")
+                            name += "13"
+
+                    else:
+                        if("block_sparse_moe.experts." in name
+                           and name not in params_dict):
+                            continue
+
+                    param = params_dict[name]
+                    # print("load", name, "into", param.shape)
                     weight_loader = getattr(param, "weight_loader",
                                             default_weight_loader)
-                    # print("load:", name, "with shard", shard_id)
-                    weight_loader(param, loaded_weight, name, shard_id, expert_id, True)
-                else:
-                    weight_loader = getattr(param, "weight_loader",
-                                            default_weight_loader)
-                    # print("load:", name, "without shard")
                     weight_loader(param, loaded_weight)
+
+                else:
+
+                    if self.experimental_fused_moe:
+                        if("block_sparse_moe.experts." in name
+                        and ".w1." not in name and ".w2." not in name
+                        and ".w3." not in name 
+                        and name not in params_dict):
+                            continue
+                
+                        if (".qzeros" in name):
+                            continue
+
+                        shard_id = None
+                        expert_id = 0
+
+                        # print("process:", name)
+
+                        has_any_numbered = (".qweight" in name or ".scales" in name or ".g_idx" in name)
+                        if (has_any_numbered and (".w1." in name)):
+                            name = name.replace(".w1.", ".w13_")
+                            shard_id = 0
+                        if (has_any_numbered and (".w2." in name)):
+                            name = name.replace(".w2.", ".w2_")
+                            shard_id = 0
+                        if (has_any_numbered and (".w3." in name)):
+                            name = name.replace(".w3.", ".w13_")
+                            shard_id = 1
+
+                        exp_string = re.search(r"\.experts\.\d+.", name)
+                        if exp_string:
+                            exp_string = exp_string.group(0)
+                            # print("Exp string:", exp_string)
+                            expert_id = int(exp_string.split(".")[2])
+                            # print("I found:", expert_shard, "in", name)
+                            name = name.replace(exp_string, ".experts.")
+
+                    else:
+                        if("block_sparse_moe.experts." in name
+                        and name not in params_dict):
+                            continue
+
+                    param = params_dict[name]
+                    
+                    # print("load", name, "into", param.shape)
+                    if shard_id is not None:
+                        weight_loader = getattr(param, "weight_loader",
+                                                default_weight_loader)
+                        # print("load:", name, "with shard", shard_id)
+                        weight_loader(param, loaded_weight, name, shard_id, expert_id, True)
+                    else:
+                        weight_loader = getattr(param, "weight_loader",
+                                                default_weight_loader)
+                        # print("load:", name, "without shard")
+                        weight_loader(param, loaded_weight)
+                        

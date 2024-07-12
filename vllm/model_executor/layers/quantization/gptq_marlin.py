@@ -837,6 +837,13 @@ class GPTQMarlinFusedLinearMethod(LinearMethodBase):
 
             layer_qweight13 = torch.cat((layer.qweight1, layer.qweight3), 1)
 
+            print("*")
+            print("hidden:", x.shape)
+            print("w13 before:", layer_qweight13.shape)
+            print("w2 before:", layer.qweight2.shape)
+            print("w13 args:", part_size_k, layer_qweight13.shape[1])
+            print("w2 args:", part_size_n, part_size_k)
+
             # Repack weights
             # marlin_qweight1 = ops.gptq_marlin_repack(
             #     layer.qweight1,
@@ -873,6 +880,9 @@ class GPTQMarlinFusedLinearMethod(LinearMethodBase):
             )
             replace_tensor("qweight13", marlin_qweight13)
 
+            print("w13 after:", marlin_qweight13.shape)
+            print("w2 after:", marlin_qweight2.shape)
+
             # print("done repack", layer.get_parameter("qweight1").shape,
             #       layer.get_parameter("qweight2").shape,
             #       layer.get_parameter("qweight3").shape)
@@ -885,6 +895,11 @@ class GPTQMarlinFusedLinearMethod(LinearMethodBase):
                 scales_size_n = full_size_n
 
             layer_scales13 = torch.cat((layer.scales1, layer.scales3), 1)
+
+            print("w13 scales before:", layer_scales13.shape)
+            print("w2 scales before:", layer.scales2.shape)
+            print("w13 args:", part_size_k, layer_qweight13.shape[1])
+            print("w2 args:", layer.scales2.shape[0] * 8, layer.scales2.shape[1])
 
             # marlin_scales1 = marlin_permute_scales(
             #     layer.scales1,
@@ -918,6 +933,11 @@ class GPTQMarlinFusedLinearMethod(LinearMethodBase):
                 self.quant_config.weight_bits,
             )
             replace_tensor("scales13", marlin_scales13)
+
+            print("w13 scales after:", marlin_scales13.shape)
+            print("w2 scales after:", marlin_scales2.shape)
+
+            # raise ValueError("stop")
 
         # else:
             # print("do not repack")

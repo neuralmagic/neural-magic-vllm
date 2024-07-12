@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Optional
+from typing import Optional, List
 
 import torch
 
@@ -69,9 +69,9 @@ class MarlinFusedMoEMethod(FusedMoEMethodBase):
         w13_qweight = torch.nn.Parameter(torch.empty(num_experts,
                                                     hidden_size // self.quant_config.pack_factor,
                                                     2 * intermediate_size,
-                                                    # hidden_size * 4,
-                                                    # intermediate_size * 8,
-                                                    dtype=params_dtype),
+                                                    # 2 * intermediate_size,
+                                                    # hidden_size // self.quant_config.pack_factor,
+                                                    dtype=torch.int32),
                                         requires_grad=False)
         layer.register_parameter("w13_qweight", w13_qweight)
         set_weight_attrs(w13_qweight, extra_weight_attrs)
@@ -80,7 +80,7 @@ class MarlinFusedMoEMethod(FusedMoEMethodBase):
         w2_qweight = torch.nn.Parameter(torch.empty(num_experts,
                                                     intermediate_size // self.quant_config.pack_factor,
                                                     hidden_size,
-                                                   dtype=params_dtype),
+                                                   dtype=torch.int32),
                                        requires_grad=False)
         layer.register_parameter("w2_qweight", w2_qweight)
         set_weight_attrs(w2_qweight, extra_weight_attrs)
@@ -156,6 +156,8 @@ class MarlinFusedMoEMethod(FusedMoEMethodBase):
               router_logits: torch.Tensor,
               top_k: int,
               renormalize: bool = True) -> torch.Tensor:
+
+        # print("1", layer.w13_scales)
         
         # TODO translate qweights into Marlin format
         if layer.marlin_state == GPTQMarlinState.REPACK:
@@ -170,14 +172,53 @@ class MarlinFusedMoEMethod(FusedMoEMethodBase):
                 getattr(layer, name).copy_(new_t)
                 del new_t
 
+            def get_scale_perms(num_bits: int):
+                scale_perm: List[int] = []
+                for i in range(8):
+                    scale_perm.extend([i + 8 * j for j in range(8)])
+                scale_perm_single: List[int] = []
+                for i in range(4):
+                    scale_perm_single.extend(
+                        [2 * i + j for j in [0, 1, 8, 9, 16, 17, 24, 25]])
+                return scale_perm, scale_perm_single
+
+            def marlin_permute_scales(s: torch.Tensor, size_k: int, size_n: int,
+                          group_size: int, num_bits: int):
+                scale_perm, scale_perm_single = get_scale_perms(num_bits)
+                if group_size < size_k and group_size != -1:
+                    s = s.reshape((-1, len(scale_perm)))[:, scale_perm]
+                else:
+                    s = s.reshape((-1, len(scale_perm_single)))[:, scale_perm_single]
+                s = s.reshape((-1, size_n)).contiguous()
+
+                return s
+
+            def marlin_moe_permute_scales(s: torch.Tensor, size_k: int, size_n: int,
+                          group_size: int, num_bits: int):
+                num_experts = s.shape[0]
+                output = torch.empty((num_experts, s.shape[1], s.shape[2]),
+                        device=s.device,
+                        dtype=s.dtype)
+                for e in range(num_experts):
+                    output[e] = marlin_permute_scales(s[e], size_k, size_n,
+                                                      group_size, num_bits)
+                return output
+
+            # print("2", layer.w13_scales)
+
             # Process act_order
             if self.quant_config.desc_act:
                 # Get sorting based on g_idx
-                w13_g_idx_sort_indices = torch.argsort(layer.w13_g_idx).to(torch.int)
-                w2_g_idx_sort_indices = torch.argsort(layer.w2_g_idx).to(torch.int)
-    
-                w13_sorted_g_idx = layer.w13_g_idx[w13_g_idx_sort_indices]
-                w2_sorted_g_idx = layer.w2_g_idx[w2_g_idx_sort_indices]
+                num_experts = layer.w13_g_idx.shape[0]
+                w13_g_idx_sort_indices = torch.empty_like(layer.w13_g_idx)
+                w2_g_idx_sort_indices = torch.empty_like(layer.w2_g_idx)
+                w13_sorted_g_idx = torch.empty_like(layer.w13_g_idx)
+                w2_sorted_g_idx = torch.empty_like(layer.w2_g_idx)
+                for e in range(num_experts):
+                    w13_g_idx_sort_indices[e] = torch.argsort(layer.w13_g_idx[e])#.to(torch.int)
+                    w2_g_idx_sort_indices[e] = torch.argsort(layer.w2_g_idx[e])#.to(torch.int)
+                    w13_sorted_g_idx[e] = layer.w13_g_idx[e][w13_g_idx_sort_indices[e]]
+                    w2_sorted_g_idx[e] = layer.w2_g_idx[e][w2_g_idx_sort_indices[e]]
 
                 replace_tensor("w13_g_idx", w13_sorted_g_idx)
                 replace_tensor("w2_g_idx", w2_sorted_g_idx)
@@ -203,11 +244,20 @@ class MarlinFusedMoEMethod(FusedMoEMethodBase):
                     requires_grad=False,
                 )
 
-            print(layer.w13_qweight.shape)
-            print(layer.w2_qweight.shape)
-            print(x.shape)
+            # print("3", layer.w13_scales)
 
-            print("weight type:", layer.w13_qweight.dtype)
+            print("*")
+            print("hidden:", x.shape)
+            print("w13 before:", layer.w13_qweight.shape)
+            print("w2 before:", layer.w2_qweight.shape)
+            print("w13 args:", layer.w13_qweight.shape[1]
+                               * self.quant_config.pack_factor,
+                               layer.w13_qweight.shape[2])
+            print("w2 args:", layer.w2_qweight.shape[1]
+                               * self.quant_config.pack_factor,
+                               layer.w2_qweight.shape[2])
+
+            # print("weight type:", layer.w13_qweight.dtype)
 
             # Repack weights
             marlin_w13_qweight = ops.gptq_marlin_moe_repack(
@@ -218,19 +268,49 @@ class MarlinFusedMoEMethod(FusedMoEMethodBase):
                 self.quant_config.weight_bits,
             )
             replace_tensor("w13_qweight", marlin_w13_qweight)
-            # marlin_w2_qweight = ops.gptq_marlin_moe_repack(
-            #     layer.w2_qweight,
-            #     layer.w2_g_idx_sort_indices,
-            #     layer.w2_qweight.shape[1] * 8,
-            #     layer.w2_qweight.shape[2] // 2,
-            #     self.quant_config.weight_bits,
-            # )
-            # replace_tensor("w2_qweight", marlin_w2_qweight)
-            # TODO scales
+            marlin_w2_qweight = ops.gptq_marlin_moe_repack(
+                layer.w2_qweight,
+                layer.w2_g_idx_sort_indices,
+                layer.w2_qweight.shape[1] * self.quant_config.pack_factor,
+                layer.w2_qweight.shape[2],
+                self.quant_config.weight_bits,
+            )
+            replace_tensor("w2_qweight", marlin_w2_qweight)
+            
+            print("w13 after:", marlin_w13_qweight.shape)
+            print("w2 after:", marlin_w2_qweight.shape)
 
-            print(layer.w13_qweight.shape)
-            print(layer.w2_qweight.shape)
-            print(x.shape)
+            print("w13 scales before:", layer.w13_scales.shape)
+            print("w2 scales before:", layer.w2_scales.shape)
+            print("w13 args:", x.shape[1], layer.w13_scales.shape[2])
+            print("w2 args:", layer.w2_scales.shape[1] * self.quant_config.pack_factor,
+                   x.shape[1])
+
+            # Repack scales
+            marlin_w13_scales = marlin_moe_permute_scales(
+                layer.w13_scales,
+                x.shape[1],
+                layer.w13_scales.shape[2],
+                self.quant_config.group_size,
+                self.quant_config.weight_bits,
+            )
+            replace_tensor("w13_scales", marlin_w13_scales)
+
+            marlin_w2_scales = marlin_moe_permute_scales(
+                layer.w2_scales,
+                layer.w2_scales.shape[1] * self.quant_config.pack_factor,
+                x.shape[1],
+                self.quant_config.group_size,
+                self.quant_config.weight_bits,
+            )
+            replace_tensor("w2_scales", marlin_w2_scales)
+
+            print("w13 scales after:", marlin_w13_scales.shape)
+            print("w2 scales after:", marlin_w2_scales.shape)
+
+        print(x.shape)
+        print(layer.w13_qweight.shape)
+        print(layer.w2_qweight.shape)
 
         return fused_marlin_moe(x,
                                 layer.w13_qweight,
@@ -364,17 +444,24 @@ class FusedMoE(torch.nn.Module):
 
         if is_quantized:
             if "_qweight" in weight_name or "_scales" in weight_name:
+                # if "_scales" in weight_name:
+                #     print("scales:", loaded_weight)
                 if "w13" in weight_name:
                     shard_size = self.intermediate_size_per_partition
-                    # print("shard size:", shard_size)
                     if shard_id == 0:
                         param_data[expert_id, :, :shard_size]  = loaded_weight
+                        # if "_scales" in weight_name:
+                        #     print("param:", param_data[expert_id, :, :shard_size])
                     elif shard_id == 1:
                         param_data[expert_id, :, shard_size:] = loaded_weight
+                        # if "_scales" in weight_name:
+                        #     print("param:", param_data[expert_id, :, shard_size:])
                     else:
                         ValueError("wrong shard:", shard_id)
                 elif "w2" in weight_name:
                     param_data[expert_id][:] = loaded_weight
+                    # if "_scales" in weight_name:
+                    #     print("param:", param_data[expert_id][:])
                 else:
                     ValueError("what is this?", weight_name)
             elif "_g_idx" in weight_name:
