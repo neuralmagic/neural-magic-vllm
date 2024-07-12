@@ -3,7 +3,7 @@
 #include <optional>
 #include <torch/library.h>
 
-#include "vllm_type.hpp"
+#include "scalar_type.hpp"
 
 void paged_attention_v1(
     torch::Tensor& out, torch::Tensor& query, torch::Tensor& key_cache,
@@ -80,12 +80,13 @@ torch::Tensor marlin_gemm(torch::Tensor& a, torch::Tensor& b_q_weight,
 
 namespace marlinv2 {
 
-std::vector<VLLMTypeTorchPtr> supported_types();
+std::vector<vllm::ScalarTypeTorchPtr> supported_types();
 
-std::vector<std::string> supported_schedules(VLLMTypeTorchPtr const& btype);
+std::vector<std::string> supported_schedules(
+    vllm::ScalarTypeTorchPtr const& btype);
 
 torch::Tensor gemm(torch::Tensor const A, torch::Tensor const B,
-                   VLLMTypeTorchPtr const& btype,
+                   vllm::ScalarTypeTorchPtr const& btype,
                    c10::optional<torch::Tensor> const& scales,
                    c10::optional<torch::Tensor> const& zeros,
                    c10::optional<int64_t> group_size,
@@ -93,7 +94,8 @@ torch::Tensor gemm(torch::Tensor const A, torch::Tensor const B,
                    c10::optional<double> alpha, c10::optional<double> beta,
                    c10::optional<std::string> schedule);
 
-torch::Tensor prepack_B(torch::Tensor const B, VLLMTypeTorchPtr const& btype);
+torch::Tensor prepack_B(torch::Tensor const B,
+                        vllm::ScalarTypeTorchPtr const& btype);
 
 };  // namespace marlinv2
 

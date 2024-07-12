@@ -10,4 +10,4 @@ try:
 except ImportError as e:
     logger.warning("Failed to import from vllm._C with %r", e)
 
-VLLMType = torch.classes._C.VLLMType
+ScalarType = torch.classes._C.ScalarType

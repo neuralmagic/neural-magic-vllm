@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple, Type
 
 import torch
 
-from vllm._custom_classes import VLLMType
+from vllm._custom_classes import ScalarType
 from vllm.logger import init_logger
 
 logger = init_logger(__name__)
@@ -282,15 +282,15 @@ def fp8_marlin_gemm(a: torch.Tensor, b_q_weight: torch.Tensor,
 
 
 # marlinv2
-def marlinv2_supported_types() -> List[VLLMType]:
+def marlinv2_supported_types() -> List[ScalarType]:
     return torch.ops._C.marlinv2_supported_types()
 
 
-def marlinv2_supported_schedules(b_type: VLLMType) -> List[str]:
+def marlinv2_supported_schedules(b_type: ScalarType) -> List[str]:
     return torch.ops._C.marlinv2_supported_schedules(b_type)
 
 
-def marlinv2_gemm_schedule_heuristic(M: int, N: int, K: int, b_type: VLLMType):
+def marlinv2_gemm_schedule_heuristic(M: int, N: int, K: int, b_type: ScalarType):
     assert b_type.size_bits == 4
 
     tile_scheduler = "NMstreamK"
@@ -317,7 +317,7 @@ def marlinv2_gemm_schedule_heuristic(M: int, N: int, K: int, b_type: VLLMType):
 def marlinv2_gemm(
     a: torch.Tensor,
     b_q: torch.Tensor,
-    b_type: VLLMType,
+    b_type: ScalarType,
     b_scales: Optional[torch.Tensor] = None,
     b_zeros: Optional[torch.Tensor] = None,
     b_group_size: Optional[int] = None,
@@ -335,7 +335,7 @@ def marlinv2_gemm(
 
 
 def marlinv2_prepack_B(b_q_weight: torch.Tensor,
-                       b_type: VLLMType) -> torch.Tensor:
+                       b_type: ScalarType) -> torch.Tensor:
     return torch.ops._C.marlinv2_prepack_B(b_q_weight, b_type)
 
 

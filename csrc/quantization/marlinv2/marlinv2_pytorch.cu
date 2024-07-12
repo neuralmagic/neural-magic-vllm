@@ -1,20 +1,20 @@
 #include "marlinv2_mm_launcher.cuh"
 #include "marlinv2_prepack_launcher.cuh"
-#include "vllm_type.hpp"
+#include "scalar_type.hpp"
 
 namespace marlinv2 {
 
-using cutlass::half_t;
+using namespace vllm;
 
 //
 //  Utils (type dispatching)
 //
 
 template <typename Fn>
-static auto vllm_type_dispatch(VLLMType const& type, Fn fn) {
-  if (type == kU4) {
+static auto scalar_type_dispatch(ScalarType const& type, Fn fn) {
+  if (type == vllm::kU4) {
     return fn(cutlass::uint4b_t{});
-  } else if (type == kS4) {
+  } else if (type == vllm::kS4) {
     return fn(cutlass::int4b_t{});
   } else {
     TORCH_CHECK(false, "Unsupported type ", type.str());
@@ -32,19 +32,19 @@ static auto vllm_type_dispatch(VLLMType const& type, Fn fn) {
 //  Interface
 //
 
-std::vector<VLLMTypeTorchPtr> supported_types() {
-  return {c10::make_intrusive<VLLMTypeTorch>(kU4),
-          c10::make_intrusive<VLLMTypeTorch>(kS4)};
+std::vector<ScalarTypeTorchPtr> supported_types() {
+  return {c10::make_intrusive<ScalarTypeTorch>(vllm::kU4),
+          c10::make_intrusive<ScalarTypeTorch>(vllm::kS4)};
 }
 
-std::vector<std::string> supported_schedules(VLLMTypeTorchPtr const& btype) {
-  return vllm_type_dispatch(*btype, [&](auto BType) {
+std::vector<std::string> supported_schedules(ScalarTypeTorchPtr const& btype) {
+  return scalar_type_dispatch(*btype, [&](auto BType) {
     return KernelDispatcher<half_t, decltype(BType)>::supported_schedules();
   });
 }
 
 torch::Tensor gemm(torch::Tensor const A, torch::Tensor const B,
-                   VLLMTypeTorchPtr const& btype,
+                   ScalarTypeTorchPtr const& btype,
                    c10::optional<torch::Tensor> const& scales,
                    c10::optional<torch::Tensor> const& zeros,
                    c10::optional<int64_t> group_size,
@@ -63,7 +63,7 @@ torch::Tensor gemm(torch::Tensor const A, torch::Tensor const B,
                                .beta = beta,
                                .schedule = schedule};
 
-  return vllm_type_dispatch(*btype, [&](auto BType) {
+  return scalar_type_dispatch(*btype, [&](auto BType) {
     return AT_DISPATCH_SUPPORTED_COMPUTE_TYPES(
         A.scalar_type(), "marlinv2_gemm", [&] {
           using ComputeType = equivalent_cutlass_type_t<scalar_t>;
@@ -72,8 +72,9 @@ torch::Tensor gemm(torch::Tensor const A, torch::Tensor const B,
   });
 }
 
-torch::Tensor prepack_B(torch::Tensor const B, VLLMTypeTorchPtr const& btype) {
-  return vllm_type_dispatch(*btype, [&](auto BType) {
+torch::Tensor prepack_B(torch::Tensor const B,
+                        ScalarTypeTorchPtr const& btype) {
+  return scalar_type_dispatch(*btype, [&](auto BType) {
     return PrepackDispatcher<half_t, decltype(BType), half_t>::dispatch(B);
   });
 }

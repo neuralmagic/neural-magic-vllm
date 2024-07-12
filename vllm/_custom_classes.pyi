@@ -1,9 +1,9 @@
 from typing import Union
 
 
-class VLLMType:
+class ScalarType:
 
-    def __init__(self, mantissa: int, exponent: int, signed: bool) -> None:
+    def __init__(self, mantissa: int, exponent: int, bias: int, signed: bool) -> None:
         ...
 
     @property

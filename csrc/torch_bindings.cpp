@@ -2,7 +2,7 @@
 #include "cuda_utils.h"
 #include "ops.h"
 #include "registration.h"
-#include "vllm_type.hpp"
+#include "scalar_type.hpp"
 
 #include <torch/library.h>
 
@@ -19,48 +19,10 @@
 TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, ops) {
   // vLLM custom ops
 
-  // VLLMType, a custom class for representing data types that supports
+  // ScalarType, a custom class for representing data types that supports
   // quantized types, declared here so it can be used when creating interfaces
   // for custom ops.
-  ops.class_<VLLMTypeTorch>("VLLMType")
-      .def(torch::init<int64_t, int64_t, bool>())
-      .def("__eq__",
-           [](VLLMTypeTorchPtr const& self, VLLMTypeTorchPtr const& other) {
-             return *self == *other;
-           })
-      .def("__str__",
-           [](VLLMTypeTorchPtr const& self) { return self.get()->str(); })
-      .def("__repr__",
-           [](VLLMTypeTorchPtr const& self) {
-             return "VLLMType." + self.get()->str();
-           })
-      .def_property(
-          "mantissa",
-          [](VLLMTypeTorchPtr const& self) { return self.get()->mantissa; })
-      .def_property(
-          "exponent",
-          [](VLLMTypeTorchPtr const& self) { return self.get()->exponent; })
-      .def_property(
-          "size_bits",
-          [](VLLMTypeTorchPtr const& self) { return self.get()->size_bits(); })
-      .def("max",
-           [](VLLMTypeTorchPtr const& self) {
-             return std::visit([](auto arg) { return c10::IValue(arg); },
-                               self.get()->max());
-           })
-      .def("min",
-           [](VLLMTypeTorchPtr const& self) {
-             return std::visit([](auto arg) { return c10::IValue(arg); },
-                               self.get()->min());
-           })
-      .def("is_signed",
-           [](VLLMTypeTorchPtr const& self) { return self.get()->is_signed(); })
-      .def(
-          "is_integer",
-          [](VLLMTypeTorchPtr const& self) { return self.get()->is_integer(); })
-      .def("is_floating_point", [](VLLMTypeTorchPtr const& self) {
-        return self.get()->is_floating_point();
-      });
+  vllm::ScalarTypeTorch::bind_class(ops);
 
   // Attention ops
   // Compute the attention between an input query and the cached

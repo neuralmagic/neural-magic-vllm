@@ -12,8 +12,8 @@ import torch.utils.benchmark as TBenchmark
 from torch.utils.benchmark import Measurement as TMeasurement
 from benchmarks.kernels.weight_shapes import WEIGHT_SHAPES
 
-from vllm._custom_classes import VLLMType
-from vllm import vllm_type
+from vllm._custom_classes import ScalarType
+from vllm import scalar_type
 from vllm import _custom_ops as ops
 from vllm.utils import FlexibleArgumentParser
 from vllm.model_executor.layers.quantization.utils.quant_utils import (
@@ -30,13 +30,13 @@ DEFAULT_BATCH_SIZES = [1, 16, 32, 64, 128, 256, 512]
 DEFAULT_TP_SIZES = [1]
 
 
-def marlinv2_pack_weights(w_q: torch.tensor, wtype: VLLMType) -> torch.tensor:
+def marlinv2_pack_weights(w_q: torch.tensor, wtype: ScalarType) -> torch.tensor:
     w_q = pack_weights_into_int32(w_q, wtype)
     return ops.marlinv2_prepack_B(w_q, wtype)
 
 
 def make_bench_tensors(
-        atype: torch.dtype, wtype: VLLMType, group_size: int,
+        atype: torch.dtype, wtype: ScalarType, group_size: int,
         m: int, n: int, k: int
 ) -> Tuple[torch.tensor, List[Tuple[torch.tensor, torch.tensor, torch.tensor]]]:
     assert wtype.is_integer(), "TODO: support floating point weights"
@@ -84,7 +84,7 @@ def loop_over_weights(
         fn(a, w_ref, w_q, w_s)
 
 
-def bench(atype: torch.dtype, wtype: VLLMType, group_size: int, m: int, k: int,
+def bench(atype: torch.dtype, wtype: ScalarType, group_size: int, m: int, k: int,
           n: int, label: str, sub_label: str, benchmark_marlinv1: bool = True,
           benchmark_marlinv2_best: bool = True
     ) -> Iterable[TMeasurement]:
@@ -199,7 +199,7 @@ def run(dtype: torch.dtype,
 
     results = []
     for m, k, n in MKNs:
-        timers = bench(dtype, vllm_type.s4, 128, m, k, n,  f"{dtype}-gemm",
+        timers = bench(dtype, scalar_type.s4, 128, m, k, n,  f"{dtype}-gemm",
                        f"MKN=({m}x{k}x{n})")
         print_timers(timers)
         results.extend(timers)

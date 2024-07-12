@@ -3,7 +3,7 @@
 import numpy
 import torch
 
-from vllm._custom_classes import VLLMType
+from vllm._custom_classes import ScalarType
 
 SUPPORTED_NUM_BITS = [4, 8]
 SUPPORTED_GROUP_SIZES = [-1, 32, 64, 128]
@@ -39,7 +39,7 @@ def permute_rows(q_w: torch.Tensor, w_ref: torch.Tensor, group_size: int):
     )
 
 
-def quantize_weights(w: torch.Tensor, wtype: VLLMType, group_size: int):
+def quantize_weights(w: torch.Tensor, wtype: ScalarType, group_size: int):
     assert wtype.is_integer()
 
     orig_device = w.device
@@ -96,7 +96,7 @@ def quantize_weights(w: torch.Tensor, wtype: VLLMType, group_size: int):
     )
 
 
-def pack_weights_into_int32(w_q: torch.Tensor, wtype: VLLMType, dim: int = 0):
+def pack_weights_into_int32(w_q: torch.Tensor, wtype: ScalarType, dim: int = 0):
     orig_device = w_q.device
 
     # move dim to pack to the end
@@ -134,7 +134,7 @@ def gptq_quantize_weights(w: torch.Tensor, num_bits: int, group_size: int,
 
     # gptq uses unisigned values with a symmetric zero point so quantize
     # weights using signed type then add the zero point
-    wtype = VLLMType(num_bits - 1, 0, True)
+    wtype = ScalarType(num_bits - 1, 0, True)
     w_ref, w_q, w_s = quantize_weights(w, wtype, group_size)
     zero_point = (2**num_bits) // 2
     w_q += zero_point

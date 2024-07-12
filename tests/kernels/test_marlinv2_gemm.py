@@ -9,8 +9,8 @@ import pytest
 import torch
 
 from vllm import _custom_ops as ops
-from vllm import vllm_type as vllm_type
-from vllm._custom_classes import VLLMType
+from vllm import scalar_type
+from vllm._custom_classes import ScalarType
 from vllm.model_executor.layers.quantization.utils.marlin_utils import (
     is_marlinv2_supported)
 from vllm.model_executor.layers.quantization.utils.quant_utils import (
@@ -30,7 +30,7 @@ MNK_SHAPES = [
 ]
 
 ACT_TYPES = [torch.float16, torch.bfloat16]
-WEIGHT_TYPES = [vllm_type.s4, vllm_type.u4]
+WEIGHT_TYPES = [scalar_type.s4, scalar_type.u4]
 GROUP_SIZES = [128, None]
 
 
@@ -38,7 +38,7 @@ def rand_data(shape, dtype=torch.float16):
     return torch.randn(shape, dtype=dtype, device="cuda")
 
 
-def marlinv2_quantize_and_pack(w, wtype: VLLMType, group_size: int):
+def marlinv2_quantize_and_pack(w, wtype: ScalarType, group_size: int):
     assert wtype.is_integer(), "TODO: support floating point weights"
 
     w_ref, w_q, w_s = quantize_weights(w, wtype, group_size)
@@ -56,7 +56,7 @@ def marlinv2_quantize_and_pack(w, wtype: VLLMType, group_size: int):
 @pytest.mark.parametrize("atype", ACT_TYPES, ids=lambda x: str(x))
 @pytest.mark.parametrize("wtype", WEIGHT_TYPES, ids=lambda x: str(x))
 @pytest.mark.parametrize("group_size", GROUP_SIZES)
-def test_marlinv2_all_schedules(shape, atype: torch.dtype, wtype: VLLMType,
+def test_marlinv2_all_schedules(shape, atype: torch.dtype, wtype: ScalarType,
                                 group_size: Optional[int]):
     size_m, size_k, size_n = shape
 
@@ -98,7 +98,7 @@ def test_marlinv2_all_schedules(shape, atype: torch.dtype, wtype: VLLMType,
 @pytest.mark.parametrize("atype", ACT_TYPES, ids=lambda x: str(x))
 @pytest.mark.parametrize("wtype", WEIGHT_TYPES, ids=lambda x: str(x))
 @pytest.mark.parametrize("group_size", GROUP_SIZES)
-def test_marlinv2_heuristic(shape, atype: torch.dtype, wtype: VLLMType,
+def test_marlinv2_heuristic(shape, atype: torch.dtype, wtype: ScalarType,
                             group_size: Optional[int]):
     size_m, size_k, size_n = shape
 
