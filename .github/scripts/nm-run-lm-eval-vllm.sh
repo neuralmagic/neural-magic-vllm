@@ -42,15 +42,15 @@ do
     echo "=== RUNNING MODEL: $MODEL_CONFIG ==="
 
     echo "Checking GPU memory before running model:"
-    echo "BEFORE==>" > log.txt
-    fuser -v /dev/nvidia* 2>&1 | tee -a log.txt
+    echo "======BEFORE=====>" > log.txt
+    fuser -v /dev/nvidia* &>>log.txt
 
     MODEL_CONFIG_PATH=$PWD/.github/lm-eval-configs/models/${MODEL_CONFIG}
     LM_EVAL_TEST_DATA_FILE=$MODEL_CONFIG_PATH pytest -s tests/accuracy/test_lm_eval_correctness.py || LOCAL_SUCCESS=$?
 
     echo "Checking GPU memory after model ran:"
-    echo "AFTER==>" >> log.txt
-    fuser -v /dev/nvidia* 2>&1 | tee -a log.txt
+    echo "======AFTER=====>" >> log.txt
+    fuser -v /dev/nvidia* &>>log.txt
 
     # clean up leftover from GPU memory
     echo "Clean up leftover in gpu memory..."
