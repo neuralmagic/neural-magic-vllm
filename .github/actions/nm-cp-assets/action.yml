@@ -1,18 +1,17 @@
 name: cp assets
 description: "cp whl and tarfile to Google storage 'neuralmagic-public-pypi/dist'"
+inputs:
+  whl:
+    description: "the wheel asset file path"
+    required: true
+  targz:
+    description: "the tar.gz asset file path"
+    required: true
 runs:
   using: composite
   steps:
     - id: cp_assets
       run: |
-        WHL=$(find assets -type f -name "*nm_vllm*.whl")
-        WHL_FILE=$(basename ${WHL})
-        echo "whl: ${WHL}"
-        echo "whl_file: ${WHL_FILE}"
-        TAR=$(find assets -path "*nm-vllm*.tar.gz" -type f -name "nm-vllm*.tar.gz")
-        TAR_FILE=$(basename ${TAR})
-        echo "tar: ${TAR}"
-        echo "tar_file: ${TAR_FILE}"
-        gcloud storage cp ${WHL} gs://neuralmagic-public-pypi/dist/${WHL_FILE}
-        gcloud storage cp ${TAR} gs://neuralmagic-public-pypi/dist/${TAR_FILE}
+        gcloud storage cp ${WHL} gs://neuralmagic-public-pypi/dist/${{ inputs.whl }}
+        gcloud storage cp ${TAR} gs://neuralmagic-public-pypi/dist/${{ inputs.targz }}
       shell: bash

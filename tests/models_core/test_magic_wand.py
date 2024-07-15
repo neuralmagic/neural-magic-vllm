@@ -47,7 +47,7 @@ def test_magic_wand(
                               dtype=dtype,
                               max_model_len=1024)
     dense_gpu_alloc = (
-        dense_model.model.llm_engine.scheduler.block_manager.gpu_allocator)
+        dense_model.model.llm_engine.scheduler[0].block_manager.gpu_allocator)
     dense_num_kv_blocks = dense_gpu_alloc.num_blocks
     dense_outputs = dense_model.generate_greedy_logprobs(
         example_prompts, max_tokens, num_logprobs)
@@ -62,7 +62,7 @@ def test_magic_wand(
         max_model_len=1024,
     )
     sparse_gpu_alloc = (
-        sparse_model.model.llm_engine.scheduler.block_manager.gpu_allocator)
+        sparse_model.model.llm_engine.scheduler[0].block_manager.gpu_allocator)
     sparse_num_kv_blocks = sparse_gpu_alloc.num_blocks
     sparse_outputs = sparse_model.generate_greedy_logprobs(
         example_prompts, max_tokens, num_logprobs)

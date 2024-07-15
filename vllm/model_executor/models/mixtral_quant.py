@@ -21,19 +21,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Inference-only Mixtral model."""
+import re
 from typing import Iterable, List, Optional, Tuple
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch import nn
 from transformers import MixtralConfig
 
-from vllm import _custom_ops as ops
 from vllm.attention import Attention, AttentionMetadata
 from vllm.config import CacheConfig
 from vllm.distributed import (get_tensor_model_parallel_rank,
-                              get_tensor_model_parallel_world_size)
-from vllm.model_executor.layers.fused_moe import fused_marlin_moe
+                              get_tensor_model_parallel_world_size,
+                              tensor_model_parallel_all_reduce)
+from vllm.model_executor.layers.fused_moe import FusedMoE
 from vllm.model_executor.layers.layernorm import RMSNorm
 from vllm.model_executor.layers.linear import (QKVParallelLinear,
                                                ReplicatedLinear,
@@ -41,15 +43,13 @@ from vllm.model_executor.layers.linear import (QKVParallelLinear,
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig)
-from vllm.model_executor.layers.quantization.utils.marlin_utils import (
-    marlin_permute_scales_numbits)
 from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler
 from vllm.model_executor.layers.vocab_parallel_embedding import (
     ParallelLMHead, VocabParallelEmbedding)
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.model_executor.sampling_metadata import SamplingMetadata
-from vllm.sequence import SamplerOutput
+from vllm.sequence import IntermediateTensors, SamplerOutput
 
 
 class MixtralMLP(nn.Module):
@@ -96,10 +96,12 @@ class MixtralMoE(nn.Module):
     def __init__(
         self,
         config: MixtralConfig,
+        experimental_fused_moe: bool,
         quant_config: Optional[QuantizationConfig] = None,
     ):
         super().__init__()
         self.config = config
+        self.experimental_fused_moe = experimental_fused_moe
         self.quant_config = quant_config
         self.rank = get_tensor_model_parallel_rank()
         self.tp_size = get_tensor_model_parallel_world_size()
@@ -116,14 +118,27 @@ class MixtralMoE(nn.Module):
             raise ValueError(
                 f"Rank {self.rank} has no experts assigned to it.")
 
-        self.experts = nn.ModuleList([
-            MixtralMLP(self.num_total_experts,
-                       config.hidden_size,
-                       config.intermediate_size,
-                       quant_config=quant_config)
-            if idx in self.expert_indicies else None
-            for idx in range(self.num_total_experts)
-        ])
+        if self.experimental_fused_moe:
+            params_dtype = torch.float16
+            self.experts = FusedMoE(num_experts=self.num_total_experts,
+                                    top_k=self.top_k,
+                                    hidden_size=config.hidden_size,
+                                    intermediate_size=config.intermediate_size,
+                                    params_dtype=params_dtype,
+                                    reduce_results=True,
+                                    renormalize=True,
+                                    quant_config=quant_config,
+                                    tp_size=self.tp_size)
+        else:
+            self.experts = nn.ModuleList([
+                MixtralMLP(self.num_total_experts,
+                           config.hidden_size,
+                           config.intermediate_size,
+                           quant_config=quant_config)
+                if idx in self.expert_indicies else None
+                for idx in range(self.num_total_experts)
+            ])
+
         self.gate = ReplicatedLinear(config.hidden_size,
                                      self.num_total_experts,
                                      bias=False,
@@ -134,87 +149,33 @@ class MixtralMoE(nn.Module):
         hidden_states = hidden_states.view(-1, hidden_dim)
         router_logits, _ = self.gate(hidden_states)
 
-        qweight13_l = []
-        scales13_l = []
-        qweight2_l = []
-        scales2_l = []
-        g_idx13_l = []
-        g_idx2_l = []
-        g_idx_sort_idx13_l = []
-        g_idx_sort_idx2_l = []
+        if self.experimental_fused_moe:
+            return self.experts(hidden_states.half(), router_logits).bfloat16()
+        else:
+            routing_weights = F.softmax(router_logits,
+                                        dim=1,
+                                        dtype=torch.float)
+            routing_weights, selected_experts = torch.topk(routing_weights,
+                                                           self.top_k,
+                                                           dim=-1)
+            routing_weights /= routing_weights.sum(dim=-1, keepdim=True)
 
-        for i in range(len(self.experts)):
-            w1_qw = self.experts[i].w1.get_parameter("qweight").int()
-            w3_qw = self.experts[i].w3.get_parameter("qweight").int()
-            w1_s = self.experts[i].w1.get_parameter("scales").half()
-            w3_s = self.experts[i].w3.get_parameter("scales").half()
-            w2_qw = self.experts[i].w2.get_parameter("qweight").int()
-            w2_s = self.experts[i].w2.get_parameter("scales").half()
-            if self.quant_config.desc_act:
-                g_idx13 = self.experts[i].w1.get_parameter("g_idx")
-                g_idx2 = self.experts[i].w2.get_parameter("g_idx")
-            else:
-                g_idx13 = torch.empty(0, device=w1_qw.device)
-                g_idx2 = torch.empty(0, device=w2_qw.device)
-            g_idx_sort_idx13 = torch.argsort(g_idx13).int()
-            g_idx_sort_idx2 = torch.argsort(g_idx2).int()
+            final_hidden_states = None
+            for expert_idx in self.expert_indicies:
+                expert_layer = self.experts[expert_idx]
+                expert_mask = (selected_experts == expert_idx)
+                expert_weights = (routing_weights * expert_mask).sum(
+                    dim=-1, keepdim=True)
 
-            w13_qw = torch.cat((w1_qw, w3_qw), 1)
-            w13_s = torch.cat((w1_s, w3_s), 1)
-            size_k = hidden_states.shape[1]
-            size_n = w13_qw.shape[1]
-            w13_qw = ops.gptq_marlin_repack(w13_qw, g_idx_sort_idx13, size_k,
-                                            size_n,
-                                            self.quant_config.weight_bits)
-            w13_s = marlin_permute_scales_numbits(
-                w13_s, size_k, size_n, self.quant_config.group_size,
-                self.quant_config.weight_bits)
+                current_hidden_states = expert_layer(hidden_states).mul_(
+                    expert_weights)
+                if final_hidden_states is None:
+                    final_hidden_states = current_hidden_states
+                else:
+                    final_hidden_states.add_(current_hidden_states)
 
-            size_k = w2_qw.shape[0] * 8
-            size_n = w2_qw.shape[1]
-            w2_qw = ops.gptq_marlin_repack(w2_qw, g_idx_sort_idx2, size_k,
-                                           size_n,
-                                           self.quant_config.weight_bits)
-            w2_s = marlin_permute_scales_numbits(w2_s, size_k, size_n,
-                                                 self.quant_config.group_size,
-                                                 self.quant_config.weight_bits)
-
-            qweight13_l.append(w13_qw)
-            scales13_l.append(w13_s)
-            qweight2_l.append(w2_qw)
-            scales2_l.append(w2_s)
-            g_idx13_l.append(g_idx13)
-            g_idx2_l.append(g_idx2)
-            g_idx_sort_idx13_l.append(g_idx_sort_idx13)
-            g_idx_sort_idx2_l.append(g_idx_sort_idx2)
-
-        qweight13 = torch.stack(qweight13_l, dim=0).to(qweight13_l[0].device)
-        scales13 = torch.stack(scales13_l, dim=0).to(scales13_l[0].device)
-        qweight2 = torch.stack(qweight2_l, dim=0).to(qweight2_l[0].device)
-        scales2 = torch.stack(scales2_l, dim=0).to(scales2_l[0].device)
-        g_idx13 = torch.stack(g_idx13_l, dim=0).to(g_idx13_l[0].device)
-        g_idx2 = torch.stack(g_idx2_l, dim=0).to(g_idx2_l[0].device)
-        g_idx_sort_idx13 = torch.stack(g_idx_sort_idx13_l,
-                                       dim=0).to(g_idx_sort_idx13_l[0].device)
-        g_idx_sort_idx2 = torch.stack(g_idx_sort_idx2_l,
-                                      dim=0).to(g_idx_sort_idx2_l[0].device)
-
-        final_hidden_states = fused_marlin_moe(
-            hidden_states.half(),
-            qweight13,
-            qweight2,
-            router_logits,
-            g_idx13,
-            g_idx2,
-            g_idx_sort_idx13,
-            g_idx_sort_idx2,
-            self.top_k,
-            renormalize=True,
-            w1_scale=scales13,
-            w2_scale=scales2,
-        )
-
-        return final_hidden_states.bfloat16()
+            return tensor_model_parallel_all_reduce(final_hidden_states).view(
+                num_tokens, hidden_dim)
 
 
 class MixtralAttention(nn.Module):
@@ -299,6 +260,7 @@ class MixtralDecoderLayer(nn.Module):
     def __init__(
         self,
         config: MixtralConfig,
+        experimental_fused_moe: bool,
         cache_config: Optional[CacheConfig] = None,
         quant_config: Optional[QuantizationConfig] = None,
     ) -> None:
@@ -314,8 +276,10 @@ class MixtralDecoderLayer(nn.Module):
             rope_theta=rope_theta,
             cache_config=cache_config,
             quant_config=quant_config)
-        self.block_sparse_moe = MixtralMoE(config=config,
-                                           quant_config=quant_config)
+        self.block_sparse_moe = MixtralMoE(
+            config=config,
+            experimental_fused_moe=experimental_fused_moe,
+            quant_config=quant_config)
         self.input_layernorm = RMSNorm(config.hidden_size,
                                        eps=config.rms_norm_eps)
         self.post_attention_layernorm = RMSNorm(config.hidden_size,
@@ -355,6 +319,7 @@ class MixtralModel(nn.Module):
     def __init__(
         self,
         config: MixtralConfig,
+        experimental_fused_moe: bool,
         cache_config: Optional[CacheConfig] = None,
         quant_config: Optional[QuantizationConfig] = None,
     ) -> None:
@@ -368,6 +333,7 @@ class MixtralModel(nn.Module):
         )
         self.layers = nn.ModuleList([
             MixtralDecoderLayer(config,
+                                experimental_fused_moe,
                                 cache_config,
                                 quant_config=quant_config)
             for _ in range(config.num_hidden_layers)
@@ -402,10 +368,18 @@ class MixtralForCausalLM(nn.Module):
         quant_config: Optional[QuantizationConfig] = None,
     ) -> None:
         super().__init__()
+
+        # TODO have a better way to set this.
+        # Needs some testing/improving?
+        self.experimental_fused_moe = True
+
         self.config = config
         self.quant_config = quant_config
-        self.model = MixtralModel(config, cache_config, quant_config)
-        self.lm_head = ParallelLMHead(config.vocab_size, config.hidden_size)
+        self.model = MixtralModel(config, self.experimental_fused_moe,
+                                  cache_config, quant_config)
+        self.lm_head = ParallelLMHead(config.vocab_size,
+                                      config.hidden_size,
+                                      quant_config=quant_config)
         self.logits_processor = LogitsProcessor(config.vocab_size)
         self.sampler = Sampler()
 
@@ -415,6 +389,7 @@ class MixtralForCausalLM(nn.Module):
         positions: torch.Tensor,
         kv_caches: List[torch.Tensor],
         attn_metadata: AttentionMetadata,
+        intermediate_tensors: Optional[IntermediateTensors] = None,
     ) -> torch.Tensor:
         hidden_states = self.model(input_ids, positions, kv_caches,
                                    attn_metadata)
@@ -422,7 +397,7 @@ class MixtralForCausalLM(nn.Module):
 
     def compute_logits(self, hidden_states: torch.Tensor,
                        sampling_metadata: SamplingMetadata) -> torch.Tensor:
-        logits = self.logits_processor(self.lm_head.weight, hidden_states,
+        logits = self.logits_processor(self.lm_head, hidden_states,
                                        sampling_metadata)
         return logits
 
@@ -461,11 +436,51 @@ class MixtralForCausalLM(nn.Module):
                 # Skip loading extra bias for GPTQ models.
                 if name.endswith(".bias") and name not in params_dict:
                     continue
-                # Skip experts that are not assigned to this worker.
-                if ("block_sparse_moe.experts." in name
-                        and name not in params_dict):
-                    continue
+
+                if self.experimental_fused_moe:
+                    if ("block_sparse_moe.experts." in name
+                            and ".w1." not in name and ".w2." not in name
+                            and ".w3." not in name
+                            and name not in params_dict):
+                        continue
+
+                    if (".qzeros" in name):
+                        continue
+
+                    shard_id = None
+                    expert_id = 0
+
+                    has_any_numbered = (".qweight" in name or ".scales" in name
+                                        or ".g_idx" in name)
+                    if (has_any_numbered and (".w1." in name)):
+                        name = name.replace(".w1.", ".w13_")
+                        shard_id = 0
+                    if (has_any_numbered and (".w2." in name)):
+                        name = name.replace(".w2.", ".w2_")
+                        shard_id = 0
+                    if (has_any_numbered and (".w3." in name)):
+                        name = name.replace(".w3.", ".w13_")
+                        shard_id = 1
+
+                    exp_string = re.search(r"\.experts\.\d+.", name)
+                    if exp_string:
+                        exp_string = exp_string.group(0)
+                        expert_id = int(exp_string.split(".")[2])
+                        name = name.replace(exp_string, ".experts.")
+
+                else:
+                    if ("block_sparse_moe.experts." in name
+                            and name not in params_dict):
+                        continue
+
                 param = params_dict[name]
-                weight_loader = getattr(param, "weight_loader",
-                                        default_weight_loader)
-                weight_loader(param, loaded_weight)
+
+                if self.experimental_fused_moe and shard_id is not None:
+                    weight_loader = getattr(param, "weight_loader",
+                                            default_weight_loader)
+                    weight_loader(param, loaded_weight, name, shard_id,
+                                  expert_id, True)
+                else:
+                    weight_loader = getattr(param, "weight_loader",
+                                            default_weight_loader)
+                    weight_loader(param, loaded_weight)

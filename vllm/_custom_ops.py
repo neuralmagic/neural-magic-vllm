@@ -261,6 +261,19 @@ def gptq_marlin_repack(b_q_weight: torch.Tensor, perm: torch.Tensor,
                                            num_bits)
 
 
+def gptq_marlin_moe_repack(b_q_weight: torch.Tensor, perm: torch.Tensor,
+                           size_k: int, size_n: int,
+                           num_bits: int) -> torch.Tensor:
+    num_experts = b_q_weight.shape[0]
+    output = torch.empty((num_experts, size_k // 16, size_n * 2),
+                         device=b_q_weight.device,
+                         dtype=b_q_weight.dtype)
+    for e in range(num_experts):
+        output[e] = torch.ops._C.gptq_marlin_repack(b_q_weight[e], perm[e],
+                                                    size_k, size_n, num_bits)
+    return output
+
+
 def gptq_marlin_gemm(a: torch.Tensor, b_q_weight: torch.Tensor,
                      b_scales: torch.Tensor, g_idx: torch.Tensor,
                      perm: torch.Tensor, workspace: torch.Tensor,
@@ -269,6 +282,15 @@ def gptq_marlin_gemm(a: torch.Tensor, b_q_weight: torch.Tensor,
     return torch.ops._C.gptq_marlin_gemm(a, b_q_weight, b_scales, g_idx, perm,
                                          workspace, num_bits, size_m, size_n,
                                          size_k, is_k_full)
+
+
+# fp8 marlin
+def fp8_marlin_gemm(a: torch.Tensor, b_q_weight: torch.Tensor,
+                    b_scales: torch.Tensor, workspace: torch.Tensor,
+                    num_bits: int, size_m: int, size_n: int,
+                    size_k: int) -> torch.Tensor:
+    return torch.ops._C.fp8_marlin_gemm(a, b_q_weight, b_scales, workspace,
+                                        num_bits, size_m, size_n, size_k)
 
 
 # fp8
