@@ -1,13 +1,6 @@
 name: run lm-eval accuracy test
 description: 'run lm-eval accuracy test'
 inputs:
-  python:
-    description: 'python version, e.g. 3.10.12'
-    required: true
-  venv:
-    description: 'name for python virtual environment'
-    required: false
-    default: ""
   lm_eval_configuration:
     description: 'file containing test configuration'
     required: true
@@ -16,12 +9,6 @@ runs:
   steps:
   - id: lm-eval
     run: |
-      if [ ! -z "${{ inputs.venv }}" ]; then
-        COMMIT=${{ github.sha }}
-        VENV="${{ inputs.venv }}-${COMMIT:0:7}"
-        source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
-      fi
-
       pip3 install git+https://github.com/EleutherAI/lm-evaluation-harness.git@262f879a06aa5de869e5dd951d0ff2cf2f9ba380
       pip3 install pytest openai==1.3.9
 

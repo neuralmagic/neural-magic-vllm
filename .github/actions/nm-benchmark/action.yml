@@ -7,13 +7,6 @@ inputs:
   output_directory:
     description: 'output directory to store the benchmark results'
     required: true
-  python:
-    description: 'python version, e.g. 3.10.12'
-    required: true
-  venv:
-    description: 'name for python virtual environment'
-    required: false
-    default: ""
 runs:
   using: composite
   steps:
@@ -23,11 +16,6 @@ runs:
       # move source directories
       mv vllm vllm-ignore || echo "no 'vllm' folder to move"
       mv csrc csrc-ignore || echo "no 'csrc' folder to move"
-      if [ ! -z "${{ inputs.venv }}" ]; then
-        COMMIT=${{ github.sha }}
-        VENV="${{ inputs.venv }}-${COMMIT:0:7}"
-        source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
-      fi
       pip3 install -r neuralmagic/benchmarks/requirements-benchmark.txt
       SUCCESS=0
       .github/scripts/nm-run-benchmarks.sh ${{ inputs.benchmark_config_list_file }} ${{ inputs.output_directory }} || SUCCESS=$?

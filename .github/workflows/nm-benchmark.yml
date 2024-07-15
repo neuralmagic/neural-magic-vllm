@@ -120,15 +120,12 @@ jobs:
       - name: install whl
         id: install_whl
         uses: ./.github/actions/nm-install-whl/
-        with:
-            python: ${{ inputs.python }}
 
       - name: run benchmarks
         uses: ./.github/actions/nm-benchmark/
         with:
           benchmark_config_list_file: ${{ inputs.benchmark_config_list_file }}
           output_directory: benchmark-results
-          python: ${{ inputs.python }}
 
       - name: store benchmark result artifacts
         if: success()

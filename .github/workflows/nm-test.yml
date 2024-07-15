@@ -122,8 +122,6 @@ jobs:
 
             - name: install whl
               uses: ./.github/actions/nm-install-whl/
-              with:
-                python: ${{ inputs.python }}
 
             - name: run buildkite script
               run: |

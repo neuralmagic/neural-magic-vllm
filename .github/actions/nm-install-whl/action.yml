@@ -1,13 +1,5 @@
 name: install whl
 description: 'installs found whl based on python version into specified venv'
-inputs:
-  python:
-    description: 'python version, e.g. 3.10.12'
-    required: true
-  venv:
-    description: 'name for python virtual environment'
-    required: false
-    default: ""
 runs:
   using: composite
   steps:
@@ -17,11 +9,6 @@ runs:
         mv vllm vllm-ignore
         mv csrc csrc-ignore
         # activate and install
-        if [ ! -z "${{ inputs.venv }}" ]; then
-          COMMIT=${{ github.sha }}
-          VENV="${{ inputs.venv }}-${COMMIT:0:7}"
-          source $(pyenv root)/versions/${{ inputs.python }}/envs/${VENV}/bin/activate
-        fi
         pip3 install -r requirements-dev.txt
         WHL=$(find . -type f -iname "nm_vllm*.whl")
         WHL_BASENAME=$(basename ${WHL})
