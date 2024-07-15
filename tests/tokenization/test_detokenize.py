@@ -241,35 +241,35 @@ def test_decode_prompt_logprobs_chunked_prefill(
         max_num_seqs = min(chunked_prefill_token_size, max_num_seqs)
         max_num_batched_tokens = chunked_prefill_token_size
 
-    with vllm_runner(model,
-                     dtype="half",
-                     max_logprobs=5,
-                     gpu_memory_utilization=0.5,
-                     enable_chunked_prefill=enable_chunked_prefill,
-                     max_num_batched_tokens=max_num_batched_tokens,
-                     max_num_seqs=max_num_seqs) as vllm_model:
+    vllm_model = vllm_runner(model,
+                             dtype="half",
+                             max_logprobs=5,
+                             gpu_memory_utilization=0.5,
+                             enable_chunked_prefill=enable_chunked_prefill,
+                             max_num_batched_tokens=max_num_batched_tokens,
+                             max_num_seqs=max_num_seqs)
 
-        vllm_sampling_params = SamplingParams(max_tokens=10,
-                                              logprobs=5,
-                                              prompt_logprobs=5,
-                                              temperature=0.0)
-        vllm_results = vllm_model.model.generate(
-            example_prompts, sampling_params=vllm_sampling_params)
+    vllm_sampling_params = SamplingParams(max_tokens=10,
+                                            logprobs=5,
+                                            prompt_logprobs=5,
+                                            temperature=0.0)
+    vllm_results = vllm_model.model.generate(
+        example_prompts, sampling_params=vllm_sampling_params)
 
-        for idx, result in enumerate(vllm_results):
-            assert result.prompt_logprobs is not None
-            assert result.prompt_logprobs[0] is None
+    for idx, result in enumerate(vllm_results):
+        assert result.prompt_logprobs is not None
+        assert result.prompt_logprobs[0] is None
 
-            # Compared detokenized prompts ids to original prompt.
-            generated_string = ""
-            for (prompt_token,
-                 prompt_logprobs) in zip(result.prompt_token_ids[1:],
-                                         result.prompt_logprobs[1:]):
-                # prompt_logprobs is a dict of the token_id: logprob
-                # We select the token_id corresponding to the actual prompt
-                # Decoded token in the detokenized string corresponding to this
-                # prompt token.
-                generated_string += prompt_logprobs[prompt_token].decoded_token
+        # Compared detokenized prompts ids to original prompt.
+        generated_string = ""
+        for (prompt_token,
+                prompt_logprobs) in zip(result.prompt_token_ids[1:],
+                                        result.prompt_logprobs[1:]):
+            # prompt_logprobs is a dict of the token_id: logprob
+            # We select the token_id corresponding to the actual prompt
+            # Decoded token in the detokenized string corresponding to this
+            # prompt token.
+            generated_string += prompt_logprobs[prompt_token].decoded_token
 
-            assert generated_string == example_prompts[idx], (
-                "Detokenized prompt logprobs do not match original prompt")
+        assert generated_string == example_prompts[idx], (
+            "Detokenized prompt logprobs do not match original prompt")
