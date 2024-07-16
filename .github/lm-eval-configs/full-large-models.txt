@@ -1,3 +1,2 @@
-Mixtral-8x7B-Instruct-v0.1-FP8.yaml
 Mixtral-8x22B-Instruct-v0.1-FP8.yaml
 Mixtral-8x22B-Instruct-v0.1.yaml

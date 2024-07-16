@@ -4,6 +4,11 @@ Qwen2-72B-Instruct.yaml
 Meta-Llama-3-70B-Instruct-FP8-KV.yaml
 Meta-Llama-3-70B-Instruct.yaml
 Mixtral-8x7B-Instruct-v0.1.yaml
-Mixtral-8x22B-Instruct-v0.1-FP8.yaml
+
 Mixtral-8x7B-Instruct-v0.1-FP8.yaml
+# RuntimeError: CUDA error: an illegal memory access was encountered https://github.com/neuralmagic/nm-vllm/actions/runs/9932533657/job/27434476066
+
+Mixtral-8x22B-Instruct-v0.1-FP8.yaml
+
+
 Mixtral-8x22B-Instruct-v0.1.yaml
