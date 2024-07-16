@@ -9,6 +9,6 @@ Mixtral-8x7B-Instruct-v0.1-FP8.yaml
 # RuntimeError: CUDA error: an illegal memory access was encountered https://github.com/neuralmagic/nm-vllm/actions/runs/9932533657/job/27434476066
 
 Mixtral-8x22B-Instruct-v0.1-FP8.yaml
-
+# FriendlyAI: KeyError: 'model.layers.55.block_sparse_moe.experts.2.w2.in_scale' https://github.com/neuralmagic/nm-vllm/actions/runs/9959858741/job/27519066616
 
 Mixtral-8x22B-Instruct-v0.1.yaml
