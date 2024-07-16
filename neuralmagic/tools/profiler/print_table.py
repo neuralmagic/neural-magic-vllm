@@ -34,7 +34,7 @@ if __name__ == "__main__":
                         "examples/offline_profile.py")
     parser.add_argument("--phase",
                         type=str,
-                        choices=["prefill", "decode"],
+                        choices=["prefill", "decode_1"],
                         required=True,
                         help="The phase to print the table for.")
     parser.add_argument("--table",
