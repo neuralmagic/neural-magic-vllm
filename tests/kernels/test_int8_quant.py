@@ -2,7 +2,7 @@ import pytest
 import torch
 
 # ruff: noqa: F401
-import vllm._C
+import vllm._custom_ops
 
 DTYPES = [torch.half, torch.bfloat16, torch.float]
 HIDDEN_SIZES = [16, 67, 768, 2048, 5120, 5137, 8192,

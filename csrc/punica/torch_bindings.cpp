@@ -1,4 +1,4 @@
-#include "registration.h"
+#include "core/registration.h"
 #include "punica_ops.h"
 
 TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, m) {

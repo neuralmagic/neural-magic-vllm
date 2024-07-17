@@ -3,14 +3,14 @@
 import numpy
 import torch
 
-from vllm._custom_classes import ScalarType
+from vllm.scalar_type import ScalarType, scalar_types
 
-SUPPORTED_NUM_BITS = [4, 8]
+SUPPORTED_GPTQ_QUANT_TYPES = [scalar_types.u4b8, scalar_types.u8b128]
 SUPPORTED_GROUP_SIZES = [-1, 32, 64, 128]
 
 
 def get_pack_factor(num_bits):
-    assert num_bits in SUPPORTED_NUM_BITS, f"Unsupported num_bits = {num_bits}"
+    assert 32 % num_bits == 0, f"Unsupported num_bits = {num_bits}"
     return 32 // num_bits
 
 
@@ -39,8 +39,9 @@ def permute_rows(q_w: torch.Tensor, w_ref: torch.Tensor, group_size: int):
     )
 
 
-def quantize_weights(w: torch.Tensor, wtype: ScalarType, group_size: int):
-    assert wtype.is_integer()
+def quantize_weights(w: torch.Tensor, quant_type: ScalarType, group_size: int):
+    assert quant_type.is_integer(), \
+        "Floating point quantization may work but has not been tested"
 
     orig_device = w.device
     orig_type = w.dtype
@@ -62,10 +63,10 @@ def quantize_weights(w: torch.Tensor, wtype: ScalarType, group_size: int):
     max_val = torch.abs(torch.max(w, 0, keepdim=True).values)
     min_val = torch.abs(torch.min(w, 0, keepdim=True).values)
 
-    # If the zero_point is such that there are no possible negative/positive
+    # If the bias is such that there are no possible negative/positive
     #  values, set the max value to inf to avoid divide by 0
-    max_q_val = wtype.max() if wtype.max() != 0 else torch.inf
-    min_q_val = wtype.min() if wtype.min() != 0 else torch.inf
+    max_q_val = quant_type.max() if quant_type.max() != 0 else torch.inf
+    min_q_val = quant_type.min() if quant_type.min() != 0 else torch.inf
     w_s = torch.max(abs(max_val / max_q_val), abs(min_val / min_q_val))
 
     # Quantize
@@ -74,6 +75,9 @@ def quantize_weights(w: torch.Tensor, wtype: ScalarType, group_size: int):
 
     # Compute ref (dequantized)
     w_ref = w_q.to(orig_type) * w_s
+
+    if quant_type.has_bias():
+        w_q += quant_type.bias
 
     # Restore original shapes
     if group_size < size_k:
@@ -96,48 +100,18 @@ def quantize_weights(w: torch.Tensor, wtype: ScalarType, group_size: int):
     )
 
 
-def pack_weights_into_int32(w_q: torch.Tensor, wtype: ScalarType, dim: int = 0):
-    orig_device = w_q.device
-
-    # move dim to pack to the end
-    perm = (*[i for i in range(len(w_q.shape)) if i != dim], dim)
-    inv_perm = tuple(perm.index(i) for i in range(len(perm)))
-    w_q_perm = w_q.permute(perm)
-
-    w_q_perm = w_q_perm.cpu().numpy().astype(numpy.uint32)
-    pack_factor = 32 // wtype.size_bits
-    mask = (1 << wtype.size_bits) - 1
-
-    new_shape_perm = list(w_q_perm.shape)
-    new_shape_perm[-1] //= pack_factor
-    assert new_shape_perm[-1] % pack_factor == 0
-
-    w_q_res = numpy.zeros(new_shape_perm, dtype=numpy.uint32)
-    for i in range(pack_factor):
-        w_q_res |= (w_q_perm[..., i::pack_factor]
-                    & mask) << wtype.size_bits * i
-
-    w_q_res = torch.from_numpy(w_q_res.astype(numpy.int32)).to(orig_device)
-    w_q_res = w_q_res.permute(inv_perm)
-
-    return w_q_res
-
-def gptq_quantize_weights(w: torch.Tensor, num_bits: int, group_size: int,
-                          act_order: bool):
+def gptq_quantize_weights(w: torch.Tensor, quant_type: ScalarType,
+                          group_size: int, act_order: bool):
     size_k, _ = w.shape
 
     assert w.is_floating_point(), "w must be float"
-    assert num_bits in SUPPORTED_NUM_BITS, f"Unsupported num_bits = {num_bits}"
+    assert quant_type in SUPPORTED_GPTQ_QUANT_TYPES, \
+        f"Unsupported gptq type = {quant_type}"
     assert group_size in SUPPORTED_GROUP_SIZES + [
         size_k
     ], f"Unsupported groupsize = {group_size}"
 
-    # gptq uses unisigned values with a symmetric zero point so quantize
-    # weights using signed type then add the zero point
-    wtype = ScalarType(num_bits - 1, 0, True)
-    w_ref, w_q, w_s = quantize_weights(w, wtype, group_size)
-    zero_point = (2**num_bits) // 2
-    w_q += zero_point
+    w_ref, w_q, w_s = quantize_weights(w, quant_type, group_size)
 
     # Apply act_order
     g_idx = torch.empty(0, dtype=torch.int, device=w.device)

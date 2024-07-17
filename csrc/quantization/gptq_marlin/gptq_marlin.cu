@@ -21,6 +21,7 @@
 
 #include "gptq_marlin.cuh"
 #include "gptq_marlin_dtypes.cuh"
+#include "core/scalar_type.hpp"
 
 #define STATIC_ASSERT_SCALAR_TYPE_VALID(scalar_t)               \
   static_assert(std::is_same<scalar_t, half>::value ||          \
@@ -74,8 +75,9 @@ __global__ void Marlin(
 torch::Tensor gptq_marlin_gemm(torch::Tensor& a, torch::Tensor& b_q_weight,
                                torch::Tensor& b_scales, torch::Tensor& g_idx,
                                torch::Tensor& perm, torch::Tensor& workspace,
-                               int64_t num_bits, int64_t size_m, int64_t size_n,
-                               int64_t size_k, bool is_k_full) {
+                               vllm::ScalarTypeTorchPtr const& b_q_type,
+                               int64_t size_m, int64_t size_n, int64_t size_k,
+                               bool is_k_full) {
   TORCH_CHECK_NOT_IMPLEMENTED(false,
                               "marlin_gemm(..) requires CUDA_ARCH >= 8.0");
   return torch::empty({1, 1});
@@ -1575,17 +1577,19 @@ exec_config_t determine_thread_config(int prob_m, int prob_n, int prob_k,
     __CALL_IF(NUM_BITS, 4, N_BLOCKS, K_BLOCKS, false, 8, NUM_THREADS)
 
 template <typename scalar_t>
-void marlin_mm_f16i4(const void* A, const void* B, void* C, void* s,
-                     void* g_idx, void* perm, void* a_tmp, int prob_m,
-                     int prob_n, int prob_k, void* workspace, int num_bits,
-                     bool has_act_order, bool is_k_full, int num_groups,
-                     int group_size, int dev, cudaStream_t stream, int thread_k,
-                     int thread_n, int sms, int max_par) {
-  TORCH_CHECK(num_bits == 4 || num_bits == 8,
-              "num_bits must be 4 or 8. Got = ", num_bits);
+void marlin_mm(const void* A, const void* B, void* C, void* s, void* g_idx,
+               void* perm, void* a_tmp, int prob_m, int prob_n, int prob_k,
+               void* workspace, vllm::ScalarType const& q_type,
+               bool has_act_order, bool is_k_full, int num_groups,
+               int group_size, int dev, cudaStream_t stream, int thread_k,
+               int thread_n, int sms, int max_par) {
+  TORCH_CHECK(q_type == vllm::kU4B8 || q_type == vllm::kU8B128,
+              "num_bits must be u4b8 or u8b128. Got = ", q_type.str());
   TORCH_CHECK(prob_m > 0 && prob_n > 0 && prob_k > 0, "Invalid MNK = [", prob_m,
               ", ", prob_n, ", ", prob_k, "]");
 
+  // TODO: remove alias when we start supporting other 8bit types
+  int num_bits = q_type.size_bits();
   int tot_m = prob_m;
   int tot_m_blocks = div_ceil(tot_m, 16);
   int pad = 16 * tot_m_blocks - tot_m;
@@ -1735,12 +1739,13 @@ void marlin_mm_f16i4(const void* A, const void* B, void* C, void* s,
 torch::Tensor gptq_marlin_gemm(torch::Tensor& a, torch::Tensor& b_q_weight,
                                torch::Tensor& b_scales, torch::Tensor& g_idx,
                                torch::Tensor& perm, torch::Tensor& workspace,
-                               int64_t num_bits, int64_t size_m, int64_t size_n,
-                               int64_t size_k, bool is_k_full) {
+                               vllm::ScalarTypeTorchPtr const& b_q_type,
+                               int64_t size_m, int64_t size_n, int64_t size_k,
+                               bool is_k_full) {
   // Verify num_bits
-  TORCH_CHECK(num_bits == 4 || num_bits == 8,
-              "num_bits must be 4 or 8. Got = ", num_bits);
-  int pack_factor = 32 / num_bits;
+  TORCH_CHECK(*b_q_type == vllm::kU4B8 || *b_q_type == vllm::kU8B128,
+              "num_bits must be u4b8 or u8b128. Got = ", b_q_type->str());
+  int pack_factor = 32 / b_q_type->size_bits();
 
   // Verify A
   TORCH_CHECK(a.size(0) == size_m, "Shape mismatch: a.size(0) = ", a.size(0),
@@ -1844,19 +1849,19 @@ torch::Tensor gptq_marlin_gemm(torch::Tensor& a, torch::Tensor& b_q_weight,
 
   int dev = a.get_device();
   if (a.scalar_type() == at::ScalarType::Half) {
-    gptq_marlin::marlin_mm_f16i4<half>(
+    gptq_marlin::marlin_mm<half>(
         a.data_ptr<at::Half>(), b_q_weight.data_ptr(), c.data_ptr<at::Half>(),
         b_scales.data_ptr<at::Half>(), g_idx.data_ptr(), perm.data_ptr(),
         a_tmp.data_ptr<at::Half>(), size_m, size_n, size_k,
-        workspace.data_ptr(), num_bits, has_act_order, is_k_full, num_groups,
+        workspace.data_ptr(), *b_q_type, has_act_order, is_k_full, num_groups,
         group_size, dev, at::cuda::getCurrentCUDAStream(dev), thread_k,
         thread_n, sms, gptq_marlin::max_par);
   } else if (a.scalar_type() == at::ScalarType::BFloat16) {
-    gptq_marlin::marlin_mm_f16i4<nv_bfloat16>(
+    gptq_marlin::marlin_mm<nv_bfloat16>(
         a.data_ptr<at::BFloat16>(), b_q_weight.data_ptr(),
         c.data_ptr<at::BFloat16>(), b_scales.data_ptr<at::BFloat16>(),
         g_idx.data_ptr(), perm.data_ptr(), a_tmp.data_ptr<at::BFloat16>(),
-        size_m, size_n, size_k, workspace.data_ptr(), num_bits, has_act_order,
+        size_m, size_n, size_k, workspace.data_ptr(), *b_q_type, has_act_order,
         is_k_full, num_groups, group_size, dev,
         at::cuda::getCurrentCUDAStream(dev), thread_k, thread_n, sms,
         gptq_marlin::max_par);

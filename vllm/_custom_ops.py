@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple, Type
 
 import torch
 
-from vllm._custom_classes import ScalarType
+from vllm._core_ext import ScalarType
 from vllm.logger import init_logger
 
 logger = init_logger(__name__)
@@ -85,7 +85,8 @@ def paged_attention_v1(
     max_seq_len: int,
     alibi_slopes: Optional[torch.Tensor],
     kv_cache_dtype: str,
-    kv_scale: float,
+    k_scale: float,
+    v_scale: float,
     tp_rank: int = 0,
     blocksparse_local_blocks: int = 0,
     blocksparse_vert_stride: int = 0,
@@ -95,8 +96,9 @@ def paged_attention_v1(
     torch.ops._C.paged_attention_v1(
         out, query, key_cache, value_cache, num_kv_heads, scale, block_tables,
         seq_lens, block_size, max_seq_len, alibi_slopes, kv_cache_dtype,
-        kv_scale, tp_rank, blocksparse_local_blocks, blocksparse_vert_stride,
-        blocksparse_block_size, blocksparse_head_sliding_step)
+        k_scale, v_scale, tp_rank, blocksparse_local_blocks,
+        blocksparse_vert_stride, blocksparse_block_size,
+        blocksparse_head_sliding_step)
 
 
 def paged_attention_v2(
@@ -115,7 +117,8 @@ def paged_attention_v2(
     max_seq_len: int,
     alibi_slopes: Optional[torch.Tensor],
     kv_cache_dtype: str,
-    kv_scale: float,
+    k_scale: float,
+    v_scale: float,
     tp_rank: int = 0,
     blocksparse_local_blocks: int = 0,
     blocksparse_vert_stride: int = 0,
@@ -125,7 +128,7 @@ def paged_attention_v2(
     torch.ops._C.paged_attention_v2(
         out, exp_sum, max_logits, tmp_out, query, key_cache, value_cache,
         num_kv_heads, scale, block_tables, seq_lens, block_size, max_seq_len,
-        alibi_slopes, kv_cache_dtype, kv_scale, tp_rank,
+        alibi_slopes, kv_cache_dtype, k_scale, v_scale, tp_rank,
         blocksparse_local_blocks, blocksparse_vert_stride,
         blocksparse_block_size, blocksparse_head_sliding_step)
 
@@ -209,10 +212,10 @@ def marlin_gemm(a: torch.Tensor, b_q_weight: torch.Tensor,
 # marlin_24
 def gptq_marlin_24_gemm(a: torch.Tensor, b_q_weight: torch.Tensor,
                         b_meta: torch.Tensor, b_scales: torch.Tensor,
-                        workspace: torch.Tensor, num_bits: int, size_m: int,
-                        size_n: int, size_k: int) -> torch.Tensor:
+                        workspace: torch.Tensor, b_q_type: ScalarType,
+                        size_m: int, size_n: int, size_k: int) -> torch.Tensor:
     return torch.ops._C.gptq_marlin_24_gemm(a, b_q_weight, b_meta, b_scales,
-                                            workspace, num_bits, size_m,
+                                            workspace, b_q_type, size_m,
                                             size_n, size_k)
 
 
@@ -265,10 +268,10 @@ def gptq_marlin_repack(b_q_weight: torch.Tensor, perm: torch.Tensor,
 def gptq_marlin_gemm(a: torch.Tensor, b_q_weight: torch.Tensor,
                      b_scales: torch.Tensor, g_idx: torch.Tensor,
                      perm: torch.Tensor, workspace: torch.Tensor,
-                     num_bits: int, size_m: int, size_n: int, size_k: int,
-                     is_k_full: bool) -> torch.Tensor:
+                     b_q_type: ScalarType, size_m: int, size_n: int,
+                     size_k: int, is_k_full: bool) -> torch.Tensor:
     return torch.ops._C.gptq_marlin_gemm(a, b_q_weight, b_scales, g_idx, perm,
-                                         workspace, num_bits, size_m, size_n,
+                                         workspace, b_q_type, size_m, size_n,
                                          size_k, is_k_full)
 
 
@@ -433,11 +436,12 @@ def reshape_and_cache(
     value_cache: torch.Tensor,
     slot_mapping: torch.Tensor,
     kv_cache_dtype: str,
-    kv_scale: float,
+    k_scale: float,
+    v_scale: float,
 ) -> None:
     torch.ops._C_cache_ops.reshape_and_cache(key, value, key_cache,
                                              value_cache, slot_mapping,
-                                             kv_cache_dtype, kv_scale)
+                                             kv_cache_dtype, k_scale, v_scale)
 
 
 def reshape_and_cache_flash(
