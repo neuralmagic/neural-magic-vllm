@@ -18,6 +18,11 @@
 TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, ops) {
   // vLLM custom ops
 
+  // ScalarType, a custom class for representing data types that supports
+  // quantized types, declared here so it can be used when creating interfaces
+  // for custom ops.
+  vllm::ScalarTypeTorch::bind_class(ops);
+
   // Attention ops
   // Compute the attention between an input query and the cached
   // keys/values using PagedAttention.
@@ -132,6 +137,17 @@ TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, ops) {
   // Marlin_24 (Sparse) Optimized Quantized GEMM for GPTQ.
   ops.def("gptq_marlin_24_gemm", &gptq_marlin_24_gemm);
   ops.impl("gptq_marlin_24_gemm", torch::kCUDA, &gptq_marlin_24_gemm);
+
+  // MarlinV2 (Dense) Optimized Weight Quantized GEMM for Hopper.
+  ops.def("marlinv2_supported_schedules", &marlinv2::supported_schedules);
+  ops.impl("marlinv2_supported_schedules", torch::kCPU,
+           &marlinv2::supported_schedules);
+  ops.def("marlinv2_supported_types", &marlinv2::supported_types);
+  ops.impl("marlinv2_supported_types", torch::kCPU, &marlinv2::supported_types);
+  ops.def("marlinv2_gemm", &marlinv2::gemm);
+  ops.impl("marlinv2_gemm", torch::kCUDA, &marlinv2::gemm);
+  ops.def("marlinv2_prepack_B", &marlinv2::prepack_B);
+  ops.impl("marlinv2_prepack_B", torch::kCUDA, &marlinv2::prepack_B);
 
   // gptq_marlin Optimized Quantized GEMM for GPTQ.
   ops.def("gptq_marlin_gemm", &gptq_marlin_gemm);

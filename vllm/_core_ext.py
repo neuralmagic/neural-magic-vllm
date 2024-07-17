@@ -23,7 +23,7 @@ elif not TYPE_CHECKING:
 
     from dataclasses import dataclass
 
-    # See: _custom_classes.pyi for docstrings
+    # See: _core_ext.pyi for docstrings
     @dataclass
     class ScalarType:
         exponent: int
