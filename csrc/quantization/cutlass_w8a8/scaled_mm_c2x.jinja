@@ -1,6 +1,5 @@
 #include <stddef.h>
-#include <torch/extension.h>
-#include "../scaled_mm_dq_c2x.cuh"
+#include "../scaled_mm_c2x.cuh"
 #include "../common.hpp"
 
 void {{ _name }}(torch::Tensor &out, torch::Tensor const &a,

@@ -5,7 +5,7 @@ from pathlib import Path
 from itertools import product
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from autogen_manifest import Cutlass2xArgs, Cutlass3xArgs, Cutlass2xArgsList, Cutlass3xArgsList
+from autogen_manifest import Cutlass2xArgs, DefaultCutlass2xArgs
 import os
 
 ## Utilities ####
@@ -33,11 +33,10 @@ class Generator(ABC):
     @staticmethod
     def write_ops(pybind_fn_names, ops_fn_defns, ops_macro, filename):
         s = "#pragma once\n"
-        s = '#include <torch/extension.h>\n\n'
         s += f"#define {ops_macro}\\\n"
         for fn_name in pybind_fn_names:
             s += (f' ops.def("{fn_name}(Tensor! out, Tensor a, Tensor b,'
-                  f'Tensor a_scales, Tensor b_scales, Tensor? bias) -> ()"); \\\n'
+                  f'Tensor a_scales, Tensor b_scales, Tensor? bias) -> ()", &{fn_name}); \\\n'
                   f' ops.impl("{fn_name}", torch::kCUDA, &{fn_name});\\\n\n'
                   )
         s += "\n"
@@ -93,22 +92,19 @@ class Cutlass2xGenerator(Generator):
 
     @staticmethod
     def generate_filename(args: Cutlass2xArgs):
-        f = '{}/autogen_cutlass_scaled_mm_c2x_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}_{}_{}'.format(
+        f = '{}/autogen_cutlass_scaled_mm_c2x_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}.cu'.format(
                 Cutlass2xGenerator.GENERATE_DIR,
                 args.tile_shape[0], args.tile_shape[1], args.tile_shape[2],
                 args.warp_shape[0], args.warp_shape[1], args.warp_shape[2],
                 args.instruction_shape[0], args.instruction_shape[1], args.instruction_shape[2],
                 Generator.swizzle_short_name(args.thread_block_swizzle),
                 Generator.gemm_mode_short_name(args.gemm_mode),
-                args.main_loop_stages)
-        for arch in archs:
-            f = f + f"_{arch}"
-    
-        f = f + ".cu"
+                args.main_loop_stages,
+                args.arch)
         return f
 
     @staticmethod
-    def generate_2x_file(args: Cutlass2xArgs)
+    def generate_2x_file(args: Cutlass2xArgs):
 
         # Make the generate dir
         Cutlass2xGenerator.GENERATE_DIR.mkdir(exist_ok=True)
@@ -121,21 +117,20 @@ class Cutlass2xGenerator(Generator):
         ops_fn_decl = []
     
         code = ""
-        for arch in archs:
-            fn_name = Cutlass2xGenerator.generate_name(args)
-            fn_decl = fn_decl_template.render(_name = fn_name)
-            code += fn_defn_template.render(
-                    _name = fn_name,
-                    _tile_shape = get_as_cutlass_gemm_shape(args.tile_shape),
-                    _warp_shape = get_as_cutlass_gemm_shape(args.warp_shape),
-                    _instruction_shape = get_as_cutlass_gemm_shape(args.instruction_shape),
-                    _main_loop_stages = args.main_loop_stages,
-                    _thread_block_swizzle = args.thread_block_swizzle,
-                    _gemm_mode = args.gemm_mode,
-                    _arch = args.arch)
+        fn_name = Cutlass2xGenerator.generate_name(args)
+        fn_decl = fn_decl_template.render(_name = fn_name)
+        code += fn_defn_template.render(
+                _name = fn_name,
+                _tile_shape = get_as_cutlass_gemm_shape(args.tile_shape),
+                _warp_shape = get_as_cutlass_gemm_shape(args.warp_shape),
+                _instruction_shape = get_as_cutlass_gemm_shape(args.instruction_shape),
+                _main_loop_stages = args.main_loop_stages,
+                _thread_block_swizzle = args.thread_block_swizzle,
+                _gemm_mode = args.gemm_mode,
+                _arch = args.arch)
 
-            pybind_fn_names.append(fn_name)
-            ops_fn_decl.append(fn_decl)
+        pybind_fn_names.append(fn_name)
+        ops_fn_decl.append(fn_decl)
     
         filename = Cutlass2xGenerator.generate_filename(args)
     
@@ -162,9 +157,9 @@ class Cutlass2xGenerator(Generator):
         Generator.write_ops(pybind_fn_names, ops_fn_decls, Cutlass2xGenerator.OPS_MACRO, Cutlass2xGenerator.OPS_FILE)
 
 def generate_cutlass2x_kernels():
-    Cutlass2xGenerator.generate(Cutlass2xArgsList)
+    Cutlass2xGenerator.generate([DefaultCutlass2xArgs])
 
-def main(args):
+def main():
     generate_cutlass2x_kernels()
 
 if __name__ == "__main__":

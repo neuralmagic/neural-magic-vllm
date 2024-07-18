@@ -43,9 +43,7 @@ class Cutlass2xArgs:
         return clone
 
 ## Cutlass2xArgsList 
-
-DefaultCutlass2xArgs = Cutlass2xArgs([89],
-        "int8",
+DefaultCutlass2xArgs = Cutlass2xArgs(89,
         (128, 128, 64),
         (64, 64, 64),
         (16, 8, 32),
