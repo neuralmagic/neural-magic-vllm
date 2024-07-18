@@ -77,8 +77,6 @@ def test_marlinv2_all_schedules(shape, atype: torch.dtype, wtype: ScalarType,
     w_ref, w_q_marlinv2, w_s = marlinv2_quantize_and_pack(w, wtype, group_size)
 
     output_ref = torch.matmul(a, w_ref)
-    
-    print(a.dtype, output_ref.dtype)
 
     for schedule in ops.marlinv2_supported_schedules(wtype):
         output = ops.marlinv2_gemm(
@@ -89,7 +87,6 @@ def test_marlinv2_all_schedules(shape, atype: torch.dtype, wtype: ScalarType,
             b_group_size=group_size,
             schedule=schedule,
         )
-        print("output:", output.dtype, output_ref.dtype)
         assert torch.allclose(output, output_ref, rtol=1e-1, atol=1e-1
                               ), f"Schedule failed {schedule}"
 

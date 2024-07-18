@@ -1,7 +1,7 @@
 // Based off of:
 //   cutlass/gemm/kernel/tile_scheduler_params.h
 // To support:
-//   cutlass_extensions/gemm/kernel/nm_sm90_tile_scheduler_stream_k.cuh
+//   cutlass_extensions/gemm/kernel/vllm_sm90_tile_scheduler_stream_k.cuh
 
 // Do not format file to make easier to diff with original
 // clang-format off
@@ -20,7 +20,7 @@ namespace cutlass {
 namespace gemm {
 namespace kernel {
 namespace detail {
-struct NMPersistentTileSchedulerSm90StreamKParams {
+struct VLLMPersistentTileSchedulerSm90StreamKParams {
 
   // Strategies for computing reductions between CTAs computing portions of a given output tile
   enum class ReductionMode {
@@ -132,7 +132,7 @@ struct NMPersistentTileSchedulerSm90StreamKParams {
 
   void
   print() {
-    printf("NMPersistentTileSchedulerSm90StreamKParams\n");
+    printf("VLLMPersistentTileSchedulerSm90StreamKParams\n");
     printf("  units_per_problem_ = %ju\n", units_per_problem_);
     printf("  log_swizzle_size_ = %u\n", log_swizzle_size_);
     printf("  raster_order_ = %d\n", int(raster_order_));

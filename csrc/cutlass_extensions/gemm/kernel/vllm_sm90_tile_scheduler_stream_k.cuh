@@ -18,7 +18,7 @@
 #include "cute/layout.hpp"
 #include "cute/tensor.hpp"
 
-#include "cutlass_extensions/gemm/kernel/nm_tile_scheduler_params.hpp"
+#include "cutlass_extensions/gemm/kernel/vllm_tile_scheduler_params.hpp"
 
 namespace cutlass::gemm::kernel::detail {
 
@@ -27,7 +27,7 @@ template <
   class TileShape,
   class ClusterShape
 >
-class NMPersistentTileSchedulerSm90StreamK {
+class VLLMPersistentTileSchedulerSm90StreamK {
   //
   // Data members
   //
@@ -48,7 +48,7 @@ public:
   // Use a dummy barrier manager to simply get the type used to store the barrier
   using BarrierType = typename NamedBarrierManager<1>::T;
 
-  using Params = NMPersistentTileSchedulerSm90StreamKParams;
+  using Params = VLLMPersistentTileSchedulerSm90StreamKParams;
   using ReductionMode = Params::ReductionMode;
   using DecompositionMode = Params::DecompositionMode;
 
@@ -218,10 +218,10 @@ public:
   }
 
   CUTLASS_HOST_DEVICE
-  NMPersistentTileSchedulerSm90StreamK() {};
+  VLLMPersistentTileSchedulerSm90StreamK() {};
 
   CUTLASS_HOST_DEVICE
-  NMPersistentTileSchedulerSm90StreamK(Params const& params_) : scheduler_params(params_) {
+  VLLMPersistentTileSchedulerSm90StreamK(Params const& params_) : scheduler_params(params_) {
     if (params_.raster_order_ == RasterOrder::AlongN) {
       current_work_linear_idx_ = uint64_t(blockIdx.x) + uint64_t(blockIdx.y) * uint64_t(gridDim.x);
     }

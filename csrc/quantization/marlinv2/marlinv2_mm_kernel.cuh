@@ -21,7 +21,7 @@
 
 #include "cutlass/util/device_memory.h"
 
-#include "cutlass_extensions/gemm/kernel/nm_tile_schedulers.cuh"
+#include "cutlass_extensions/gemm/kernel/vllm_tile_schedulers.cuh"
 #include "cutlass_extensions/cute_utils.cuh"
 #include "marlinv2_collective_builder.cuh"
 #include "marlinv2_prepacked_layout.cuh"
@@ -121,7 +121,7 @@ struct KernelTemplate {
             EpilogueSchedule>::CollectiveOp;
 
     using CollectiveMainloop =
-        typename cutlass::gemm::collective::NMCollectiveBuilder<
+        typename cutlass::gemm::collective::VLLMCollectiveBuilder<
             cutlass::gemm::collective::MarlinV2KernelTag, ArchTag,
             OperatorClass, BTypeTuple, PrepackedLayoutB, AlignmentB, ElementA,
             LayoutA_Transpose, AlignmentA, ElementAccumulator, TileShape,

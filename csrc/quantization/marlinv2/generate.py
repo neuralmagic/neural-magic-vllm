@@ -134,13 +134,12 @@ torch::Tensor PrepackDispatcher_::dispatch(torch::Tensor B) {
 """
 
 
-class NMTileSchedulerType(enum.Enum):
+class VLLMTileSchedulerType(enum.Enum):
     StreamK = enum_auto()
 
 
-#
 TileSchedulerTag.update(
-    {NMTileSchedulerType.StreamK: "cutlass::gemm::NMStreamKScheduler"})
+    {VLLMTileSchedulerType.StreamK: "cutlass::gemm::VLLMStreamKScheduler"})
 
 
 class MixedInputKernelScheduleType(enum.Enum):
@@ -204,7 +203,7 @@ def generate_terse_schedule_name(schedule_config: ScheduleConfig) -> str:
     kernel_terse_names_replace = {
         "KernelTmaWarpSpecializedCooperativeMixedInput_": "TmaMI_",
         "TmaWarpSpecializedCooperative_": "TmaCoop_",
-        "NMStreamKScheduler": "NMstreamK",
+        "VLLMStreamKScheduler": "NMstreamK",
     }
 
     schedule_name = generate_schedule_name(schedule_config)
@@ -314,13 +313,6 @@ def create_sources(type_config, schedule_configs, num_impl_files=2):
     return sources
 
 
-def jit(type_config, schedules):
-    for source in create_sources(type_config, schedules):
-        filename, code = source
-        print(f"Generated {filename}.cu")
-        print(code)
-
-
 def AOT_generate():
     SCRIPT_DIR = os.path.dirname(__file__)
 
@@ -340,7 +332,7 @@ def AOT_generate():
         ) for kernel_schedule in (TmaMI, ) for epilogue_schedule in (TmaCoop, )
         for tile_scheduler in (
             TileSchedulerType.Default,
-            NMTileSchedulerType.StreamK,
+            VLLMTileSchedulerType.StreamK,
         )))
 
     AOT_kernel_type_configs = list((KernelTypeConfig(

@@ -21,7 +21,7 @@
 
 #include "cutlass/util/device_memory.h"
 
-#include "cutlass_extensions/gemm/kernel/nm_tile_schedulers.cuh"
+#include "cutlass_extensions/gemm/kernel/vllm_tile_schedulers.cuh"
 #include "cutlass_extensions/cute_utils.cuh"
 #include "marlinv2_collective_builder.cuh"
 
