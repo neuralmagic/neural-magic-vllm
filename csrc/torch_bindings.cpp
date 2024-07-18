@@ -5,6 +5,10 @@
 
 #include <torch/library.h>
 
+#ifndef CUTLASS2X_DEFS
+#define CUTLASS2X_DEFS
+#endif
+
 // Note on op signatures:
 // The X_meta signatures are for the meta functions corresponding to op X.
 // They must be kept in sync with the signature for X. Generally, only
@@ -17,6 +21,9 @@
 
 TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, ops) {
   // vLLM custom ops
+
+  // Defined in csrc/quantization/cutlass_w8a8/autogen_cutlass2x_ops.h
+  CUTLASS2X_DEFS
 
   // Attention ops
   // Compute the attention between an input query and the cached
