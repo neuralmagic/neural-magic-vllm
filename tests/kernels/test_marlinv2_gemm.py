@@ -9,12 +9,10 @@ import pytest
 import torch
 
 from vllm import _custom_ops as ops
-from vllm import scalar_type
-from vllm.scalar_type import ScalarType
-from vllm.model_executor.layers.quantization.utils.marlin_utils import (
-    is_marlinv2_supported)
+from vllm.scalar_type import scalar_types, ScalarType
 from vllm.model_executor.layers.quantization.utils.quant_utils import (
     pack_weights_into_int32, quantize_weights)
+from vllm.platforms import current_platform
 
 MNK_SHAPES = [
     (1, 128, 128),
@@ -30,8 +28,14 @@ MNK_SHAPES = [
 ]
 
 ACT_TYPES = [torch.float16, torch.bfloat16]
-WEIGHT_TYPES = [scalar_type.s4, scalar_type.u4]
+WEIGHT_TYPES = [scalar_types.s4, scalar_types.u4]
 GROUP_SIZES = [128, None]
+# TODO: in future PR refactor this and `is_quant_method_supported` in the kernel
+#  unit tests to a common utility function. Currently the use of 
+#  `is_quant_method_supported` conflates kernels with quantization methods
+#  an assumption which is breaking down as quantizations methods can have 
+#  have kernels and some kernels support multiple quantization methods.
+IS_SUPPORTED_BY_GPU = current_platform.get_device_capability()[0] >= 9
 
 
 def rand_data(shape, dtype=torch.float16):
@@ -48,7 +52,7 @@ def marlinv2_quantize_and_pack(w, wtype: ScalarType, group_size: int):
     return w_ref, w_q_marlinv2, w_s
 
 
-@pytest.mark.skipif(not is_marlinv2_supported(),
+@pytest.mark.skipif(not IS_SUPPORTED_BY_GPU,
                     reason="MarlinV2 is not supported on this GPU type.")
 @pytest.mark.parametrize("shape",
                          MNK_SHAPES,
@@ -90,7 +94,7 @@ def test_marlinv2_all_schedules(shape, atype: torch.dtype, wtype: ScalarType,
                               ), f"Schedule failed {schedule}"
 
 
-@pytest.mark.skipif(not is_marlinv2_supported(),
+@pytest.mark.skipif(not IS_SUPPORTED_BY_GPU,
                     reason="MarlinV2 is not supported on this GPU type.")
 @pytest.mark.parametrize("shape",
                          MNK_SHAPES,

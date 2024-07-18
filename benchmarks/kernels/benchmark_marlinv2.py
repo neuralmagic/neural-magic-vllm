@@ -12,8 +12,7 @@ import torch.utils.benchmark as TBenchmark
 from torch.utils.benchmark import Measurement as TMeasurement
 from benchmarks.kernels.weight_shapes import WEIGHT_SHAPES
 
-from vllm.scalar_type import ScalarType
-from vllm import scalar_type
+from vllm.scalar_type import scalar_types, ScalarType
 from vllm import _custom_ops as ops
 from vllm.utils import FlexibleArgumentParser
 from vllm.model_executor.layers.quantization.utils.quant_utils import (
@@ -199,7 +198,7 @@ def run(dtype: torch.dtype,
 
     results = []
     for m, k, n in MKNs:
-        timers = bench(dtype, scalar_type.s4, 128, m, k, n,  f"{dtype}-gemm",
+        timers = bench(dtype, scalar_types.s4, 128, m, k, n,  f"{dtype}-gemm",
                        f"MKN=({m}x{k}x{n})")
         print_timers(timers)
         results.extend(timers)

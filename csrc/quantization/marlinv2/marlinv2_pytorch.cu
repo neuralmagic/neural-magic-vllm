@@ -1,6 +1,6 @@
 #include "marlinv2_mm_launcher.cuh"
 #include "marlinv2_prepack_launcher.cuh"
-#include "scalar_type.hpp"
+#include "core/scalar_type.hpp"
 
 namespace marlinv2 {
 

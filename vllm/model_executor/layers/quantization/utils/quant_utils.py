@@ -165,3 +165,30 @@ def gptq_pack(
 
     q_res = torch.from_numpy(q_res.astype(numpy.int32)).to(orig_device)
     return q_res
+
+
+def pack_weights_into_int32(w_q: torch.Tensor, wtype: ScalarType, dim: int = 0):
+    orig_device = w_q.device
+
+    # move dim to pack to the end
+    perm = (*[i for i in range(len(w_q.shape)) if i != dim], dim)
+    inv_perm = tuple(perm.index(i) for i in range(len(perm)))
+    w_q_perm = w_q.permute(perm)
+
+    w_q_perm = w_q_perm.cpu().numpy().astype(numpy.uint32)
+    pack_factor = 32 // wtype.size_bits
+    mask = (1 << wtype.size_bits) - 1
+
+    new_shape_perm = list(w_q_perm.shape)
+    new_shape_perm[-1] //= pack_factor
+    assert new_shape_perm[-1] % pack_factor == 0
+
+    w_q_res = numpy.zeros(new_shape_perm, dtype=numpy.uint32)
+    for i in range(pack_factor):
+        w_q_res |= (w_q_perm[..., i::pack_factor]
+                    & mask) << wtype.size_bits * i
+
+    w_q_res = torch.from_numpy(w_q_res.astype(numpy.int32)).to(orig_device)
+    w_q_res = w_q_res.permute(inv_perm)
+
+    return w_q_res
