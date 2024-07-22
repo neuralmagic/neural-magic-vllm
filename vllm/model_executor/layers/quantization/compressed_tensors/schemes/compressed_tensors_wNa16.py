@@ -1,7 +1,6 @@
 from typing import Callable, List, Optional
 
 import torch
-from torch.nn import Parameter
 
 from vllm import _custom_ops as ops
 from vllm.model_executor.layers.quantization.compressed_tensors.schemes import (
@@ -54,6 +53,7 @@ class CompressedTensorsWNA16(CompressedTensorsScheme):
                        input_size_per_partition: int,
                        params_dtype: torch.dtype, weight_loader: Callable,
                        **kwargs):
+
         output_size_per_partition = sum(output_partition_sizes)
 
         # If group_size is -1, we are in channelwise case.
@@ -74,12 +74,12 @@ class CompressedTensorsWNA16(CompressedTensorsScheme):
         weight = PackedvLLMParameter(input_dim=1,
                                      output_dim=0,
                                      weight_loader=weight_loader,
-                                     packed_factor=pack_factor,
+                                     packed_factor=self.pack_factor,
                                      packed_dim=1,
                                      data=torch.empty(
                                          output_size_per_partition,
                                          input_size_per_partition //
-                                         pack_factor,
+                                         self.pack_factor,
                                          dtype=torch.int32,
                                      ))
 
