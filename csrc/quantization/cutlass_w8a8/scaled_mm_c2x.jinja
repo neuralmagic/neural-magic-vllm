@@ -12,13 +12,15 @@ void {{ _name }}(torch::Tensor &out, torch::Tensor const &a,
   using WarpShape = {{ _warp_shape }};
   using InstructionShape = {{ _instruction_shape }};
   using ThreadBlockSwizzle = {{ _thread_block_swizzle }};
+  using FP8MathOperator = {{ _fp8_math_operator }};
   static const cutlass::gemm::GemmUniversalMode GemmMode = {{ _gemm_mode }};
   static constexpr int32_t MainLoopStages = {{ _main_loop_stages }}; 
-  return cutlass_scaled_mm_sm{{ _arch }}_impl<
+  return cutlass_scaled_mm_sm{{ _arch }}_impl_{{ _dtype_str }}<
       TileShape,
       WarpShape,
       InstructionShape,
       ThreadBlockSwizzle,
       GemmMode,
-      MainLoopStages>(out, a, b, a_scales, b_scales, bias);
+      MainLoopStages,
+      FP8MathOperator>(out, a, b, a_scales, b_scales, bias);
 }

@@ -5,7 +5,7 @@ from pathlib import Path
 from itertools import product
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from autogen_manifest import Cutlass2xArgs, DefaultCutlass2xArgs
+from autogen_manifest import (Cutlass2xArgs, FP8Cutlass2xArgsList, I8Cutlass2xArgsList)
 import os
 
 ## Utilities ####
@@ -32,12 +32,14 @@ class Generator(ABC):
 
     @staticmethod
     def write_ops(pybind_fn_names, ops_fn_defns, ops_macro, filename):
+        pybind_fn_names = list(set(pybind_fn_names))
+        ops_fn_defns = list(set(ops_fn_defns))
         s = "#pragma once\n"
         s += f"#define {ops_macro}\\\n"
         for fn_name in pybind_fn_names:
             s += (f' ops.def("{fn_name}(Tensor! out, Tensor a, Tensor b,'
                   f'Tensor a_scales, Tensor b_scales, Tensor? bias) -> ()", &{fn_name}); \\\n'
-                  f' ops.impl("{fn_name}", torch::kCUDA, &{fn_name});\\\n\n'
+                  f' ops.impl("{fn_name}", torch::kCUDA, &{fn_name});\\\n'
                   )
         s += "\n"
 
@@ -53,11 +55,15 @@ class Generator(ABC):
 
     @staticmethod
     def swizzle_short_name(swizzle):
-        return Generator.last_namespace(swizzle)
+        return Generator.last_namespace(swizzle).replace('<', '_').replace('>', '_')
 
     @staticmethod
     def gemm_mode_short_name(gemm_mode):
         return Generator.last_namespace(gemm_mode)
+
+    @staticmethod
+    def math_operator_short_name(mo):
+        return Generator.last_namespace(mo)
 
     @staticmethod
     def generate():
@@ -80,19 +86,21 @@ class Cutlass2xGenerator(Generator):
     @staticmethod
     def generate_name(args: Cutlass2xArgs):
 
-        return 'autogen_cutlass2x_scaled_mm_sm{}_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}_{}_{}'.format(
+        return 'autogen_cutlass2x_scaled_mm_sm{}_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}_{}'.format(
                 args.arch,
                 args.tile_shape[0], args.tile_shape[1], args.tile_shape[2],
                 args.warp_shape[0], args.warp_shape[1], args.warp_shape[2],
                 args.instruction_shape[0], args.instruction_shape[1], args.instruction_shape[2],
                 Generator.swizzle_short_name(args.thread_block_swizzle),
                 Generator.gemm_mode_short_name(args.gemm_mode),
-                args.main_loop_stages)
+                args.main_loop_stages,
+                Generator.math_operator_short_name(args.fp8_math_operator),
+                args.dtype_str)
 
 
     @staticmethod
     def generate_filename(args: Cutlass2xArgs):
-        f = '{}/autogen_cutlass_scaled_mm_c2x_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}.cu'.format(
+        f = '{}/autogen_cutlass_scaled_mm_c2x_{}x{}x{}_{}x{}x{}_{}x{}x{}_{}_{}_{}_{}_{}_{}.cu'.format(
                 Cutlass2xGenerator.GENERATE_DIR,
                 args.tile_shape[0], args.tile_shape[1], args.tile_shape[2],
                 args.warp_shape[0], args.warp_shape[1], args.warp_shape[2],
@@ -100,6 +108,8 @@ class Cutlass2xGenerator(Generator):
                 Generator.swizzle_short_name(args.thread_block_swizzle),
                 Generator.gemm_mode_short_name(args.gemm_mode),
                 args.main_loop_stages,
+                Generator.math_operator_short_name(args.fp8_math_operator),
+                args.dtype_str,
                 args.arch)
         return f
 
@@ -127,6 +137,8 @@ class Cutlass2xGenerator(Generator):
                 _main_loop_stages = args.main_loop_stages,
                 _thread_block_swizzle = args.thread_block_swizzle,
                 _gemm_mode = args.gemm_mode,
+                _dtype_str = args.dtype_str, 
+                _fp8_math_operator = args.fp8_math_operator,
                 _arch = args.arch)
 
         pybind_fn_names.append(fn_name)
@@ -157,7 +169,7 @@ class Cutlass2xGenerator(Generator):
         Generator.write_ops(pybind_fn_names, ops_fn_decls, Cutlass2xGenerator.OPS_MACRO, Cutlass2xGenerator.OPS_FILE)
 
 def generate_cutlass2x_kernels():
-    Cutlass2xGenerator.generate([DefaultCutlass2xArgs])
+    Cutlass2xGenerator.generate(FP8Cutlass2xArgsList)
 
 def main():
     generate_cutlass2x_kernels()

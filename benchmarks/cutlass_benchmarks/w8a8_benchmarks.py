@@ -96,8 +96,21 @@ def get_autogen_cutlass2x_impls():
         registration = f.read()
     assert registration is not None
 
-    regex = re.compile('autogen_cutlass2x[A-Za-z_x0-9]*_[0-9]')
+    bad_kernels = [
+            'autogen_cutlass2x_scaled_mm_sm89_128x128x128_32x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_1_OpMultiplyAddFastAccum_fp8',
+            'autogen_cutlass2x_scaled_mm_sm89_256x128x128_64x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_1_OpMultiplyAddFastAccum_fp8',
+            'autogen_cutlass2x_scaled_mm_sm89_128x128x128_32x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_1_OpMultiplyAdd_fp8',
+            'autogen_cutlass2x_scaled_mm_sm89_256x128x128_64x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_1_OpMultiplyAdd_fp8',
+            'autogen_cutlass2x_scaled_mm_sm89_128x128x128_32x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_1_OpMultiplyAdd_fp8',
+            'autogen_cutlass2x_scaled_mm_sm89_128x128x128_32x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_1_OpMultiplyAddFastAccum_fp8',
+            'autogen_cutlass2x_scaled_mm_sm89_64x128x128_16x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_4_OpMultiplyAdd_fp8',
+            'autogen_cutlass2x_scaled_mm_sm89_64x128x128_16x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_4_OpMultiplyAddFastAccum_fp8',
+            'autogen_cutlass2x_scaled_mm_sm89_64x128x128_16x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_1_OpMultiplyAdd_fp8',
+            ]
+
+    regex = re.compile('autogen_cutlass2x[A-Za-z_x0-9]*_fp8')
     attrs = re.findall(regex, registration)
+    attrs = list(filter(lambda x: x not in bad_kernels, attrs))
     attrs = list(set(attrs))
 
     impls = {}
@@ -141,6 +154,7 @@ def bench_cutlass_impls(a, b, scale_a, scale_b,
     impl_keys = list(autogen_impls.keys())
     for impl_key in impl_keys:
         try:
+            print (f"Trying {impl_key}")
             autogen_cutlass2x_wrapper(a, b, scale_a, scale_b,
                                     out_dtype, autogen_impls[impl_key])
         except Exception as e:
@@ -193,6 +207,7 @@ def bench_fp8(dtype: torch.dtype, m: int, k: int, n: int, label: str,
     timers = []
 
     # pytorch impl w. bf16
+    print ("running pt bf16")
     timers.append(
         bench_fn(a.to(dtype=torch.bfloat16, device="cuda"),
                  b.to(dtype=torch.bfloat16, device="cuda"), scale_a, scale_b,
@@ -200,17 +215,19 @@ def bench_fp8(dtype: torch.dtype, m: int, k: int, n: int, label: str,
                  "pytorch_bf16_bf16_bf16_matmul-no-scales"))
 
     # pytorch impl: bf16 output, without fp8 fast accum
+    print ("running pt fp8 no fast accum")
     timers.append(
         bench_fn(a, b, scale_a, scale_b, torch.bfloat16, label, sub_label,
                  pytorch_fp8_impl, "pytorch_fp8_fp8_bf16_scaled_mm"))
 
     # pytorch impl: bf16 output, with fp8 fast accum
+    print ("running pt fp8 fast accum")
     timers.append(
         bench_fn(a, b, scale_a, scale_b, torch.bfloat16, label, sub_label,
                  pytorch_fp8_impl_fast_accum,
                  "pytorch_fp8_fp8_bf16_scaled_mm_fast_accum"))
 
-    # Autogen kernels
+    ## Autogen kernels
     timers.extend(bench_cutlass_impls(a, b, scale_a, scale_b,
                                          torch.bfloat16, label, sub_label))
 
@@ -225,10 +242,11 @@ def bench_fp8(dtype: torch.dtype, m: int, k: int, n: int, label: str,
     #             pytorch_fp8_impl_fast_accum,
     #             "pytorch_fp8_fp8_fp16_scaled_mm_fast_accum"))
 
-    ## cutlass impl: bf16 output
+    # cutlass impl: bf16 output
     #timers.append(
     #    bench_fn(a, b, scale_a, scale_b, torch.bfloat16, label, sub_label,
     #             cutlass_impl, "cutlass_fp8_fp8_bf16_scaled_mm"))
+
     ## cutlass impl: fp16 output
     #timers.append(
     #    bench_fn(a, b, scale_a, scale_b, torch.float16, label, sub_label,

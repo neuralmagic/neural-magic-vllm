@@ -14,6 +14,7 @@
 #include "cutlass/cutlass.h"
 #include "cutlass/gemm_coord.h"
 #include "cutlass/arch/mma_sm75.h"
+#include "cutlass/arch/mma_sm89.h"
 #include "cutlass/arch/arch.h"
 #include "cutlass/arch/mma.h"
 #include "cutlass/gemm/device/gemm.h"
@@ -199,7 +200,8 @@ template <typename Arch, template <typename> typename ArchGuard,
           template <typename, typename> typename Epilogue_, typename TileShape,
           typename WarpShape, typename InstructionShape,
           typename ThreadBlockSwizzle, GemmUniversalMode Mode_,
-          int32_t MainLoopStages>
+          int32_t MainLoopStages,
+          typename FP8MathOperator = cutlass::arch::OpMultiplyAdd>
 struct cutlass_2x_gemm {
   using ElementAB = ElementAB_;
   using ElementD = ElementD_;
@@ -212,7 +214,7 @@ struct cutlass_2x_gemm {
   using Operator =
       typename std::conditional<std::is_same_v<ElementAB, int8_t>,
                                 cutlass::arch::OpMultiplyAddSaturate,
-                                cutlass::arch::OpMultiplyAdd>::type;
+                                FP8MathOperator>::type;
 
   using OutputTileThreadMap =
       cutlass::epilogue::threadblock::OutputTileThreadLayout<
@@ -555,6 +557,80 @@ template <template <typename, typename> typename Epilogue, typename TileShape,
           typename WarpShape, typename InstructionShape,
           typename ThreadBlockSwizzle, GemmUniversalMode Mode,
           int32_t MainLoopStages, typename... EpilogueArgs>
+inline void cutlass_scaled_mm_sm89_epilogue_i8(torch::Tensor& out, torch::Tensor const& a,
+                                     torch::Tensor const& b,
+                                     EpilogueArgs&&... epilogue_args) {
+#if 0
+  // lovelace defaults
+  using TileShape = typename cutlass::gemm::GemmShape<128, 128, 64>;
+  using WarpShape = typename cutlass::gemm::GemmShape<64, 64, 64>;
+  using InstructionShape = typename cutlass::gemm::GemmShape<16, 8, 32>;
+  cutlass::gemm::threadblock::ThreadblockSwizzleStreamK,
+  cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel,
+  5
+#endif
+
+  TORCH_CHECK(a.dtype() == torch::kInt8)
+  {
+    TORCH_CHECK(b.dtype() == torch::kInt8);
+
+    if (out.dtype() == torch::kBFloat16) {
+      return cutlass_gemm_caller<cutlass_2x_gemm<
+          cutlass::arch::Sm89, enable_sm89_to_sm90, int8_t, cutlass::bfloat16_t,
+          Epilogue, TileShape, WarpShape, InstructionShape, ThreadBlockSwizzle,
+          Mode, MainLoopStages>>(out, a, b,
+                                 std::forward<EpilogueArgs>(epilogue_args)...);
+    } else {
+      assert(out.dtype() == torch::kFloat16);
+      return cutlass_gemm_caller<cutlass_2x_gemm<
+          cutlass::arch::Sm89, enable_sm89_to_sm90, int8_t, cutlass::half_t,
+          Epilogue, TileShape, WarpShape, InstructionShape, ThreadBlockSwizzle,
+          Mode, MainLoopStages>>(out, a, b,
+                                 std::forward<EpilogueArgs>(epilogue_args)...);
+    }
+  } 
+}
+
+template <template <typename, typename> typename Epilogue, typename TileShape,
+          typename WarpShape, typename InstructionShape,
+          typename ThreadBlockSwizzle, GemmUniversalMode Mode,
+          int32_t MainLoopStages, typename FP8MathOperator, typename... EpilogueArgs>
+inline void cutlass_scaled_mm_sm89_epilogue_fp8(torch::Tensor& out, torch::Tensor const& a,
+                                     torch::Tensor const& b,
+                                     EpilogueArgs&&... epilogue_args) {
+#if 0
+  // lovelace defaults
+  using TileShape = typename cutlass::gemm::GemmShape<128, 128, 64>;
+  using WarpShape = typename cutlass::gemm::GemmShape<64, 64, 64>;
+  using InstructionShape = typename cutlass::gemm::GemmShape<16, 8, 32>;
+  cutlass::gemm::threadblock::ThreadblockSwizzleStreamK,
+  cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel,
+  5
+#endif
+
+  TORCH_CHECK(a.dtype() == torch::kFloat8_e4m3fn);
+  TORCH_CHECK(b.dtype() == torch::kFloat8_e4m3fn);
+
+  if (out.dtype() == torch::kBFloat16) {
+    return cutlass_gemm_caller<cutlass_2x_gemm<
+        cutlass::arch::Sm89, enable_sm89_to_sm90, cutlass::float_e4m3_t,
+        cutlass::bfloat16_t, Epilogue, TileShape, WarpShape, InstructionShape,
+        ThreadBlockSwizzle, Mode, MainLoopStages, FP8MathOperator>>(
+        out, a, b, std::forward<EpilogueArgs>(epilogue_args)...);
+  } else {
+    TORCH_CHECK(out.dtype() == torch::kFloat16);
+    return cutlass_gemm_caller<cutlass_2x_gemm<
+        cutlass::arch::Sm89, enable_sm89_to_sm90, cutlass::float_e4m3_t,
+        cutlass::half_t, Epilogue, TileShape, WarpShape, InstructionShape,
+        ThreadBlockSwizzle, Mode, MainLoopStages, FP8MathOperator>>(
+        out, a, b, std::forward<EpilogueArgs>(epilogue_args)...);
+  }
+}
+
+template <template <typename, typename> typename Epilogue, typename TileShape,
+          typename WarpShape, typename InstructionShape,
+          typename ThreadBlockSwizzle, GemmUniversalMode Mode,
+          int32_t MainLoopStages, typename... EpilogueArgs>
 inline void cutlass_scaled_mm_sm89_epilogue(torch::Tensor& out, torch::Tensor const& a,
                                      torch::Tensor const& b,
                                      EpilogueArgs&&... epilogue_args) {
@@ -593,18 +669,68 @@ inline void cutlass_scaled_mm_sm89_epilogue(torch::Tensor& out, torch::Tensor co
       return cutlass_gemm_caller<cutlass_2x_gemm<
           cutlass::arch::Sm89, enable_sm89_to_sm90, cutlass::float_e4m3_t,
           cutlass::bfloat16_t, Epilogue, TileShape, WarpShape, InstructionShape,
-          cutlass::gemm::threadblock::ThreadblockSwizzleStreamK,
-          cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel, 5>>(
+          ThreadBlockSwizzle, Mode, MainLoopStages>>(
           out, a, b, std::forward<EpilogueArgs>(epilogue_args)...);
     } else {
       TORCH_CHECK(out.dtype() == torch::kFloat16);
       return cutlass_gemm_caller<cutlass_2x_gemm<
           cutlass::arch::Sm89, enable_sm89_to_sm90, cutlass::float_e4m3_t,
           cutlass::half_t, Epilogue, TileShape, WarpShape, InstructionShape,
-          cutlass::gemm::threadblock::ThreadblockSwizzleStreamK,
-          cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel, 5>>(
+          ThreadBlockSwizzle, Mode, MainLoopStages>>(
           out, a, b, std::forward<EpilogueArgs>(epilogue_args)...);
     }
+  }
+}
+
+template <typename TileShape, typename WarpShape, typename InstructionShape,
+          typename ThreadBlockSwizzle, GemmUniversalMode Mode,
+          int32_t MainLoopStages,
+          typename FP8MathOperator=cutlass::arch::OpMultiplyAdd>
+inline void cutlass_scaled_mm_sm89_impl_i8(torch::Tensor& out, torch::Tensor const& a,
+                            torch::Tensor const& b,
+                            torch::Tensor const& a_scales,
+                            torch::Tensor const& b_scales,
+                            c10::optional<torch::Tensor> const& bias) {
+  TORCH_CHECK(a_scales.dtype() == torch::kFloat32);
+  TORCH_CHECK(b_scales.dtype() == torch::kFloat32);
+  if (bias) {
+    TORCH_CHECK(bias->dtype() == out.dtype(),
+                "currently bias dtype must match output dtype ", out.dtype());
+    return cutlass_scaled_mm_sm89_epilogue_i8<
+        ScaledEpilogueBias, TileShape, WarpShape, InstructionShape,
+        ThreadBlockSwizzle, Mode, MainLoopStages>(out, a, b, a_scales, b_scales,
+                                                  *bias);
+  } else {
+    return cutlass_scaled_mm_sm89_epilogue_i8<ScaledEpilogue, TileShape, WarpShape,
+                                           InstructionShape, ThreadBlockSwizzle,
+                                           Mode, MainLoopStages>(
+        out, a, b, a_scales, b_scales);
+  }
+}
+
+template <typename TileShape, typename WarpShape, typename InstructionShape,
+          typename ThreadBlockSwizzle, GemmUniversalMode Mode,
+          int32_t MainLoopStages,
+          typename FP8MathOperator>
+inline void cutlass_scaled_mm_sm89_impl_fp8(torch::Tensor& out, torch::Tensor const& a,
+                            torch::Tensor const& b,
+                            torch::Tensor const& a_scales,
+                            torch::Tensor const& b_scales,
+                            c10::optional<torch::Tensor> const& bias) {
+  TORCH_CHECK(a_scales.dtype() == torch::kFloat32);
+  TORCH_CHECK(b_scales.dtype() == torch::kFloat32);
+  if (bias) {
+    TORCH_CHECK(bias->dtype() == out.dtype(),
+                "currently bias dtype must match output dtype ", out.dtype());
+    return cutlass_scaled_mm_sm89_epilogue_fp8<
+        ScaledEpilogueBias, TileShape, WarpShape, InstructionShape,
+        ThreadBlockSwizzle, Mode, MainLoopStages, FP8MathOperator>(out, a, b, a_scales, b_scales,
+                                                  *bias);
+  } else {
+    return cutlass_scaled_mm_sm89_epilogue_fp8<ScaledEpilogue, TileShape, WarpShape,
+                                           InstructionShape, ThreadBlockSwizzle,
+                                           Mode, MainLoopStages, FP8MathOperator>(
+        out, a, b, a_scales, b_scales);
   }
 }
 
