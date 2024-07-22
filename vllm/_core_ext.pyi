@@ -7,6 +7,9 @@ class ScalarType:
     that torch.dtype currently does not support). It is also cabaable of 
     representing types with a bias, i.e. the stored_value = value + bias, this
     is useful for quantized types (e.g. standard GPTQ 4bit uses a bias of 8).
+    
+    The implementation for this class can be found in csrc/core/scalar_type.hpp,
+    these type definitions should be kept in snyc with that file.
     """
 
     def __init__(self, exponent: int, mantissa: int, bias: int,

@@ -14,6 +14,10 @@ namespace vllm {
 //  can be used as a argument for custom operators, helping to simplify these
 //  interfaces.
 //
+//  The type definitions on the Python side can be found in: vllm/_core_ext.pyi
+//  these type definitions should be kept up to date with any Python API changes
+//  here.
+//
 class ScalarType {
  public:
   enum NanRepr : int64_t {
@@ -104,7 +108,7 @@ class ScalarType {
       max_exponent += 1;
     }
 
-    // adjust the exponent to match that off a double
+    // adjust the exponent to match that of a double
     //  for now we assume the exponent bias is the standard 2^(e-1) -1, (where e
     //  is the exponent bits), there is some precedent for non-standard biases,
     //  example `float8_e4m3b11fnuz` here: https://github.com/jax-ml/ml_dtypes
@@ -214,7 +218,9 @@ class ScalarType {
 
   bool operator==(ScalarType const& other) const {
     return mantissa == other.mantissa && exponent == other.exponent &&
-           bias == other.bias && _signed == other._signed;
+           bias == other.bias && _signed == other._signed &&
+           finite_values_only == other.finite_values_only &&
+           nan_repr == other.nan_repr;
   }
 };
 

@@ -10,8 +10,7 @@ core_C_available = importlib.util.find_spec('._core_C', 'vllm') is not None
 
 if core_C_available:
     try:
-        # ruff: noqa: F401
-        import vllm._core_C
+        import vllm._core_C # ruff: noqa: F401
     except ImportError as e:
         logger.warning("Failed to import from vllm._core_C with %r", e)
 
