@@ -35,19 +35,19 @@ elif not TYPE_CHECKING:
         nan_repr: int = 0
 
         @classmethod
-        def s(cls, size_bits: int, bias: int):
+        def int_(cls, size_bits: int, bias: int):
             return cls(size_bits - 1, size_bits, bias, True)
 
         @classmethod
-        def u(cls, size_bits: int, bias: int):
+        def uint(cls, size_bits: int, bias: int):
             return cls(size_bits, size_bits, bias, False)
 
         @classmethod
-        def f(cls, exponent: int, mantissa: int):
+        def float_IEEE754(cls, exponent: int, mantissa: int):
             return cls(exponent, mantissa, 0, True)
 
         @classmethod
-        def fn(cls, exponent: int, mantissa: int, finite_values_only: bool,
+        def float_(cls, exponent: int, mantissa: int, finite_values_only: bool,
                nan_repr: int):
             return cls(exponent, mantissa, 0, True, finite_values_only,
                        nan_repr)
