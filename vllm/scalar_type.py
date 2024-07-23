@@ -23,18 +23,18 @@ class NanRepr(Enum):
 
 
 class scalar_types:
-    int4 = ScalarType.int(4, None)
+    int4 = ScalarType.int_(4, None)
     uint4 = ScalarType.uint(4, None)
-    int8 = ScalarType.int(8, None)
+    int8 = ScalarType.int_(8, None)
     uint8 = ScalarType.uint(8, None)
-    float8_e4m3fn = ScalarType.float(4, 3, True,
-                                     NanRepr.EXTD_RANGE_MAX_MIN.value)
+    float8_e4m3fn = ScalarType.float_(4, 3, True,
+                                      NanRepr.EXTD_RANGE_MAX_MIN.value)
     float8_e5m2 = ScalarType.float_IEEE754(5, 2)
     float16_e8m7 = ScalarType.float_IEEE754(8, 7)
     float16_e5m10 = ScalarType.float_IEEE754(5, 10)
 
     # fp6, https://github.com/usyd-fsalab/fp6_llm/tree/main
-    float6_e3m2f = ScalarType.float(3, 2, True, NanRepr.NONE.value)
+    float6_e3m2f = ScalarType.float_(3, 2, True, NanRepr.NONE.value)
 
     # "gptq" types
     uint4b8 = ScalarType.uint(4, 8)

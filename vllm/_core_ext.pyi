@@ -17,7 +17,7 @@ class ScalarType:
         ...
 
     @classmethod
-    def int(cls, size_bits: int, bias: Optional[int]) -> ScalarType:
+    def int_(cls, size_bits: int, bias: Optional[int]) -> ScalarType:
         "Create a signed integer scalar type (size_bits includes the sign-bit)."
         ...
 
@@ -35,8 +35,8 @@ class ScalarType:
         ...
 
     @classmethod
-    def float(cls, exponent: int, mantissa: int, finite_values_only: bool,
-              nan_repr: int) -> ScalarType:
+    def float_(cls, exponent: int, mantissa: int, finite_values_only: bool,
+               nan_repr: int) -> ScalarType:
         """
         Create a non-standard floating point type 
         (i.e. does not follow IEEE 754 conventions).

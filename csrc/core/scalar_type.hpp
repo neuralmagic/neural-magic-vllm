@@ -332,10 +332,10 @@ class ScalarTypeTorch : public torch::CustomClassHolder, public ScalarType {
     });
 
     // Bind static functions (convenience constructors)
-    bind_static_function(cls, "int", &ScalarTypeTorch::int_);
+    bind_static_function(cls, "int_", &ScalarTypeTorch::int_);
     bind_static_function(cls, "uint", &ScalarTypeTorch::uint);
     bind_static_function(cls, "float_IEEE754", &ScalarTypeTorch::float_IEEE754);
-    bind_static_function(cls, "float", &ScalarTypeTorch::float_);
+    bind_static_function(cls, "float_", &ScalarTypeTorch::float_);
   }
 };
 
@@ -353,7 +353,7 @@ static inline constexpr auto kU8B128 = ScalarType::uint(8, 128);
 static inline constexpr auto kFE3M2f =
     ScalarType::float_(3, 2, true, ScalarType::NAN_NONE);
 static inline constexpr auto kFE4M3fn =
-    ScalarType::float_(3, 4, true, ScalarType::NAN_EXTD_RANGE_MAX_MIN);
+    ScalarType::float_(4, 3, true, ScalarType::NAN_EXTD_RANGE_MAX_MIN);
 static inline constexpr auto kFE5M2 = ScalarType::float_IEEE754(5, 2);
 static inline constexpr auto kFE8M7 = ScalarType::float_IEEE754(8, 7);
 static inline constexpr auto kFE5M10 = ScalarType::float_IEEE754(5, 10);
