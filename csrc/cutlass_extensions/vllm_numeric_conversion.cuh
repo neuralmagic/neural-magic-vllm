@@ -9,12 +9,8 @@ namespace cutlass {
 
 namespace detail {
 
-/////////////////////////////////////////////////////////////////////////////////////////////////
-/// Partial specialization for Array<cutlass::float_e4m3_t, N> <=
-/// Array<cutlass::int4b_t, N>
-
-// TODO: Implement
-#if 0 
+// TODO (Lucas): Implement
+// for Array<cutlass::half_t, N> <= Array<vllm_uint4b8_t, N>
 
 template <FloatRoundStyle Round, int N>
 struct NumericArrayConverter<cutlass::float_e4m3_t, vllm_uint4b8_t, N, Round> {
@@ -28,9 +24,6 @@ struct NumericArrayConverter<cutlass::float_e4m3_t, vllm_uint4b8_t, N, Round> {
   using result_type_packed_4 = Array<cutlass::float_e4m3_t, 4>;
   using source_type_packed_8 = Array<cutlass::vllm_uint4b8_t, 8>;
   using source_type_packed_4 = Array<cutlass::vllm_uint4b8_t, 4>;
-
-  using ScalarConverter =
-      NumericConverter<cutlass::float_e4m3_t, vllm_uint4b8_t, Round>;
 
   CUTLASS_DEVICE
   static uint32_t to_reg(source_type_packed_4 const& source) {
@@ -81,7 +74,7 @@ struct NumericArrayConverter<cutlass::float_e4m3_t, vllm_uint4b8_t, N, Round> {
     static constexpr uint32_t NEG_E4M3s_REG2 = 0xB8C0C4C8;
 
     const int iters = PackedSrcType::kElements / 4;
-  #pragma unroll
+#pragma unroll
     for (int ii = 0; ii < iters; ++ii, lut_idx >>= 16, sign >>= 16) {
       uint32_t final_prmt_idx = final_prmt_base | sign;
 
@@ -122,8 +115,6 @@ struct NumericArrayConverter<cutlass::float_e4m3_t, vllm_uint4b8_t, N, Round> {
   CUTLASS_DEVICE
   result_type operator()(source_type const& s) const { return convert(s); }
 };
-
-#endif
 
 // for Array<cutlass::half_t, N> <= Array<vllm_uint4b8_t, N>
 template <FloatRoundStyle Round, int N>

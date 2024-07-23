@@ -229,10 +229,9 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
   # automatically generate sources for various preselected input type pairs
   # and schedules.
   # Generate sources:
-  message(STATUS "PYTHONPATH=${CUTLASS_DIR}/python/:$PYTHONPATH ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/csrc/quantization/marlinv2/generate.py")
   execute_process(
     COMMAND ${CMAKE_COMMAND} -E env 
-      PYTHONPATH=${CUTLASS_DIR}/python/:$PYTHONPATH 
+    PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}/csrc/cutlass_extensions/:${CUTLASS_DIR}/python/:$PYTHONPATH 
       ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/csrc/quantization/marlinv2/generate.py
     RESULT_VARIABLE marlinv2_generation_result
     OUTPUT_VARIABLE marlinv2_generation_output

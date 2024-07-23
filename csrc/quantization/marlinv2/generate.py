@@ -3,16 +3,22 @@ import os
 import shutil
 import jinja2
 import math
+import itertools
 
 from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import auto as enum_auto
 from typing import List, Tuple
 
-from cutlass_library import (DataType, DataTypeNames, DataTypeTag,
-                             EpilogueScheduleTag, EpilogueScheduleType,
-                             KernelScheduleTag, KernelScheduleType,
-                             TileSchedulerTag, TileSchedulerType)
+from vllm_cutlass_library_extension import (
+    DataType, DataTypeNames, DataTypeTag, 
+    EpilogueScheduleTag, EpilogueScheduleType, 
+    KernelScheduleTag, KernelScheduleType, MixedInputKernelScheduleType,
+    TileSchedulerTag, VLLMTileSchedulerType, TileSchedulerType)
+
+#
+#   Generator templating
+#
 
 DISPATCH_TEMPLATE = """
 #include "../marlinv2_mm_launcher.cuh"
@@ -88,18 +94,18 @@ impl_{{type_name}}_sch_{{schedule_name}}(PytorchArguments args) {
   bool with_C = args.C.has_value(), with_scales = args.scales.has_value(),
        with_zeropoints = args.zeros.has_value();
 
-  if (!with_C && with_scales && with_zeropoints) {
-    return run_impl<Kernel<sch_{{schedule_name}}, false, true, true>>(args);
-  }
-
-  if (!with_C && with_scales && !with_zeropoints) {
-    return run_impl<Kernel<sch_{{schedule_name}}, false, true, false>>(args);
-  }
+  {% for s in specializations %}
+  if (with_C == {{s.with_C}} && with_zeropoints == {{s.with_zeropoints}} &&
+      with_scales == {{s.with_scales}}) {
+      return run_impl<Kernel<sch_{{schedule_name}}, 
+        s.with_C, s.with_zeropoints, s.with_scales>>(args);
+  }{% endfor %}
 
   TORCH_CHECK_NOT_IMPLEMENTED(
-      false, "for the sake of compile times marlinv2_mm(..) is not implemented "
-      "for with_C=", with_C, ", with_scales=", with_scales, 
-      ", with_zeropoints=", with_zeropoints);
+      false, "for the sake of compile times and binary size marlinv2_mm(..) is "
+      " not implemented for with_C=", with_C, ", with_scales=", with_scales, 
+      ", with_zeropoints=", with_zeropoints, 
+      " (for {{type_name}}_sch_{{schedule_name}})");
 }
 {% endfor %}
 
@@ -133,30 +139,6 @@ torch::Tensor PrepackDispatcher_::dispatch(torch::Tensor B) {
 }; // namespace marlinv2
 """
 
-
-class VLLMTileSchedulerType(enum.Enum):
-    StreamK = enum_auto()
-
-
-TileSchedulerTag.update(
-    {VLLMTileSchedulerType.StreamK: "cutlass::gemm::VLLMStreamKScheduler"})
-
-
-class MixedInputKernelScheduleType(enum.Enum):
-    TmaWarpSpecializedMixedInput = enum_auto()
-    TmaWarpSpecializedPingpongMixedInput = enum_auto()
-    TmaWarpSpecializedCooperativeMixedInput = enum_auto()
-
-
-KernelScheduleTag.update({
-    MixedInputKernelScheduleType.TmaWarpSpecializedMixedInput:
-    "cutlass::gemm::KernelTmaWarpSpecializedMixedInput",
-    MixedInputKernelScheduleType.TmaWarpSpecializedPingpongMixedInput:
-    "cutlass::gemm::KernelTmaWarpSpecializedPingpongMixedInput",
-    MixedInputKernelScheduleType.TmaWarpSpecializedCooperativeMixedInput:
-    "cutlass::gemm::KernelTmaWarpSpecializedCooperativeMixedInput",
-})
-
 TmaMI = MixedInputKernelScheduleType.TmaWarpSpecializedCooperativeMixedInput
 TmaCoop = EpilogueScheduleType.TmaWarpSpecializedCooperative
 
@@ -171,13 +153,26 @@ class ScheduleConfig:
 
 
 @dataclass
-class KernelTypeConfig:
+class TypeConfig:
     element_a: DataType
     element_b: DataType
     element_b_scale: DataType
     element_b_zeropoint: DataType
     element_d: DataType
     accumulator: DataType
+    
+@dataclass
+class Specialization:
+    with_C: bool
+    with_zeropoints: bool
+    with_scales: bool
+
+
+@dataclass
+class ImplConfig:
+    type_config: TypeConfig
+    schedule_configs: List[ScheduleConfig]
+    specializations: List[Specialization]
 
 
 def generate_schedule_name(schedule_config: ScheduleConfig) -> str:
@@ -213,7 +208,7 @@ def generate_terse_schedule_name(schedule_config: ScheduleConfig) -> str:
 
 
 # unique type_name
-def generate_kernel_type_name(kernel_type_config: KernelTypeConfig):
+def generate_type_signature(kernel_type_config: TypeConfig):
     element_a = DataTypeNames[kernel_type_config.element_a]
     element_b = DataTypeNames[kernel_type_config.element_b]
     element_d = DataTypeNames[kernel_type_config.element_d]
@@ -226,7 +221,7 @@ def generate_kernel_type_name(kernel_type_config: KernelTypeConfig):
 
 
 # non-unique shorter type_name
-def generate_terse_kernel_type_name(kernel_type_config: KernelTypeConfig):
+def generate_terse_type_signature(kernel_type_config: TypeConfig):
     element_a = DataTypeNames[kernel_type_config.element_a]
     element_b = DataTypeNames[kernel_type_config.element_b]
 
@@ -271,21 +266,22 @@ mm_impl_template = create_template(IMPL_TEMPLATE)
 prepack_dispatch_template = create_template(PREPACK_TEMPLATE)
 
 
-def create_sources(type_config, schedule_configs, num_impl_files=2):
+def create_sources(impl_config: ImplConfig, num_impl_files=2):
     sources = []
     # Render the template with the provided configurations
     schedules_with_names = [(schedule, generate_terse_schedule_name(schedule))
-                            for schedule in schedule_configs]
+                            for schedule in impl_config.schedule_configs]
 
-    type_name = generate_kernel_type_name(type_config)
-    terse_type_name = generate_terse_kernel_type_name(type_config)
+    type_name = generate_type_signature(impl_config.type_config)
+    terse_type_name = generate_terse_type_signature(impl_config.type_config)
 
     sources.append((
         f"marlinv2_mm_{terse_type_name}",
         mm_dispatch_template.render(
             type_name=type_name,
-            type_config=type_config,
+            type_config=impl_config.type_config,
             schedules=schedules_with_names,
+            specializations=impl_config.specializations,
         ),
     ))
 
@@ -293,11 +289,11 @@ def create_sources(type_config, schedule_configs, num_impl_files=2):
         f"marlinv2_prepack_{terse_type_name}",
         prepack_dispatch_template.render(
             type_name=type_name,
-            type_config=type_config,
+            type_config=impl_config.type_config,
         ),
     ))
 
-    num_schedules = len(schedule_configs)
+    num_schedules = len(impl_config.schedule_configs)
     schedules_per_file = math.ceil(num_schedules / num_impl_files)
     for part, i in enumerate(range(0, num_schedules, schedules_per_file)):
         file_schedules = schedules_with_names[i:i+schedules_per_file]
@@ -306,17 +302,17 @@ def create_sources(type_config, schedule_configs, num_impl_files=2):
             f"marlinv2_mm_{terse_type_name}_impl_part{part}",
             mm_impl_template.render(
                 type_name=type_name,
-                type_config=type_config,
+                type_config=impl_config.type_config,
                 schedules=file_schedules
             ),
         ))
     return sources
 
 
-def AOT_generate():
+def generate():
     SCRIPT_DIR = os.path.dirname(__file__)
 
-    AOT_schedules = list((
+    schedules = list((
         ScheduleConfig(
             tile_shape_mn=tile_shape_mn,
             cluster_shape_mnk=cluster_shape_mnk,
@@ -335,7 +331,7 @@ def AOT_generate():
             VLLMTileSchedulerType.StreamK,
         )))
 
-    AOT_kernel_type_configs = list((KernelTypeConfig(
+    GPTQ_kernel_type_configs = list((TypeConfig(
         element_a=element_a,
         element_b=element_b,
         element_b_scale=element_a,
@@ -344,6 +340,18 @@ def AOT_generate():
         accumulator=DataType.f32,
     ) for element_b in (DataType.s4, DataType.u4)
       for element_a in (DataType.f16, DataType.bf16)))
+    
+    GPTQ_kernel_specializations = [
+        Specialization(
+            with_C=False, with_zeropoints=False, with_scales=True)
+    ]
+
+    impl_configs = [
+        ImplConfig(x[0], x[1], x[2]) 
+            for x in zip(GPTQ_kernel_type_configs, 
+                itertools.repeat(schedules),
+                itertools.repeat(GPTQ_kernel_specializations))
+    ]
 
     output_dir = os.path.join(SCRIPT_DIR, "generated")
 
@@ -355,9 +363,8 @@ def AOT_generate():
     os.makedirs(output_dir)
 
     # Render each group of configurations into separate files
-    for type_config in AOT_kernel_type_configs:
-        for source in create_sources(type_config, AOT_schedules):
-            filename, code = source
+    for impl_config in impl_configs:
+        for filename, code in create_sources(impl_config):
             filepath = os.path.join(output_dir, f"{filename}.cu")
             with open(filepath, "w") as output_file:
                 output_file.write(code)
@@ -365,4 +372,4 @@ def AOT_generate():
 
 
 if __name__ == "__main__":
-    AOT_generate()
+    generate()
