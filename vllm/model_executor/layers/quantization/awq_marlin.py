@@ -24,8 +24,8 @@ class AWQMarlinConfig(QuantizationConfig):
 
     # num_bits -> type
     TYPE_MAP = {
-        4: scalar_types.u4,
-        8: scalar_types.u8,
+        4: scalar_types.uint4,
+        8: scalar_types.uint8,
     }
 
     def __init__(self, weight_bits: int, group_size: int, has_zp: bool,

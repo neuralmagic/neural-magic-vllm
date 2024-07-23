@@ -5,7 +5,7 @@ import torch
 
 from vllm.scalar_type import ScalarType, scalar_types
 
-SUPPORTED_GPTQ_QUANT_TYPES = [scalar_types.u4b8, scalar_types.u8b128]
+SUPPORTED_GPTQ_QUANT_TYPES = [scalar_types.uint4b8, scalar_types.uint8b128]
 SUPPORTED_GROUP_SIZES = [-1, 32, 64, 128]
 
 

@@ -25,8 +25,8 @@ class GPTQMarlinConfig(QuantizationConfig):
 
     # (num_bits, is_sym) -> quant_type
     TYPE_MAP = {
-        (4, True): scalar_types.u4b8,
-        (8, True): scalar_types.u8b128,
+        (4, True): scalar_types.uint4b8,
+        (8, True): scalar_types.uint8b128,
     }
 
     def __init__(self, weight_bits: int, group_size: int, desc_act: bool,

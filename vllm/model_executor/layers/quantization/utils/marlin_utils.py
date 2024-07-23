@@ -32,12 +32,12 @@ def marlin_supported_quant_types(has_zp: bool,
 
     if has_zp:
         # AWQ style, unsigned + runtime zero-point
-        return [scalar_types.u4, scalar_types.u8]
+        return [scalar_types.uint4, scalar_types.uint8]
     else:
         # GPTQ style, unsigned + symmetric bias
         # TODO: once fp8_marlin is merged into "gptq_marlin" we should be able
-        #  to add `scalar_types.fE4M3fn` here
-        return [scalar_types.u4b8, scalar_types.u8b128]
+        #  to add `scalar_types.float8_e4m3fn` here
+        return [scalar_types.uint4b8, scalar_types.uint8b128]
 
 
 def _check_marlin_supported(

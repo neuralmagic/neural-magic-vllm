@@ -13,7 +13,7 @@ from vllm.scalar_type import scalar_types
 
 __all__ = ["CompressedTensorsW4A16Sparse24"]
 W4A16SPARSE24_SUPPORTED_TYPES_MAP = {
-    4: scalar_types.u4b8,
+    4: scalar_types.uint4b8,
 }
 W4A16SPARSE24_SUPPORTED_BITS = list(W4A16SPARSE24_SUPPORTED_TYPES_MAP.keys())
 

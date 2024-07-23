@@ -28,38 +28,40 @@ class ScalarType {
     NAN_REPR_ID_MAX
   };
 
-  constexpr ScalarType(bool _signed, int64_t exponent, int64_t mantissa,
+  constexpr ScalarType(bool signed_, int64_t exponent, int64_t mantissa,
                        int64_t bias, bool finite_values_only = false,
                        NanRepr nan_repr = NAN_IEEE_754)
       : exponent(exponent),
         mantissa(mantissa),
         bias(bias),
-        _signed(_signed),
+        signed_(signed_),
         finite_values_only(finite_values_only),
         nan_repr(nan_repr){};
 
-  static constexpr ScalarType s(int64_t size_bits, int64_t bias = 0) {
+  static constexpr ScalarType int_(int64_t size_bits, int64_t bias = 0) {
     return ScalarType(true, 0, size_bits - 1, bias);
   }
 
-  static constexpr ScalarType u(int64_t size_bits, int64_t bias = 0) {
+  static constexpr ScalarType uint(int64_t size_bits, int64_t bias = 0) {
     return ScalarType(false, 0, size_bits, bias);
   }
 
   // IEEE 754 compliant floating point type
-  static constexpr ScalarType f(int64_t exponent, int64_t mantissa) {
+  static constexpr ScalarType float_IEEE754(int64_t exponent,
+                                            int64_t mantissa) {
     TORCH_CHECK(mantissa > 0 && exponent > 0);
     return ScalarType(true, exponent, mantissa, 0, false, NAN_IEEE_754);
   }
 
   // IEEE 754 non-compliant floating point type
-  static constexpr ScalarType fn(int64_t exponent, int64_t mantissa,
-                                 bool finite_values_only, NanRepr nan_repr) {
+  static constexpr ScalarType float_(int64_t exponent, int64_t mantissa,
+                                     bool finite_values_only,
+                                     NanRepr nan_repr) {
     TORCH_CHECK(nan_repr < NAN_REPR_ID_MAX, "Invalid NanRepr");
     TORCH_CHECK(mantissa > 0 && exponent > 0);
     TORCH_CHECK(nan_repr != NAN_IEEE_754,
-                "use `f` constructor for floating point types that follow IEEE "
-                "754 conventions");
+                "use `float_IEEE754` constructor for floating point types that "
+                "follow IEEE 754 conventions");
     return ScalarType(true, exponent, mantissa, 0, finite_values_only,
                       nan_repr);
   }
@@ -69,7 +71,7 @@ class ScalarType {
                            // excluding the sign bit for integer types)
   int64_t const bias;      // stored values equal value + bias,
                            // used for quantized type
-  bool const _signed;  // flag if the type supports negative numbers (i.e. has a
+  bool const signed_;  // flag if the type supports negative numbers (i.e. has a
                        // sign bit)
 
   // Extra Floating point info
@@ -78,7 +80,7 @@ class ScalarType {
                                   // (not applicable for integer types)
 
   int64_t size_bits() const { return mantissa + exponent + is_signed(); }
-  bool is_signed() const { return _signed; }
+  bool is_signed() const { return signed_; }
   bool is_integer() const { return exponent == 0; }
   bool is_floating_point() const { return exponent > 0; }
   bool is_ieee_754() const {
@@ -181,23 +183,20 @@ class ScalarType {
   }
 
   std::string str() const {
-    /*
-     * generally follows: https://github.com/jax-ml/ml_dtypes
-     * for floating point types (leading f):
-     *  - E_: exponent size
-     *  - M_: mantissa size
-     *  - no-trailing letters: means it follows IEEE 754 conventions
-     *  - trailing f: means finite values only (no infinities)
-     *  - trailing n: means nans are supported (non-standard encoding)
-     * for integer types (leading s/u):
-     *  - leading s: means signed
-     *  - leading u: means unsigned
-     *  - number following s/u: number of bits
-     *  - bX: indicates a non-zero bias of X
+    /* naming generally follows: https://github.com/jax-ml/ml_dtypes
+     * for floating point types (leading f) the scheme is:
+     *  `float<size_bits>_e<exponent_bits>m<mantissa_bits>[flags]`
+     *  flags:
+     *  - no-flags: means it follows IEEE 754 conventions
+     *  - f: means finite values only (no infinities)
+     *  - n: means nans are supported (non-standard encoding)
+     * for integer types the scheme is:
+     *  `[u]int<size_bits>[b<bias>]`
+     *  - if bias is not present it means its zero
      */
     if (is_floating_point()) {
-      auto ret =
-          "fE" + std::to_string(exponent) + "M" + std::to_string(mantissa);
+      auto ret = "float" + std::to_string(size_bits()) + "_e" +
+                 std::to_string(exponent) + "m" + std::to_string(mantissa);
       if (!is_ieee_754()) {
         if (finite_values_only) {
           ret += "f";
@@ -208,9 +207,9 @@ class ScalarType {
       }
       return ret;
     } else {
-      auto ret = ((is_signed()) ? "s" : "u") + std::to_string(size_bits());
+      auto ret = ((is_signed()) ? "int" : "uint") + std::to_string(size_bits());
       if (has_bias()) {
-        ret += "z" + std::to_string(bias);
+        ret += "b" + std::to_string(bias);
       }
       return ret;
     }
@@ -218,7 +217,7 @@ class ScalarType {
 
   bool operator==(ScalarType const& other) const {
     return mantissa == other.mantissa && exponent == other.exponent &&
-           bias == other.bias && _signed == other._signed &&
+           bias == other.bias && signed_ == other.signed_ &&
            finite_values_only == other.finite_values_only &&
            nan_repr == other.nan_repr;
   }
@@ -241,23 +240,24 @@ class ScalarTypeTorch : public torch::CustomClassHolder, public ScalarType {
   using Self = ScalarTypeTorch;
   using SelfPtr = c10::intrusive_ptr<Self>;
 
-  static SelfPtr s(int64_t size_bits, c10::optional<int64_t> bias) {
+  static SelfPtr int_(int64_t size_bits, c10::optional<int64_t> bias) {
     return c10::make_intrusive<Self>(
-        ScalarType::s(size_bits, bias.value_or(0)));
+        ScalarType::int_(size_bits, bias.value_or(0)));
   }
 
-  static SelfPtr u(int64_t size_bits, c10::optional<int64_t> bias) {
+  static SelfPtr uint(int64_t size_bits, c10::optional<int64_t> bias) {
     return c10::make_intrusive<Self>(
-        ScalarType::u(size_bits, bias.value_or(0)));
+        ScalarType::uint(size_bits, bias.value_or(0)));
   }
 
-  static SelfPtr f(int64_t exponent, int64_t mantissa) {
-    return c10::make_intrusive<Self>(ScalarType::f(exponent, mantissa));
+  static SelfPtr float_IEEE754(int64_t exponent, int64_t mantissa) {
+    return c10::make_intrusive<Self>(
+        ScalarType::float_IEEE754(exponent, mantissa));
   }
 
-  static SelfPtr fn(int64_t exponent, int64_t mantissa, bool finite_values_only,
-                    int64_t nan_repr) {
-    return c10::make_intrusive<Self>(ScalarType::fn(
+  static SelfPtr float_(int64_t exponent, int64_t mantissa,
+                        bool finite_values_only, int64_t nan_repr) {
+    return c10::make_intrusive<Self>(ScalarType::float_(
         exponent, mantissa, finite_values_only, NanRepr(nan_repr)));
   }
 
@@ -332,43 +332,50 @@ class ScalarTypeTorch : public torch::CustomClassHolder, public ScalarType {
     });
 
     // Bind static functions (convenience constructors)
-    bind_static_function(cls, "s", &ScalarTypeTorch::s);
-    bind_static_function(cls, "u", &ScalarTypeTorch::u);
-    bind_static_function(cls, "f", &ScalarTypeTorch::f);
-    bind_static_function(cls, "fn", &ScalarTypeTorch::fn);
+    bind_static_function(cls, "int", &ScalarTypeTorch::int_);
+    bind_static_function(cls, "uint", &ScalarTypeTorch::uint);
+    bind_static_function(cls, "float_IEEE754", &ScalarTypeTorch::float_IEEE754);
+    bind_static_function(cls, "float", &ScalarTypeTorch::float_);
   }
 };
 
 using ScalarTypeTorchPtr = c10::intrusive_ptr<ScalarTypeTorch>;
 
-/*
- * generally follows: https://github.com/jax-ml/ml_dtypes
- * for floating point types (leading f):
- *  - E_: exponent size
- *  - M_: mantissa size
- *  - no-trailing letters: means it follows IEEE 754 conventions
- *  - trailing f: means finite values only (no infinities)
- *  - trailing n: means nans are supported (non-standard encoding)
- * for integer types (leading s/u):
- *  - leading s: means signed
- *  - leading u: means unsigned
- *  - number following s/u: number of bits
- *  - bX: indicates a non-zero bias of X
- */
-static inline constexpr auto kS4 = ScalarType::s(4);
-static inline constexpr auto kU4 = ScalarType::u(4);
-static inline constexpr auto kS8 = ScalarType::s(8);  // int8
-static inline constexpr auto kU8 = ScalarType::u(8);  // uint8
-static inline constexpr auto kFE3M2fn =
-    ScalarType::fn(3, 2, true, ScalarType::NAN_NONE);  // FP6
-static inline constexpr auto kFE3M4fn = ScalarType::fn(
-    3, 4, true, ScalarType::NAN_EXTD_RANGE_MAX_MIN);          // FP8_E3M4fn
-static inline constexpr auto kFE5M2 = ScalarType::f(5, 2);    // FP8_E5M2
-static inline constexpr auto kFE8M7 = ScalarType::f(8, 7);    // BFloat16
-static inline constexpr auto kFE5M10 = ScalarType::f(5, 10);  // Float16
+// "rust style" names generally following:
+//   https://github.com/pytorch/pytorch/blob/6d9f74f0af54751311f0dd71f7e5c01a93260ab3/torch/csrc/api/include/torch/types.h#L60-L70
+static inline constexpr auto kS4 = ScalarType::int_(4);
+static inline constexpr auto kU4 = ScalarType::uint(4);
+static inline constexpr auto kU4B8 = ScalarType::uint(4, 8);
+static inline constexpr auto kS8 = ScalarType::int_(8);
+static inline constexpr auto kU8 = ScalarType::uint(8);
+static inline constexpr auto kU8B128 = ScalarType::int_(8, 128);
 
-// "gptq" types
-static inline constexpr auto kU4B8 = ScalarType::u(4, 8);
-static inline constexpr auto kU8B128 = ScalarType::u(8, 128);
+static inline constexpr auto kFE3M2f =
+    ScalarType::float_(3, 2, true, ScalarType::NAN_NONE);
+static inline constexpr auto kFE3M4fn =
+    ScalarType::float_(3, 4, true, ScalarType::NAN_EXTD_RANGE_MAX_MIN);
+static inline constexpr auto kFE5M2 = ScalarType::float_IEEE754(5, 2);
+static inline constexpr auto kFE8M7 = ScalarType::float_IEEE754(8, 7);
+static inline constexpr auto kFE5M10 = ScalarType::float_IEEE754(5, 10);
+
+// Fixed width style names, generally following:
+//  https://github.com/pytorch/pytorch/blob/6d9f74f0af54751311f0dd71f7e5c01a93260ab3/torch/csrc/api/include/torch/types.h#L47-L57
+static inline constexpr auto kInt4 = kS4;
+static inline constexpr auto kUint4 = kU4;
+static inline constexpr auto kUint4b8 = kU4B8;
+static inline constexpr auto kInt8 = kS8;
+static inline constexpr auto kUint8 = kU8;
+static inline constexpr auto kUint8b128 = kU8B128;
+
+static inline constexpr auto kFloat6_e3m2f = kFE3M2f;
+static inline constexpr auto kFloat8_e3m4fn = kFE3M4fn;
+static inline constexpr auto kFloat8_e5m2 = kFE5M2;
+static inline constexpr auto kFloat16_e8m7 = kFE8M7;
+static inline constexpr auto kFloat16_e5m10 = kFE5M10;
+
+// colloquial names
+static inline constexpr auto kHalf = kFE5M10;
+static inline constexpr auto kFloat16 = kHalf;
+static inline constexpr auto kBFloat16 = kFE8M7;
 
 };  // namespace vllm

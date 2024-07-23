@@ -1025,7 +1025,7 @@ torch::Tensor gptq_marlin_24_gemm(torch::Tensor& a, torch::Tensor& b_q_weight,
                                   int64_t size_k) {
   // Verify num_bits
   TORCH_CHECK(*b_q_type == vllm::kU4B8 || *b_q_type == vllm::kU8B128,
-              "num_bits must be u4b8 or u8b128. Got = ", b_q_type->str());
+              "num_bits must be uint4b8 or uint8b128. Got = ", b_q_type->str());
   int pack_factor = 32 / b_q_type->size_bits();
 
   // Verify M

@@ -18,7 +18,9 @@ GPTQ_MARLIN_24_MIN_THREAD_N = 128
 GPTQ_MARLIN_24_MIN_THREAD_K = 128
 GPTQ_MARLIN_24_MAX_PARALLEL = 64
 
-GPTQ_MARLIN_24_SUPPORTED_QUANT_TYPES = [scalar_types.u4b8, scalar_types.u8b128]
+GPTQ_MARLIN_24_SUPPORTED_QUANT_TYPES = [
+    scalar_types.uint4b8, scalar_types.uint8b128
+]
 GPTQ_MARLIN_24_SUPPORTED_GROUP_SIZES = [-1, 128]
 
 
@@ -32,8 +34,8 @@ class GPTQMarlin24Config(QuantizationConfig):
         group_size: int,
     ) -> None:
         quant_type = {
-            4: scalar_types.u4b8,
-            8: scalar_types.u8b128,
+            4: scalar_types.uint4b8,
+            8: scalar_types.uint8b128,
         }.get(weight_bits)
 
         self.group_size = group_size

@@ -11,36 +11,35 @@ class NanRepr(Enum):
 
 
 # naming generally follows: https://github.com/jax-ml/ml_dtypes
-# for floating point types (leading f):
-#  - E_: exponent size
-#  - M_: mantissa size
-#  - no-trailing letters: means it follows IEEE 754 conventions
-#  - trailing f: means finite values only (no infinities)
-#  - trailing n: means nans are supported (non-standard encoding)
-# for integer types (leading s/u):
-#  - leading s: means signed
-#  - leading u: means unsigned
-#  - number following s/u: number of bits
-#  - bX: indicates a non-zero bias of X
+# for floating point types (leading f) the scheme is:
+#  `float<size_bits>_e<exponent_bits>m<mantissa_bits>[flags]`
+#  flags:
+#  - no-flags: means it follows IEEE 754 conventions
+#  - f: means finite values only (no infinities)
+#  - n: means nans are supported (non-standard encoding)
+# for integer types the scheme is:
+#  `[u]int<size_bits>[b<bias>]`
+#  - if bias is not present it means its zero
 
 
 class scalar_types:
-    s4 = ScalarType.s(4, None)
-    u4 = ScalarType.u(4, None)
-    s8 = ScalarType.s(8, None)
-    u8 = ScalarType.u(8, None)
-    fE4M3fn = ScalarType.fn(4, 3, True, NanRepr.EXTD_RANGE_MAX_MIN.value)
-    fE5M2 = ScalarType.f(5, 2)
-    fE8M7 = ScalarType.f(8, 7)
-    fE5M10 = ScalarType.f(5, 10)
+    int4 = ScalarType.int(4, None)
+    uint4 = ScalarType.uint(4, None)
+    int8 = ScalarType.int(8, None)
+    uint8 = ScalarType.uint(8, None)
+    float8_e4m3fn = ScalarType.float(4, 3, True,
+                                     NanRepr.EXTD_RANGE_MAX_MIN.value)
+    float8_e5m2 = ScalarType.float_IEEE754(5, 2)
+    float16_e8m7 = ScalarType.float_IEEE754(8, 7)
+    float16_e5m10 = ScalarType.float_IEEE754(5, 10)
 
     # fp6, https://github.com/usyd-fsalab/fp6_llm/tree/main
-    fE3M2f = ScalarType.fn(3, 2, True, NanRepr.NONE.value)
+    float6_e3m2f = ScalarType.float(3, 2, True, NanRepr.NONE.value)
 
     # "gptq" types
-    u4b8 = ScalarType.u(4, 8)
-    u8b128 = ScalarType.u(8, 128)
+    uint4b8 = ScalarType.uint(4, 8)
+    uint8b128 = ScalarType.uint(8, 128)
 
     # colloquial names
-    bfloat16 = fE8M7
-    float16 = fE5M10
+    bfloat16 = float16_e8m7
+    float16 = float16_e5m10
