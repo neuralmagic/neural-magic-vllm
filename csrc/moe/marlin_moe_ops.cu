@@ -224,8 +224,7 @@ __device__ inline void barrier_release(int* lock, bool reset = false) {
 __global__ void permute_cols_kernel(int4 const* __restrict__ a_int4_ptr,
                                     int const* __restrict__ perm_int_ptr,
                                     int4* __restrict__ out_int4_ptr, int size_m,
-                                    int size_k, int block_rows,
-                                    int num_threads) {
+                                    int size_k, int block_rows) {
   int start_row = block_rows * blockIdx.x;
   int finish_row = start_row + block_rows;
   if (finish_row > size_m) {
@@ -236,8 +235,8 @@ __global__ void permute_cols_kernel(int4 const* __restrict__ a_int4_ptr,
   int row_stride = size_k * sizeof(half) / 16;
 
   auto permute_row = [&](int row) {
-    int iters = size_k / num_threads;
-    int rest = size_k % num_threads;
+    int iters = size_k / blockDim.x;
+    int rest = size_k % blockDim.x;
 
     int offset = row * row_stride;
 
@@ -252,7 +251,7 @@ __global__ void permute_cols_kernel(int4 const* __restrict__ a_int4_ptr,
 
       out_half[cur_k] = a_row_half[src_pos];
 
-      base_k += num_threads;
+      base_k += blockDim.x;
     }
 
     if (rest) {
@@ -1218,8 +1217,7 @@ __global__ void MarlinMoE(
 __global__ void permute_cols_kernel(int4 const* __restrict__ a_int4_ptr,
                                     int const* __restrict__ perm_int_ptr,
                                     int4* __restrict__ out_int4_ptr, int size_m,
-                                    int size_k, int block_rows,
-                                    int num_threads) {
+                                    int size_k, int block_rows) {
   // Marlin is not implemented yet for SM < 8.0
   assert(false);
   return;
@@ -1513,8 +1511,7 @@ void marlin_mm_moe_f16i4(const void* A, const void* B, void* C,
       int topk_rows = replicate_input ? tot_m : tot_m * topk;
       int block_rows = ceildiv(topk_rows, blocks);
       permute_cols_kernel<<<blocks, num_threads, 0, stream>>>(
-          A_ptr, perm_ptr, a_tmp_ptr, topk_rows, prob_k, block_rows,
-          USER_THREADS);
+          A_ptr, perm_ptr, a_tmp_ptr, topk_rows, prob_k, block_rows);
       A_ptr = a_tmp_ptr;
     }
 

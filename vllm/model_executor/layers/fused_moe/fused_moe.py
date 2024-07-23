@@ -315,6 +315,7 @@ def get_default_config(
     K: int,
     topk: int,
     dtype: Optional[str],
+    is_marlin: bool,
 ) -> Dict[str, int]:
     config = {
         'BLOCK_SIZE_M': 64,
@@ -322,7 +323,7 @@ def get_default_config(
         'BLOCK_SIZE_K': 32,
         'GROUP_SIZE_M': 8
     }
-    if M <= E:
+    if M <= E or (is_marlin and M <= 32):
         config = {
             'BLOCK_SIZE_M': 16,
             'BLOCK_SIZE_N': 32,
@@ -399,8 +400,14 @@ def grouped_topk(
     return topk_weights, topk_ids
 
 
-def get_expert_config(w1: torch.Tensor, w2: torch.Tensor, topk: int, M: int,
-                      N: int, E: int, use_fp8: bool):
+def get_expert_config(w1: torch.Tensor,
+                      w2: torch.Tensor,
+                      topk: int,
+                      M: int,
+                      N: int,
+                      E: int,
+                      use_fp8: bool,
+                      is_marlin: bool = False):
     # First try to load optimal config from the file
     configs = get_moe_configs(E, w2.shape[2], "float8" if use_fp8 else None)
 
@@ -411,7 +418,7 @@ def get_expert_config(w1: torch.Tensor, w2: torch.Tensor, topk: int, M: int,
     else:
         # Else use the default config
         return get_default_config(M, E, N, w1.shape[2], topk,
-                                  "float8" if use_fp8 else None)
+                                  "float8" if use_fp8 else None, is_marlin)
 
 
 def fused_experts(hidden_states: torch.Tensor,
@@ -655,7 +662,8 @@ def single_marlin_moe(
     if override_config:
         config = override_config
     else:
-        config = get_expert_config(w, w, topk_ids.shape[1], M, N, E, use_fp8)
+        config = get_expert_config(w, w, topk_ids.shape[1], M, N, E, use_fp8,
+                                   True)
 
     block_size_m = config['BLOCK_SIZE_M']
 
@@ -743,14 +751,15 @@ def fused_marlin_moe(hidden_states: torch.Tensor,
     if override_config:
         config = override_config
     else:
-        config = get_expert_config(w1, w2, topk_ids.shape[1], M, N, E, use_fp8)
+        config = get_expert_config(w1, w2, topk_ids.shape[1], M, N, E, use_fp8,
+                                   True)
 
     block_size_m = config['BLOCK_SIZE_M']
 
     sorted_token_ids, expert_ids, num_tokens_post_padded = moe_align_block_size(
         topk_ids, block_size_m, E)
 
-    max_workspace_size = (N // 64) * 16
+    max_workspace_size = (max(N, K) // 64) * 16
     workspace = torch.zeros(max_workspace_size,
                             dtype=torch.int,
                             device="cuda",
