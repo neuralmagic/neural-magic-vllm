@@ -15,7 +15,6 @@ GPTQ_MARLIN_MIN_THREAD_K = 128
 GPTQ_MARLIN_MAX_PARALLEL = 16
 
 MARLIN_SUPPORTED_GROUP_SIZES = [-1, 32, 64, 128]
-MARLIN_UNSUPPORTED_GROUP_SIZE_ACT_ORDER = [-1]
 
 
 # For binary size and compile time, we don't support the same types for with and

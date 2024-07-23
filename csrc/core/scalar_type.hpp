@@ -348,11 +348,11 @@ static inline constexpr auto kU4 = ScalarType::uint(4);
 static inline constexpr auto kU4B8 = ScalarType::uint(4, 8);
 static inline constexpr auto kS8 = ScalarType::int_(8);
 static inline constexpr auto kU8 = ScalarType::uint(8);
-static inline constexpr auto kU8B128 = ScalarType::int_(8, 128);
+static inline constexpr auto kU8B128 = ScalarType::uint(8, 128);
 
 static inline constexpr auto kFE3M2f =
     ScalarType::float_(3, 2, true, ScalarType::NAN_NONE);
-static inline constexpr auto kFE3M4fn =
+static inline constexpr auto kFE4M3fn =
     ScalarType::float_(3, 4, true, ScalarType::NAN_EXTD_RANGE_MAX_MIN);
 static inline constexpr auto kFE5M2 = ScalarType::float_IEEE754(5, 2);
 static inline constexpr auto kFE8M7 = ScalarType::float_IEEE754(8, 7);
@@ -368,7 +368,7 @@ static inline constexpr auto kUint8 = kU8;
 static inline constexpr auto kUint8b128 = kU8B128;
 
 static inline constexpr auto kFloat6_e3m2f = kFE3M2f;
-static inline constexpr auto kFloat8_e3m4fn = kFE3M4fn;
+static inline constexpr auto kFloat8_e4m3fn = kFE4M3fn;
 static inline constexpr auto kFloat8_e5m2 = kFE5M2;
 static inline constexpr auto kFloat16_e8m7 = kFE8M7;
 static inline constexpr auto kFloat16_e5m10 = kFE5M10;
