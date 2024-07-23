@@ -160,14 +160,19 @@ DefaultFP8Cutlass2xArgs = Cutlass2xArgs(89,
 FP8Cutlass2xArgsList = [DefaultFP8Cutlass2xArgs]
 
 FP8Cutlass2xArgsList.append(
-        DefaultFP8Cutlass2xArgs.with_tile_shape((16, 128, 128))
-                        .with_warp_shape((16, 64, 64))
-                        .with_main_loop_stages(1)
+        DefaultFP8Cutlass2xArgs.with_tile_shape((128, 64, 64))
+                        .with_warp_shape((32, 64, 64))
+                        .with_main_loop_stages(5)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAdd'))
 FP8Cutlass2xArgsList.append(
-        DefaultFP8Cutlass2xArgs.with_tile_shape((16, 64, 128))
+        DefaultFP8Cutlass2xArgs.with_tile_shape((16, 128, 128))
                         .with_warp_shape((16, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_main_loop_stages(5)
+                        .with_fp8_math_operator('cutlass::arch::OpMultiplyAdd'))
+FP8Cutlass2xArgsList.append(
+        DefaultFP8Cutlass2xArgs.with_tile_shape((16, 128, 64))
+                        .with_warp_shape((16, 64, 64))
+                        .with_main_loop_stages(5)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAdd'))
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((16, 64, 128))
@@ -181,63 +186,88 @@ FP8Cutlass2xArgsList.append(
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAdd'))
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((32, 128, 128))
-                        .with_warp_shape((16, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_warp_shape((32, 64, 64))
+                        .with_main_loop_stages(4)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAdd'))
 FP8Cutlass2xArgsList.append(
-        DefaultFP8Cutlass2xArgs.with_tile_shape((64, 128, 128))
+        DefaultFP8Cutlass2xArgs.with_tile_shape((32, 64, 128))
+                        .with_warp_shape((16, 64, 64))
+                        .with_main_loop_stages(4)
+                        .with_fp8_math_operator('cutlass::arch::OpMultiplyAdd'))
+FP8Cutlass2xArgsList.append(
+        DefaultFP8Cutlass2xArgs.with_tile_shape((32, 64, 128))
+                        .with_warp_shape((16, 64, 64))
+                        .with_main_loop_stages(5)
+                        .with_fp8_math_operator('cutlass::arch::OpMultiplyAdd'))
+FP8Cutlass2xArgsList.append(
+        DefaultFP8Cutlass2xArgs.with_tile_shape((64, 128, 64))
                         .with_warp_shape((32, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_main_loop_stages(5)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAdd'))
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((64, 64, 128))
                         .with_warp_shape((16, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_main_loop_stages(4)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAdd'))
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((64, 64, 128))
                         .with_warp_shape((32, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_main_loop_stages(5)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAdd'))
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((128, 128, 128))
                         .with_warp_shape((64, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_main_loop_stages(3)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((128, 128, 64))
                         .with_warp_shape((64, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_main_loop_stages(3)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
 FP8Cutlass2xArgsList.append(
-        DefaultFP8Cutlass2xArgs.with_tile_shape((128, 64, 128))
-                        .with_warp_shape((32, 64, 64))
-                        .with_main_loop_stages(1)
+        DefaultFP8Cutlass2xArgs.with_tile_shape((128, 128, 64))
+                        .with_warp_shape((64, 64, 64))
+                        .with_main_loop_stages(5)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((128, 64, 128))
                         .with_warp_shape((64, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_main_loop_stages(3)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((128, 64, 64))
                         .with_warp_shape((32, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_main_loop_stages(3)
+                        .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
+FP8Cutlass2xArgsList.append(
+        DefaultFP8Cutlass2xArgs.with_tile_shape((128, 64, 64))
+                        .with_warp_shape((32, 64, 64))
+                        .with_main_loop_stages(4)
+                        .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
+FP8Cutlass2xArgsList.append(
+        DefaultFP8Cutlass2xArgs.with_tile_shape((128, 64, 64))
+                        .with_warp_shape((32, 64, 64))
+                        .with_main_loop_stages(5)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((16, 128, 128))
                         .with_warp_shape((16, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_main_loop_stages(4)
+                        .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
+FP8Cutlass2xArgsList.append(
+        DefaultFP8Cutlass2xArgs.with_tile_shape((16, 128, 64))
+                        .with_warp_shape((16, 64, 64))
+                        .with_main_loop_stages(4)
+                        .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
+FP8Cutlass2xArgsList.append(
+        DefaultFP8Cutlass2xArgs.with_tile_shape((16, 128, 64))
+                        .with_warp_shape((16, 64, 64))
+                        .with_main_loop_stages(5)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((16, 64, 128))
                         .with_warp_shape((16, 64, 64))
-                        .with_main_loop_stages(1)
-                        .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
-FP8Cutlass2xArgsList.append(
-        DefaultFP8Cutlass2xArgs.with_tile_shape((16, 64, 128))
-                        .with_warp_shape((16, 64, 64))
-                        .with_main_loop_stages(3)
+                        .with_main_loop_stages(4)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((16, 64, 128))
@@ -247,22 +277,27 @@ FP8Cutlass2xArgsList.append(
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((256, 128, 64))
                         .with_warp_shape((64, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_main_loop_stages(2)
+                        .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
+FP8Cutlass2xArgsList.append(
+        DefaultFP8Cutlass2xArgs.with_tile_shape((256, 128, 64))
+                        .with_warp_shape((64, 64, 64))
+                        .with_main_loop_stages(3)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((32, 128, 128))
                         .with_warp_shape((32, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_main_loop_stages(3)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
 FP8Cutlass2xArgsList.append(
-        DefaultFP8Cutlass2xArgs.with_tile_shape((16, 64, 128))
-                        .with_warp_shape((16, 64, 64))
+        DefaultFP8Cutlass2xArgs.with_tile_shape((32, 128, 128))
+                        .with_warp_shape((32, 64, 64))
                         .with_main_loop_stages(4)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((32, 64, 128))
                         .with_warp_shape((16, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_main_loop_stages(3)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((32, 64, 128))
@@ -277,17 +312,17 @@ FP8Cutlass2xArgsList.append(
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((32, 64, 128))
                         .with_warp_shape((32, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_main_loop_stages(3)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
 FP8Cutlass2xArgsList.append(
-        DefaultFP8Cutlass2xArgs.with_tile_shape((64, 128, 128))
+        DefaultFP8Cutlass2xArgs.with_tile_shape((32, 64, 128))
                         .with_warp_shape((32, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_main_loop_stages(4)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
 FP8Cutlass2xArgsList.append(
-        DefaultFP8Cutlass2xArgs.with_tile_shape((64, 128, 128))
-                        .with_warp_shape((64, 64, 64))
-                        .with_main_loop_stages(1)
+        DefaultFP8Cutlass2xArgs.with_tile_shape((32, 64, 128))
+                        .with_warp_shape((32, 64, 64))
+                        .with_main_loop_stages(5)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((64, 128, 128))
@@ -297,28 +332,21 @@ FP8Cutlass2xArgsList.append(
 FP8Cutlass2xArgsList.append(
         DefaultFP8Cutlass2xArgs.with_tile_shape((64, 128, 64))
                         .with_warp_shape((32, 64, 64))
-                        .with_main_loop_stages(1)
+                        .with_main_loop_stages(5)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
 FP8Cutlass2xArgsList.append(
-        DefaultFP8Cutlass2xArgs.with_tile_shape((64, 128, 64))
+        DefaultFP8Cutlass2xArgs.with_tile_shape((64, 64, 128))
                         .with_warp_shape((32, 64, 64))
+                        .with_main_loop_stages(3)
+                        .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
+FP8Cutlass2xArgsList.append(
+        DefaultFP8Cutlass2xArgs.with_tile_shape((64, 64, 64))
+                        .with_warp_shape((16, 64, 64))
                         .with_main_loop_stages(4)
                         .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
-FP8Cutlass2xArgsList.append(
-        DefaultFP8Cutlass2xArgs.with_tile_shape((64, 128, 64))
-                        .with_warp_shape((32, 64, 64))
-                            .with_main_loop_stages(5)
-                        .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
-FP8Cutlass2xArgsList.append(
-        DefaultFP8Cutlass2xArgs.with_tile_shape((64, 64, 128))
-                        .with_warp_shape((16, 64, 64))
-                            .with_main_loop_stages(1)
-                        .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
-FP8Cutlass2xArgsList.append(
-        DefaultFP8Cutlass2xArgs.with_tile_shape((64, 64, 128))
-                        .with_warp_shape((32, 64, 64))
-                            .with_main_loop_stages(1)
-                        .with_fp8_math_operator('cutlass::arch::OpMultiplyAddFastAccum'))
+
+#autogen_cutlass_scaled_mm_c2x_16x128x64_64x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_4_OpMultiplyAddFastAccum_fp8_89
+
 ## TODO (varun) : We get a "Invalid argument" during kernel launch error when we include kGemm with the kGemmSplitKParallel kernels.
 # However, running the kGemm kernels on their own works fine.
 #Cutlass2xArgsList = Cutlass2xArgsList + list(map(lambda x: x.with_gemm_mode("cutlass::gemm::GemmUniversalMode::kGemm"), Cutlass2xArgsList))
