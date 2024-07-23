@@ -1,49 +1,86 @@
 from typing import List, Optional, Tuple
 
+import numpy
 import torch
 
 from vllm import _custom_ops as ops
 from vllm.platforms import current_platform
 from vllm.scalar_type import ScalarType, scalar_types
 
+from .quant_utils import pack_cols, unpack_cols
+
 GPTQ_MARLIN_TILE = 16
 GPTQ_MARLIN_MIN_THREAD_N = 64
 GPTQ_MARLIN_MIN_THREAD_K = 128
 GPTQ_MARLIN_MAX_PARALLEL = 16
 
-GPTQ_MARLIN_SUPPORTED_QUANT_TYPES = [scalar_types.u4b8, scalar_types.u8b128]
-GPTQ_MARLIN_SUPPORTED_GROUP_SIZES = [-1, 32, 64, 128]
-GTPQ_MARLIN_UNSUPPORTED_GROUP_SIZE_ACT_ORDER = [-1]
+MARLIN_SUPPORTED_GROUP_SIZES = [-1, 32, 64, 128]
+MARLIN_UNSUPPORTED_GROUP_SIZE_ACT_ORDER = [-1]
 
 
-def check_marlin_supported(quant_type: ScalarType, group_size: int,
-                           min_capability: int) -> bool:
+# For binary size and compile time, we don't support the same types for with and
+#  without runtime zero-point. We support common cases, i.e. AWQ and GPTQ.
+#  TODO: we may want to move this into the C++ so its closer to the actual impl
+def marlin_supported_quant_types(has_zp: bool,
+                                 min_capability: Optional[int] = None):
+    if min_capability is None:
+        major, minor = current_platform.get_device_capability()
+        min_capability = major * 10 + minor
 
-    # If the capability of the device is too low, cannot convert.
-    major, minor = current_platform.get_device_capability()
-    device_capability = major * 10 + minor
-    if device_capability < min_capability:
-        return False
+    if min_capability < 80:
+        return []
 
-    return (device_capability >= min_capability
-            and quant_type in GPTQ_MARLIN_SUPPORTED_QUANT_TYPES
-            and group_size in GPTQ_MARLIN_SUPPORTED_GROUP_SIZES)
+    if has_zp:
+        # AWQ style, unsigned + runtime zero-point
+        return [scalar_types.u4, scalar_types.u8]
+    else:
+        # GPTQ style, unsigned + symmetric bias
+        # TODO: once fp8_marlin is merged into "gptq_marlin" we should be able
+        #  to add `scalar_types.fE4M3fn` here
+        return [scalar_types.u4b8, scalar_types.u8b128]
+
+
+def _check_marlin_supported(
+        quant_type: ScalarType,
+        group_size: Optional[int],
+        has_zp: bool,
+        min_capability: Optional[int] = None) -> Tuple[bool, Optional[str]]:
+
+    if min_capability is None:
+        major, minor = current_platform.get_device_capability()
+        min_capability = major * 10 + minor
+
+    supported_types = marlin_supported_quant_types(has_zp, min_capability)
+
+    if quant_type not in supported_types:
+        return (False, f"Marlin does not support weight_bits = {quant_type}. "
+                f"Only types = {supported_types} "
+                f"are supported (for group_size = {group_size}, "
+                f"min_capability = {min_capability}, zp = {has_zp}).")
+    if (group_size is None or group_size not in MARLIN_SUPPORTED_GROUP_SIZES):
+        return (False, f"Marlin does not support group_size = {group_size}. "
+                f"Only group_sizes = {MARLIN_SUPPORTED_GROUP_SIZES} "
+                "are supported.")
+
+    return True, None
+
+
+def check_marlin_supported(quant_type: ScalarType,
+                           group_size: int,
+                           has_zp: bool = False,
+                           min_capability: Optional[int] = None) -> bool:
+    cond, _ = _check_marlin_supported(quant_type, group_size, has_zp,
+                                      min_capability)
+    return cond
 
 
 def verify_marlin_supported(quant_type: ScalarType,
-                            group_size: Optional[int]) -> None:
-
-    if quant_type not in GPTQ_MARLIN_SUPPORTED_QUANT_TYPES:
-        raise ValueError(
-            f"Marlin does not support weight_bits = {quant_type}. "
-            f"Only types = {GPTQ_MARLIN_SUPPORTED_QUANT_TYPES} "
-            "are supported.")
-    if (group_size is None
-            or group_size not in GPTQ_MARLIN_SUPPORTED_GROUP_SIZES):
-        raise ValueError(
-            f"Marlin does not support group_size = {group_size}. "
-            f"Only group_sizes = {GPTQ_MARLIN_SUPPORTED_GROUP_SIZES} "
-            "are supported.")
+                            group_size: int,
+                            has_zp: bool = False) -> None:
+    cond, err_msg = _check_marlin_supported(quant_type, group_size, has_zp)
+    if not cond:
+        assert err_msg is not None
+        raise ValueError(err_msg)
 
 
 def verify_marlin_supports_shape(output_size_per_partition: int,
@@ -133,6 +170,51 @@ def marlin_permute_scales(s: torch.Tensor, size_k: int, size_n: int,
     return s
 
 
+def marlin_zero_points(zp: torch.Tensor, size_k: int, size_n: int,
+                       num_bits: int) -> torch.Tensor:
+    # Permute zero-points in a similar way to scales, but do not use the
+    # "single" permutation, since zero-points are applied on every MMA
+    scale_perm, _ = get_scale_perms()
+    zp = zp.reshape((-1, len(scale_perm)))[:, scale_perm]
+
+    # Interleave column dim (for the dequantize code) and pack it to int32
+    if num_bits == 4:
+        interleave = numpy.array([0, 2, 4, 6, 1, 3, 5, 7])
+    elif num_bits == 8:
+        interleave = numpy.array([0, 2, 1, 3])
+    else:
+        raise Exception("num_bits must be 4 or 8, got {}".format(num_bits))
+
+    zp = zp.reshape((-1, len(interleave)))[:, interleave].ravel()
+    zp = zp.reshape((-1, size_n)).contiguous()
+    zp = pack_cols(zp, num_bits, size_k, size_n)
+
+    return zp
+
+
+def awq_to_marlin_zero_points(q_zp_packed: torch.Tensor, size_k: int,
+                              size_n: int, num_bits: int) -> torch.Tensor:
+    # AWQ zero-points are quantized and packed on the column dim.
+    # In addition, the values are permuted based on dequantizer.
+    # Here we undo both of these, and then apply marlin permutation
+    # and pack it back.
+    q_zp = unpack_cols(q_zp_packed, num_bits, size_k, size_n)
+
+    # Undo interleaving (use argsort(..) to get inverse perm)
+    if num_bits == 4:
+        undo_interleave = numpy.argsort(numpy.array([0, 2, 4, 6, 1, 3, 5, 7]))
+    elif num_bits == 8:
+        undo_interleave = numpy.argsort(numpy.array([0, 2, 1, 3]))
+    else:
+        raise Exception("num_bits must be 4 or 8, got {}".format(num_bits))
+
+    q_zp = q_zp.reshape((-1, len(undo_interleave)))[:, undo_interleave].ravel()
+    q_zp = q_zp.reshape((-1, size_n)).contiguous()
+
+    marlin_zp = marlin_zero_points(q_zp, size_k, size_n, num_bits)
+    return marlin_zp
+
+
 # Newly generated tensors need to replace existing tensors that are
 # already registered as parameters by vLLM (and won't be freed)
 def replace_tensor(layer: torch.nn.Module, name: str,
@@ -144,23 +226,26 @@ def replace_tensor(layer: torch.nn.Module, name: str,
     del new_t
 
 
-def apply_marlin_linear(input: torch.Tensor,
-                        weight: torch.Tensor,
-                        weight_scale: torch.Tensor,
-                        g_idx: torch.Tensor,
-                        g_idx_sort_indices: torch.Tensor,
-                        workspace: torch.Tensor,
-                        wtype: ScalarType,
-                        output_size_per_partition: int,
-                        input_size_per_partition: int,
-                        is_k_full: bool,
-                        bias: Optional[torch.Tensor] = None) -> torch.Tensor:
+def apply_gptq_marlin_linear(
+        input: torch.Tensor,
+        weight: torch.Tensor,
+        weight_scale: torch.Tensor,
+        weight_zp: torch.Tensor,
+        g_idx: torch.Tensor,
+        g_idx_sort_indices: torch.Tensor,
+        workspace: torch.Tensor,
+        wtype: ScalarType,
+        output_size_per_partition: int,
+        input_size_per_partition: int,
+        is_k_full: bool,
+        bias: Optional[torch.Tensor] = None) -> torch.Tensor:
     reshaped_x = input.reshape(-1, input.shape[-1])
     out_shape = input.shape[:-1] + (output_size_per_partition, )
 
     output = ops.gptq_marlin_gemm(reshaped_x,
                                   weight,
                                   weight_scale,
+                                  weight_zp,
                                   g_idx,
                                   g_idx_sort_indices,
                                   workspace,
@@ -168,7 +253,43 @@ def apply_marlin_linear(input: torch.Tensor,
                                   size_m=reshaped_x.shape[0],
                                   size_n=output_size_per_partition,
                                   size_k=input_size_per_partition,
-                                  is_k_full=is_k_full)
+                                  is_k_full=is_k_full,
+                                  has_zp=False)
+
+    if bias is not None:
+        output.add_(bias)  # In-place add
+
+    return output.reshape(out_shape)
+
+
+def apply_awq_marlin_linear(
+        input: torch.Tensor,
+        weight: torch.Tensor,
+        weight_scale: torch.Tensor,
+        weight_zp: torch.Tensor,
+        g_idx: torch.Tensor,
+        g_idx_sort_indices: torch.Tensor,
+        workspace: torch.Tensor,
+        quant_type: ScalarType,
+        output_size_per_partition: int,
+        input_size_per_partition: int,
+        bias: Optional[torch.Tensor] = None) -> torch.Tensor:
+    reshaped_x = input.reshape(-1, input.shape[-1])
+    out_shape = input.shape[:-1] + (output_size_per_partition, )
+
+    output = ops.gptq_marlin_gemm(reshaped_x,
+                                  weight,
+                                  weight_scale,
+                                  weight_zp,
+                                  g_idx,
+                                  g_idx_sort_indices,
+                                  workspace,
+                                  quant_type,
+                                  size_m=reshaped_x.shape[0],
+                                  size_n=output_size_per_partition,
+                                  size_k=input_size_per_partition,
+                                  is_k_full=True,
+                                  has_zp=True)
 
     if bias is not None:
         output.add_(bias)  # In-place add

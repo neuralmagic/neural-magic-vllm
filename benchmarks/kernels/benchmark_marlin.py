@@ -10,7 +10,7 @@ from vllm.model_executor.layers.quantization.gptq_marlin_24 import (
     GPTQ_MARLIN_24_SUPPORTED_GROUP_SIZES, GPTQ_MARLIN_24_SUPPORTED_QUANT_TYPES)
 from vllm.model_executor.layers.quantization.utils.marlin_utils import (
     GPTQ_MARLIN_MAX_PARALLEL, GPTQ_MARLIN_MIN_THREAD_N,
-    GPTQ_MARLIN_SUPPORTED_GROUP_SIZES, GPTQ_MARLIN_SUPPORTED_QUANT_TYPES)
+    MARLIN_SUPPORTED_GROUP_SIZES, marlin_supported_quant_types)
 from vllm.model_executor.layers.quantization.utils.marlin_utils_test import (
     MarlinWorkspace, marlin_quantize)
 from vllm.model_executor.layers.quantization.utils.marlin_utils_test_24 import (
@@ -75,6 +75,7 @@ def bench_run(results: List[benchmark.Measurement], model: str,
 
     marlin_24_workspace = MarlinWorkspace(size_n, GPTQ_MARLIN_24_MIN_THREAD_N,
                                           GPTQ_MARLIN_24_MAX_PARALLEL)
+    marlin_zp = torch.zeros_like(marlin_s, dtype=torch.int)
 
     globals = {
         # Gen params
@@ -89,6 +90,7 @@ def bench_run(results: List[benchmark.Measurement], model: str,
         "marlin_w_ref": marlin_w_ref,
         "marlin_q_w": marlin_q_w,
         "marlin_s": marlin_s,
+        "marlin_zp": marlin_zp,
         "marlin_g_idx": marlin_g_idx,
         "marlin_sort_indices": marlin_sort_indices,
         "marlin_rand_perm": marlin_rand_perm,
@@ -127,7 +129,7 @@ def bench_run(results: List[benchmark.Measurement], model: str,
     results.append(
         benchmark.Timer(
             stmt=
-            "output = gptq_marlin_gemm(a, marlin_q_w, marlin_s, marlin_g_idx, marlin_sort_indices, marlin_workspace.scratch, quant_type, size_m, size_n, size_k, is_k_full)",  # noqa: E501
+            "output = gptq_marlin_gemm(a, marlin_q_w, marlin_s, marlin_zp, marlin_g_idx, marlin_sort_indices, marlin_workspace.scratch, quant_type, size_m, size_n, size_k, is_k_full)",  # noqa: E501
             globals=globals,
             label=label,
             sub_label=sub_label,
@@ -185,12 +187,12 @@ def main(args):
                            ) > 0 and is_k_full not in args.limit_k_full:
                         continue
 
-                    for quant_type in GPTQ_MARLIN_SUPPORTED_QUANT_TYPES:
+                    for quant_type in marlin_supported_quant_types(False):
                         if len(args.limit_num_bits) > 0 and \
                             quant_type.size_bits not in args.limit_num_bits:
                             continue
 
-                        for group_size in GPTQ_MARLIN_SUPPORTED_GROUP_SIZES:
+                        for group_size in MARLIN_SUPPORTED_GROUP_SIZES:
                             if len(
                                     args.limit_group_size
                             ) > 0 and group_size not in args.limit_group_size:

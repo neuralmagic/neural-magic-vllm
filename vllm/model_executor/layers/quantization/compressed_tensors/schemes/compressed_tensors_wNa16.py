@@ -7,7 +7,7 @@ from vllm import _custom_ops as ops
 from vllm.model_executor.layers.quantization.compressed_tensors.schemes import (
     CompressedTensorsScheme)
 from vllm.model_executor.layers.quantization.utils.marlin_utils import (
-    apply_marlin_linear, marlin_make_empty_g_idx, marlin_make_workspace,
+    apply_gptq_marlin_linear, marlin_make_empty_g_idx, marlin_make_workspace,
     marlin_permute_scales, replace_tensor, verify_marlin_supported,
     verify_marlin_supports_shape)
 from vllm.model_executor.utils import set_weight_attrs
@@ -52,6 +52,10 @@ class CompressedTensorsWNA16(CompressedTensorsScheme):
         # Verify supported on platform.
         verify_marlin_supported(quant_type=self.quant_type,
                                 group_size=self.group_size)
+
+    def get_min_capability(self) -> int:
+        # ampere and up
+        return 80
 
     def create_weights(self, layer: torch.nn.Module, input_size: int,
                        output_partition_sizes: List[int],
@@ -142,6 +146,9 @@ class CompressedTensorsWNA16(CompressedTensorsScheme):
         layer.g_idx = marlin_make_empty_g_idx(device)
         layer.g_idx_sort_indices = marlin_make_empty_g_idx(device)
 
+        # No zero-point
+        layer.weight_zp = marlin_make_empty_g_idx(device)
+
         # Repack weights from compressed-tensors format to marlin format.
         marlin_qweight = ops.gptq_marlin_repack(
             layer.weight_packed.t().contiguous(),
@@ -162,10 +169,11 @@ class CompressedTensorsWNA16(CompressedTensorsScheme):
     def apply_weights(self, layer: torch.nn.Module, x: torch.Tensor,
                       bias: Optional[torch.Tensor]) -> torch.Tensor:
 
-        return apply_marlin_linear(
+        return apply_gptq_marlin_linear(
             input=x,
             weight=layer.weight_packed,
             weight_scale=layer.weight_scale,
+            weight_zp=layer.weight_zp,
             g_idx=layer.g_idx,
             g_idx_sort_indices=layer.g_idx_sort_indices,
             workspace=layer.workspace,

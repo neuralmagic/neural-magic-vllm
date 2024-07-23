@@ -9,7 +9,7 @@ class ScalarType:
     is useful for quantized types (e.g. standard GPTQ 4bit uses a bias of 8).
     
     The implementation for this class can be found in csrc/core/scalar_type.hpp,
-    these type definitions should be kept in snyc with that file.
+    these type definitions should be kept in sync with that file.
     """
 
     def __init__(self, exponent: int, mantissa: int, bias: int,

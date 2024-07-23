@@ -39,7 +39,10 @@ def permute_rows(q_w: torch.Tensor, w_ref: torch.Tensor, group_size: int):
     )
 
 
-def quantize_weights(w: torch.Tensor, quant_type: ScalarType, group_size: int):
+def quantize_weights(w: torch.Tensor,
+                     quant_type: ScalarType,
+                     group_size: int,
+                     zero_points: bool = False):
     assert quant_type.is_integer(), \
         "Floating point quantization may work but has not been tested"
 
@@ -63,18 +66,28 @@ def quantize_weights(w: torch.Tensor, quant_type: ScalarType, group_size: int):
     max_val = torch.abs(torch.max(w, 0, keepdim=True).values)
     min_val = torch.abs(torch.min(w, 0, keepdim=True).values)
 
-    # If the bias is such that there are no possible negative/positive
-    #  values, set the max value to inf to avoid divide by 0
-    max_q_val = quant_type.max() if quant_type.max() != 0 else torch.inf
-    min_q_val = quant_type.min() if quant_type.min() != 0 else torch.inf
-    w_s = torch.max(abs(max_val / max_q_val), abs(min_val / min_q_val))
+    max_q_val = quant_type.max()
+    min_q_val = quant_type.min()
+
+    if zero_points:
+        assert not quant_type.is_signed() and quant_type.max() > 0
+        w_s = (max_val - min_val).clamp(min=1e-5) / quant_type.max()
+        maybe_w_zp = (-torch.round(min_val / w_s)).clamp(min_q_val,
+                                                         max_q_val).int()
+    else:
+        # If the bias is such that there are no possible negative/positive
+        #  values, set the max value to inf to avoid divide by 0
+        w_s = torch.max(
+            abs(max_val / (max_q_val if max_q_val != 0 else torch.inf)),
+            abs(min_val / (min_q_val if min_q_val != 0 else torch.inf)))
+        maybe_w_zp = None
 
     # Quantize
-    w_q = torch.round(w / w_s).int()
+    w_q = torch.round(w / w_s).int() + (maybe_w_zp if zero_points else 0)
     w_q = torch.clamp(w_q, min_q_val, max_q_val)
 
     # Compute ref (dequantized)
-    w_ref = w_q.to(orig_type) * w_s
+    w_ref = (w_q - (maybe_w_zp if zero_points else 0)).to(orig_type) * w_s
 
     if quant_type.has_bias():
         w_q += quant_type.bias
@@ -93,10 +106,15 @@ def quantize_weights(w: torch.Tensor, quant_type: ScalarType, group_size: int):
 
     w_s = w_s.reshape((-1, size_n)).contiguous()
 
+    if zero_points:
+        maybe_w_zp = maybe_w_zp.reshape((-1, size_n)).contiguous()
+        maybe_w_zp = maybe_w_zp.to(device=orig_device)
+
     return (
         w_ref.to(device=orig_device),
         w_q.to(device=orig_device),
         w_s.to(device=orig_device),
+        maybe_w_zp,
     )
 
 
@@ -111,7 +129,7 @@ def gptq_quantize_weights(w: torch.Tensor, quant_type: ScalarType,
         size_k
     ], f"Unsupported groupsize = {group_size}"
 
-    w_ref, w_q, w_s = quantize_weights(w, quant_type, group_size)
+    w_ref, w_q, w_s, _ = quantize_weights(w, quant_type, group_size)
 
     # Apply act_order
     g_idx = torch.empty(0, dtype=torch.int, device=w.device)
@@ -125,6 +143,10 @@ def gptq_quantize_weights(w: torch.Tensor, quant_type: ScalarType,
         w_ref, w_q, g_idx, rand_perm = permute_rows(w_q, w_ref, group_size)
 
     return w_ref, w_q, w_s, g_idx, rand_perm
+
+
+def quantize_weights_with_zp(w: torch.Tensor, quant_tye: int, group_size: int):
+    return quantize_weights(w, scalar_types.u4b8, group_size, zero_points=True)
 
 
 def sort_weights(q_w: torch.Tensor, g_idx: torch.Tensor):
@@ -143,7 +165,7 @@ def sort_weights(q_w: torch.Tensor, g_idx: torch.Tensor):
     )
 
 
-def gptq_pack(
+def pack_rows(
     q_w: torch.Tensor,
     num_bits: int,
     size_k: int,
@@ -192,3 +214,90 @@ def pack_weights_into_int32(w_q: torch.Tensor, wtype: ScalarType, dim: int = 0):
     w_q_res = w_q_res.permute(inv_perm)
 
     return w_q_res
+
+
+def pack_cols(
+    q_w: torch.Tensor,
+    num_bits: int,
+    size_k: int,
+    size_n: int,
+):
+    assert q_w.shape == (size_k, size_n)
+
+    pack_factor = get_pack_factor(num_bits)
+    assert size_n % pack_factor == 0
+
+    orig_device = q_w.device
+
+    q_w = q_w.cpu().numpy().astype(numpy.uint32)
+
+    q_res = numpy.zeros((size_k, size_n // pack_factor), dtype=numpy.uint32)
+
+    for i in range(pack_factor):
+        q_res |= q_w[:, i::pack_factor] << num_bits * i
+
+    q_res = torch.from_numpy(q_res.astype(numpy.int32)).to(orig_device)
+    q_res = q_res.contiguous()
+
+    return q_res
+
+
+def unpack_cols(
+    packed_q_w: torch.Tensor,
+    num_bits: int,
+    size_k: int,
+    size_n: int,
+):
+    pack_factor = get_pack_factor(num_bits)
+    assert size_n % pack_factor == 0
+    assert packed_q_w.shape == (
+        size_k, size_n // pack_factor
+    ), "packed_q_w.shape = {} size_k = {}, size_n = {} pack_Factor = {}".format(
+        packed_q_w.shape, size_k, size_n, pack_factor)
+
+    orig_device = packed_q_w.device
+
+    packed_q_w_cpu = packed_q_w.cpu().numpy().astype(numpy.uint32)
+    q_res = numpy.zeros((size_k, size_n), dtype=numpy.uint32)
+
+    mask = (1 << num_bits) - 1
+    for i in range(pack_factor):
+        vals = packed_q_w_cpu & mask
+        packed_q_w_cpu >>= num_bits
+        q_res[:, i::pack_factor] = vals
+
+    q_res = torch.from_numpy(q_res.astype(numpy.int32)).to(orig_device)
+    q_res = q_res.contiguous()
+
+    return q_res
+
+
+def gptq_pack(
+    q_w: torch.Tensor,
+    num_bits: int,
+    size_k: int,
+    size_n: int,
+):
+    return pack_rows(q_w, num_bits, size_k, size_n)
+
+
+def awq_pack(
+    q_w: torch.Tensor,
+    num_bits: int,
+    size_k: int,
+    size_n: int,
+):
+    assert q_w.shape == (size_k, size_n)
+
+    # Interleave column dim (for the dequantize code) and pack it to int32
+    if num_bits == 4:
+        interleave = numpy.array([0, 2, 4, 6, 1, 3, 5, 7])
+    elif num_bits == 8:
+        interleave = numpy.array([0, 2, 1, 3])
+    else:
+        raise Exception("num_bits must be 4 or 8, got {}".format(num_bits))
+
+    q_w = q_w.reshape((-1, len(interleave)))[:, interleave].ravel()
+    q_w = q_w.reshape((-1, size_n)).contiguous()
+
+    return pack_cols(q_w, num_bits, size_k, size_n)

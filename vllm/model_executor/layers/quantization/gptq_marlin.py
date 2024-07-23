@@ -10,7 +10,7 @@ from vllm.model_executor.layers.linear import (LinearBase, LinearMethodBase,
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig)
 from vllm.model_executor.layers.quantization.utils.marlin_utils import (
-    apply_marlin_linear, check_marlin_supported, marlin_is_k_full,
+    apply_gptq_marlin_linear, check_marlin_supported, marlin_is_k_full,
     marlin_make_empty_g_idx, marlin_make_workspace, marlin_permute_scales,
     marlin_repeat_scales_on_all_ranks, marlin_sort_g_idx, replace_tensor,
     verify_marlin_supported, verify_marlin_supports_shape)
@@ -22,6 +22,12 @@ logger = init_logger(__name__)
 
 class GPTQMarlinConfig(QuantizationConfig):
     """Config class for GPTQ Marlin"""
+
+    # (num_bits, is_sym) -> quant_type
+    TYPE_MAP = {
+        (4, True): scalar_types.u4b8,
+        (8, True): scalar_types.u8b128,
+    }
 
     def __init__(self, weight_bits: int, group_size: int, desc_act: bool,
                  is_sym: bool, lm_head_quantized: bool) -> None:
@@ -35,16 +41,11 @@ class GPTQMarlinConfig(QuantizationConfig):
         self.desc_act = desc_act
         self.lm_head_quantized = lm_head_quantized
 
-        quant_type = {
-            (4, True): scalar_types.u4b8,
-            (8, True): scalar_types.u8b128,
-        }.get((weight_bits, is_sym))
-
-        if quant_type is None:
+        if (weight_bits, is_sym) not in self.TYPE_MAP:
             raise ValueError("Unsupported quantization config: "
                              f"bits={weight_bits}, sym={is_sym}")
 
-        self.quant_type = quant_type
+        self.quant_type = self.TYPE_MAP[(weight_bits, is_sym)]
 
         # Verify supported on platform.
         verify_marlin_supported(quant_type=self.quant_type,
@@ -86,7 +87,7 @@ class GPTQMarlinConfig(QuantizationConfig):
     @classmethod
     def override_quantization_method(cls, hf_quant_cfg,
                                      user_quant) -> Optional[str]:
-        can_convert = cls.is_marlin_compatible(hf_quant_cfg)
+        can_convert = cls.is_gptq_marlin_compatible(hf_quant_cfg)
 
         is_valid_user_quant = (user_quant is None or user_quant == "marlin")
 
@@ -103,9 +104,8 @@ class GPTQMarlinConfig(QuantizationConfig):
                         " faster inference")
         return None
 
-    def get_quant_method(
-            self,
-            layer: torch.nn.Module) -> Optional["GPTQMarlinLinearMethod"]:
+    def get_quant_method(self, layer: torch.nn.Module,
+                         prefix: str) -> Optional["GPTQMarlinLinearMethod"]:
         if (isinstance(layer, LinearBase) or
             (isinstance(layer, ParallelLMHead) and self.lm_head_quantized)):
             return GPTQMarlinLinearMethod(self)
@@ -115,27 +115,26 @@ class GPTQMarlinConfig(QuantizationConfig):
         return []
 
     @classmethod
-    def is_marlin_compatible(cls, quant_config: Dict[str, Any]):
+    def is_gptq_marlin_compatible(cls, quant_config: Dict[str, Any]):
         # Extract data from quant config.
+        quant_method = quant_config.get("quant_method", "").lower()
         num_bits = quant_config.get("bits", None)
         group_size = quant_config.get("group_size", None)
         sym = quant_config.get("sym", None)
         desc_act = quant_config.get("desc_act", None)
+
+        if quant_method != "gptq":
+            return False
 
         # If we cannot find the info needed in the config, cannot convert.
         if (num_bits is None or group_size is None or sym is None
                 or desc_act is None):
             return False
 
-        TYPE_MAP = {
-            (4, True): scalar_types.u4b8,
-            (8, True): scalar_types.u8b128,
-        }
-
-        if (num_bits, sym) not in TYPE_MAP:
+        if (num_bits, sym) not in cls.TYPE_MAP:
             return False
 
-        return check_marlin_supported(quant_type=TYPE_MAP[(num_bits, sym)],
+        return check_marlin_supported(quant_type=cls.TYPE_MAP[(num_bits, sym)],
                                       group_size=group_size,
                                       min_capability=cls.get_min_capability())
 
@@ -295,6 +294,9 @@ class GPTQMarlinLinearMethod(LinearMethodBase):
             layer.g_idx = marlin_make_empty_g_idx(device)
             layer.g_idx_sort_indices = marlin_make_empty_g_idx(device)
 
+        # No zero-point
+        layer.zp = marlin_make_empty_g_idx(device)
+
         # Repack weights from autogptq format to marlin format.
         marlin_qweight = ops.gptq_marlin_repack(
             layer.qweight,
@@ -319,10 +321,11 @@ class GPTQMarlinLinearMethod(LinearMethodBase):
         x: torch.Tensor,
         bias: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        return apply_marlin_linear(
+        return apply_gptq_marlin_linear(
             input=x,
             weight=layer.qweight,
             weight_scale=layer.scales,
+            weight_zp=layer.zp,
             g_idx=layer.g_idx,
             g_idx_sort_indices=layer.g_idx_sort_indices,
             workspace=layer.workspace,
