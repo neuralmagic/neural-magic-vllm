@@ -95,10 +95,11 @@ impl_{{type_name}}_sch_{{schedule_name}}(PytorchArguments args) {
        with_zeropoints = args.zeros.has_value();
 
   {% for s in specializations %}
-  if (with_C == {{s.with_C}} && with_zeropoints == {{s.with_zeropoints}} &&
-      with_scales == {{s.with_scales}}) {
-      return run_impl<Kernel<sch_{{schedule_name}}, 
-        s.with_C, s.with_zeropoints, s.with_scales>>(args);
+  if (with_C == {{s.with_C|lower}}
+      && with_zeropoints == {{s.with_zeropoints|lower}}
+      && with_scales == {{s.with_scales|lower}}) {
+      return run_impl<Kernel<sch_{{schedule_name}}, {{s.with_C|lower}},
+        {{s.with_scales|lower}}, {{s.with_zeropoints|lower}}>>(args);
   }{% endfor %}
 
   TORCH_CHECK_NOT_IMPLEMENTED(
@@ -280,8 +281,7 @@ def create_sources(impl_config: ImplConfig, num_impl_files=2):
         mm_dispatch_template.render(
             type_name=type_name,
             type_config=impl_config.type_config,
-            schedules=schedules_with_names,
-            specializations=impl_config.specializations,
+            schedules=schedules_with_names
         ),
     ))
 
@@ -303,7 +303,8 @@ def create_sources(impl_config: ImplConfig, num_impl_files=2):
             mm_impl_template.render(
                 type_name=type_name,
                 type_config=impl_config.type_config,
-                schedules=file_schedules
+                schedules=file_schedules,
+                specializations=impl_config.specializations,
             ),
         ))
     return sources
