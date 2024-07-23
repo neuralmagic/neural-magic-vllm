@@ -145,10 +145,6 @@ def gptq_quantize_weights(w: torch.Tensor, quant_type: ScalarType,
     return w_ref, w_q, w_s, g_idx, rand_perm
 
 
-def quantize_weights_with_zp(w: torch.Tensor, quant_tye: int, group_size: int):
-    return quantize_weights(w, scalar_types.u4b8, group_size, zero_points=True)
-
-
 def sort_weights(q_w: torch.Tensor, g_idx: torch.Tensor):
     orig_device = q_w.device
 
