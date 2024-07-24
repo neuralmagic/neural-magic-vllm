@@ -1483,97 +1483,52 @@ __global__ void Marlin(
   // partitioning minimizes the number of such reductions and our outputs are
   // usually rather small, we perform this reduction serially in L2 cache.
   auto global_reduce = [&](bool first = false, bool last = false) {
-    // We are very careful here to reduce directly in the output buffer to
-    // maximize L2 cache utilization in this step. To do this, we write out
-    // results in FP16 (but still reduce with FP32 compute).
+    constexpr int tb_m = thread_m_blocks * 16;
+    constexpr int tb_n = thread_n_blocks * 16;
+
+    constexpr int c_size = tb_m * tb_n * sizeof(float) / 16;
+
     constexpr int active_threads = 32 * thread_n_blocks / 4;
     bool is_th_active = threadIdx.x < active_threads;
 
-    constexpr int num_th_writes = 2;
+    int slice_offset = c_size * slice_col;
 
-    // if (threadIdx.x < active_threads) {
-    int c_gl_stride = prob_n / 4;
-    int c_gl_wr_delta_o = 8 * c_gl_stride;
-    int c_gl_wr_delta_i = 4 * num_th_writes * (active_threads / 32);
-    int c_gl_wr = c_gl_stride * ((threadIdx.x % 32) / 4) +
-                  4 * num_th_writes * (threadIdx.x / 32) +
-                  (threadIdx.x % 4) * num_th_writes;
-    c_gl_wr += (4 * thread_n_blocks) * slice_col;
-    constexpr int c_sh_wr_delta = active_threads * num_th_writes;
-    int c_sh_wr = (threadIdx.x) * num_th_writes;
+    constexpr int num_floats = thread_m_blocks * 4 * 2 * 4;
+    constexpr int th_size = num_floats * sizeof(float) / 16;
 
-    int row = (threadIdx.x % 32) / 4;
+    int warp_id = threadIdx.x / 32;
+    int th_id = threadIdx.x % 32;
+
+    int c_warp_offset = warp_id * th_size * 32;
+    int c_th_offset = th_id * th_size;
 
     if (is_th_active) {
       if (!first) {
-  // Interestingly, doing direct global accesses here really seems to mess up
-  // the compiler and lead to slowdowns, hence we also use async-copies even
-  // though these fetches are not actually asynchronous.
   #pragma unroll
-        for (int i = 0; i < thread_m_blocks * 4; i++) {
-          if (i < (thread_m_blocks - 1) * 4 || 8 * (i / 2) + row < prob_m) {
-            sh[c_sh_wr + c_sh_wr_delta * i] =
-                C_tmp[c_gl_wr + c_gl_wr_delta_o * (i / 2) +
-                  c_gl_wr_delta_i * (i % 2)];
-            sh[c_sh_wr + 1 + c_sh_wr_delta * i] =
-                C_tmp[c_gl_wr + 1 + c_gl_wr_delta_o * (i / 2) +
-                  c_gl_wr_delta_i * (i % 2)];
-          }
-          // cp_async4_pred(
-          //     &sh[c_sh_wr + c_sh_wr_delta * i],
-          //     &C[c_gl_wr + c_gl_wr_delta_o * (i / 2) +
-          //        c_gl_wr_delta_i * (i % 2)],
-          //     i < (thread_m_blocks - 1) * 4 || 8 * (i / 2) + row < prob_m);
+        for (int k = 0; k < th_size; k++) {
+          sh[c_warp_offset + c_th_offset + k] =
+              C_tmp[slice_offset + c_warp_offset + c_th_offset + k];
+        }
+      }
+
+      if (!first) {
+        float* frag_c_ptr = reinterpret_cast<float*>(&frag_c);
+        float* sh_c_ptr =
+            reinterpret_cast<float*>(&sh[c_warp_offset + c_th_offset]);
+  #pragma unroll
+        for (int f = 0; f < num_floats; f++) {
+          frag_c_ptr[f] += sh_c_ptr[f];
+        }
+      }
+
+      if (!last) {
+        int4* frag_c_ptr = reinterpret_cast<int4*>(&frag_c);
+  #pragma unroll
+        for (int k = 0; k < th_size; k++) {
+          C_tmp[slice_offset + c_warp_offset + c_th_offset + k] = frag_c_ptr[k];
         }
       }
     }
-    // cp_async_fence();
-    // cp_async_wait<0>();
-    // __syncthreads();
-
-  #pragma unroll
-    if (is_th_active) {
-      for (int i = 0; i < thread_m_blocks * 4; i++) {
-        if (i < (thread_m_blocks - 1) * 4 || 8 * (i / 2) + row < prob_m) {
-          if (!first) {
-            int4 c_red_0 = sh[c_sh_wr + i * c_sh_wr_delta];
-            int4 c_red_1 = sh[c_sh_wr + 1 + i * c_sh_wr_delta];
-  #pragma unroll
-            for (int j = 0; j < 4; j++) {
-              reinterpret_cast<float*>(
-                  &frag_c)[4 * 2 * 4 * (i / 4) + 4 * j + (i % 4)] +=
-                  reinterpret_cast<float*>(&c_red_0)[j];
-            }
-
-            for (int j = 4; j < 2 * 4; j++) {
-              reinterpret_cast<float*>(
-                  &frag_c)[4 * 2 * 4 * (i / 4) + 4 * j + (i % 4)] +=
-                  reinterpret_cast<float*>(&c_red_1)[j - 4];
-            }
-          }
-          if (!last) {
-            int4 c_0;
-            int4 c_1;
-  #pragma unroll
-            for (int j = 0; j < 4; j++) {
-              reinterpret_cast<float*>(&c_0)[j] = reinterpret_cast<float*>(
-                  &frag_c)[4 * 2 * 4 * (i / 4) + 4 * j + (i % 4)];
-            }
-            for (int j = 4; j < 2 * 4; j++) {
-              reinterpret_cast<float*>(&c_1)[j - 4] = reinterpret_cast<float*>(
-                  &frag_c)[4 * 2 * 4 * (i / 4) + 4 * j + (i % 4)];
-            }
-
-            C_tmp[c_gl_wr + c_gl_wr_delta_o * (i / 2) +
-                  c_gl_wr_delta_i * (i % 2)] = c_0;
-            C_tmp[c_gl_wr + 1 + c_gl_wr_delta_o * (i / 2) +
-                  c_gl_wr_delta_i * (i % 2)] = c_1;
-          }
-        }
-      }
-    }
-    // __syncthreads();
-    // }
   };
 
   // Write out the reduce final result in the correct layout. We only actually
