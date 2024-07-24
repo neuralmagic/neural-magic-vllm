@@ -320,7 +320,8 @@ def marlinv2_supported_schedules(b_type: ScalarType) -> List[str]:
     return torch.ops._C.marlinv2_supported_schedules(b_type)
 
 
-def marlinv2_gemm_schedule_heuristic(M: int, N: int, K: int, b_type: ScalarType):
+def marlinv2_gemm_schedule_heuristic(M: int, N: int, K: int,
+                                     b_type: ScalarType):
     assert b_type.size_bits == 4
 
     tile_scheduler = "NMstreamK"

@@ -9,10 +9,10 @@ import pytest
 import torch
 
 from vllm import _custom_ops as ops
-from vllm.scalar_type import scalar_types, ScalarType
 from vllm.model_executor.layers.quantization.utils.quant_utils import (
     pack_weights_into_int32, quantize_weights)
 from vllm.platforms import current_platform
+from vllm.scalar_type import ScalarType, scalar_types
 
 MNK_SHAPES = [
     (1, 128, 128),
@@ -31,9 +31,9 @@ ACT_TYPES = [torch.float16, torch.bfloat16]
 WEIGHT_TYPES = [scalar_types.uint4b8, scalar_types.uint8b128]
 GROUP_SIZES = [128, None]
 # TODO: in future PR refactor this and `is_quant_method_supported` in the kernel
-#  unit tests to a common utility function. Currently the use of 
+#  unit tests to a common utility function. Currently the use of
 #  `is_quant_method_supported` conflates kernels with quantization methods
-#  an assumption which is breaking down as quantizations methods can have 
+#  an assumption which is breaking down as quantizations methods can have
 #  have kernels and some kernels support multiple quantization methods.
 IS_SUPPORTED_BY_GPU = current_platform.get_device_capability()[0] >= 9
 
@@ -87,8 +87,8 @@ def test_marlinv2_all_schedules(shape, atype: torch.dtype, wtype: ScalarType,
             b_group_size=group_size,
             schedule=schedule,
         )
-        assert torch.allclose(output, output_ref, rtol=1e-1, atol=1e-1
-                              ), f"Schedule failed {schedule}"
+        assert torch.allclose(output, output_ref, rtol=1e-1,
+                              atol=1e-1), f"Schedule failed {schedule}"
 
 
 @pytest.mark.skipif(not IS_SUPPORTED_BY_GPU,

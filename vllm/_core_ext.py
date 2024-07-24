@@ -48,7 +48,7 @@ elif not TYPE_CHECKING:
 
         @classmethod
         def float_(cls, exponent: int, mantissa: int, finite_values_only: bool,
-               nan_repr: int):
+                   nan_repr: int):
             return cls(exponent, mantissa, 0, True, finite_values_only,
                        nan_repr)
 

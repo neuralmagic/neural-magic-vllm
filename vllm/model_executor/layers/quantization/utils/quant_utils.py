@@ -222,7 +222,9 @@ def pack_rows(
     return q_res
 
 
-def pack_weights_into_int32(w_q: torch.Tensor, wtype: ScalarType, dim: int = 0):
+def pack_weights_into_int32(w_q: torch.Tensor,
+                            wtype: ScalarType,
+                            dim: int = 0):
     orig_device = w_q.device
 
     # move dim to pack to the end

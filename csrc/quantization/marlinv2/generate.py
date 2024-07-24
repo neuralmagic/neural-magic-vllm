@@ -1,19 +1,21 @@
-import enum
+import itertools
+import math
 import os
 import shutil
-import jinja2
-import math
-import itertools
-
 from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from vllm_cutlass_library_extension import (
-    DataType, VLLMDataType, DataTypeNames, DataTypeTag, 
-    EpilogueScheduleTag, EpilogueScheduleType, 
-    KernelScheduleTag, KernelScheduleType, MixedInputKernelScheduleType,
-    TileSchedulerTag, VLLMTileSchedulerType, TileSchedulerType)
+import jinja2
+from vllm_cutlass_library_extension import (DataType, DataTypeNames,
+                                            DataTypeTag, EpilogueScheduleTag,
+                                            EpilogueScheduleType,
+                                            KernelScheduleTag,
+                                            KernelScheduleType,
+                                            MixedInputKernelScheduleType,
+                                            TileSchedulerTag,
+                                            TileSchedulerType, VLLMDataType,
+                                            VLLMTileSchedulerType)
 
 #
 #   Generator templating
@@ -160,7 +162,8 @@ class TypeConfig:
     element_b_zeropoint: DataType
     element_d: DataType
     accumulator: DataType
-    
+
+
 @dataclass
 class Specialization:
     with_C: bool
@@ -277,11 +280,9 @@ def create_sources(impl_config: ImplConfig, num_impl_files=2):
 
     sources.append((
         f"marlinv2_mm_{terse_type_name}",
-        mm_dispatch_template.render(
-            type_name=type_name,
-            type_config=impl_config.type_config,
-            schedules=schedules_with_names
-        ),
+        mm_dispatch_template.render(type_name=type_name,
+                                    type_config=impl_config.type_config,
+                                    schedules=schedules_with_names),
     ))
 
     sources.append((
@@ -295,8 +296,8 @@ def create_sources(impl_config: ImplConfig, num_impl_files=2):
     num_schedules = len(impl_config.schedule_configs)
     schedules_per_file = math.ceil(num_schedules / num_impl_files)
     for part, i in enumerate(range(0, num_schedules, schedules_per_file)):
-        file_schedules = schedules_with_names[i:i+schedules_per_file]
-        
+        file_schedules = schedules_with_names[i:i + schedules_per_file]
+
         sources.append((
             f"marlinv2_mm_{terse_type_name}_impl_part{part}",
             mm_impl_template.render(
@@ -330,51 +331,49 @@ def generate():
             TileSchedulerType.Default,
             VLLMTileSchedulerType.StreamK,
         )))
-    
-    impl_configs =[]
 
-    GPTQ_kernel_type_configs = list((TypeConfig(
-        element_a=element_a,
-        element_b=element_b,
-        element_b_scale=element_a,
-        element_b_zeropoint=element_a,
-        element_d=element_a,
-        accumulator=DataType.f32,
-    ) for element_b in (VLLMDataType.u4b8, VLLMDataType.u8b128)
-      for element_a in (DataType.f16, DataType.bf16)))
-    
+    impl_configs = []
+
+    GPTQ_kernel_type_configs = list(
+        (TypeConfig(
+            element_a=element_a,
+            element_b=element_b,
+            element_b_scale=element_a,
+            element_b_zeropoint=element_a,
+            element_d=element_a,
+            accumulator=DataType.f32,
+        ) for element_b in (VLLMDataType.u4b8, VLLMDataType.u8b128)
+         for element_a in (DataType.f16, DataType.bf16)))
+
     GPTQ_kernel_specializations = [
-        Specialization(
-            with_C=False, with_zeropoints=False, with_scales=True)
-    ]
-    
-    impl_configs += [
-        ImplConfig(x[0], x[1], x[2]) 
-            for x in zip(GPTQ_kernel_type_configs, 
-                itertools.repeat(schedules),
-                itertools.repeat(GPTQ_kernel_specializations))
+        Specialization(with_C=False, with_zeropoints=False, with_scales=True)
     ]
 
-    AWQ_kernel_type_configs = list((TypeConfig(
-        element_a=element_a,
-        element_b=element_b,
-        element_b_scale=element_a,
-        element_b_zeropoint=element_a,
-        element_d=element_a,
-        accumulator=DataType.f32,
-    ) for element_b in (DataType.u4, DataType.u8)
-      for element_a in (DataType.f16, DataType.bf16)))
-    
+    impl_configs += [
+        ImplConfig(x[0], x[1], x[2])
+        for x in zip(GPTQ_kernel_type_configs, itertools.repeat(schedules),
+                     itertools.repeat(GPTQ_kernel_specializations))
+    ]
+
+    AWQ_kernel_type_configs = list(
+        (TypeConfig(
+            element_a=element_a,
+            element_b=element_b,
+            element_b_scale=element_a,
+            element_b_zeropoint=element_a,
+            element_d=element_a,
+            accumulator=DataType.f32,
+        ) for element_b in (DataType.u4, DataType.u8)
+         for element_a in (DataType.f16, DataType.bf16)))
+
     AWQ_kernel_specializations = [
-        Specialization(
-            with_C=False, with_zeropoints=True, with_scales=True)
+        Specialization(with_C=False, with_zeropoints=True, with_scales=True)
     ]
 
     impl_configs += [
-        ImplConfig(x[0], x[1], x[2]) 
-            for x in zip(AWQ_kernel_type_configs, 
-                itertools.repeat(schedules),
-                itertools.repeat(AWQ_kernel_specializations))
+        ImplConfig(x[0], x[1], x[2])
+        for x in zip(AWQ_kernel_type_configs, itertools.repeat(schedules),
+                     itertools.repeat(AWQ_kernel_specializations))
     ]
 
     output_dir = os.path.join(SCRIPT_DIR, "generated")
