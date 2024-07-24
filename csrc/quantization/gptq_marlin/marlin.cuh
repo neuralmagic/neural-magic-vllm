@@ -25,7 +25,7 @@ static constexpr int min_thread_n = 64;
 static constexpr int min_thread_k = 64;
 
 static constexpr int tile_size = 16;
-static constexpr int max_par = 16;
+static constexpr int max_par = 1;
 
 // Repack params
 static constexpr int repack_stages = 8;
