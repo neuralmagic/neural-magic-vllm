@@ -7,11 +7,10 @@ import itertools
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from enum import auto as enum_auto
 from typing import List, Tuple
 
 from vllm_cutlass_library_extension import (
-    DataType, DataTypeNames, DataTypeTag, 
+    DataType, VLLMDataType, DataTypeNames, DataTypeTag, 
     EpilogueScheduleTag, EpilogueScheduleType, 
     KernelScheduleTag, KernelScheduleType, MixedInputKernelScheduleType,
     TileSchedulerTag, VLLMTileSchedulerType, TileSchedulerType)
@@ -331,6 +330,8 @@ def generate():
             TileSchedulerType.Default,
             VLLMTileSchedulerType.StreamK,
         )))
+    
+    impl_configs =[]
 
     GPTQ_kernel_type_configs = list((TypeConfig(
         element_a=element_a,
@@ -339,19 +340,41 @@ def generate():
         element_b_zeropoint=element_a,
         element_d=element_a,
         accumulator=DataType.f32,
-    ) for element_b in (DataType.s4, DataType.u4)
+    ) for element_b in (VLLMDataType.u4b8, VLLMDataType.u8b128)
       for element_a in (DataType.f16, DataType.bf16)))
     
     GPTQ_kernel_specializations = [
         Specialization(
             with_C=False, with_zeropoints=False, with_scales=True)
     ]
-
-    impl_configs = [
+    
+    impl_configs += [
         ImplConfig(x[0], x[1], x[2]) 
             for x in zip(GPTQ_kernel_type_configs, 
                 itertools.repeat(schedules),
                 itertools.repeat(GPTQ_kernel_specializations))
+    ]
+
+    AWQ_kernel_type_configs = list((TypeConfig(
+        element_a=element_a,
+        element_b=element_b,
+        element_b_scale=element_a,
+        element_b_zeropoint=element_a,
+        element_d=element_a,
+        accumulator=DataType.f32,
+    ) for element_b in (DataType.u4, DataType.u8)
+      for element_a in (DataType.f16, DataType.bf16)))
+    
+    AWQ_kernel_specializations = [
+        Specialization(
+            with_C=False, with_zeropoints=True, with_scales=True)
+    ]
+
+    impl_configs += [
+        ImplConfig(x[0], x[1], x[2]) 
+            for x in zip(AWQ_kernel_type_configs, 
+                itertools.repeat(schedules),
+                itertools.repeat(AWQ_kernel_specializations))
     ]
 
     output_dir = os.path.join(SCRIPT_DIR, "generated")

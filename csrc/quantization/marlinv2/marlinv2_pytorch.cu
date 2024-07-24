@@ -14,8 +14,10 @@ template <typename Fn>
 static auto scalar_type_dispatch(ScalarType const& type, Fn fn) {
   if (type == vllm::kU4) {
     return fn(cutlass::uint4b_t{});
-  } else if (type == vllm::kS4) {
-    return fn(cutlass::int4b_t{});
+  } else if (type == vllm::kU4B8) {
+    return fn(cutlass::vllm_uint4b8_t{});
+  } else if (type == vllm::kU8B128) {
+    return fn(cutlass::vllm_uint8b128_t{});
   } else {
     TORCH_CHECK(false, "Unsupported type ", type.str());
   }

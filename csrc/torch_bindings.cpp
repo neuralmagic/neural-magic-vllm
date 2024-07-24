@@ -18,11 +18,6 @@
 TORCH_LIBRARY_EXPAND(TORCH_EXTENSION_NAME, ops) {
   // vLLM custom ops
 
-  // ScalarType, a custom class for representing data types that supports
-  // quantized types, declared here so it can be used when creating interfaces
-  // for custom ops.
-  vllm::ScalarTypeTorch::bind_class(ops);
-
   // Attention ops
   // Compute the attention between an input query and the cached
   // keys/values using PagedAttention.

@@ -23,6 +23,7 @@
 
 #include "cutlass_extensions/gemm/kernel/vllm_tile_schedulers.cuh"
 #include "cutlass_extensions/cute_utils.cuh"
+#include "cutlass_extensions/vllm_numeric_conversion.cuh"
 #include "marlinv2_collective_builder.cuh"
 #include "marlinv2_prepacked_layout.cuh"
 

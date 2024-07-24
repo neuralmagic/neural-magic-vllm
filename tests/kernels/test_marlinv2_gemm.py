@@ -28,7 +28,7 @@ MNK_SHAPES = [
 ]
 
 ACT_TYPES = [torch.float16, torch.bfloat16]
-WEIGHT_TYPES = [scalar_types.s4, scalar_types.u4]
+WEIGHT_TYPES = [scalar_types.uint4b8, scalar_types.uint8b128]
 GROUP_SIZES = [128, None]
 # TODO: in future PR refactor this and `is_quant_method_supported` in the kernel
 #  unit tests to a common utility function. Currently the use of 
@@ -45,7 +45,7 @@ def rand_data(shape, dtype=torch.float16):
 def marlinv2_quantize_and_pack(w, wtype: ScalarType, group_size: int):
     assert wtype.is_integer(), "TODO: support floating point weights"
 
-    w_ref, w_q, w_s = quantize_weights(w, wtype, group_size)
+    w_ref, w_q, w_s, _ = quantize_weights(w, wtype, group_size)
     w_q = pack_weights_into_int32(w_q, wtype)
     w_q_marlinv2 = ops.marlinv2_prepack_B(w_q, wtype)
 

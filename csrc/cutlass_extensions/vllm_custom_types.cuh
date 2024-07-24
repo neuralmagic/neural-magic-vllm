@@ -35,8 +35,8 @@ struct vllm_biased_integer_subbyte : public integer_subbyte<Bits, Signed> {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // "GPTQ" types, i.e. symmetric quantization
-using vllm_uint4b8_t = vllm_biased_integer_subbyte<4, 8>;    // u4b8
-using vllm_uint4b8_t = vllm_biased_integer_subbyte<8, 128>;  // u8b128
+using vllm_uint4b8_t = vllm_biased_integer_subbyte<4, 8>;      // u4b8
+using vllm_uint8b128_t = vllm_biased_integer_subbyte<8, 128>;  // u8b128
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
