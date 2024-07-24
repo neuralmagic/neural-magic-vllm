@@ -100,8 +100,8 @@ def quantize_weights(w: torch.Tensor,
         w = w.reshape((group_size, -1))
 
     # Compute scale for each group
-    max_val = torch.abs(torch.max(w, 0, keepdim=True).values)
-    min_val = torch.abs(torch.min(w, 0, keepdim=True).values)
+    max_val = torch.max(w, 0, keepdim=True).values
+    min_val = torch.min(w, 0, keepdim=True).values
 
     max_q_val = quant_type.max()
     min_q_val = quant_type.min()
@@ -109,8 +109,8 @@ def quantize_weights(w: torch.Tensor,
     if zero_points:
         assert not quant_type.is_signed() and quant_type.max() > 0
         w_s = (max_val - min_val).clamp(min=1e-5) / quant_type.max()
-        maybe_w_zp = (-torch.round(min_val / w_s)).clamp(min_q_val,
-                                                         max_q_val).int()
+        maybe_w_zp = torch.round(torch.abs(min_val / w_s)) \
+            .clamp(min_q_val, max_q_val).int()
     else:
         # If the bias is such that there are no possible negative/positive
         #  values, set the max value to inf to avoid divide by 0
