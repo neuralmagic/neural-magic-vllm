@@ -322,7 +322,7 @@ def marlinv2_supported_schedules(b_type: ScalarType) -> List[str]:
 
 def marlinv2_gemm_schedule_heuristic(M: int, N: int, K: int,
                                      b_type: ScalarType):
-    assert b_type.size_bits == 4
+    assert b_type.size_bits == 4 or b_type.size_bits == 8
 
     tile_scheduler = "NMstreamK"
 

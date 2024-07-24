@@ -53,8 +53,6 @@ torch::Tensor gemm(torch::Tensor const A, torch::Tensor const B,
                    c10::optional<torch::Tensor> const& C,
                    c10::optional<double> alpha, c10::optional<double> beta,
                    c10::optional<std::string> schedule) {
-  TORCH_CHECK(btype->size_bits() == 4);  // only supports 4bit for now
-
   auto args = PytorchArguments{.A = A,
                                .B = B,
                                .scales = scales,
