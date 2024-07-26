@@ -73,7 +73,7 @@ struct KernelTemplate {
     using ElementB = ElementB_;
     using ElementD = ElementD_;
     using ElementC = cute::conditional_t<with_C, ElementD, void>;
-    using ElementZero = ScaleT;
+    using ElementZero = ZeroT;
     using ElementScale = ScaleT;
     using ElementAccumulator =
         AccumulatorT;  // Element type for internal accumulation

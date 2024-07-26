@@ -14,6 +14,8 @@ template <typename Fn>
 static auto scalar_type_dispatch(ScalarType const& type, Fn fn) {
   if (type == vllm::kU4) {
     return fn(cutlass::uint4b_t{});
+  } else if (type == vllm::kU8) {
+    return fn(cutlass::uint8_t{});
   } else if (type == vllm::kU4B8) {
     return fn(cutlass::vllm_uint4b8_t{});
   } else if (type == vllm::kU8B128) {
