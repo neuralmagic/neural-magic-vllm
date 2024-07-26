@@ -169,7 +169,7 @@ class Cutlass2xGenerator(Generator):
         Generator.write_ops(pybind_fn_names, ops_fn_decls, Cutlass2xGenerator.OPS_MACRO, Cutlass2xGenerator.OPS_FILE)
 
 def generate_cutlass2x_kernels():
-    Cutlass2xGenerator.generate(FP8Cutlass2xArgsList)
+    Cutlass2xGenerator.generate(I8Cutlass2xArgsList)
 
 def main():
     generate_cutlass2x_kernels()
