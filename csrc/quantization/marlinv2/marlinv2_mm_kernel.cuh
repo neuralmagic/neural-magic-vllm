@@ -57,9 +57,9 @@ struct KernelTemplate {
   using ArchTag = cutlass::arch::Sm90;
   using OperatorClass = cutlass::arch::OpClassTensorOp;
 
-  using PrepackedLayoutB =
-      PrepackedLayoutTemplate<ElementA_, ElementB_, ElementD_, AccumulatorT,
-                              LayoutA_Transpose, KernelSchedule>;
+  using PrepackedLayoutBB =
+      PrepackedLayoutBBTemplate<ElementA_, ElementB_, ElementD_, AccumulatorT,
+                                LayoutA_Transpose, KernelSchedule>;
 
   // clang-format off
   template <typename ScheduleConfig,
@@ -124,7 +124,7 @@ struct KernelTemplate {
     using CollectiveMainloop =
         typename cutlass::gemm::collective::VLLMCollectiveBuilder<
             cutlass::gemm::collective::MarlinV2KernelTag, ArchTag,
-            OperatorClass, BTypeTuple, PrepackedLayoutB, AlignmentB, ElementA,
+            OperatorClass, BTypeTuple, PrepackedLayoutBB, AlignmentB, ElementA,
             LayoutA_Transpose, AlignmentA, ElementAccumulator, TileShape,
             ClusterShape,
             cutlass::gemm::collective::StageCountAutoCarveout<static_cast<int>(

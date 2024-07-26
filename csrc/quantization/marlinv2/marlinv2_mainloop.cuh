@@ -38,8 +38,6 @@ using namespace cutlass::gemm;
 using namespace cutlass::gemm::collective;
 using namespace cutlass::gemm::collective::detail;
 
-struct APrepackedLayout {};
-
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 // WarpSpecialized Mainloop that source A operand from registers
@@ -64,7 +62,9 @@ struct MarlinV2CollectiveMma {
  public:
   static constexpr bool ALayoutIsPrepacked = true;
 
+  // Prepacked block shape
   using PPBlockShape_MK = typename GmemLayoutA::PPBlockShape_MK;
+  // Prepacked blocks per dim in each dimension
   using PPBlocksPerTile_MK = decltype(make_shape(
       size<0>(TileShape_MNK{}) / size<0>(PPBlockShape_MK{}),
       size<2>(TileShape_MNK{}) / size<1>(PPBlockShape_MK{})));
@@ -137,7 +137,7 @@ struct MarlinV2CollectiveMma {
       decltype(sm90_cluster_shape_to_tma_atom(shape<0>(ClusterShape_MNK{})));
 
   // ((T, V), BlocksM, BlocksK, pipe) -> offset
-  using SmemLayoutAPrepacked = decltype(GmemLayoutA::pp_TVbMbKL_to_offset(
+  using SmemLayoutAPrepacked = decltype(GmemLayoutA::TVbMbKL_to_offset(
       make_shape(size<0>(TileShape_MNK{}), size<2>(TileShape_MNK{}),
                  Int<DispatchPolicy::Stages>{})));
 
@@ -445,22 +445,15 @@ struct MarlinV2CollectiveMma {
     }
   }
 
-  using AStandardTensor = decltype(make_tensor(
-      get_logical_ptr(static_cast<InternalElementA const*>(nullptr)),
-      repeat_like(StrideA{}, int32_t(0)), StrideA{}));
-
-  // ((athrid, val), TilesM, TilesK, L) -> (storage_idx)
-  using PrepackedStrideA = decltype(stride(GmemLayoutA::pp_TVbMbKL_to_offset(
+  // ((athrid, val), BlocksM, BlockK, L) -> (storage_idx)
+  using PrepackedStrideA = decltype(stride(GmemLayoutA::TVbMbKL_to_offset(
       make_shape(int32_t(0), int32_t(0), int32_t(0)))));
 
   using APrepackedTensor = decltype(make_tensor(
       get_logical_ptr(static_cast<InternalElementA const*>(nullptr)),
-      shape(GmemLayoutA::pp_TVbMbKL_to_offset(
+      shape(GmemLayoutA::TVbMbKL_to_offset(
           make_shape(int32_t(0), int32_t(0), int32_t(0)))),
       PrepackedStrideA{}));
-
-  using ATensor =
-      std::conditional_t<ALayoutIsPrepacked, APrepackedTensor, AStandardTensor>;
 
   using ScaleTensor = decltype(make_tensor(
       get_logical_ptr(static_cast<NonVoidElementScale const*>(nullptr)),
@@ -475,22 +468,12 @@ struct MarlinV2CollectiveMma {
       repeat_like(StrideB{}, int32_t(0)), StrideB{}));
 
   static constexpr auto make_tma_copy_A(ATensor tensor_a = ATensor{}) {
-    if constexpr (ALayoutIsPrepacked) {
-      return make_tma_copy<TmaElementA>(
-          GmemTiledCopyA{}, tensor_a,
-          SmemLayoutAPrepacked{}(_, _, cute::Int<0>{}),
-          shape(SmemLayoutAPrepacked{}(_, _, cute::Int<0>{})),
-          size<1>(
-              ClusterShape{}));  // mcast along N mode for this M load, if any
-    } else {
-      return make_tma_copy<TmaElementA>(
-          GmemTiledCopyA{}, tensor_a, SmemLayoutA{}(_, _, cute::Int<0>{}),
-          make_shape(shape<0>(TileShape{}), shape<2>(TileShape{})),
-          size<1>(
-              ClusterShape{}));  // mcast along N mode for this M load, if any
-    }
+    return make_tma_copy<TmaElementA>(
+        GmemTiledCopyA{}, tensor_a,
+        SmemLayoutAPrepacked{}(_, _, cute::Int<0>{}),
+        shape(SmemLayoutAPrepacked{}(_, _, cute::Int<0>{})),
+        size<1>(ClusterShape{}));  // mcast along N mode for this M load, if any
   }
-
   static constexpr auto make_tma_copy_scale(
       ScaleTensor tensor_scale = ScaleTensor{}) {
     return make_tma_copy(GmemTiledCopyScale{}, tensor_scale,
@@ -606,14 +589,9 @@ struct MarlinV2CollectiveMma {
     typename Params::TMA_Scale tma_load_scale;
     typename Params::TMA_Zero tma_load_zero;
 
-    if constexpr (ALayoutIsPrepacked) {
-      auto layout = GmemLayoutA::pp_TVbMbKL_to_offset(make_shape(M, K, L));
-      tma_load_a = make_tma_copy_A(
-          make_logical_tensor(ptr_A, shape(layout), stride(layout)));
-    } else {
-      tma_load_a = make_tma_copy_A(
-          make_logical_tensor(ptr_A, make_shape(M, K, L), args.dA));
-    }
+    auto layout = GmemLayoutA::TVbMbKL_to_offset(make_shape(M, K, L));
+    tma_load_a = make_tma_copy_A(
+        make_logical_tensor(ptr_A, shape(layout), stride(layout)));
 
     tma_load_b = make_tma_copy_B(
         make_logical_tensor(ptr_B, make_shape(N, K, L), args.dB));
@@ -760,19 +738,11 @@ struct MarlinV2CollectiveMma {
     // else
     //   (BLK_M,BLK_K,m,k,l)
     auto make_gA_mkl = [&]() {
-      if constexpr (ALayoutIsPrepacked) {
-        auto pp_layout = GmemLayoutA::pp_TVbMbKL_to_offset(make_shape(M, K, L));
-        Tensor mA_mkl =
-            mainloop_params.tma_load_a.get_tma_tensor(shape(pp_layout));
-        return local_tile(mA_mkl,
-                          make_shape(size<0>(pp_layout), PPBlocksPerTile_MK{}),
-                          make_coord(0, make_coord(_, _)));
-      } else {
-        Tensor mA_mkl =
-            mainloop_params.tma_load_a.get_tma_tensor(make_shape(M, K, L));
-        return local_tile(mA_mkl, TileShape{}, make_coord(_, _, _),
-                          Step<_1, X, _1>{});
-      }
+      auto layout = GmemLayoutA::TVbMbKL_to_offset(make_shape(M, K, L));
+      Tensor mA_mkl = mainloop_params.tma_load_a.get_tma_tensor(shape(layout));
+      return local_tile(mA_mkl,
+                        make_shape(size<0>(layout), PPBlocksPerTile_MK{}),
+                        make_coord(0, make_coord(_, _)));
     };
 
     // (BLK_N,BLK_K,n,k,l)

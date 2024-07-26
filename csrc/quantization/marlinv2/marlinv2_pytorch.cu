@@ -77,7 +77,7 @@ torch::Tensor gemm(torch::Tensor const A, torch::Tensor const B,
 torch::Tensor prepack_B(torch::Tensor const B,
                         ScalarTypeTorchPtr const& btype) {
   return scalar_type_dispatch(*btype, [&](auto BType) {
-    return PrepackDispatcher<half_t, decltype(BType), half_t>::dispatch(B);
+    return PrepackBDispatcher<half_t, decltype(BType), half_t>::dispatch(B);
   });
 }
 

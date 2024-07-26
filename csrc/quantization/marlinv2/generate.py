@@ -118,7 +118,7 @@ PREPACK_TEMPLATE = """
 #include "../marlinv2_prepack_launcher.cuh"
 
 namespace marlinv2 {
-using PrepackDispatcher_ = PrepackDispatcher<
+using PrepackBDispatcher_ = PrepackBDispatcher<
   {{DataTypeTag[type_config.element_a]}}, // ElementA
   {{DataTypeTag[type_config.element_b]}}, // ElementB
   {{DataTypeTag[type_config.element_d]}}, // ElementD
@@ -126,7 +126,7 @@ using PrepackDispatcher_ = PrepackDispatcher<
   {{DataTypeTag[type_config.element_b_scale]}}, // Scales
   {{DataTypeTag[type_config.element_b_zeropoint]}}>; // Zeropoints
 
-using PrepackedLayout = PrepackedLayoutTemplate<
+using PrepackedLayoutB = PrepackedLayoutBBTemplate<
   {{DataTypeTag[type_config.element_a]}}, // ElementA
   {{DataTypeTag[type_config.element_b]}}, // ElementB
   {{DataTypeTag[type_config.element_d]}}, // ElementD
@@ -135,8 +135,8 @@ using PrepackedLayout = PrepackedLayoutTemplate<
   cutlass::gemm::KernelTmaWarpSpecializedCooperativeMixedInput>;
 
 template <>
-torch::Tensor PrepackDispatcher_::dispatch(torch::Tensor B) {
-  return prepack_impl<PrepackedLayout>(B);
+torch::Tensor PrepackBDispatcher_::dispatch(torch::Tensor B) {
+  return prepack_impl<PrepackedLayoutB>(B);
 }
 }; // namespace marlinv2
 """

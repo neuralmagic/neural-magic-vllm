@@ -32,7 +32,7 @@ using namespace cute;
 template <typename ElementA_, typename ElementB_, typename ElementD_,
           typename AccumulatorT, class LayoutB, class KernelSchedule>
 // clang-format on
-struct PrepackedLayoutTemplate {
+struct PrepackedLayoutBBTemplate {
   using MmaType = ElementA_;
   using ElementA = ElementA_;
   using ElementB = ElementB_;
@@ -41,8 +41,9 @@ struct PrepackedLayoutTemplate {
       AccumulatorT;  // Element type for internal accumulation
   using ElementMma = MmaType;
 
-  // TODO: figure out how to size this appropriately
+  // TODO (Lucas): compare the performance for other sizes
   using PPBlockShape_MK = Shape<_128, _64>;
+
   // The N here doesnt actually impact the shape of the stored tile directly but
   // may impact the op selected by rs_op_selector
   using PPBlockShape_MNK = decltype(make_shape(
@@ -61,25 +62,25 @@ struct PrepackedLayoutTemplate {
                                  GmmaMajorB>(),
       AtomLayoutMNK{}));
 
-  // (athrid, val) -> (M,K)
+  // Prepacked block, (athrid, val) -> (M,K)
   // i.e. ((ThrV,(ThrM,ThrK)),(FrgV,(RestM,RestK,...))) -> (M,K)
   CUTE_HOST_DEVICE static constexpr auto ppblock_TV_to_MK() {
     return TiledMma{}.thrfrg_A(make_layout(PPBlockShape_MK{}));
   }
 
-  // (M,K) -> (athrid, val)
+  // Prepacked block, (M,K) -> (athrid, val)
   // i.e. (M,K) -> ((ThrV,(ThrM,ThrK)),(FrgV,(RestM,RestK,...)))
   CUTE_HOST_DEVICE static constexpr auto ppblock_MK_to_TV() {
     return right_inverse(ppblock_TV_to_MK()).with_shape(PPBlockShape_MK{});
   }
 
-  // (athrid, val) -> (storage_offset)
+  // Prepacked block, (athrid, val) -> (storage_offset)
   // i.e. ((ThrV,(ThrM,ThrK)),(FrgV,(RestM,RestK,...))) -> (storage_idx)
   CUTE_HOST_DEVICE static constexpr auto ppblock_TV_to_offset() {
     return make_ordered_layout(shape(ppblock_TV_to_MK()), Step<_1, _0>{});
   }
 
-  // (M,K) -> (storage_offset)
+  // Prepacked block, (M,K) -> (storage_offset)
   CUTE_HOST_DEVICE static constexpr auto ppblock_MK_to_offset() {
     // do (M,K) -> (athrid, val) -> (storage_idx)
     return ppblock_TV_to_offset().compose(ppblock_MK_to_TV());
@@ -87,7 +88,7 @@ struct PrepackedLayoutTemplate {
 
   // ((athrid, val), (BlocksM, BlocksK), L) -> (storage_idx)
   template <typename Shape_MKL>
-  CUTE_HOST_DEVICE static constexpr auto pp_TVbMbKL_to_offset(
+  CUTE_HOST_DEVICE static constexpr auto TVbMbKL_to_offset(
       Shape_MKL shape_mkl) {
     constexpr auto block_layout = ppblock_TV_to_offset();
 
@@ -109,7 +110,7 @@ struct PrepackedLayoutTemplate {
 
   // ((BlockM, BlockK), (BlocksM, BlocksK), L) -> (storage_idx)
   template <typename Shape_MKL>
-  CUTE_HOST_DEVICE static constexpr auto pp_MKbMbKL_to_offset(
+  CUTE_HOST_DEVICE static constexpr auto MKbMbKL_to_offset(
       Shape_MKL shape_mkl) {
     constexpr auto block_layout = ppblock_MK_to_offset();
 
@@ -131,7 +132,7 @@ struct PrepackedLayoutTemplate {
 
   // ((athrid, val), (BlocksM, BlocksK, L)) -> (M, K, L)
   template <class Shape_MKL>
-  CUTE_HOST_DEVICE static auto pp_TVbMbK_to_MKL(Shape_MKL shape_mkl) {
+  CUTE_HOST_DEVICE static auto TVbMbK_to_MKL(Shape_MKL shape_mkl) {
     auto tile = make_tile(make_layout(size<0>(PPBlockShape_MK{})),
                           make_layout(size<1>(PPBlockShape_MK{})));
 
@@ -142,8 +143,8 @@ struct PrepackedLayoutTemplate {
 
   // (M, K, L) -> ((athrid, val), (BlocksM, BlocksK), L)
   template <class Shape_MKL>
-  CUTE_HOST_DEVICE static auto pp_MKL_to_TVbMbK(Shape_MKL shape_mkl) {
-    auto TVbMbK_to_MKL_layout = pp_TVbMbK_to_MKL(shape_mkl);
+  CUTE_HOST_DEVICE static auto MKL_to_TVbMbK(Shape_MKL shape_mkl) {
+    auto TVbMbK_to_MKL_layout = TVbMbK_to_MKL(shape_mkl);
     return blocked_product(ppblock_MK_to_TV(),
                            make_layout(shape<1>(TVbMbK_to_MKL_layout)));
   }
