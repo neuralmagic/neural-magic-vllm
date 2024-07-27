@@ -15,9 +15,11 @@ from vllm.model_executor.utils import set_weight_attrs
 
 class CompressedTensorsW8A8Int8(CompressedTensorsScheme):
 
-    def __init__(self, strategy: str, is_static_input_scheme: bool):
+    def __init__(self, strategy: str, is_static_input_scheme: bool,
+                 input_symmetric: bool):
         self.strategy = strategy
         self.is_static_input_scheme = is_static_input_scheme
+        self.input_symmetric = input_symmetric
 
     @classmethod
     def get_min_capability(cls) -> int:
@@ -44,8 +46,21 @@ class CompressedTensorsW8A8Int8(CompressedTensorsScheme):
         if self.is_static_input_scheme:
             layer.input_scale = Parameter(layer.input_scale.max(),
                                           requires_grad=False)
+            if not self.input_symmetric:
+                layer.input_zero_point = Parameter(layer.input_zero_point,
+                                                   requires_grad=False)
+            else:
+                layer.input_zero_point = None
         else:
             layer.input_scale = None
+            layer.input_zero_point = None
+
+        if not self.input_symmetric:
+            layer.azp_adj = layer.weight.sum(dim=0,
+                                             keepdim=True,
+                                             dtype=torch.int32)
+        else:
+            layer.azp_adj = None
 
     def create_weights(self, layer: torch.nn.Module,
                        output_partition_sizes: List[int],
@@ -83,11 +98,18 @@ class CompressedTensorsW8A8Int8(CompressedTensorsScheme):
                 output_partition_sizes, **layer_kwargs)
             layer.register_parameter("input_scale", input_scale)
 
+            if not self.input_symmetric:
+                raise NotImplementedError(
+                    "static input asymmetric quantization not supported yet")
+                input_zero_point = Parameter(torch.zeros(1, dtype=torch.int8))
+                layer.register_parameter("input_zero_point", input_zero_point)
+
     def apply_weights(self, layer: torch.nn.Module, x: torch.Tensor,
                       bias: Optional[torch.Tensor]) -> torch.Tensor:
-
         return apply_int8_linear(input=x,
                                  weight=layer.weight,
                                  weight_scale=layer.weight_scale,
                                  input_scale=layer.input_scale,
+                                 input_zero_point=layer.input_zero_point,
+                                 azp_adj=layer.azp_adj,
                                  bias=bias)
