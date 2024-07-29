@@ -17,6 +17,7 @@ from vllm.sequence import (CompletionSequenceGroupOutput, Logprob,
 # (num_token_ids, num_parent_ids) per sequence group.
 SampleResultType = List[Tuple[List[int], List[int]]]
 
+skip_logprobs = True
 
 class Sampler(nn.Module):
     """Samples the next tokens from the model's outputs.
@@ -148,9 +149,22 @@ class Sampler(nn.Module):
         # Get the logprobs query results.
         prompt_logprobs = None
         sample_logprobs = None
+        
+        num_seqs = len(sampling_metadata.seq_groups)
         if not sampling_metadata.skip_sampler_cpu_output:
-            prompt_logprobs, sample_logprobs = _get_logprobs(
-                logprobs, sampling_metadata, sample_results)
+            if skip_logprobs:
+                prompt_logprobs = [None] * num_seqs
+                sample_logprobs = []
+                for sample_result in sample_results:
+                    token_id = sample_result[0][0]
+                    sample_logprobs.append([{token_id: Logprob(0, None, None)}])
+            else:
+                prompt_logprobs, sample_logprobs = _get_logprobs(
+                    logprobs, sampling_metadata, sample_results)
+            
+        # print("sample_results = {}".format(sample_results))
+        # print("prompt_logprobs: len = {} vals = {}".format(len(prompt_logprobs), prompt_logprobs))
+        # print("sample_logprobs: len = {} vals = {}".format(len(sample_logprobs), sample_logprobs))
 
         return _build_sampler_output(
             sample_results,
