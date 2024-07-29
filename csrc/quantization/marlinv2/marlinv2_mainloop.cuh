@@ -74,14 +74,11 @@ struct MarlinV2CollectiveMma {
   static_assert(size<2>(TileShape_MNK{}) % size<1>(PPBlockShape_MK{}) == 0,
                 "K in PPBlockShape_MK must evenly divide K TileShape_MNK");
 
-  // Required by kernel
-  using StandardGmemLayoutA = cutlass::layout::RowMajor;
-
   using ArchTag = arch::Sm90;
   using TileShape = TileShape_MNK;
   using ClusterShape = ClusterShape_MNK;
   using ElementA = deduce_mixed_width_dtype_t<0, ElementATuple_>;
-  using StrideA = TagToStrideA_t<StandardGmemLayoutA>;
+  using StrideA = TagToStrideA_t<layout::RowMajor>;
   using ElementB = ElementB_;
   using StrideB = TagToStrideB_t<GmemLayoutB>;
   using ElementAccumulator = ElementAccumulator_;
@@ -91,7 +88,7 @@ struct MarlinV2CollectiveMma {
                           cute::tuple<ElementA>, ElementATuple_>;
 
   static constexpr cute::GMMA::Major GmmaMajorA =
-      gmma_rs_tag_to_major_A<StandardGmemLayoutA>();
+      gmma_rs_tag_to_major_A<layout::RowMajor>();
   static constexpr cute::GMMA::Major GmmaMajorB =
       gmma_rs_tag_to_major_B<GmemLayoutB>();
   using AtomLayoutMNK = cute::conditional_t<
@@ -115,7 +112,7 @@ struct MarlinV2CollectiveMma {
                 "A must be the narrow one since its the one that flows through "
                 "registers.");
   static constexpr bool IsWarpSpecializedTransposeB =
-      is_warpspecialized_transpose_B<ElementA, StandardGmemLayoutA, ElementB,
+      is_warpspecialized_transpose_B<ElementA, layout::RowMajor, ElementB,
                                      GmemLayoutB, KernelScheduleType>();
 
  public:
@@ -136,31 +133,23 @@ struct MarlinV2CollectiveMma {
   using GmemTiledCopyB =
       decltype(sm90_cluster_shape_to_tma_atom(shape<0>(ClusterShape_MNK{})));
 
-  // ((T, V), BlocksM, BlocksK, pipe) -> offset
+  // ((T, V), (BlocksM, BlocksK), pipe) -> offset
   using SmemLayoutAPrepacked = decltype(GmemLayoutA::TVbMbKL_to_offset(
       make_shape(size<0>(TileShape_MNK{}), size<2>(TileShape_MNK{}),
                  Int<DispatchPolicy::Stages>{})));
 
-  using SmemLayoutAtomAStandard =
+  using SmemLayoutAtomARowMajor =
       decltype(rs_smem_selector<GmmaMajorA, ElementA,
                                 decltype(cute::get<0>(TileShape_MNK{})),
-                                decltype(cute::get<2>(TileShape_MNK{})),
-                                IsWarpSpecializedTransposeB>());
+                                decltype(cute::get<2>(TileShape_MNK{}))>());
 
-  static_assert(cute::rank(SmemLayoutAtomAStandard{}) == 2,
-                "SmemLayoutAtom must be rank 2 (M/N, K)");
-  static_assert((size<0>(TileShape{}) % size<0>(SmemLayoutAtomAStandard{})) ==
-                    0,
-                "SmemLayoutAtom must evenly divide tile shape.");
-  static_assert((size<2>(TileShape{}) % size<1>(SmemLayoutAtomAStandard{})) ==
-                    0,
-                "SmemLayoutAtom must evenly divide tile shape.");
+  using SmemLayoutAtomScale = Layout<
+      Shape<decltype(cute::shape<0>(SmemLayoutAtomARowMajor{})), cute::Int<1>>>;
 
   using SmemLayoutAtomB =
       decltype(rs_smem_selector<GmmaMajorB, ElementB,
                                 decltype(cute::get<1>(TileShape_MNK{})),
-                                decltype(cute::get<2>(TileShape_MNK{})),
-                                IsWarpSpecializedTransposeB>());
+                                decltype(cute::get<2>(TileShape_MNK{}))>());
 
   using SmemCopyAtomA = Copy_Atom<cute::DefaultCopy, ElementA>;
   using SmemCopyAtomB = void;
@@ -177,8 +166,6 @@ struct MarlinV2CollectiveMma {
   static_assert(cutlass::detail::dependent_false<ElementA>,
                 "Unsupported Toolkit for SM90 Collective Builder\n");
 #endif
-  static_assert(!IsWarpSpecializedTransposeB,
-                "Mixed input GEMM does not support WS transpose B.");
 
  private:
   enum class ConversionMode {
@@ -262,9 +249,6 @@ struct MarlinV2CollectiveMma {
   using PipelineState = cutlass::PipelineState<DispatchPolicy::Stages>;
 
   using PipelineParams = typename MainloopPipeline::Params;
-
-  using SmemLayoutAtomScale = Layout<
-      Shape<decltype(cute::shape<0>(SmemLayoutAtomAStandard{})), cute::Int<1>>>;
   using ScaleTileShape = decltype(make_shape(shape<0>(TileShape{}),
                                              shape<1>(SmemLayoutAtomScale{})));
 
@@ -284,7 +268,7 @@ struct MarlinV2CollectiveMma {
 
   // Tile along modes in a way that maximizes the TMA box size.
   using SmemLayoutAStandard = decltype(tile_to_shape(
-      SmemLayoutAtomAStandard{},
+      SmemLayoutAtomARowMajor{},
       make_shape(shape<0>(TileShape{}), shape<2>(TileShape{}),
                  Int<DispatchPolicy::Stages>{}),
       conditional_t<::cutlass::gemm::detail::is_major<0, StrideA>(),
@@ -406,10 +390,10 @@ struct MarlinV2CollectiveMma {
   // define them after the public section.
   static constexpr uint32_t compute_tma_transaction_bytes() {
     constexpr uint32_t a_bytes =
-        (size<0>(SmemLayoutA{}) * size<1>(SmemLayoutA{}) *
+        (size(SmemLayoutAPrepacked{}(_, _, cute::Int<0>{})) *
          static_cast<uint32_t>(cute::sizeof_bits_v<InternalElementA>) / 8);
     constexpr uint32_t b_bytes =
-        (size<0>(SmemLayoutB{}) * size<1>(SmemLayoutB{}) *
+        (size(SmemLayoutB{}(_, _, cute::Int<0>{})) *
          static_cast<uint32_t>(cute::sizeof_bits_v<InternalElementB>) / 8);
 
     constexpr uint32_t baseline_bytes = a_bytes + b_bytes;
@@ -445,16 +429,19 @@ struct MarlinV2CollectiveMma {
     }
   }
 
-  // ((athrid, val), BlocksM, BlockK, L) -> (storage_idx)
+  // ((athrid, val), (BlocksM, BlockK), L) -> (storage_idx)
   using PrepackedStrideA = decltype(stride(GmemLayoutA::TVbMbKL_to_offset(
       make_shape(int32_t(0), int32_t(0), int32_t(0)))));
 
-  using APrepackedTensor = decltype(make_tensor(
+  using ATensor = decltype(make_tensor(
       get_logical_ptr(static_cast<InternalElementA const*>(nullptr)),
       shape(GmemLayoutA::TVbMbKL_to_offset(
           make_shape(int32_t(0), int32_t(0), int32_t(0)))),
       PrepackedStrideA{}));
 
+  using BTensor = decltype(make_tensor(
+      get_logical_ptr(static_cast<InternalElementB const*>(nullptr)),
+      repeat_like(StrideB{}, int32_t(0)), StrideB{}));
   using ScaleTensor = decltype(make_tensor(
       get_logical_ptr(static_cast<NonVoidElementScale const*>(nullptr)),
       repeat_like(NonVoidStrideScale{}, int32_t(0)), NonVoidStrideScale{}));
@@ -463,10 +450,6 @@ struct MarlinV2CollectiveMma {
       get_logical_ptr(static_cast<NonVoidElementZero const*>(nullptr)),
       repeat_like(NonVoidStrideScale{}, int32_t(0)), NonVoidStrideScale{}));
 
-  using BTensor = decltype(make_tensor(
-      get_logical_ptr(static_cast<InternalElementB const*>(nullptr)),
-      repeat_like(StrideB{}, int32_t(0)), StrideB{}));
-
   static constexpr auto make_tma_copy_A(ATensor tensor_a = ATensor{}) {
     return make_tma_copy<TmaElementA>(
         GmemTiledCopyA{}, tensor_a,
@@ -474,6 +457,7 @@ struct MarlinV2CollectiveMma {
         shape(SmemLayoutAPrepacked{}(_, _, cute::Int<0>{})),
         size<1>(ClusterShape{}));  // mcast along N mode for this M load, if any
   }
+
   static constexpr auto make_tma_copy_scale(
       ScaleTensor tensor_scale = ScaleTensor{}) {
     return make_tma_copy(GmemTiledCopyScale{}, tensor_scale,
@@ -499,7 +483,7 @@ struct MarlinV2CollectiveMma {
 
  public:
   static constexpr size_t SmemAlignmentA =
-      cutlass::detail::alignment_for_swizzle(SmemLayoutA{});
+      cutlass::detail::alignment_for_swizzle(SmemLayoutAPrepacked{});
 
   static constexpr size_t SmemAlignmentB =
       cutlass::detail::alignment_for_swizzle(SmemLayoutB{});
@@ -517,7 +501,7 @@ struct MarlinV2CollectiveMma {
     static constexpr int zero_elements = elements_per_smem_zero();
     struct TensorStorage
         : cute::aligned_struct<cute::max(SmemAlignmentA, SmemAlignmentB)> {
-      cute::ArrayEngine<ElementA, cute::cosize_v<SmemLayoutA>> smem_A;
+      cute::ArrayEngine<ElementA, cute::cosize_v<SmemLayoutAPrepacked>> smem_A;
       cute::ArrayEngine<typename TiledMma::ValTypeB,
                         cute::cosize_v<SmemLayoutB>>
           smem_B;
@@ -733,11 +717,9 @@ struct MarlinV2CollectiveMma {
     auto M = get<0>(problem_shape_MNKL), N = get<1>(problem_shape_MNKL),
          K = get<2>(problem_shape_MNKL), L = get<3>(problem_shape_MNKL);
 
-    // if prepacked
-    //   (BlockV,(BlocksM, BlocksK),m,k,l)
-    // else
-    //   (BLK_M,BLK_K,m,k,l)
+    // (TILE_V,TILE_B,m,k,l)
     auto make_gA_mkl = [&]() {
+      // ((athrid, val), (BlocksM, BlockK), L) -> (storage_idx)
       auto layout = GmemLayoutA::TVbMbKL_to_offset(make_shape(M, K, L));
       Tensor mA_mkl = mainloop_params.tma_load_a.get_tma_tensor(shape(layout));
       return local_tile(mA_mkl,
@@ -745,7 +727,7 @@ struct MarlinV2CollectiveMma {
                         make_coord(0, make_coord(_, _)));
     };
 
-    // (BLK_N,BLK_K,n,k,l)
+    // (TILE_N,TILE_K,n,k,l)
     auto make_gB_nkl = [&]() {
       Tensor mB_nkl =
           mainloop_params.tma_load_b.get_tma_tensor(make_shape(N, K, L));
@@ -753,7 +735,7 @@ struct MarlinV2CollectiveMma {
                         Step<X, _1, _1>{});
     };
 
-    // (BLK_M,BLK_Scale_K,m,scale_k,l)
+    // (TILE_M,TILE_Scale_K,m,scale_k,l)
     auto make_gS_mkl = [&]() {
       auto scale_k = mainloop_params.scale_k;
       Tensor mS_mkl = mainloop_params.tma_load_scale.get_tma_tensor(
@@ -761,7 +743,7 @@ struct MarlinV2CollectiveMma {
       return local_tile(mS_mkl, ScaleTileShape{}, make_coord(_, _));
     };
 
-    // (BLK_M,BLK_Scale_K,m,scale_k,l)
+    // (TILE_M,TILE_Scale_K,m,scale_k,l)
     auto make_gZ_mkl = [&]() {
       auto scale_k = mainloop_params.scale_k;
       Tensor mZ_mkl = mainloop_params.tma_load_zero.get_tma_tensor(
@@ -840,8 +822,8 @@ struct MarlinV2CollectiveMma {
 
       // Partition the inputs based on the current block coordinates.
       auto [m_coord, n_coord, k_coord, l_coord] = blk_coord;
-      Tensor gA = gA_mkl(_, _, m_coord, _, l_coord);  // (BLK_M,BLK_K,k)
-      Tensor gB = gB_nkl(_, _, n_coord, _, l_coord);  // (BLK_N,BLK_K,k)
+      Tensor gA = gA_mkl(_, _, m_coord, _, l_coord);  // (TILE_M,TILE_K,k)
+      Tensor gB = gB_nkl(_, _, n_coord, _, l_coord);  // (TILE_N,TILE_K,k)
 
       // Applies the mapping from block_tma_a
       Tensor tAgA = block_tma_a.partition_S(gA);  // (TMA,TMA_M,TMA_K,k)
@@ -973,12 +955,8 @@ struct MarlinV2CollectiveMma {
                           Params const& mainloop_params) {
     static_assert(is_rmem<FrgTensorC>::value,
                   "C tensor must be rmem resident.");
-    static_assert(cute::rank(SmemLayoutA{}) == 3,
-                  "Smem layout must be rank 3.");
     static_assert(cute::rank(SmemLayoutB{}) == 3,
                   "Smem layout must be rank 3.");
-    // static_assert(cute::rank(SmemLayoutAtomA{}) == 2, "SmemLayoutAtomA must
-    // be rank 2.");
     static_assert(cute::rank(SmemLayoutAtomB{}) == 2,
                   "SmemLayoutAtomB must be rank 2.");
     static_assert(!cute::is_void_v<SmemCopyAtomA>,
