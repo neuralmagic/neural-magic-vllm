@@ -118,7 +118,8 @@ torch::Tensor gptq_marlin_gemm(torch::Tensor& a, torch::Tensor& b_q_weight,
                                torch::Tensor& workspace,
                                vllm::ScalarTypeTorchPtr const& b_q_type,
                                int64_t size_m, int64_t size_n, int64_t size_k,
-                               bool is_k_full, bool has_zp);
+                               bool is_k_full, bool has_zp,
+                               bool use_fp32_reduce);
 
 torch::Tensor gptq_marlin_repack(torch::Tensor& b_q_weight, torch::Tensor& perm,
                                  int64_t size_k, int64_t size_n,

@@ -58,6 +58,8 @@ def bench_run(results: List[benchmark.Measurement], model: str,
     (marlin_24_w_ref, marlin_24_q_w_comp, marlin_24_meta,
      marlin_24_s) = marlin_24_quantize(b, quant_type, group_size)
 
+    marlin_zp = torch.empty(0, dtype=torch.int, device=b.device)
+
     # GPTQ quant
     (w_ref, q_w, s, g_idx,
      rand_perm) = gptq_quantize_weights(b, quant_type, group_size, act_order)
@@ -129,11 +131,21 @@ def bench_run(results: List[benchmark.Measurement], model: str,
     results.append(
         benchmark.Timer(
             stmt=
-            "output = gptq_marlin_gemm(a, marlin_q_w, marlin_s, marlin_zp, marlin_g_idx, marlin_sort_indices, marlin_workspace.scratch, quant_type, size_m, size_n, size_k, is_k_full)",  # noqa: E501
+            "output = gptq_marlin_gemm(a, marlin_q_w, marlin_s, marlin_zp, marlin_g_idx, marlin_sort_indices, marlin_workspace.scratch, quant_type, size_m, size_n, size_k, is_k_full, False, False)",  # noqa: E501
             globals=globals,
             label=label,
             sub_label=sub_label,
-            description="gptq_marlin_gemm",
+            description="gptq_marlin_gemm_fp16",
+        ).blocked_autorange(min_run_time=min_run_time))
+
+    results.append(
+        benchmark.Timer(
+            stmt=
+            "output = gptq_marlin_gemm(a, marlin_q_w, marlin_s, marlin_zp, marlin_g_idx, marlin_sort_indices, marlin_workspace.scratch, num_bits, size_m, size_n, size_k, is_k_full, False, True)",  # noqa: E501
+            globals=globals,
+            label=label,
+            sub_label=sub_label,
+            description="gptq_marlin_gemm_fp32",
         ).blocked_autorange(min_run_time=min_run_time))
 
     if (quant_type in GPTQ_MARLIN_24_SUPPORTED_QUANT_TYPES

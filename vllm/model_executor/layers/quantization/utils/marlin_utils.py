@@ -16,6 +16,11 @@ GPTQ_MARLIN_MAX_PARALLEL = 16
 
 MARLIN_SUPPORTED_GROUP_SIZES = [-1, 32, 64, 128]
 
+# In case there is a performance issue with Marlin, the variable below can be
+# changed to False, which allows Marlin to perform global reductions in fp16
+# precision (instead of fp32), and therefore, save on some memory movements.
+USE_FP32_REDUCE_DEFAULT = True
+
 
 # For binary size and compile time, we don't support the same types for with and
 #  without runtime zero-point. We support common cases, i.e. AWQ and GPTQ.
@@ -237,7 +242,8 @@ def apply_gptq_marlin_linear(
         output_size_per_partition: int,
         input_size_per_partition: int,
         is_k_full: bool,
-        bias: Optional[torch.Tensor] = None) -> torch.Tensor:
+        bias: Optional[torch.Tensor] = None,
+        use_fp32_reduce: bool = USE_FP32_REDUCE_DEFAULT) -> torch.Tensor:
     reshaped_x = input.reshape(-1, input.shape[-1])
     out_shape = input.shape[:-1] + (output_size_per_partition, )
 
@@ -253,7 +259,8 @@ def apply_gptq_marlin_linear(
                                   size_n=output_size_per_partition,
                                   size_k=input_size_per_partition,
                                   is_k_full=is_k_full,
-                                  has_zp=False)
+                                  has_zp=False,
+                                  use_fp32_reduce=use_fp32_reduce)
 
     if bias is not None:
         output.add_(bias)  # In-place add
@@ -272,7 +279,8 @@ def apply_awq_marlin_linear(
         quant_type: ScalarType,
         output_size_per_partition: int,
         input_size_per_partition: int,
-        bias: Optional[torch.Tensor] = None) -> torch.Tensor:
+        bias: Optional[torch.Tensor] = None,
+        use_fp32_reduce: bool = USE_FP32_REDUCE_DEFAULT) -> torch.Tensor:
     reshaped_x = input.reshape(-1, input.shape[-1])
     out_shape = input.shape[:-1] + (output_size_per_partition, )
 
@@ -288,7 +296,8 @@ def apply_awq_marlin_linear(
                                   size_n=output_size_per_partition,
                                   size_k=input_size_per_partition,
                                   is_k_full=True,
-                                  has_zp=True)
+                                  has_zp=True,
+                                  use_fp32_reduce=use_fp32_reduce)
 
     if bias is not None:
         output.add_(bias)  # In-place add
