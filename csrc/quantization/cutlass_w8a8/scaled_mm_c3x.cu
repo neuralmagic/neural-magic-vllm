@@ -68,7 +68,7 @@ struct ScaledEpilogueBase {
  protected:
   using Accum = cutlass::epilogue::fusion::Sm90AccFetch;
 
-  using ScaleA = cutlass::epilogue::fusion::Sm90ColOrScalarBroadcast<
+  using ScaleA = cutlass::epilogue::fusion::Sm90ColBroadcast<
       0 /*Stages*/, typename EpilogueDescriptor::TileShape, float,
       Stride<Int<1>, Int<0>, Int<0>>>;
 
@@ -127,7 +127,7 @@ struct ScaledEpilogue
     using ScaleA_Args = typename ScaleA::Arguments;
     using ScaleB_Args = typename ScaleB::Arguments;
 
-    ScaleA_Args a_args{a_scales.data_ptr<float>(), a_scales.numel() != 1, {}};
+    ScaleA_Args a_args{a_scales.data_ptr<float>(), {}, {}};
     ScaleB_Args b_args{b_scales.data_ptr<float>(), b_scales.numel() != 1, {}};
 
     return ArgumentType{a_args, {b_args}};
@@ -174,7 +174,7 @@ struct ScaledEpilogueBias
     using ScaleB_Args = typename ScaleB::Arguments;
     using Bias_Args = typename Bias::Arguments;
 
-    ScaleA_Args a_args{a_scales.data_ptr<float>(), a_scales.numel() != 1, {}};
+    ScaleA_Args a_args{a_scales.data_ptr<float>(), {}, {}};
     ScaleB_Args b_args{b_scales.data_ptr<float>(), b_scales.numel() != 1, {}};
     Bias_Args bias_args{static_cast<ElementD*>(bias.data_ptr())};
 
