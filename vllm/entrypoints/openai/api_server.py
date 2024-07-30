@@ -220,6 +220,7 @@ def build_app(args):
     return app
 
 async def build_server(
+    backend: VLLMBackend,
     args,
     **uvicorn_kwargs,
 ) -> uvicorn.Server:
@@ -230,26 +231,6 @@ async def build_server(
     else:
         served_model_names = [args.model]
 
-    # Build the backend
-    # First need to determine if this is an embeddings model (no remote backend for those)
-    model_config = ModelConfig(
-        model=args.model,
-        tokenizer=args.tokenizer,
-        tokenizer_mode="auto",
-        trust_remote_code=False,
-        seed=0,
-        dtype="float16"
-    )
-    if model_config.embedding_mode or not args.frontend_multiprocessing:
-        # local backend
-    else:
-        # remote backend
-
-    # TODO: figure out a way around passing the token
-    global backend
-    backend = RPCClient(tokenizer=AutoTokenizer.from_pretrained(args.model))
-    await backend.wait_for_server()
-    logger.info("RPC Client connected to RPC server.")
     model_config = await backend.get_model_config()
 
     if args.disable_log_requests:
@@ -282,20 +263,12 @@ async def build_server(
         request_logger=request_logger,
         return_tokens_as_token_ids=args.return_tokens_as_token_ids,
     )
-    # TODO: emebddings should probably just run with a local AsyncLLMEmgine
-    # openai_serving_embedding = OpenAIServingEmbedding(
-    #     engine,
-    #     model_config,
-    #     served_model_names,
-    #     request_logger=request_logger,
-    # )
-    import transformers
-    transformers.AutoModelForCausalLM.from_pretrained
-    from transformers.models.mpt import modeling_mpt
-    modeling_mpt.MptForCausalLM
-    MptForCausalLM.from_pretrained
-    from transformers import PreTrainedModel
-    PreTrainedModel.from_pretrained
+    openai_serving_embedding = OpenAIServingEmbedding(
+        backend,
+        model_config,
+        served_model_names,
+        request_logger=request_logger,
+    )
     openai_serving_tokenization = OpenAIServingTokenization(
         backend,
         model_config,
@@ -334,7 +307,7 @@ async def run_server(args, **uvicorn_kwargs) -> None:
     logger.info("args: %s", args)
 
     engine_args = AsyncEngineArgs.from_cli_args(args)
-    rpc_process: Optional[Process] = None
+    rpc_server_process: Optional[Process] = None
 
     # Build backend
     global backend
@@ -348,7 +321,7 @@ async def run_server(args, **uvicorn_kwargs) -> None:
         seed=0,
         dtype="float16"
     )
-    if model_config.embedding_mode or not args.frontend_multiprocessing:
+    if model_config.embedding_mode or args.disable_frontend_multiprocessing:
         # local backend
         backend = AsyncLLMEngine.from_engine_args(engine_args, usage_context=UsageContext.OPENAI_API_SERVER)
     else:
@@ -362,9 +335,10 @@ async def run_server(args, **uvicorn_kwargs) -> None:
         # TODO: figure out a way around passing the tokenizer
         backend = RPCClient(tokenizer=AutoTokenizer.from_pretrained(args.model))
         await backend.wait_for_server()
-
+        logger.info("RPC Client connected to RPC server.")
 
     server = await build_server(
+        backend,
         args,
         **uvicorn_kwargs,
     )
@@ -382,16 +356,16 @@ async def run_server(args, **uvicorn_kwargs) -> None:
 
     try:
         await server_task
-        # If the frontend server exited on its own, then terminate the
-        # backend server too
-        rpc_server_process.terminate()
     except asyncio.CancelledError:
         logger.info("Gracefully stopping http server")
         await server.shutdown()
     finally:
-        logger.info("Cleaning up ZMQ client context")
-        backend.close()
-        rpc_server_process.join()
+        if rpc_server_process:
+            # Ensure backend process is terminated in all shutdown conditions
+            rpc_server_process.terminate()
+            logger.info("Cleaning up ZMQ client context")
+            backend.close()
+            rpc_server_process.join()
 
 
 if __name__ == "__main__":
