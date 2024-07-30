@@ -1,5 +1,6 @@
 import pickle
 import re
+import math
 from collections import defaultdict
 from typing import List
 
@@ -41,7 +42,9 @@ if __name__ == "__main__":
             "median": v.median
         })
 
-    fig, axs = plt.subplots(2, 2, figsize=(12, 10))
+
+    rows = int(math.ceil(len(results) / 2))
+    fig, axs = plt.subplots(rows, 2, figsize=(12, 5*rows))
     axs = axs.flatten()
     axs_idx = 0
     for shape, data in results.items():

@@ -1,4 +1,4 @@
-// Modified version off:
+// Modified version of:
 //  cutlass/gemm/kernel/sm90_tile_scheduler_stream_k.hpp
 // with bug fixes, namely
 //  1) tile_peer_range was not properly accounting for big units
