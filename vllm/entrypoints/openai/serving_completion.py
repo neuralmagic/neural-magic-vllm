@@ -179,6 +179,7 @@ class OpenAIServingCompletion(OpenAIServing):
                 if await raw_request.is_disconnected():
                     # Abort the request if the client disconnects.
                     await self.vllm_backend.abort(f"{request_id}-{i}")
+                    logger.info(f"Aborted request: {request_id}-{i}")
                     return self.create_error_response("Client disconnected")
                 final_res_batch[i] = res
 

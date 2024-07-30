@@ -10,6 +10,7 @@ from vllm.entrypoints.openai.rpc import (VLLM_GENERATE_RPC_PATH,
                                          VLLM_GET_DATA_RPC_PATH,
                                          VLLM_IS_READY_RPC_PATH,
                                          VLLM_ABORT_RPC_PATH,
+                                         VLLM_READY_RESPONSE_STR,
                                          VLLM_ABORT_RESPONSE_STR,
                                          GenerateRequest, 
                                          GetDataRequest,
@@ -30,29 +31,31 @@ class RPCClient:
         self.tokenizer = tokenizer
         self.decoding_config = DecodingConfig()
 
-        # Socket to check if the RPC server is ready.
-        self.is_ready_socket = self.context.socket(zmq.constants.REP)
-        self.is_ready_socket.connect(VLLM_IS_READY_RPC_PATH)
-
         # Socket to query data (e.g. get_model_config)
-        self.get_data_socket = self.context.socket(zmq.constants.REQ)
-        self.get_data_socket.connect(VLLM_GET_DATA_RPC_PATH)
-
-        # Socket to send abort messages.
-        self.abort_socket = self.context.socket(zmq.constants.DEALER)
-        self.abort_socket.connect(VLLM_ABORT_RPC_PATH)
+        
 
 
     async def wait_for_server(self):
-        await self.is_ready_socket.recv()
+        socket = self.context.socket(zmq.constants.REP)
+        socket.connect(VLLM_IS_READY_RPC_PATH)
+        response = pickle.loads(await socket.recv())
+
+        if not response == VLLM_READY_RESPONSE_STR:
+            raise ValueError(f"Unable to start RPC Server.")
+        socket.close()
+        return
 
     def close(self):
         """Destroy the zmq context and close all sockets"""
         self.context.destroy()
 
     async def get_model_config(self) -> ModelConfig:
-        self.get_data_socket.send(pickle.dumps(GetDataRequest.MODEL_CONFIG))
-        model_config = await self.get_data_socket.recv()
+        # Connect to RPC socket.
+        socket = self.context.socket(zmq.constants.REQ)
+        socket.connect(VLLM_GET_DATA_RPC_PATH)
+        socket.send(pickle.dumps(GetDataRequest.MODEL_CONFIG))
+        model_config = await socket.recv()
+        socket.close()
         return pickle.loads(model_config)
 
     async def get_tokenizer(self, lora_request: LoRARequest):
@@ -64,12 +67,26 @@ class RPCClient:
         return self.decoding_config
 
     async def abort(self, request_id: str):
-        self.abort_socket.send(pickle.dumps(AbortRequest(request_id)))
-        response = pickle.loads(await self.abort_socket.recv())
+        # Connect to RPC socket.
+        socket = self.context.socket(zmq.constants.DEALER)
+        socket.connect(VLLM_ABORT_RPC_PATH)
 
+        await socket.send_multipart([
+            pickle.dumps(AbortRequest(request_id),
+                         pickle.HIGHEST_PROTOCOL)
+        ])
+
+        # Confirm that the request was processed properly.
+        response = pickle.loads(await socket.recv())
         if not response == VLLM_ABORT_RESPONSE_STR:
+            socket.close()
             raise ValueError(f"Abort {request_id} failed!")
-        return
+        
+        socket.close()
+
+    async def do_log_stats(self,):
+        self.log_stats_socket()
+
 
     async def is_tracing_enabled(self):
         return False
@@ -111,6 +128,7 @@ class RPCClient:
                 socket.close()
                 raise request_output
 
+            # TODO: something more elegant?
             if request_output.finished:
                 break
             yield request_output

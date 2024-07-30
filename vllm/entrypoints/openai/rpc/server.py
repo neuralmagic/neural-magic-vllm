@@ -12,8 +12,9 @@ from vllm.entrypoints.openai.rpc import (VLLM_GENERATE_RPC_PATH,
                                          VLLM_ABORT_RPC_PATH,
                                          VLLM_ABORT_RESPONSE_STR,
                                          VLLM_READY_RESPONSE_STR,
+                                         VLLM_LOG_STATS_RPC_PATH,
                                          AbortRequest,
-                                         GetDataRequest)
+                                         RPCRequestType)
 from vllm.logger import init_logger
 
 logger = init_logger('vllm.entrypoints.openai.rpc.server')
@@ -42,7 +43,11 @@ class RPCServer:
         
         # Init socket for aborting requests.
         self.abort_socket = self.context.socket(zmq.constants.ROUTER)
-        self.abort_socket.bind(VLLM_ABORT_RPC_PATH)        
+        self.abort_socket.bind(VLLM_ABORT_RPC_PATH)
+
+        # Init socket for do_log_stats requests.
+        self.log_stats_socket = self.context.socket(zmq.constants.ROUTER)
+        self.log_stats_socket.bind(VLLM_LOG_STATS_RPC_PATH) 
 
         # Init socket for simple data requests.
         self.get_data_socket = self.context.socket(zmq.constants.REP)
@@ -53,6 +58,7 @@ class RPCServer:
         self.poller.register(self.generate_socket, zmq.constants.POLLIN)
         self.poller.register(self.abort_socket, zmq.constants.POLLIN)
         self.poller.register(self.get_data_socket, zmq.constants.POLLIN)
+        self.poller.register(self.do_log_stats_socket, zmq.constants.POLLIN)
 
     def cleanup(self):
         """Shuts down the zmq context and closes all sockets"""
@@ -60,6 +66,7 @@ class RPCServer:
         del self.abort_socket
         del self.get_data_socket
         del self.generate_socket
+        del self.log_stats_socket
         del self.is_ready_socket
 
     async def get_data(self, message):
@@ -70,8 +77,16 @@ class RPCServer:
         else:
             raise ValueError(f"Unknown request type: {request_type}")
 
-        await self.get_data_socket.send_multipart(
-            [pickle.dumps(data, pickle.HIGHEST_PROTOCOL)])
+        await self.get_data_socket.send_multipart([
+            pickle.dumps(data, pickle.HIGHEST_PROTOCOL)
+        ])
+        
+    async def do_log_stats(self, message):
+        request_type = pickle.loads(message)
+
+        if request_type == RPCRequestType.DO_LOG_STATS:
+            await self.engine.do_log_stats()
+        
         
     async def abort(self, identity, message):
         request = pickle.loads(message)
@@ -80,9 +95,9 @@ class RPCServer:
         await self.engine.abort(request.request_id)
 
         # Send confirmation to the client.
-        await self.abort_socket.send_multipart([
+        self.abort_socket.send_multipart([
             identity,
-            pickle.dumps(VLLM_ABORT_RESPONSE_STR),
+            pickle.dumps(VLLM_ABORT_RESPONSE_STR, pickle.HIGHEST_PROTOCOL),
         ])
 
     async def generate(self, identity, message):
@@ -99,6 +114,7 @@ class RPCServer:
                     identity,
                     pickle.dumps(request_output, pickle.HIGHEST_PROTOCOL)
                 ])
+                
         except Exception as e:
             ### Notify client of all failures
             self.generate_socket.send_multipart(
@@ -109,7 +125,7 @@ class RPCServer:
         """Inner RPC Server Loop"""
 
         # Notify the RPC Client that we are ready to receive requests.
-        await self.is_ready_socket.send_string(VLLM_READY_RESPONSE_STR)
+        await self.is_ready_socket.send(pickle.dumps(VLLM_READY_RESPONSE_STR))
         self.is_ready_socket.close()
 
         # We need to keep around a strong reference to the task,
@@ -120,7 +136,7 @@ class RPCServer:
 
         while True:
             # TODO: Why is this self?
-            # TODO: Is it possible to have > 1 generate/abort request per iteration
+            # TODO: Is it possible to have > 1 generate request per poll
             self.poll_future = self.poller.poll()
             socks = dict(await self.poll_future)
 

@@ -69,10 +69,10 @@ async def lifespan(app: fastapi.FastAPI):
             await asyncio.sleep(10)
             await backend.do_log_stats()
 
-    # if not engine_args.disable_log_stats:
-    #     task = asyncio.create_task(_force_log())
-    #     _running_tasks.add(task)
-    #     task.add_done_callback(_running_tasks.remove)
+    if not engine_args.disable_log_stats:
+        task = asyncio.create_task(_force_log())
+        _running_tasks.add(task)
+        task.add_done_callback(_running_tasks.remove)
 
     yield
 
