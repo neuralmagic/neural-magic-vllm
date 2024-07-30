@@ -37,12 +37,11 @@ class RPCServer:
         self.is_ready_socket.bind(VLLM_IS_READY_RPC_PATH)
 
         # Init socket for generation.
-        # TODO: add socket for generation without streaming
         self.generate_socket = self.context.socket(zmq.constants.ROUTER)
         self.generate_socket.bind(VLLM_GENERATE_RPC_PATH)
         
         # Init socket for aborting requests.
-        self.abort_socket = self.context.socket(zmq.constants.REP)
+        self.abort_socket = self.context.socket(zmq.constants.ROUTER)
         self.abort_socket.bind(VLLM_ABORT_RPC_PATH)        
 
         # Init socket for simple data requests.
@@ -74,14 +73,17 @@ class RPCServer:
         await self.get_data_socket.send_multipart(
             [pickle.dumps(data, pickle.HIGHEST_PROTOCOL)])
         
-    async def abort(self, message):
+    async def abort(self, identity, message):
         request = pickle.loads(message)
 
         # Abort the request in the llm engine.
         await self.engine.abort(request.request_id)
 
         # Send confirmation to the client.
-        await self.abort_socket.send_string(VLLM_ABORT_RESPONSE_STR)
+        await self.abort_socket.send_multipart([
+            identity,
+            VLLM_ABORT_RESPONSE_STR,
+        ])
 
     async def generate(self, identity, message):
         try:
@@ -117,13 +119,13 @@ class RPCServer:
         running_tasks = set()
 
         while True:
-            # Why is this self?
+            # TODO: Why is this self?
+            # TODO: Is it possible to have > 1 generate/abort request per iteration
             self.poll_future = self.poller.poll()
             socks = dict(await self.poll_future)
 
             # Handle generate request.
             if self.generate_socket in socks:
-                # TODO: Is it possible that we could have more than one request here?
                 identity, message = await self.generate_socket.recv_multipart()
                 task = asyncio.create_task(self.generate(identity, message))
                 running_tasks.add(task)
@@ -131,8 +133,8 @@ class RPCServer:
 
             # Handle abort request.
             if self.abort_socket in socks:
-                message = await self.abort_socket.recv()
-                task = asyncio.create_task(self.abort(message))
+                identity, message = await self.abort_socket.recv_multipart()
+                task = asyncio.create_task(self.abort(identity, message))
                 running_tasks.add(task)
                 task.add_done_callback(running_tasks.discard)
 
