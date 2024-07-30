@@ -1,3 +1,4 @@
+import asyncio
 import pickle
 from typing import AsyncIterator, Mapping, Optional
 
@@ -7,6 +8,7 @@ import zmq.asyncio
 from vllm.config import DecodingConfig, ModelConfig
 from vllm.entrypoints.openai.rpc import (VLLM_GENERATE_RPC_PATH,
                                          VLLM_GET_DATA_RPC_PATH,
+                                         VLLM_HEALTH_CHECK_PATH,
                                          VLLM_IS_READY_RPC_PATH,
                                          GenerateRequest, GetDataRequest)
 from vllm.inputs import PromptInputs
@@ -33,6 +35,10 @@ class RPCClient:
         # Socket to query data (e.g. get_model_config)
         self.get_data_socket = self.context.socket(zmq.constants.REQ)
         self.get_data_socket.connect(VLLM_GET_DATA_RPC_PATH)
+
+        # Health check socket
+        self.health_check_socket = self.context.socket(zmq.constants.DEALER)
+        self.health_check_socket.connect(VLLM_HEALTH_CHECK_PATH)
 
     async def wait_for_server(self):
         await self.is_ready_socket.recv()
@@ -104,3 +110,17 @@ class RPCClient:
 
         yield request_output
         socket.close()
+
+    async def check_health(self) -> None:
+        """Raise if unhealthy"""
+        await self.health_check_socket.send_multipart([pickle.dumps(0)])
+
+        health_future = self.health_check_socket.recv()
+
+        # TODO: config timeout for health check?
+        message = await asyncio.wait_for(health_future, timeout=5)
+
+        response = pickle.loads(message)
+
+        if isinstance(response, Exception):
+            raise response

@@ -10,6 +10,7 @@ from vllm.sampling_params import SamplingParams
 VLLM_GENERATE_RPC_PATH = "tcp://localhost:5570"
 VLLM_GET_DATA_RPC_PATH = "tcp://localhost:5571"
 VLLM_IS_READY_RPC_PATH = "tcp://localhost:5572"
+VLLM_HEALTH_CHECK_PATH = "tcp://localhost:5584"
 
 
 @dataclass

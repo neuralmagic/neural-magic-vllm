@@ -8,6 +8,7 @@ import zmq.asyncio
 from vllm import AsyncLLMEngine
 from vllm.entrypoints.openai.rpc import (VLLM_GENERATE_RPC_PATH,
                                          VLLM_GET_DATA_RPC_PATH,
+                                         VLLM_HEALTH_CHECK_PATH,
                                          VLLM_IS_READY_RPC_PATH,
                                          GetDataRequest)
 from vllm.logger import init_logger
@@ -40,10 +41,15 @@ class RPCServer:
         self.get_data_socket = self.context.socket(zmq.constants.REP)
         self.get_data_socket.bind(VLLM_GET_DATA_RPC_PATH)
 
+        # Init socket for health checks
+        self.health_check_socket = self.context.socket(zmq.constants.ROUTER)
+        self.health_check_socket.bind(VLLM_HEALTH_CHECK_PATH)
+
         # Setup polling so we can listen on both sockets.
         self.poller = zmq.asyncio.Poller()
         self.poller.register(self.generate_socket, zmq.constants.POLLIN)
         self.poller.register(self.get_data_socket, zmq.constants.POLLIN)
+        self.poller.register(self.health_check_socket, zmq.constants.POLLIN)
 
     def cleanup(self):
         """Shuts down the zmq context and closes all sockets"""
@@ -82,6 +88,15 @@ class RPCServer:
             self.generate_socket.send_multipart(
                 [identity, pickle.dumps(e, pickle.HIGHEST_PROTOCOL)])
 
+    async def check_health(self, _, identity):
+        try:
+            await self.engine.check_health()
+            await self.health_check_socket.send_multipart(
+                [identity, pickle.dumps(0, pickle.HIGHEST_PROTOCOL)])
+        except Exception as e:
+            await self.health_check_socket.send_multipart(
+                [identity, pickle.dumps(e, pickle.HIGHEST_PROTOCOL)])
+
     async def run_loop(self):
         # Notify the RPC client that we are ready to receive requests.
         await self.is_ready_socket.send_string("Ready!")
@@ -92,7 +107,6 @@ class RPCServer:
         while True:
             self.poll_future = self.poller.poll()
             socks = dict(await self.poll_future)
-
             task = None
             if self.generate_socket in socks:
                 identity, message = await self.generate_socket.recv_multipart()
@@ -101,6 +115,12 @@ class RPCServer:
             elif self.get_data_socket in socks:
                 message = await self.get_data_socket.recv()
                 task = asyncio.create_task(self.get_data(message))
+
+            elif self.health_check_socket in socks:
+                identity, message = \
+                    await self.health_check_socket.recv_multipart()
+                task = asyncio.create_task(self.check_health(
+                    message, identity))
 
             # We need to keep around a strong reference to the task,
             # to avoid the task disappearing mid-execution as running tasks

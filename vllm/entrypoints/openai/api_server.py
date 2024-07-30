@@ -18,11 +18,11 @@ from prometheus_client import make_asgi_app
 from starlette.routing import Mount
 from transformers import AutoTokenizer
 
-from vllm.config import ModelConfig
 import vllm.envs as envs
+from vllm.config import ModelConfig
 from vllm.engine.arg_utils import AsyncEngineArgs
-from vllm.engine.protocol import VLLMBackend
 from vllm.engine.async_llm_engine import AsyncLLMEngine
+from vllm.engine.protocol import VLLMBackend
 from vllm.entrypoints.logger import RequestLogger
 from vllm.entrypoints.openai.cli_args import make_arg_parser
 # yapf conflicts with isort for this block
