@@ -6,7 +6,7 @@ import signal
 from contextlib import asynccontextmanager
 from http import HTTPStatus
 from multiprocessing import Process
-from typing import Optional, Set
+from typing import AsyncIterator, Set
 
 import fastapi
 import uvicorn
@@ -76,6 +76,62 @@ async def lifespan(app: fastapi.FastAPI):
     #     task.add_done_callback(_running_tasks.remove)
 
     yield
+
+
+@asynccontextmanager
+async def build_backend(args) -> AsyncIterator[VLLMBackend]:
+    # Context manager to handle backend lifecycle
+    # Ensures everything is shutdown and cleaned up on error/exit
+    engine_args = AsyncEngineArgs.from_cli_args(args)
+
+    # Backend itself still global for the silly lil' health handler
+    global backend
+
+    # First need to determine if this is an embeddings model
+    # (no remote backend for those)
+    model_config = ModelConfig(model=args.model,
+                               tokenizer=args.tokenizer,
+                               tokenizer_mode="auto",
+                               trust_remote_code=False,
+                               seed=0,
+                               dtype="float16")
+    if model_config.embedding_mode or args.disable_frontend_multiprocessing:
+        # local backend
+        logger.info("Initializing in-process AsyncLLMEmgine")
+        backend = AsyncLLMEngine.from_engine_args(
+            engine_args, usage_context=UsageContext.OPENAI_API_SERVER)
+        yield backend
+        # No cleanup
+        return
+
+    else:
+        # remote backend
+        ## First need to start the backend process
+        logger.info("Initializing AsyncLLMEmgine in separate process")
+        rpc_server_process = Process(target=run_rpc_server,
+                                     args=(engine_args, ))
+        rpc_server_process.start()
+
+        ## Then build the client for the backend process
+        # TODO: figure out a way around passing the tokenizer
+        backend = RPCClient(
+            tokenizer=AutoTokenizer.from_pretrained(args.model))
+        await backend.wait_for_server()
+        logger.info("RPC Client connected to RPC server.")
+
+        try:
+            yield backend
+        finally:
+            ## Cleanup:
+            # Ensure backend process was terminated
+            rpc_server_process.terminate()
+
+            # Close all open connections to the backend
+            logger.info("Cleaning up ZMQ client context")
+            backend.close()
+
+            # Wait for server process to join
+            rpc_server_process.join()
 
 
 router = APIRouter()
@@ -219,6 +275,7 @@ def build_app(args):
 
     return app
 
+
 async def build_server(
     backend: VLLMBackend,
     args,
@@ -306,66 +363,30 @@ async def run_server(args, **uvicorn_kwargs) -> None:
     logger.info("vLLM API server version %s", VLLM_VERSION)
     logger.info("args: %s", args)
 
-    engine_args = AsyncEngineArgs.from_cli_args(args)
-    rpc_server_process: Optional[Process] = None
+    async with build_backend(args) as backend:
 
-    # Build backend
-    global backend
+        server = await build_server(
+            backend,
+            args,
+            **uvicorn_kwargs,
+        )
 
-    # First need to determine if this is an embeddings model (no remote backend for those)
-    model_config = ModelConfig(
-        model=args.model,
-        tokenizer=args.tokenizer,
-        tokenizer_mode="auto",
-        trust_remote_code=False,
-        seed=0,
-        dtype="float16"
-    )
-    if model_config.embedding_mode or args.disable_frontend_multiprocessing:
-        # local backend
-        backend = AsyncLLMEngine.from_engine_args(engine_args, usage_context=UsageContext.OPENAI_API_SERVER)
-    else:
-        # remote backend
-        ## First need to start the backend process
-        rpc_server_process = Process(target=run_rpc_server,
-                                    args=(engine_args, ))
-        rpc_server_process.start()
-        
-        ## Then build the client for the backend process
-        # TODO: figure out a way around passing the tokenizer
-        backend = RPCClient(tokenizer=AutoTokenizer.from_pretrained(args.model))
-        await backend.wait_for_server()
-        logger.info("RPC Client connected to RPC server.")
+        loop = asyncio.get_running_loop()
 
-    server = await build_server(
-        backend,
-        args,
-        **uvicorn_kwargs,
-    )
+        server_task = loop.create_task(server.serve())
 
-    loop = asyncio.get_running_loop()
+        def signal_handler() -> None:
+            # prevents the uvicorn signal handler to exit early
+            server_task.cancel()
 
-    server_task = loop.create_task(server.serve())
+        loop.add_signal_handler(signal.SIGINT, signal_handler)
+        loop.add_signal_handler(signal.SIGTERM, signal_handler)
 
-    def signal_handler() -> None:
-        # prevents the uvicorn signal handler to exit early
-        server_task.cancel()
-
-    loop.add_signal_handler(signal.SIGINT, signal_handler)
-    loop.add_signal_handler(signal.SIGTERM, signal_handler)
-
-    try:
-        await server_task
-    except asyncio.CancelledError:
-        logger.info("Gracefully stopping http server")
-        await server.shutdown()
-    finally:
-        if rpc_server_process:
-            # Ensure backend process is terminated in all shutdown conditions
-            rpc_server_process.terminate()
-            logger.info("Cleaning up ZMQ client context")
-            backend.close()
-            rpc_server_process.join()
+        try:
+            await server_task
+        except asyncio.CancelledError:
+            logger.info("Gracefully stopping http server")
+            await server.shutdown()
 
 
 if __name__ == "__main__":
