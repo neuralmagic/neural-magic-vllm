@@ -10,11 +10,11 @@ import torch
 import torch.utils.benchmark as TBenchmark
 from torch.utils.benchmark import Measurement as TMeasurement
 
-from benchmarks.kernels.weight_shapes import WEIGHT_SHAPES
+from weight_shapes import WEIGHT_SHAPES
 from vllm import _custom_ops as ops
-from vllm.model_executor.layers.quantization.gptq_marlin import (
-    GPTQ_MARLIN_MAX_PARALLEL, GPTQ_MARLIN_MIN_THREAD_N, marlin_permute_scales)
 from vllm.model_executor.layers.quantization.utils.marlin_utils import (
+    GPTQ_MARLIN_MAX_PARALLEL, GPTQ_MARLIN_MIN_THREAD_N, marlin_permute_scales)
+from vllm.model_executor.layers.quantization.utils.marlin_utils_test import (
     MarlinWorkspace)
 from vllm.model_executor.layers.quantization.utils.quant_utils import (
     gptq_pack, pack_weights_into_int32, quantize_weights)
@@ -36,7 +36,7 @@ def make_bench_tensors(
     atype: torch.dtype, wtype: ScalarType, group_size: int, m: int, n: int,
     k: int
 ) -> Tuple[torch.tensor, List[Tuple[torch.tensor, torch.tensor,
-                                    torch.tensor]]]:
+                                    torch.tensor, torch.tensor]]]:
     assert wtype.is_integer(), "TODO: support floating point weights"
 
     # we want to make sure that weights don't fit into L2 cache between runs so
@@ -77,10 +77,10 @@ def bench_fn(label: str, sub_label: str, description: str,
 
 def loop_over_weights(
     a: torch.tensor, weights: List[Tuple[torch.tensor, torch.tensor,
-                                         torch.tensor]],
+                                         torch.tensor, torch.tensor]],
     fn: Callable[[torch.tensor, torch.tensor, torch.tensor, torch.tensor],
                  None]):
-    for w_ref, w_q, w_s in weights:
+    for w_ref, w_q, w_s, _ in weights:
         fn(a, w_ref, w_q, w_s)
 
 
@@ -97,8 +97,8 @@ def bench(atype: torch.dtype,
     a, weights = make_bench_tensors(atype, wtype, group_size, m, n, k)
     sub_label += f", L={len(weights)}"
 
-    weights_marlinv2 = [(w_ref, marlinv2_pack_weights(w_q, wtype), w_s)
-                        for w_ref, w_q, w_s in weights]
+    weights_marlinv2 = [(w_ref, marlinv2_pack_weights(w_q, wtype), w_s, w_zp)
+                        for w_ref, w_q, w_s, w_zp in weights]
 
     timers = []
     # pytorch impl
@@ -113,6 +113,7 @@ def bench(atype: torch.dtype,
     if benchmark_marlinv1:
         w_ref = weights[0][0]
 
+        w_zp_empty = torch.empty(0, dtype=torch.int, device=w_ref.device)
         sort_indices = torch.empty(0, dtype=torch.int, device=w_ref.device)
         g_idx = torch.empty(0, dtype=torch.int, device=w_ref.device)
 
@@ -122,12 +123,11 @@ def bench(atype: torch.dtype,
                                           wtype.size_bits)
 
         def marlinv1_permute_scales(w_s: torch.tensor) -> torch.tensor:
-            return marlin_permute_scales(w_s, *w_ref.shape, group_size,
-                                         wtype.size_bits)
+            return marlin_permute_scales(w_s, *w_ref.shape, group_size)
 
         weights_marlinv1 = [(w_ref, marlinv1_pack_weights(w_q),
-                             marlinv1_permute_scales(w_s))
-                            for w_ref, w_q, w_s in weights]
+                             marlinv1_permute_scales(w_s), w_zp)
+                            for w_ref, w_q, w_s, w_zp in weights]
 
         workspace = MarlinWorkspace(w_ref.shape[1], GPTQ_MARLIN_MIN_THREAD_N,
                                     GPTQ_MARLIN_MAX_PARALLEL)
@@ -140,10 +140,11 @@ def bench(atype: torch.dtype,
                     gptq_marlin_gemm(a,
                                      w_q,
                                      w_s,
+                                     w_zp_empty,
                                      g_idx,
                                      sort_indices,
                                      workspace.scratch,
-                                     wtype.size_bits,
+                                     wtype,
                                      size_m=a.shape[0],
                                      size_n=w_ref.shape[1],
                                      size_k=w_ref.shape[0],
@@ -194,7 +195,8 @@ def run(dtype: torch.dtype,
 
     results = []
     for m, k, n in MKNs:
-        timers = bench(dtype, scalar_types.s4, 128, m, k, n, f"{dtype}-gemm",
+        timers = bench(dtype, scalar_types.uint4b8, 128, 
+                       m, k, n, f"{dtype}-gemm",
                        f"MKN=({m}x{k}x{n})")
         print_timers(timers)
         results.extend(timers)
