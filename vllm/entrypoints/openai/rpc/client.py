@@ -38,7 +38,8 @@ class RPCClient:
         self.get_data_socket = self.context.socket(zmq.constants.REQ)
         self.get_data_socket.connect(VLLM_GET_DATA_RPC_PATH)
 
-        self.abort_socket = self.context.socket(zmq.constants.REQ)
+        # Socket to send abort messages.
+        self.abort_socket = self.context.socket(zmq.constants.DEALER)
         self.abort_socket.connect(VLLM_ABORT_RPC_PATH)
 
 
@@ -50,7 +51,6 @@ class RPCClient:
         self.context.destroy()
 
     async def get_model_config(self) -> ModelConfig:
-        print("about to get model config")
         self.get_data_socket.send(pickle.dumps(GetDataRequest.MODEL_CONFIG))
         model_config = await self.get_data_socket.recv()
         return pickle.loads(model_config)
@@ -64,14 +64,12 @@ class RPCClient:
         return self.decoding_config
 
     async def abort(self, request_id: str):
-        print("about to abort")
         self.abort_socket.send(pickle.dumps(AbortRequest(request_id)))
         response = pickle.loads(await self.abort_socket.recv())
 
         if not response == VLLM_ABORT_RESPONSE_STR:
             raise ValueError(f"Abort {request_id} failed!")
         return
-
 
     async def is_tracing_enabled(self):
         return False
@@ -85,7 +83,6 @@ class RPCClient:
         trace_headers: Optional[Mapping[str, str]] = None,
         prompt_adapter_request: Optional[PromptAdapterRequest] = None
     ) -> AsyncIterator[RequestOutput]:
-        print("about to generate")
 
         # Connect to RPC socket for Request-Reply pattern,
         # Note that we use DEALER to enable asynchronous communication

@@ -82,7 +82,7 @@ class RPCServer:
         # Send confirmation to the client.
         await self.abort_socket.send_multipart([
             identity,
-            VLLM_ABORT_RESPONSE_STR,
+            pickle.dumps(VLLM_ABORT_RESPONSE_STR),
         ])
 
     async def generate(self, identity, message):
