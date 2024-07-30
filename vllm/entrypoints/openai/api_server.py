@@ -4,9 +4,9 @@ import inspect
 import re
 import signal
 from contextlib import asynccontextmanager
-from multiprocessing import Process
 from http import HTTPStatus
-from typing import Set
+from multiprocessing import Process
+from typing import Optional, Set
 
 import fastapi
 import uvicorn
@@ -16,13 +16,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from prometheus_client import make_asgi_app
 from starlette.routing import Mount
-
 from transformers import AutoTokenizer
 
-from vllm.engine.protocol import VLLMBackend
+from vllm.config import ModelConfig
 import vllm.envs as envs
 from vllm.engine.arg_utils import AsyncEngineArgs
-# from vllm.engine.async_llm_engine import AsyncLLMEngine
+from vllm.engine.protocol import VLLMBackend
+from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.entrypoints.logger import RequestLogger
 from vllm.entrypoints.openai.cli_args import make_arg_parser
 # yapf conflicts with isort for this block
@@ -35,15 +35,16 @@ from vllm.entrypoints.openai.protocol import (ChatCompletionRequest,
                                               EmbeddingRequest, ErrorResponse,
                                               TokenizeRequest,
                                               TokenizeResponse)
+from vllm.entrypoints.openai.rpc.client import RPCClient
+from vllm.entrypoints.openai.rpc.server import run_rpc_server
 # yapf: enable
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
 from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
 from vllm.entrypoints.openai.serving_tokenization import (
     OpenAIServingTokenization)
-from vllm.entrypoints.openai.rpc.client import RPCClient
-from vllm.entrypoints.openai.rpc.server import run_rpc_server
 from vllm.logger import init_logger
+from vllm.usage.usage_lib import UsageContext
 from vllm.utils import FlexibleArgumentParser
 from vllm.version import __version__ as VLLM_VERSION
 
@@ -218,7 +219,6 @@ def build_app(args):
 
     return app
 
-
 async def build_server(
     args,
     **uvicorn_kwargs,
@@ -229,6 +229,21 @@ async def build_server(
         served_model_names = args.served_model_name
     else:
         served_model_names = [args.model]
+
+    # Build the backend
+    # First need to determine if this is an embeddings model (no remote backend for those)
+    model_config = ModelConfig(
+        model=args.model,
+        tokenizer=args.tokenizer,
+        tokenizer_mode="auto",
+        trust_remote_code=False,
+        seed=0,
+        dtype="float16"
+    )
+    if model_config.embedding_mode or not args.frontend_multiprocessing:
+        # local backend
+    else:
+        # remote backend
 
     # TODO: figure out a way around passing the token
     global backend
@@ -274,6 +289,13 @@ async def build_server(
     #     served_model_names,
     #     request_logger=request_logger,
     # )
+    import transformers
+    transformers.AutoModelForCausalLM.from_pretrained
+    from transformers.models.mpt import modeling_mpt
+    modeling_mpt.MptForCausalLM
+    MptForCausalLM.from_pretrained
+    from transformers import PreTrainedModel
+    PreTrainedModel.from_pretrained
     openai_serving_tokenization = OpenAIServingTokenization(
         backend,
         model_config,
@@ -311,9 +333,36 @@ async def run_server(args, **uvicorn_kwargs) -> None:
     logger.info("vLLM API server version %s", VLLM_VERSION)
     logger.info("args: %s", args)
 
-    rpc_server_process = Process(target=run_rpc_server,
-                                 args=(AsyncEngineArgs.from_cli_args(args), ))
-    rpc_server_process.start()
+    engine_args = AsyncEngineArgs.from_cli_args(args)
+    rpc_process: Optional[Process] = None
+
+    # Build backend
+    global backend
+
+    # First need to determine if this is an embeddings model (no remote backend for those)
+    model_config = ModelConfig(
+        model=args.model,
+        tokenizer=args.tokenizer,
+        tokenizer_mode="auto",
+        trust_remote_code=False,
+        seed=0,
+        dtype="float16"
+    )
+    if model_config.embedding_mode or not args.frontend_multiprocessing:
+        # local backend
+        backend = AsyncLLMEngine.from_engine_args(engine_args, usage_context=UsageContext.OPENAI_API_SERVER)
+    else:
+        # remote backend
+        ## First need to start the backend process
+        rpc_server_process = Process(target=run_rpc_server,
+                                    args=(engine_args, ))
+        rpc_server_process.start()
+        
+        ## Then build the client for the backend process
+        # TODO: figure out a way around passing the tokenizer
+        backend = RPCClient(tokenizer=AutoTokenizer.from_pretrained(args.model))
+        await backend.wait_for_server()
+
 
     server = await build_server(
         args,
