@@ -40,8 +40,8 @@ from vllm.tracing import (SpanAttributes, SpanKind, extract_trace_context,
                           init_tracer)
 from vllm.transformers_utils.config import try_get_generation_config
 from vllm.transformers_utils.detokenizer import Detokenizer
-from vllm.transformers_utils.tokenizer_group import (BaseTokenizerGroup,
-                                                     _init_tokenizer_from_configs)
+from vllm.transformers_utils.tokenizer_group import (
+    BaseTokenizerGroup, _init_tokenizer_from_configs)
 from vllm.usage.usage_lib import (UsageContext, is_usage_stats_enabled,
                                   usage_message)
 from vllm.utils import Counter
@@ -486,8 +486,7 @@ class LLMEngine:
             model_config=self.model_config,
             scheduler_config=self.scheduler_config,
             parallel_config=self.parallel_config,
-            enable_lora=bool(self.lora_config)
-        )
+            enable_lora=bool(self.lora_config))
 
     def _verify_args(self) -> None:
         self.model_config.verify_with_parallel_config(self.parallel_config)
@@ -751,12 +750,12 @@ class LLMEngine:
 
     def get_parallel_config(self) -> ParallelConfig:
         """Gets the parallel configuration."""
-        return self.get_parallel_config
+        return self.parallel_config
 
     def get_decoding_config(self) -> DecodingConfig:
         """Gets the decoding configuration."""
         return self.decoding_config
-    
+
     def get_scheduler_config(self) -> SchedulerConfig:
         """Gets the scheduler configuration."""
         return self.scheduler_config

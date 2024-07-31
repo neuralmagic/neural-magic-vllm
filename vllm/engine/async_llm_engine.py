@@ -7,8 +7,8 @@ from typing import (AsyncIterator, Callable, Dict, Iterable, List, Mapping,
 from transformers import PreTrainedTokenizer
 
 import vllm.envs as envs
-from vllm.config import (DecodingConfig, EngineConfig, LoRAConfig,
-                         ModelConfig, ParallelConfig, SchedulerConfig)
+from vllm.config import (DecodingConfig, EngineConfig, LoRAConfig, ModelConfig,
+                         ParallelConfig, SchedulerConfig)
 from vllm.core.scheduler import SchedulerOutputs
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_timeout import asyncio_timeout
@@ -924,7 +924,7 @@ class AsyncLLMEngine:
             return await self.engine.get_model_config.remote()  # type: ignore
         else:
             return self.engine.get_model_config()
-    
+
     async def get_parallel_config(self) -> ParallelConfig:
         """Get the parallel configuration of the vLLM engine."""
         if self.engine_use_ray:
@@ -948,7 +948,7 @@ class AsyncLLMEngine:
             )
         else:
             return self.engine.get_scheduler_config()
-    
+
     async def get_lora_config(self) -> LoRAConfig:
         """Get the lora configuration of the vLLM engine."""
         if self.engine_use_ray:

@@ -37,8 +37,6 @@ class RPCServer:
         self.socket.close()
         self.context.destroy()
 
-    
-
     async def get_model_config(self, identity):
         """Send the ModelConfig"""
         model_config = await self.engine.get_model_config()
@@ -54,9 +52,8 @@ class RPCServer:
         await self.socket.send_multipart(
             [identity,
              pickle.dumps(decoding_config, pickle.HIGHEST_PROTOCOL)])
-        
+
     async def get_lora_config(self, identity):
-        """Send the LoRAConfig"""
         lora_config = await self.engine.get_lora_config()
 
         await self.socket.send_multipart(
@@ -69,7 +66,7 @@ class RPCServer:
 
         await self.socket.send_multipart(
             [identity,
-             pickle.dumps(parallel_config, pickle.HIGHEST_PROTOCOL)])    
+             pickle.dumps(parallel_config, pickle.HIGHEST_PROTOCOL)])
 
     async def get_parallel_config(self, identity):
         """Send the ParallelConfig"""
@@ -77,7 +74,7 @@ class RPCServer:
 
         await self.socket.send_multipart(
             [identity,
-             pickle.dumps(parallel_config, pickle.HIGHEST_PROTOCOL)])        
+             pickle.dumps(parallel_config, pickle.HIGHEST_PROTOCOL)])
 
     async def do_log_stats(self, identity):
         """Log stats and confirm success."""
