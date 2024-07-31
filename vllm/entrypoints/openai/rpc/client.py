@@ -89,7 +89,7 @@ class RPCClient:
 
     async def abort(self, request_id: str):
         """Send an RPCAbortRequest to the RPC Server"""
-
+        
         # Connect to socket.
         socket = self.context.socket(zmq.constants.DEALER)
         socket.connect(VLLM_RPC_PATH)

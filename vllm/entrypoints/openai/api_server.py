@@ -98,19 +98,18 @@ async def build_backend(
                                dtype="float16")
     is_embedding_model = model_config.embedding_mode
 
+    # In process backend.
     if is_embedding_model or disable_frontend_multiprocessing:
-        # local backend
-        logger.info("Initializing in-process AsyncLLMEmgine")
         backend = AsyncLLMEngine.from_engine_args(
             engine_args, usage_context=UsageContext.OPENAI_API_SERVER)
         yield backend
-        # No cleanup
+        
+        # No cleanup needed for local in process backend.
         return
 
+    # Multiprocessing backend: use RPC Server based on ZMQ.
     else:
-        # remote backend
-        ## First need to start the backend process
-        logger.info("Initializing AsyncLLMEmgine in separate process")
+        # Start backend process.
         rpc_server_process = Process(target=run_rpc_server,
                                      args=(engine_args, UsageContext.OPENAI_API_SERVER, ))
         rpc_server_process.start()
@@ -130,7 +129,6 @@ async def build_backend(
             rpc_server_process.terminate()
 
             # Close all open connections to the backend
-            logger.info("Cleaning up ZMQ client context")
             backend.close()
 
             # Wait for server process to join
