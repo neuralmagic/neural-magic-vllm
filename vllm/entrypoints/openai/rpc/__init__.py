@@ -31,9 +31,10 @@ class RPCUtilityRequest(Enum):
     GET_MODEL_CONFIG = 2
     GET_DECODING_CONFIG = 3
     GET_PARALLEL_CONFIG = 4
-    GET_LORA_CONFIG = 5
-    DO_LOG_STATS = 6
-    CHECK_HEALTH = 7
+    GET_SCHEDULER_CONFIG = 5
+    GET_LORA_CONFIG = 6
+    DO_LOG_STATS = 7
+    CHECK_HEALTH = 8
 
 
 RPC_REQUEST_TYPE = Union[RPCGenerateRequest, RPCAbortRequest,

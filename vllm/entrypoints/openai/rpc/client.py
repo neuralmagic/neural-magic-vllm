@@ -90,8 +90,7 @@ class RPCClient:
         return response
 
     async def get_tokenizer(self, lora_request: LoRARequest):
-        # TODO: handle this via get data? - or avoid doing via RPC
-        return self.tokenizer
+        await self.tokenizer.get_lora_tokenizer_async(lora_request)
 
     async def is_tracing_enabled(self):
         # TODO: what is this?
@@ -144,11 +143,10 @@ class RPCClient:
         """Get LoRAConfig from the RPCServer"""
 
         return await self._send_get_data_rpc_request(
-            RPCUtilityRequest.GET_SCHEDULER_CONFIG,
+            RPCUtilityRequest.GET_LORA_CONFIG,
             expected_type=LoRAConfig,
             error_message="Could not get LoRAConfig from RPC Server"
         )
-
 
     async def abort(self, request_id: str):
         """Send an ABORT_REQUEST signal to the RPC Server"""

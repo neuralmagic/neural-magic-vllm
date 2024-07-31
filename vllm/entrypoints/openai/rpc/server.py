@@ -154,6 +154,8 @@ class RPCServer:
                 return self.get_parallel_config(identity)
             elif request == RPCUtilityRequest.GET_DECODING_CONFIG:
                 return self.get_decoding_config(identity)
+            elif request == RPCUtilityRequest.GET_SCHEDULER_CONFIG:
+                return self.get_scheduler_config(identity)
             elif request == RPCUtilityRequest.GET_LORA_CONFIG:
                 return self.get_lora_config(identity)
             elif request == RPCUtilityRequest.DO_LOG_STATS:
