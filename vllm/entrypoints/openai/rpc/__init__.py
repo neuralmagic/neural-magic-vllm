@@ -7,17 +7,11 @@ from vllm.lora.request import LoRARequest
 from vllm.prompt_adapter.request import PromptAdapterRequest
 from vllm.sampling_params import SamplingParams
 
-VLLM_GENERATE_RPC_PATH  = "tcp://localhost:5570"
-VLLM_GET_DATA_RPC_PATH  = "tcp://localhost:5571"
-VLLM_IS_READY_RPC_PATH  = "tcp://localhost:5572"
-VLLM_ABORT_RPC_PATH     = "tcp://localhost:5573"
-VLLM_LOG_STATS_RPC_PATH = "tcp://localhost:5574"
-
-VLLM_ABORT_RESPONSE_STR = "ABORTED"
-VLLM_READY_RESPONSE_STR = "READY"
+VLLM_RPC_PATH  = "tcp://localhost:5570"
+VLLM_RPC_SUCCESS_STR = "SUCCESS"
 
 @dataclass
-class GenerateRequest:
+class RPCGenerateRequest:
     inputs: PromptInputs
     sampling_params: SamplingParams
     request_id: str
@@ -27,9 +21,11 @@ class GenerateRequest:
 
 
 @dataclass
-class AbortRequest:
+class RPCAbortRequest:
     request_id: str
 
-class RPCRequestType(Enum):
-    MODEL_CONFIG = 1
-    DO_LOG_STATS = 2
+
+class RPCUtilityRequest(Enum):
+    IS_SERVER_READY = 1
+    GET_MODEL_CONFIG = 2
+    DO_LOG_STATS = 3

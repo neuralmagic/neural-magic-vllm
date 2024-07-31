@@ -6,7 +6,7 @@ import signal
 from contextlib import asynccontextmanager
 from http import HTTPStatus
 from multiprocessing import Process
-from typing import AsyncIterator, Set
+from typing import AsyncIterator, Set, Tuple
 
 import fastapi
 import uvicorn
@@ -79,23 +79,26 @@ async def lifespan(app: fastapi.FastAPI):
 
 
 @asynccontextmanager
-async def build_backend(args) -> AsyncIterator[VLLMBackend]:
+async def build_backend(
+    engine_args: AsyncLLMEngine, 
+    disable_frontend_multiprocessing: bool = False) -> AsyncIterator[VLLMBackend]:
+
     # Context manager to handle backend lifecycle
     # Ensures everything is shutdown and cleaned up on error/exit
-    engine_args = AsyncEngineArgs.from_cli_args(args)
 
     # Backend itself still global for the silly lil' health handler
     global backend
 
-    # First need to determine if this is an embeddings model
-    # (no remote backend for those)
+    # Hack: disable MP if EmbeddingModel
     model_config = ModelConfig(model=args.model,
                                tokenizer=args.tokenizer,
                                tokenizer_mode="auto",
                                trust_remote_code=False,
                                seed=0,
                                dtype="float16")
-    if model_config.embedding_mode or args.disable_frontend_multiprocessing:
+    is_embedding_model = model_config.embedding_mode
+
+    if is_embedding_model or disable_frontend_multiprocessing:
         # local backend
         logger.info("Initializing in-process AsyncLLMEmgine")
         backend = AsyncLLMEngine.from_engine_args(
@@ -109,13 +112,13 @@ async def build_backend(args) -> AsyncIterator[VLLMBackend]:
         ## First need to start the backend process
         logger.info("Initializing AsyncLLMEmgine in separate process")
         rpc_server_process = Process(target=run_rpc_server,
-                                     args=(engine_args, ))
+                                     args=(engine_args, UsageContext.OPENAI_API_SERVER, ))
         rpc_server_process.start()
 
         ## Then build the client for the backend process
         # TODO: figure out a way around passing the tokenizer
         backend = RPCClient(
-            tokenizer=AutoTokenizer.from_pretrained(args.model))
+            tokenizer=AutoTokenizer.from_pretrained(engine_args.model))
         await backend.wait_for_server()
         logger.info("RPC Client connected to RPC server.")
 
@@ -363,7 +366,10 @@ async def run_server(args, **uvicorn_kwargs) -> None:
     logger.info("vLLM API server version %s", VLLM_VERSION)
     logger.info("args: %s", args)
 
-    async with build_backend(args) as backend:
+    global engine_args 
+    engine_args = AsyncEngineArgs.from_cli_args(args)
+    async with build_backend(engine_args, 
+                             args.disable_frontend_multiprocessing) as backend:
 
         server = await build_server(
             backend,
