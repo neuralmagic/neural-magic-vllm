@@ -231,4 +231,4 @@ class RPCClient:
 
         if health_message != VLLM_RPC_HEALTHY_STR:
             raise ValueError("Expected healthy response from backend but got "
-                            "f{health_message}")
+                             "f{health_message}")
