@@ -63,7 +63,7 @@ class RPCClient:
         # Await the data from the Server.
         data = pickle.loads(await socket.recv())
         if not isinstance(data, expected_type):
-            # LoRAConfig can be  None.
+            # LoRAConfig can be None.
             if expected_type == LoRAConfig and data is None:
                 pass
             else:
