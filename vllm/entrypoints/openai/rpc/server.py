@@ -108,7 +108,10 @@ class RPCServer:
             results_generator = self.engine.generate(
                 generate_request.inputs,
                 sampling_params=generate_request.sampling_params,
-                request_id=generate_request.request_id)
+                request_id=generate_request.request_id,
+                lora_request=generate_request.lora_request,
+                trace_headers=generate_request.trace_headers,
+                prompt_adapter_request=generate_request.prompt_adapter_request)
 
             async for request_output in results_generator:
                 await self.socket.send_multipart([
