@@ -85,7 +85,7 @@ torch::Tensor awq_group_gemm(
     torch::Tensor _expert_ids_ptr,
     torch::Tensor _num_tokens_post_padded,
     bool mul_weights,
-    int split_k_iters);          
+    int64_t split_k_iters);          
 
 torch::Tensor awq_dequantize(torch::Tensor _kernel,
                              torch::Tensor _scaling_factors,

@@ -966,7 +966,7 @@ torch::Tensor awq_group_gemm(
     torch::Tensor _expert_ids_ptr,
     torch::Tensor _num_tokens_post_padded,
     bool mul_weights,
-    int split_k_iters)
+    int64_t split_k_iters)
 {
     int num_in_feats = _in_feats.size(0);
     int pad_num_in_feats = _sorted_token_ids_ptr.size(0);
