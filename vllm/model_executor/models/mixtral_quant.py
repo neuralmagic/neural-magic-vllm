@@ -96,12 +96,12 @@ class MixtralMoE(nn.Module):
     def __init__(
         self,
         config: MixtralConfig,
-        experimental_fused_moe: bool,
+        use_fused_moe: bool,
         quant_config: Optional[QuantizationConfig] = None,
     ):
         super().__init__()
         self.config = config
-        self.experimental_fused_moe = experimental_fused_moe
+        self.use_fused_moe = use_fused_moe
         self.quant_config = quant_config
         self.rank = get_tensor_model_parallel_rank()
         self.tp_size = get_tensor_model_parallel_world_size()
@@ -118,7 +118,7 @@ class MixtralMoE(nn.Module):
             raise ValueError(
                 f"Rank {self.rank} has no experts assigned to it.")
 
-        if self.experimental_fused_moe:
+        if self.use_fused_moe:
             params_dtype = torch.float16
             self.experts = FusedMoE(num_experts=self.num_total_experts,
                                     top_k=self.top_k,
@@ -149,8 +149,9 @@ class MixtralMoE(nn.Module):
         hidden_states = hidden_states.view(-1, hidden_dim)
         router_logits, _ = self.gate(hidden_states)
 
-        if self.experimental_fused_moe:
-            return self.experts(hidden_states.half(), router_logits).bfloat16()
+        if self.use_fused_moe:
+            ret = self.experts(hidden_states.half(), router_logits)
+            return ret.bfloat16()
         else:
             routing_weights = F.softmax(router_logits,
                                         dim=1,
@@ -260,7 +261,7 @@ class MixtralDecoderLayer(nn.Module):
     def __init__(
         self,
         config: MixtralConfig,
-        experimental_fused_moe: bool,
+        use_fused_moe: bool,
         cache_config: Optional[CacheConfig] = None,
         quant_config: Optional[QuantizationConfig] = None,
     ) -> None:
@@ -278,7 +279,7 @@ class MixtralDecoderLayer(nn.Module):
             quant_config=quant_config)
         self.block_sparse_moe = MixtralMoE(
             config=config,
-            experimental_fused_moe=experimental_fused_moe,
+            use_fused_moe=use_fused_moe,
             quant_config=quant_config)
         self.input_layernorm = RMSNorm(config.hidden_size,
                                        eps=config.rms_norm_eps)
@@ -319,7 +320,7 @@ class MixtralModel(nn.Module):
     def __init__(
         self,
         config: MixtralConfig,
-        experimental_fused_moe: bool,
+        use_fused_moe: bool,
         cache_config: Optional[CacheConfig] = None,
         quant_config: Optional[QuantizationConfig] = None,
     ) -> None:
@@ -333,7 +334,7 @@ class MixtralModel(nn.Module):
         )
         self.layers = nn.ModuleList([
             MixtralDecoderLayer(config,
-                                experimental_fused_moe,
+                                use_fused_moe,
                                 cache_config,
                                 quant_config=quant_config)
             for _ in range(config.num_hidden_layers)
@@ -369,13 +370,18 @@ class MixtralForCausalLM(nn.Module):
     ) -> None:
         super().__init__()
 
-        # TODO have a better way to set this.
-        # Needs some testing/improving?
-        self.experimental_fused_moe = True
+        # print(config)
+        # print(cache_config)
+        # print(quant_config)
+
+        # FP8 hasn't been tested. Works only with enforce-eager
+        self.use_fused_moe = True #(config.torch_dtype != torch.float8_e4m3fn and
+                              #config.torch_dtype != torch.float16)
+        # print("use fused?", config.torch_dtype)
 
         self.config = config
         self.quant_config = quant_config
-        self.model = MixtralModel(config, self.experimental_fused_moe,
+        self.model = MixtralModel(config, self.use_fused_moe,
                                   cache_config, quant_config)
         self.lm_head = ParallelLMHead(config.vocab_size,
                                       config.hidden_size,
@@ -437,7 +443,7 @@ class MixtralForCausalLM(nn.Module):
                 if name.endswith(".bias") and name not in params_dict:
                     continue
 
-                if self.experimental_fused_moe:
+                if self.use_fused_moe:
                     if ("block_sparse_moe.experts." in name
                             and ".w1." not in name and ".w2." not in name
                             and ".w3." not in name
@@ -475,7 +481,7 @@ class MixtralForCausalLM(nn.Module):
 
                 param = params_dict[name]
 
-                if self.experimental_fused_moe and shard_id is not None:
+                if self.use_fused_moe and shard_id is not None:
                     weight_loader = getattr(param, "weight_loader",
                                             default_weight_loader)
                     weight_loader(param, loaded_weight, name, shard_id,

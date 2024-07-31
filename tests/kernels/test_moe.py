@@ -137,10 +137,10 @@ def compute_max_diff(output, output_ref):
 
 
 # UPSTREAM SYNC: breaks NM automation.
-@pytest.mark.skip("C compiler not installed in NM automation. "
-                  "This codepath follows a triton pathway, which "
-                  "JITs using clang or gcc. Since neither are installed "
-                  "in our test instances, we need to skip this for now.")
+# @pytest.mark.skip("C compiler not installed in NM automation. "
+#                   "This codepath follows a triton pathway, which "
+#                   "JITs using clang or gcc. Since neither are installed "
+#                   "in our test instances, we need to skip this for now.")
 @pytest.mark.parametrize("m", [64, 512, 222, 33, 1])
 @pytest.mark.parametrize("n", [128, 2048, 256, 1024])
 @pytest.mark.parametrize("k", [128, 1024, 512])
@@ -148,6 +148,13 @@ def compute_max_diff(output, output_ref):
 @pytest.mark.parametrize("topk", [2, 6])
 @pytest.mark.parametrize("group_size", [-1, 32, 64, 128])
 @pytest.mark.parametrize("act_order", [True, False])
+# @pytest.mark.parametrize("m", [512])
+# @pytest.mark.parametrize("n", [1024])
+# @pytest.mark.parametrize("k", [512])
+# @pytest.mark.parametrize("e", [8])
+# @pytest.mark.parametrize("topk", [6])
+# @pytest.mark.parametrize("group_size", [128])
+# @pytest.mark.parametrize("act_order", [True])
 def test_fused_marlin_moe(
     m: int,
     n: int,
@@ -157,6 +164,8 @@ def test_fused_marlin_moe(
     group_size: int,
     act_order: bool,
 ):
+    torch.manual_seed(7)
+
     if topk > e:
         return
 
@@ -238,6 +247,28 @@ def test_fused_marlin_moe(
                                      renormalize=False,
                                      w1_scale=scales1,
                                      w2_scale=scales2)
+
+    # print("shape: ", marlin_output.shape, triton_output.shape)
+
+    # failctr = 0
+    # for i in range(m):
+    #     for j in range(n):
+    #         if abs(marlin_output[i][j].item() - triton_output[i][j].item()) > 0.1:
+    #             print(m, n, marlin_output[i][j].item(), triton_output[i][j].item())
+    #             failctr += 1
+    #             if failctr == 50:
+    #                 break
+
+    # if compute_max_diff(marlin_output, triton_output) >= 4e-2:
+    #     torch.set_printoptions(profile="full")
+    #     torch.set_printoptions(precision=2)
+    #     diff_tab = ((100 * torch.abs(marlin_output - triton_output)).int()) / 100.0
+    #     for i in range(diff_tab.shape[0]):
+    #         if torch.count_nonzero(diff_tab[i,:]) > 0:
+    #             print(i, diff_tab[i,:])
+    #     # print(marlin_output[:128,:])
+    #     # print(triton_output[:128,:])
+    #     torch.set_printoptions(profile="default")
 
     assert (compute_max_diff(marlin_output, triton_output) < 4e-2)
 
