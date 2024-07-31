@@ -41,7 +41,7 @@ class RPCClient:
         # Ping RPC Server with request.
         socket.send(pickle.dumps(request, pickle.HIGHEST_PROTOCOL))
 
-        # Await acknowledgement from RPCServer that it aborted.
+        # Await acknowledgement from RPCServer.
         response = pickle.loads(await socket.recv())
 
         if (not isinstance(response, str) or response != VLLM_RPC_SUCCESS_STR):
