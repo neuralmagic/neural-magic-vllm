@@ -119,7 +119,7 @@ async def build_backend(args) -> AsyncIterator[VLLMBackend]:
         backend = RPCClient(tokenizer=AutoTokenizer.from_pretrained(
             args.model),
                             port=port)
-        await backend.wait_for_server()
+        await backend.connect_to_server()
 
         try:
             yield backend
