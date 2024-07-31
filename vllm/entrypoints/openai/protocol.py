@@ -1,6 +1,7 @@
 # Adapted from
 # https://github.com/lm-sys/FastChat/blob/168ccc29d3f7edc50823016105c024fe2282732a/fastchat/protocol/openai_api_protocol.py
 import time
+from functools import partial
 from typing import Any, Dict, List, Literal, Optional, Union
 
 import torch
@@ -12,8 +13,6 @@ from vllm.entrypoints.openai.utils import logit_bias_logits_processor
 from vllm.pooling_params import PoolingParams
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
-
-from functools import partial
 
 
 class OpenAIBaseModel(BaseModel):
@@ -232,7 +231,9 @@ class ChatCompletionRequest(OpenAIBaseModel):
                                  f"but token_id must be an integer or string "
                                  f"representing an integer") from exc
 
-            logits_processors = [partial(logit_bias_logits_processor, logit_bias)]
+            logits_processors = [
+                partial(logit_bias_logits_processor, logit_bias)
+            ]
 
         return SamplingParams(
             n=self.n,
@@ -314,6 +315,7 @@ class ChatCompletionRequest(OpenAIBaseModel):
                 raise ValueError(
                     "`top_logprobs` must be a value a positive value.")
         return data
+
 
 class CompletionRequest(OpenAIBaseModel):
     # Ordered by official OpenAI API documentation
@@ -401,7 +403,7 @@ class CompletionRequest(OpenAIBaseModel):
             "for guided json decoding."))
 
     # doc: end-completion-extra-params
-        
+
     def to_sampling_params(self):
         echo_without_generation = self.echo and self.max_tokens == 0
 
@@ -418,7 +420,9 @@ class CompletionRequest(OpenAIBaseModel):
                                  f"but token_id must be an integer or string "
                                  f"representing an integer") from exc
 
-            logits_processors = [partial(logit_bias_logits_processor, logit_bias)]
+            logits_processors = [
+                partial(logit_bias_logits_processor, logit_bias)
+            ]
 
         return SamplingParams(
             n=self.n,
