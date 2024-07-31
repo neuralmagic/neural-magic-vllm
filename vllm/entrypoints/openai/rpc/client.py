@@ -15,8 +15,7 @@ from vllm.lora.request import LoRARequest
 from vllm.outputs import RequestOutput
 from vllm.prompt_adapter.request import PromptAdapterRequest
 from vllm.sampling_params import SamplingParams
-from vllm.transformers_utils.tokenizer_group import (
-    _init_tokenizer_from_configs)
+from vllm.transformers_utils.tokenizer_group import init_tokenizer_from_configs
 
 
 class RPCClient:
@@ -37,7 +36,7 @@ class RPCClient:
 
         # Create the tokenizer group.
         # TODO: refactor OAI server to avoid needing this info.
-        self.tokenizer = _init_tokenizer_from_configs(
+        self.tokenizer = init_tokenizer_from_configs(
             model_config=self.model_config,
             scheduler_config=(await self._get_scheduler_config_rpc()),
             parallel_config=(await self._get_parallel_config_rpc()),

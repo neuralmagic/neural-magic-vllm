@@ -41,7 +41,7 @@ from vllm.tracing import (SpanAttributes, SpanKind, extract_trace_context,
 from vllm.transformers_utils.config import try_get_generation_config
 from vllm.transformers_utils.detokenizer import Detokenizer
 from vllm.transformers_utils.tokenizer_group import (
-    BaseTokenizerGroup, _init_tokenizer_from_configs)
+    BaseTokenizerGroup, init_tokenizer_from_configs)
 from vllm.usage.usage_lib import (UsageContext, is_usage_stats_enabled,
                                   usage_message)
 from vllm.utils import Counter
@@ -482,7 +482,7 @@ class LLMEngine:
             sequence.lora_request)
 
     def _init_tokenizer(self) -> BaseTokenizerGroup:
-        return _init_tokenizer_from_configs(
+        return init_tokenizer_from_configs(
             model_config=self.model_config,
             scheduler_config=self.scheduler_config,
             parallel_config=self.parallel_config,

@@ -15,7 +15,7 @@ else:
     RayTokenizerGroupPool = None  # type: ignore
 
 
-def _init_tokenizer_from_configs(model_config: ModelConfig,
+def _configs(model_config: ModelConfig,
                                  scheduler_config: SchedulerConfig,
                                  parallel_config: ParallelConfig,
                                  enable_lora: bool):
