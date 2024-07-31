@@ -108,7 +108,8 @@ async def build_backend(args) -> AsyncIterator[VLLMBackend]:
         # remote backend
         ## First need to start the backend process
         rpc_server_process = Process(target=run_rpc_server,
-                                     args=(engine_args, ))
+                                     args=(engine_args, 
+                                           UsageContext.OPENAI_API_SERVER))
         rpc_server_process.start()
 
         ## Then build the client for the backend process

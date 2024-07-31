@@ -51,9 +51,10 @@ class RPCServer:
         """Send the ModelConfig """
         model_config = await self.engine.get_model_config()
 
-        self.socket.send_multipart(
-            [identity,
-             pickle.dumps(model_config, pickle.HIGHEST_PROTOCOL)])
+        self.socket.send_multipart([
+            identity,
+            pickle.dumps(model_config, pickle.HIGHEST_PROTOCOL)
+        ])
 
     async def do_log_stats(self, identity):
         await self.engine.do_log_stats()
