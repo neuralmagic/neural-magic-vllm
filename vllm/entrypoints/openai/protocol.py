@@ -8,9 +8,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing_extensions import Annotated
 
 from vllm.entrypoints.chat_utils import ChatCompletionMessageParam
+from vllm.entrypoints.openai.utils import logit_bias_logits_processor
 from vllm.pooling_params import PoolingParams
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
+
+from functools import partial
 
 
 class OpenAIBaseModel(BaseModel):
@@ -229,14 +232,7 @@ class ChatCompletionRequest(OpenAIBaseModel):
                                  f"but token_id must be an integer or string "
                                  f"representing an integer") from exc
 
-            def logit_bias_logits_processor(
-                    token_ids: List[int],
-                    logits: torch.Tensor) -> torch.Tensor:
-                for token_id, bias in logit_bias.items():
-                    logits[token_id] += bias
-                return logits
-
-            logits_processors = [logit_bias_logits_processor]
+            logits_processors = [partial(logit_bias_logits_processor, logit_bias)]
 
         return SamplingParams(
             n=self.n,
@@ -318,7 +314,6 @@ class ChatCompletionRequest(OpenAIBaseModel):
                 raise ValueError(
                     "`top_logprobs` must be a value a positive value.")
         return data
-
 
 class CompletionRequest(OpenAIBaseModel):
     # Ordered by official OpenAI API documentation
@@ -406,7 +401,7 @@ class CompletionRequest(OpenAIBaseModel):
             "for guided json decoding."))
 
     # doc: end-completion-extra-params
-
+        
     def to_sampling_params(self):
         echo_without_generation = self.echo and self.max_tokens == 0
 
@@ -423,14 +418,6 @@ class CompletionRequest(OpenAIBaseModel):
                                  f"but token_id must be an integer or string "
                                  f"representing an integer") from exc
 
-            def logit_bias_logits_processor(
-                    token_ids: List[int],
-                    logits: torch.Tensor) -> torch.Tensor:
-                for token_id, bias in logit_bias.items():
-                    logits[token_id] += bias
-                return logits
-
-            logits_processors = [logit_bias_logits_processor]
 
         return SamplingParams(
             n=self.n,
