@@ -216,22 +216,19 @@ class RPCClient:
     async def check_health(self) -> None:
         """Raise if unhealthy"""
 
-        # Connect to socket.
-        socket = self.context.socket(zmq.constants.DEALER)
-        socket.connect(self.path)
+        with self.socket() as socket:
 
-        # Ping RPCServer with CHECK_HEALTH request.
-        await socket.send(pickle.dumps(RPCUtilityRequest.CHECK_HEALTH))
+            # Ping RPCServer with CHECK_HEALTH request.
+            await socket.send(pickle.dumps(RPCUtilityRequest.CHECK_HEALTH))
 
-        # Await the reply from the server.
-        # TODO: do we need an internal timeout here?
-        # Or do we expect the external probe to timeout and let this chill?
-        health_message = pickle.loads(await socket.recv())
-        socket.close()
+            # Await the reply from the server.
+            # TODO: do we need an internal timeout here?
+            # Or do we expect the external probe to timeout and let this chill?
+            health_message = pickle.loads(await socket.recv())
 
         if isinstance(health_message, Exception):
             raise health_message
 
         if health_message != VLLM_RPC_HEALTHY_STR:
             raise ValueError("Expected healthy response from backend but got "
-                             "f{health_message}")
+                            "f{health_message}")
