@@ -954,3 +954,70 @@ torch::Tensor awq_fused_moe(torch::Tensor _in_feats, torch::Tensor _kernel,
   }
   return _out_feats.sum(0);
 }
+
+
+torch::Tensor awq_group_gemm(
+    torch::Tensor _in_feats,
+    torch::Tensor _kernel,
+    torch::Tensor _scaling_factors,
+    torch::Tensor _zeros,
+    torch::Tensor _topk_weights,
+    torch::Tensor _sorted_token_ids_ptr,
+    torch::Tensor _expert_ids_ptr,
+    torch::Tensor _num_tokens_post_padded,
+    bool mul_weights,
+    int split_k_iters)
+{
+    int num_in_feats = _in_feats.size(0);
+    int pad_num_in_feats = _sorted_token_ids_ptr.size(0);
+    int num_in_channels = _in_feats.size(2);
+    const at::cuda::OptionalCUDAGuard device_guard(device_of(_in_feats));
+
+    auto options = torch::TensorOptions().dtype(_in_feats.dtype()).device(_in_feats.device());
+    int num_experts = _topk_weights.size(1);
+    int top_k = num_experts / _in_feats.size(1);
+    int group_size = num_in_channels / _scaling_factors.size(1);
+
+    at::Tensor _out_feats = torch::empty({split_k_iters, num_in_feats, _topk_weights.size(1), _kernel.size(2) * 8}, options);
+    int num_out_channels = _out_feats.size(-1);
+
+    auto in_feats = reinterpret_cast<half*>(_in_feats.data_ptr<at::Half>());
+    auto kernel = reinterpret_cast<int*>(_kernel.data_ptr<int>());
+    auto out_feats = reinterpret_cast<half*>(_out_feats.data_ptr<at::Half>());
+    auto scaling_factors = reinterpret_cast<half*>(_scaling_factors.data_ptr<at::Half>());
+    auto zeros = reinterpret_cast<int*>(_zeros.data_ptr<int>());
+    auto topk_weights = mul_weights ? reinterpret_cast<float*>(_topk_weights.data_ptr()) : nullptr;
+    auto sorted_token_ids_ptr = reinterpret_cast<int*>(_sorted_token_ids_ptr.data_ptr());
+    auto expert_ids_ptr = reinterpret_cast<int*>(_expert_ids_ptr.data_ptr());
+    auto num_tokens_post_padded = reinterpret_cast<int*>(_num_tokens_post_padded.data_ptr());
+
+    const cudaStream_t stream = at::cuda::getCurrentCUDAStream();
+    if (num_out_channels % 128 == 0)
+    {
+        int j_factors1 = num_out_channels / 128 / 1;
+        dim3 num_blocks((pad_num_in_feats + 16 - 1) / 16 * j_factors1 * split_k_iters);
+        // threadIdx.x: 32
+        // threadIdx.y: i_factors[2] * j_factors[2]
+        dim3 threads_per_block(32, 2);
+        vllm::awq::group_gemm_forward_4bit_cuda_m16nXk32<128><<<num_blocks, threads_per_block, 0, stream>>>(
+            group_size, split_k_iters, in_feats, kernel, scaling_factors, zeros,
+            topk_weights, sorted_token_ids_ptr, expert_ids_ptr, num_tokens_post_padded,
+            _topk_weights.numel(), top_k, num_experts, pad_num_in_feats,
+            num_in_feats, num_in_channels, num_out_channels, out_feats);
+    }
+    else if (num_out_channels % 64 == 0)
+    {
+        int j_factors1 = num_out_channels / 64 / 1;
+        dim3 num_blocks((pad_num_in_feats + 16 - 1) / 16 * j_factors1 * split_k_iters);
+
+        // threadIdx.x: 32
+        // threadIdx.y: i_factors[2] * j_factors[2]
+        dim3 threads_per_block(32, 2);
+        vllm::awq::group_gemm_forward_4bit_cuda_m16nXk32<64><<<num_blocks, threads_per_block, 0, stream>>>(
+            group_size, split_k_iters, in_feats, kernel, scaling_factors, zeros,
+            topk_weights, sorted_token_ids_ptr, expert_ids_ptr, num_tokens_post_padded,
+            _topk_weights.numel(), top_k, num_experts, pad_num_in_feats,
+            num_in_feats, num_in_channels, num_out_channels, out_feats);
+    }
+    return _out_feats.sum(0);
+}
