@@ -40,14 +40,14 @@ class RPCServer:
         self.socket.close()
         self.context.destroy()
 
-    async def _send_success_message(self, identity: zmq.constants.Frame):
+    async def _send_success_message(self, identity):
         """Send message to client indicating an action was successful."""
         self.socket.send_multipart([
             identity,
             pickle.dumps(VLLM_RPC_SUCCESS_STR, pickle.HIGHEST_PROTOCOL),
         ])
 
-    async def get_model_config(self, identity: zmq.constants.Frame):
+    async def get_model_config(self, identity):
         """Send the ModelConfig """
         model_config = await self.engine.get_model_config()
 
@@ -55,7 +55,7 @@ class RPCServer:
             [identity,
              pickle.dumps(model_config, pickle.HIGHEST_PROTOCOL)])
 
-    async def do_log_stats(self, identity: zmq.constants.Frame):
+    async def do_log_stats(self, identity):
         await self.engine.do_log_stats()
 
         self.socket.send_multipart([
@@ -63,14 +63,13 @@ class RPCServer:
             pickle.dumps(VLLM_RPC_SUCCESS_STR, pickle.HIGHEST_PROTOCOL),
         ])
 
-    async def is_server_ready(self, identity: zmq.constants.Frame):
+    async def is_server_ready(self, identity):
         self.socket.send_multipart([
             identity,
             pickle.dumps(VLLM_RPC_SUCCESS_STR, pickle.HIGHEST_PROTOCOL),
         ])
 
-    async def abort(self, identity: zmq.constants.Frame,
-                    request: RPCAbortRequest):
+    async def abort(self, identity, request: RPCAbortRequest):
         # Abort the request in the llm engine.
         await self.engine.abort(request.request_id)
 
@@ -80,8 +79,7 @@ class RPCServer:
             pickle.dumps(VLLM_RPC_SUCCESS_STR, pickle.HIGHEST_PROTOCOL),
         ])
 
-    async def generate(self, identity: zmq.constants.Frame,
-                       generate_request: RPCGenerateRequest):
+    async def generate(self, identity, generate_request: RPCGenerateRequest):
         try:
             results_generator = self.engine.generate(
                 generate_request.inputs,
@@ -99,9 +97,8 @@ class RPCServer:
             self.socket.send_multipart(
                 [identity, pickle.dumps(e, pickle.HIGHEST_PROTOCOL)])
 
-    def _make_handler_coro(
-            self, identity: zmq.constants.Frame,
-            message: zmq.constants.Frame) -> Coroutine[Any, Any, Never]:
+    def _make_handler_coro(self, identity,
+                           message) -> Coroutine[Any, Any, Never]:
         """Route the zmq message to the handler coroutine."""
 
         request = pickle.loads(message)
