@@ -107,7 +107,7 @@ async def build_backend(args) -> AsyncIterator[VLLMBackend]:
     else:
         # remote backend
         ## First need to start the backend process
-        port = get_open_port(5570)
+        port = get_open_port(envs.VLLM_RPC_PORT)
         rpc_server_process = Process(target=run_rpc_server,
                                      args=(engine_args,
                                            UsageContext.OPENAI_API_SERVER,

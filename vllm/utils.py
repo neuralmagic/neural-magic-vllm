@@ -386,6 +386,7 @@ def get_distributed_init_method(ip: str, port: int) -> str:
 
 def get_open_port(port: Optional[int] = None) -> int:
     if port is None:
+        # Default behavior here is to return a port for multi-gpu communication
         port = envs.VLLM_PORT
     if port is not None:
         while True:
