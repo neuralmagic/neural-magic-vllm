@@ -19,21 +19,17 @@ logger = init_logger('vllm.entrypoints.openai.rpc.server')
 
 class RPCServer:
 
-    # TODO: check if opening all these sockets is an antipattern.
-    # Alternative, use a smaller number of sockets with conditioning on the
-    # data that is passed through the socket.
-    def __init__(self, async_engine_args: AsyncEngineArgs,
+    def __init__(self, 
+                 context: zmq.asyncio.Context,
+                 socket: zmq.asyncio.Socket,
+                 async_engine_args: AsyncEngineArgs,
                  usage_context: UsageContext):
-        # Initialize engine first.
+
         self.engine = AsyncLLMEngine.from_engine_args(async_engine_args,
                                                       usage_context)
 
-        # Initialize context.
-        self.context = zmq.asyncio.Context()
-
-        # Init socket for readiness state.
-        self.socket = self.context.socket(zmq.constants.ROUTER)
-        self.socket.bind(VLLM_RPC_PATH)
+        self.context = context
+        self.socket = socket
 
     def cleanup(self):
         """Cleanup all resources."""

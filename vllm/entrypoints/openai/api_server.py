@@ -3,6 +3,10 @@ import importlib
 import inspect
 import re
 import signal
+
+import zmq
+import zmq.asyncio
+
 from contextlib import asynccontextmanager
 from http import HTTPStatus
 from multiprocessing import Process
@@ -35,9 +39,10 @@ from vllm.entrypoints.openai.protocol import (ChatCompletionRequest,
                                               EmbeddingRequest, ErrorResponse,
                                               TokenizeRequest,
                                               TokenizeResponse)
+# yapf: enable
+from vllm.entrypoints.openai.rpc import VLLM_RPC_URL
 from vllm.entrypoints.openai.rpc.client import RPCClient
 from vllm.entrypoints.openai.rpc.server import run_rpc_server
-# yapf: enable
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
 from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
@@ -96,6 +101,7 @@ async def build_backend(args) -> AsyncIterator[VLLMBackend]:
                                trust_remote_code=False,
                                seed=0,
                                dtype="float16")
+
     if model_config.embedding_mode or args.disable_frontend_multiprocessing:
         # local backend
         backend = AsyncLLMEngine.from_engine_args(
@@ -106,15 +112,24 @@ async def build_backend(args) -> AsyncIterator[VLLMBackend]:
 
     else:
         # remote backend
+        context = zmq.asyncio.Context()
+        socket = context.socket(zmq.constants.ROUTER)
+        port = socket.bind_to_random_port(VLLM_RPC_URL)
+        rpc_path = f"{VLLM_RPC_URL}:port"
+        
         ## First need to start the backend process
         rpc_server_process = Process(target=run_rpc_server,
-                                     args=(engine_args, 
+                                     args=(context,
+                                           socket,
+                                           engine_args, 
                                            UsageContext.OPENAI_API_SERVER))
         rpc_server_process.start()
+        logger.info(f"RPC Server Started on {rpc_path}")
 
         ## Then build the client for the backend process
         # TODO: figure out a way around passing the tokenizer
         backend = RPCClient(
+            server_path=rpc_path,
             tokenizer=AutoTokenizer.from_pretrained(args.model))
         await backend.wait_for_server()
 
@@ -370,11 +385,10 @@ async def run_server(args, **uvicorn_kwargs) -> None:
         )
 
         loop = asyncio.get_running_loop()
-
         server_task = loop.create_task(server.serve())
 
         def signal_handler() -> None:
-            # prevents the uvicorn signal handler to exit early
+            # Prevent uvicorn signal handler from exiting early.
             server_task.cancel()
 
         loop.add_signal_handler(signal.SIGINT, signal_handler)
@@ -383,7 +397,7 @@ async def run_server(args, **uvicorn_kwargs) -> None:
         try:
             await server_task
         except asyncio.CancelledError:
-            logger.info("Gracefully stopping http server")
+            logger.info("Stopping http server.")
             await server.shutdown()
 
 
