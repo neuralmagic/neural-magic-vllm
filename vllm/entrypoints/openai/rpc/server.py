@@ -1,17 +1,16 @@
-from typing import Awaitable
-
 import asyncio
 import pickle
 import signal
+from typing import Any, Coroutine
 
 import zmq
 import zmq.asyncio
+from typing_extensions import Never
 
-
-from vllm import AsyncLLMEngine, AsyncEngineArgs
-from vllm.entrypoints.openai.rpc import (
-    VLLM_RPC_PATH, VLLM_RPC_SUCCESS_STR, 
-    RPCGenerateRequest, RPCAbortRequest, RPCUtilityRequest)
+from vllm import AsyncEngineArgs, AsyncLLMEngine
+from vllm.entrypoints.openai.rpc import (VLLM_RPC_PATH, VLLM_RPC_SUCCESS_STR,
+                                         RPCAbortRequest, RPCGenerateRequest,
+                                         RPCUtilityRequest)
 from vllm.logger import init_logger
 from vllm.usage.usage_lib import UsageContext
 
@@ -21,14 +20,13 @@ logger = init_logger('vllm.entrypoints.openai.rpc.server')
 class RPCServer:
 
     # TODO: check if opening all these sockets is an antipattern.
-    # Alternative, use a smaller number of sockets with conditioning on the 
+    # Alternative, use a smaller number of sockets with conditioning on the
     # data that is passed through the socket.
-    def __init__(self, 
-                 async_engine_args: AsyncEngineArgs,
+    def __init__(self, async_engine_args: AsyncEngineArgs,
                  usage_context: UsageContext):
         # Initialize engine first.
-        self.engine = AsyncLLMEngine.from_engine_args(
-            async_engine_args, usage_context)
+        self.engine = AsyncLLMEngine.from_engine_args(async_engine_args,
+                                                      usage_context)
 
         # Initialize context.
         self.context = zmq.asyncio.Context()
@@ -42,23 +40,22 @@ class RPCServer:
         self.socket.close()
         self.context.destroy()
 
-    async def _send_success_message(self, identity: zmq.Frame):
+    async def _send_success_message(self, identity: zmq.constants.Frame):
         """Send message to client indicating an action was successful."""
         self.socket.send_multipart([
             identity,
             pickle.dumps(VLLM_RPC_SUCCESS_STR, pickle.HIGHEST_PROTOCOL),
         ])
 
-    async def get_model_config(self, identity: zmq.Frame):
+    async def get_model_config(self, identity: zmq.constants.Frame):
         """Send the ModelConfig """
         model_config = await self.engine.get_model_config()
 
-        self.socket.send_multipart([
-            identity,
-            pickle.dumps(model_config, pickle.HIGHEST_PROTOCOL)
-        ])
-    
-    async def do_log_stats(self, identity: zmq.Frame):
+        self.socket.send_multipart(
+            [identity,
+             pickle.dumps(model_config, pickle.HIGHEST_PROTOCOL)])
+
+    async def do_log_stats(self, identity: zmq.constants.Frame):
         await self.engine.do_log_stats()
 
         self.socket.send_multipart([
@@ -66,13 +63,14 @@ class RPCServer:
             pickle.dumps(VLLM_RPC_SUCCESS_STR, pickle.HIGHEST_PROTOCOL),
         ])
 
-    async def is_server_ready(self, identity: zmq.Frame):
+    async def is_server_ready(self, identity: zmq.constants.Frame):
         self.socket.send_multipart([
             identity,
             pickle.dumps(VLLM_RPC_SUCCESS_STR, pickle.HIGHEST_PROTOCOL),
         ])
 
-    async def abort(self, identity: zmq.Frame, request: RPCAbortRequest):
+    async def abort(self, identity: zmq.constants.Frame,
+                    request: RPCAbortRequest):
         # Abort the request in the llm engine.
         await self.engine.abort(request.request_id)
 
@@ -82,8 +80,7 @@ class RPCServer:
             pickle.dumps(VLLM_RPC_SUCCESS_STR, pickle.HIGHEST_PROTOCOL),
         ])
 
-    async def generate(self, 
-                       identity: zmq.Frame, 
+    async def generate(self, identity: zmq.constants.Frame,
                        generate_request: RPCGenerateRequest):
         try:
             results_generator = self.engine.generate(
@@ -96,17 +93,15 @@ class RPCServer:
                     identity,
                     pickle.dumps(request_output, pickle.HIGHEST_PROTOCOL)
                 ])
-                
+
         except Exception as e:
             ### Notify client of all failures
-            self.socket.send_multipart([
-                identity, 
-                pickle.dumps(e, pickle.HIGHEST_PROTOCOL)]
-            )
+            self.socket.send_multipart(
+                [identity, pickle.dumps(e, pickle.HIGHEST_PROTOCOL)])
 
-    def _make_handler_coro(self, 
-                           identity: zmq.Frame,
-                           message: zmq.Frame) -> Awaitable:
+    def _make_handler_coro(
+            self, identity: zmq.constants.Frame,
+            message: zmq.constants.Frame) -> Coroutine[Any, Any, Never]:
         """Route the zmq message to the handler coroutine."""
 
         request = pickle.loads(message)
@@ -116,7 +111,7 @@ class RPCServer:
 
         elif isinstance(request, RPCAbortRequest):
             return self.abort(identity, request)
-        
+
         elif isinstance(request, RPCUtilityRequest):
             if request == RPCUtilityRequest.GET_MODEL_CONFIG:
                 return self.get_model_config(identity)
@@ -126,10 +121,9 @@ class RPCServer:
                 return self.is_server_ready(identity)
             else:
                 raise ValueError(f"Unknown RPCUtilityRequest type: {request}")
-            
+
         else:
             raise ValueError(f"Unknown RPCRequest type: {request}")
-
 
     async def run_server_loop(self):
         """Inner RPC Server Loop"""
@@ -140,7 +134,8 @@ class RPCServer:
             identity, message = await self.socket.recv_multipart()
 
             # Process the request async.
-            task = asyncio.create_task(self._make_handler_coro(identity, message))
+            task = asyncio.create_task(
+                self._make_handler_coro(identity, message))
 
             # We need to keep around a strong reference to the task,
             # to avoid the task disappearing mid-execution as running tasks

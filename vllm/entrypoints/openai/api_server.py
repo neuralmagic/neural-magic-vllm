@@ -6,7 +6,7 @@ import signal
 from contextlib import asynccontextmanager
 from http import HTTPStatus
 from multiprocessing import Process
-from typing import AsyncIterator, Set, Tuple
+from typing import AsyncIterator, Set
 
 import fastapi
 import uvicorn
@@ -18,11 +18,11 @@ from prometheus_client import make_asgi_app
 from starlette.routing import Mount
 from transformers import AutoTokenizer
 
-from vllm.config import ModelConfig
 import vllm.envs as envs
+from vllm.config import ModelConfig
 from vllm.engine.arg_utils import AsyncEngineArgs
-from vllm.engine.protocol import VLLMBackend
 from vllm.engine.async_llm_engine import AsyncLLMEngine
+from vllm.engine.protocol import VLLMBackend
 from vllm.entrypoints.logger import RequestLogger
 from vllm.entrypoints.openai.cli_args import make_arg_parser
 # yapf conflicts with isort for this block
@@ -80,8 +80,9 @@ async def lifespan(app: fastapi.FastAPI):
 
 @asynccontextmanager
 async def build_backend(
-    engine_args: AsyncLLMEngine, 
-    disable_frontend_multiprocessing: bool = False) -> AsyncIterator[VLLMBackend]:
+    engine_args: AsyncLLMEngine,
+    disable_frontend_multiprocessing: bool = False
+) -> AsyncIterator[VLLMBackend]:
 
     # Context manager to handle backend lifecycle
     # Ensures everything is shutdown and cleaned up on error/exit
@@ -103,7 +104,7 @@ async def build_backend(
         backend = AsyncLLMEngine.from_engine_args(
             engine_args, usage_context=UsageContext.OPENAI_API_SERVER)
         yield backend
-        
+
         # No cleanup needed for local in process backend.
         return
 
@@ -111,7 +112,10 @@ async def build_backend(
     else:
         # Start backend process.
         rpc_server_process = Process(target=run_rpc_server,
-                                     args=(engine_args, UsageContext.OPENAI_API_SERVER, ))
+                                     args=(
+                                         engine_args,
+                                         UsageContext.OPENAI_API_SERVER,
+                                     ))
         rpc_server_process.start()
 
         ## Then build the client for the backend process
@@ -364,9 +368,9 @@ async def run_server(args, **uvicorn_kwargs) -> None:
     logger.info("vLLM API server version %s", VLLM_VERSION)
     logger.info("args: %s", args)
 
-    global engine_args 
+    global engine_args
     engine_args = AsyncEngineArgs.from_cli_args(args)
-    async with build_backend(engine_args, 
+    async with build_backend(engine_args,
                              args.disable_frontend_multiprocessing) as backend:
 
         server = await build_server(
