@@ -36,7 +36,7 @@ class RPCClient:
         self.decoding_config = await self._get_decoding_config_rpc()
 
         # Create the tokenizer group.
-        # Note: this is a hack until we fully
+        # TODO: refactor OAI server to avoid needing this info.
         self.tokenizer = _init_tokenizer_from_configs(
             model_config=self.model_config,
             scheduler_config=(await self._get_scheduler_config_rpc()),
