@@ -1,12 +1,12 @@
 import pickle
-from typing import AsyncIterator, Mapping, Optional
+from typing import Any, AsyncIterator, Mapping, Optional
 
 import zmq
 import zmq.asyncio
 
 from vllm.config import DecodingConfig, ModelConfig
 from vllm.entrypoints.openai.rpc import (
-    VLLM_RPC_PATH, VLLM_RPC_SUCCESS_STR, 
+    VLLM_RPC_PATH, VLLM_RPC_SUCCESS_STR, RPC_REQUEST_TYPE,
     RPCGenerateRequest, RPCAbortRequest, RPCUtilityRequest)
 from vllm.inputs import PromptInputs
 from vllm.lora.request import LoRARequest
@@ -30,50 +30,29 @@ class RPCClient:
         """Destroy the ZeroMQ Context."""
         self.context.destroy()
 
-    async def wait_for_server(self):
-        """Wait for the RPCServer to start up."""
+    async def _send_rpc_request(
+            self, request: RPC_REQUEST_TYPE,
+            error_message: str = "RPCRequest Failed.") -> Any:
 
         # Connect to socket.
         socket = self.context.socket(zmq.constants.DEALER)
         socket.connect(VLLM_RPC_PATH)
 
-        # Ping RPCServer with IS_SERVER_READY request.
-        socket.send(pickle.dumps(RPCUtilityRequest.IS_SERVER_READY))
+        # Ping RPC Server with requrst.
+        socket.send_multipart([pickle.dumps(request, 
+                                            pickle.HIGHEST_PROTOCOL)])
 
-        # Await acknoledgement from RPCServer that it is ready.
-        message = await socket.recv()
-        response = pickle.loads(message)
-        
+        # Await acknoledgement from RPCServer that it aborted.
+        response = pickle.loads(await socket.recv())
+
         if (not isinstance(response, str) or 
             not response == VLLM_RPC_SUCCESS_STR):
             socket.close()
-            raise ValueError(f"Unable to start RPC Server.")
-    
-        socket.close()
-        
-    async def get_model_config(self) -> ModelConfig:
-        """Get the ModelConfig object from the RPC Server"""
-
-        # Connect to socket.
-        socket = self.context.socket(zmq.constants.DEALER)
-        socket.connect(VLLM_RPC_PATH)
-
-        # Ping RPCServer with GET_MODEL_CONFIG request.
-        socket.send(pickle.dumps(RPCUtilityRequest.GET_MODEL_CONFIG))
-
-        # Await the MODEL_CONFIG from the Server.
-        model_config = await socket.recv()
-        model_config = pickle.loads(model_config)
-
-        if not isinstance(model_config, ModelConfig):
-            socket.close()
-            raise ValueError(
-                "Expected ModelConfig object from RPC, but "
-                f"got {model_config}")
+            raise ValueError(error_message)
 
         socket.close()
 
-        return model_config
+        return response
 
     async def get_tokenizer(self, lora_request: LoRARequest):
         # TODO: handle this via get data? - or avoid doing via RPC
@@ -86,49 +65,40 @@ class RPCClient:
     async def is_tracing_enabled(self):
         # TODO: what is this?
         return False
+    
+    async def wait_for_server(self):
+        """Wait for the RPCServer to start up."""
 
+        await self._send_rpc_request(
+            request=RPCUtilityRequest.IS_SERVER_READY,
+            error_message="Unable to start RPC Server.")
+        
+        
+    async def get_model_config(self) -> ModelConfig:
+        """Get the ModelConfig object from the RPC Server"""
+
+        model_config = await self._send_rpc_request(
+            request=RPCUtilityRequest.GET_MODEL_CONFIG,
+            error_message="Unable to get ModelConfig from RPCServer.")
+
+        return model_config
+
+    
     async def abort(self, request_id: str):
         """Send an RPCAbortRequest to the RPC Server"""
-        
-        # Connect to socket.
-        socket = self.context.socket(zmq.constants.DEALER)
-        socket.connect(VLLM_RPC_PATH)
 
-        # Ping RPCServer with RPCAbortRequest request.
-        socket.send_multipart([
-            pickle.dumps(RPCAbortRequest(request_id),
-                         pickle.HIGHEST_PROTOCOL)
-        ])
-
-        # Await acknoledgement from RPCServer that it aborted.
-        response = pickle.loads(await socket.recv())
-        if (not isinstance(response, str) or 
-            not response == VLLM_RPC_SUCCESS_STR):
-            socket.close()
-            raise ValueError(
-                f"RPCAbortRequest of {request_id} failed.")
-
-        socket.close()
+        await self._send_rpc_request(
+            request=RPCAbortRequest(request_id),
+            error_message=f"RPCAbortRequest {request_id} failed")
         
 
-    async def do_log_stats(self,):
+    async def do_log_stats(self):
         """Send a DO_LOG_STATS signal to the RPC Server"""
 
-        # Connect to socket.
-        socket = self.context.socket(zmq.constants.DEALER)
-        socket.connect(VLLM_RPC_PATH)
-
-        # Ping RPCServer with DO_LOG_STATS request.
-        socket.send(pickle.dumps(RPCUtilityRequest.DO_LOG_STATS))
-
-        # Await acknoledgement from RPCServer that it logged stats.
-        response = pickle.loads(await socket.recv())
-        if (not isinstance(response, str) or 
-            not response == VLLM_RPC_SUCCESS_STR):
-            socket.close()
-            raise ValueError(f"Unable to start RPC Server.")
-        
-        socket.close()
+        await self._send_rpc_request(
+            request=RPCUtilityRequest.DO_LOG_STATS,
+            error_message="RPCRequest DO_LOG_STATS failed."
+        )
 
     async def generate(
         self,
@@ -146,7 +116,6 @@ class RPCClient:
         # to enable streaming.
         socket = self.context.socket(zmq.constants.DEALER)
         socket.connect(VLLM_RPC_PATH)
-
 
         # Send RPCGenerateRequest to the RPCServer.
         socket.send_multipart([

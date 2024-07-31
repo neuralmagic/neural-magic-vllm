@@ -104,7 +104,6 @@ class RPCServer:
                 pickle.dumps(e, pickle.HIGHEST_PROTOCOL)]
             )
 
-
     def _make_handler_coro(self, 
                            identity: zmq.Frame,
                            message: zmq.Frame) -> Awaitable:

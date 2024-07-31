@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Mapping, Optional
+from typing import Mapping, Optional, Tuple
 
 from vllm.inputs import PromptInputs
 from vllm.lora.request import LoRARequest
@@ -29,3 +29,6 @@ class RPCUtilityRequest(Enum):
     IS_SERVER_READY = 1
     GET_MODEL_CONFIG = 2
     DO_LOG_STATS = 3
+
+
+RPC_REQUEST_TYPE = Tuple[RPCGenerateRequest, RPCAbortRequest, RPCUtilityRequest]
