@@ -6,8 +6,9 @@ from vllm.inputs import PromptInputs
 from vllm.lora.request import LoRARequest
 from vllm.prompt_adapter.request import PromptAdapterRequest
 from vllm.sampling_params import SamplingParams
+from vllm.utils import get_open_port
 
-VLLM_RPC_PATH = "tcp://localhost:5570"
+VLLM_RPC_PATH = f"tcp://localhost:{get_open_port()}"
 VLLM_RPC_SUCCESS_STR = "SUCCESS"
 
 
