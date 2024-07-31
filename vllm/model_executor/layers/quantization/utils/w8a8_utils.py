@@ -6,6 +6,23 @@ from torch.nn import Parameter
 from vllm import _custom_ops as ops
 from vllm.model_executor.utils import set_weight_attrs
 from vllm.platforms import current_platform
+from torch.nn.parameter import _ParameterMeta
+from torch._C import _disabled_torch_function_impl
+
+class ParameterX(torch.Tensor, Parameter):
+    def __new__(cls, data=None, requires_grad=True):
+        if data is None:
+            data = torch.empty(0)
+        if type(data) is torch.Tensor:
+            # For ease of BC maintenance, keep this path for standard Tensor.
+            # Eventually (tm), we should change the behavior for standard Tensor to match.
+            return torch.Tensor._make_subclass(cls, data, requires_grad)
+
+        # Path for custom tensors: set a flag on the instance to indicate parameter-ness.
+        t = data.detach().requires_grad_(requires_grad)
+        t._is_param = True
+        return t
+
 
 
 def cutlass_fp8_supported() -> bool:
@@ -43,13 +60,15 @@ def create_per_tensor_scale_param(
     return scale
 
 
+
 def create_per_channel_scale_param(output_partition_sizes: List[int],
                                    **extra_weight_attrs) -> Parameter:
-    scale = Parameter(torch.empty((sum(output_partition_sizes), 1),
-                                  dtype=torch.float32),
-                      requires_grad=False)
+    scale = ParameterX(torch.empty((sum(output_partition_sizes), 1),
+                                  dtype=torch.float32), requires_grad=False)
     scale[:] = torch.finfo(torch.float32).min
+    print(scale._is_param)
     set_weight_attrs(scale, {"output_dim": 0, **extra_weight_attrs})
+    print("scale", scale)
     return scale
 
 

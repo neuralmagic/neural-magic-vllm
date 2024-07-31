@@ -12,6 +12,8 @@ from vllm.model_executor.layers.quantization.utils.w8a8_utils import (
     create_per_tensor_scale_param)
 from vllm.model_executor.utils import set_weight_attrs
 
+class ParameterX(Parameter):
+    pass
 
 class CompressedTensorsW8A8Int8(CompressedTensorsScheme):
 
@@ -39,6 +41,9 @@ class CompressedTensorsW8A8Int8(CompressedTensorsScheme):
             ws_channelwise = convert_to_channelwise(layer.weight_scale,
                                                     self.logical_widths)
             layer.weight_scale = Parameter(ws_channelwise, requires_grad=False)
+        #else:
+            #layer.weight_scale = Parameter(layer.weight_scale.data, requires_grad=False)
+        
 
         # INPUT SCALE
         if self.is_static_input_scheme:
@@ -55,7 +60,7 @@ class CompressedTensorsW8A8Int8(CompressedTensorsScheme):
         self.logical_widths = output_partition_sizes
 
         # WEIGHT
-        weight = Parameter(torch.empty(sum(output_partition_sizes),
+        weight = ParameterX(torch.empty(sum(output_partition_sizes),
                                        input_size_per_partition,
                                        dtype=torch.int8),
                            requires_grad=False)
@@ -75,6 +80,7 @@ class CompressedTensorsW8A8Int8(CompressedTensorsScheme):
             assert self.strategy == QuantizationStrategy.TENSOR
             weight_scale = create_per_tensor_scale_param(
                 output_partition_sizes, **layer_kwargs)
+        
         layer.register_parameter("weight_scale", weight_scale)
 
         # INPUT SCALE

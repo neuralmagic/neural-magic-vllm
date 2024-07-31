@@ -67,7 +67,8 @@ def _flash_attn_varlen_func(
     )
 
 
-@torch.library.register_fake("vllm::flash_attn_varlen_func")
+#@torch.library.register_fake("vllm::flash_attn_varlen_func")
+@torch.library.impl_abstract("vllm::flash_attn_varlen_func")
 def _flash_attn_varlen_func_fake(
     out_shape,
     q,
@@ -125,7 +126,8 @@ def _flash_attn_with_kvcache(
     )
 
 
-@torch.library.register_fake("vllm::flash_attn_with_kvcache")
+#@torch.library.register_fake("vllm::flash_attn_with_kvcache")
+@torch.library.impl_abstract("vllm::flash_attn_with_kvcache")
 def _flash_attn_with_kvcache_fake(
     out_shape,
     decode_query,
