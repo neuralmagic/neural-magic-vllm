@@ -127,6 +127,9 @@ async def build_backend(args) -> AsyncIterator[VLLMBackend]:
             # Close all open connections to the backend
             backend.close()
 
+    # Wait for server process to join
+    rpc_server_process.join()
+
 
 router = APIRouter()
 
