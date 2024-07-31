@@ -418,6 +418,7 @@ class CompletionRequest(OpenAIBaseModel):
                                  f"but token_id must be an integer or string "
                                  f"representing an integer") from exc
 
+            logits_processors = [partial(logit_bias_logits_processor, logit_bias)]
 
         return SamplingParams(
             n=self.n,
