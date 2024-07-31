@@ -96,48 +96,8 @@ def get_autogen_cutlass2x_impls():
         registration = f.read()
     assert registration is not None
 
-    bad_kernels = [
-            'autogen_cutlass2x_scaled_mm_sm89_128x128x128_32x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_1_OpMultiplyAddFastAccum_fp8',
-            'autogen_cutlass2x_scaled_mm_sm89_256x128x128_64x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_1_OpMultiplyAddFastAccum_fp8',
-            'autogen_cutlass2x_scaled_mm_sm89_128x128x128_32x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_1_OpMultiplyAdd_fp8',
-            'autogen_cutlass2x_scaled_mm_sm89_256x128x128_64x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_1_OpMultiplyAdd_fp8',
-            'autogen_cutlass2x_scaled_mm_sm89_128x128x128_32x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_1_OpMultiplyAdd_fp8',
-            'autogen_cutlass2x_scaled_mm_sm89_128x128x128_32x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_1_OpMultiplyAddFastAccum_fp8',
-            'autogen_cutlass2x_scaled_mm_sm89_64x128x128_16x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_4_OpMultiplyAdd_fp8',
-            'autogen_cutlass2x_scaled_mm_sm89_64x128x128_16x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_4_OpMultiplyAddFastAccum_fp8',
-            'autogen_cutlass2x_scaled_mm_sm89_64x128x128_16x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemm_1_OpMultiplyAdd_fp8',
-            ]
-
-    must_have_kernels = [
-            'autogen_cutlass2x_scaled_mm_sm89_128x128x128_64x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_3_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_128x128x64_32x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_3_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_128x128x64_64x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_4_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_128x64x64_64x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_5_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_16x128x128_16x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_3_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_16x128x128_16x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_5_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_256x128x64_64x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_3_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_256x64x64_64x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_3_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_256x64x64_64x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_4_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_32x128x128_16x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_4_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_32x128x64_16x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_5_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_32x128x64_32x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_1_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_64x128x128_64x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_1_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_64x128x64_16x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_4_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_64x128x64_32x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_2_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_64x128x64_64x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_5_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_64x64x128_16x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_4_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_64x64x128_32x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_4_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_64x64x128_64x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_3_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_64x64x64_16x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_4_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_64x64x64_32x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_1_OpMultiplyAddFastAccum_i8',
-'autogen_cutlass2x_scaled_mm_sm89_64x64x64_64x64x64_16x8x32_ThreadblockSwizzleStreamK_kGemmSplitKParallel_5_OpMultiplyAddFastAccum_i8',
-            ]
-
     regex = re.compile('autogen_cutlass2x[A-Za-z_x0-9]*_i8')
     attrs = re.findall(regex, registration)
-    attrs = list(filter(lambda x: x not in bad_kernels, attrs))
-    assert all([ k in attrs for k in must_have_kernels])
-    attrs = must_have_kernels
     attrs = list(set(attrs))
 
     impls = {}

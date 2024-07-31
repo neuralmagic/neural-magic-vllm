@@ -470,7 +470,8 @@ inline void cutlass_gemm_sm80_dispatch(torch::Tensor& out, torch::Tensor const& 
 
 template <template <typename, typename> typename Epilogue,
           typename... EpilogueArgs>
-inline void cutlass_scaled_mm_sm75_epilogue(torch::Tensor& out, torch::Tensor const& a,
+inline void cutlass_scaled_mm_sm75_epilogue(
+torch::Tensor& out, torch::Tensor const& a,
                                      torch::Tensor const& b,
                                      EpilogueArgs&&... epilogue_args) {
   TORCH_CHECK(a.dtype() == torch::kInt8);
@@ -514,6 +515,58 @@ inline void cutlass_scaled_mm_sm75_impl(torch::Tensor& out, torch::Tensor const&
   } else {
     return cutlass_scaled_mm_sm75_epilogue<ScaledEpilogue>(out, a, b, a_scales,
                                                            b_scales);
+  }
+}
+
+template <template <typename, typename> typename Epilogue, typename TileShape,
+          typename WarpShape, typename InstructionShape,
+          typename ThreadBlockSwizzle, GemmUniversalMode Mode,
+          int32_t MainLoopStages, typename... EpilogueArgs>
+inline void cutlass_scaled_mm_sm75_epilogue_i8(torch::Tensor& out, torch::Tensor const& a,
+                                     torch::Tensor const& b,
+                                     EpilogueArgs&&... epilogue_args) {
+  TORCH_CHECK(a.dtype() == torch::kInt8);
+  TORCH_CHECK(b.dtype() == torch::kInt8);
+
+  if (out.dtype() == torch::kBFloat16) {
+    return cutlass_gemm_caller<cutlass_2x_gemm<
+        cutlass::arch::Sm75, enable_sm75_to_sm80, int8_t, cutlass::bfloat16_t,
+        Epilogue, TileShape, WarpShape, InstructionShape,
+        ThreadBlockSwizzle, Mode, MainLoopStages>>(
+        out, a, b, std::forward<EpilogueArgs>(epilogue_args)...);
+  } else {
+    TORCH_CHECK(out.dtype() == torch::kFloat16);
+    return cutlass_gemm_caller<cutlass_2x_gemm<
+        cutlass::arch::Sm75, enable_sm75_to_sm80, int8_t, cutlass::half_t,
+        Epilogue, TileShape, WarpShape, InstructionShape,
+        ThreadBlockSwizzle, Mode, MainLoopStages>>(
+        out, a, b, std::forward<EpilogueArgs>(epilogue_args)...);
+  }
+}
+
+template <typename TileShape, typename WarpShape, typename InstructionShape,
+          typename ThreadBlockSwizzle, GemmUniversalMode Mode,
+          int32_t MainLoopStages,
+          typename FP8MathOperator=cutlass::arch::OpMultiplyAdd>
+inline void cutlass_scaled_mm_sm75_impl_i8(torch::Tensor& out, torch::Tensor const& a,
+                            torch::Tensor const& b,
+                            torch::Tensor const& a_scales,
+                            torch::Tensor const& b_scales,
+                            c10::optional<torch::Tensor> const& bias) {
+  TORCH_CHECK(a_scales.dtype() == torch::kFloat32);
+  TORCH_CHECK(b_scales.dtype() == torch::kFloat32);
+  if (bias) {
+    TORCH_CHECK(bias->dtype() == out.dtype(),
+                "currently bias dtype must match output dtype ", out.dtype());
+    return cutlass_scaled_mm_sm75_epilogue_i8<
+        ScaledEpilogueBias, TileShape, WarpShape, InstructionShape,
+        ThreadBlockSwizzle, Mode, MainLoopStages>(out, a, b, a_scales, b_scales,
+                                                  *bias);
+  } else {
+    return cutlass_scaled_mm_sm75_epilogue_i8<ScaledEpilogue, TileShape, WarpShape,
+                                           InstructionShape, ThreadBlockSwizzle,
+                                           Mode, MainLoopStages>(
+        out, a, b, a_scales, b_scales);
   }
 }
 

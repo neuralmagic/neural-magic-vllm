@@ -5,7 +5,7 @@ from pathlib import Path
 from itertools import product
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from autogen_manifest import (Cutlass2xArgs, FP8Cutlass2xArgsList, I8Cutlass2xArgsList)
+from autogen_manifest import (Cutlass2xArgs, I8Cutlass2xArgsList)
 import os
 
 ## Utilities ####
