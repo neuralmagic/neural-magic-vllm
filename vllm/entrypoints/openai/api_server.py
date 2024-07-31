@@ -114,7 +114,6 @@ async def build_backend(args) -> AsyncIterator[VLLMBackend]:
         rpc_server_process.start()
 
         ## Then build the client for the backend process
-        # TODO: figure out a way around passing the tokenizer
         backend = RPCClient(port)
         await backend.setup()
 
