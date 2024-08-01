@@ -78,6 +78,7 @@ class BaseLogitsProcessor:
 
 
 class RegexLogitsProcessor(BaseLogitsProcessor):
+
     @classmethod
     @cache()
     def _get_guide(cls, regex_string: str,
