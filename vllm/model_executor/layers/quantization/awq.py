@@ -5,7 +5,11 @@ from torch.nn.parameter import Parameter
 
 from vllm import _custom_ops as ops
 from vllm.model_executor.layers.fused_moe import (FusedMoE, FusedMoEMethodBase,
-                                                  fused_experts_awq)
+                                                  #fused_experts, 
+                                                  grouped_topk,
+                                                  fused_moe,
+                                                  fused_topk, 
+                                                  moe_align_block_size)
 from vllm.model_executor.layers.linear import LinearBase, LinearMethodBase
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig, QuantizeMethodBase)
@@ -278,12 +282,80 @@ class AWQMoEMethod(FusedMoEMethodBase):
                 **extra_weight_attrs
             })
 
-    def apply(self, layer: torch.nn.Module, x: torch.Tensor,
-              topk_weights: torch.Tensor,
-              topk_ids: torch.Tensor) -> torch.Tensor:
+    def apply_moe_weights(self, w1: Dict[str,torch.Tensor], w2: Dict[str, torch.Tensor],
+                          x: torch.Tensor, gating_output: torch.Tensor,
+                          topk: int, renormalize: bool) -> torch.Tensor:
+        
+        FP16_MATMUL_HEURISTIC_CONDITION = x.shape[:-1].numel() >= 1024
+        if FP16_MATMUL_HEURISTIC_CONDITION:
+            dequant_w1 = ops.awq_dequantize(w1["qweight"], w1["scales"],
+                                            w1["qzeros"], 0, 0,
+                                            0).permute(0, 2, 1).contiguous()
+            dequant_w2 = ops.awq_dequantize(w2["qweight"], w2["scales"],
+                                            w2["qzeros"], 0, 0,
+                                            0).permute(0, 2, 1).contiguous()
+            return fused_moe(x, dequant_w1, dequant_w2, gating_output, topk,
+                             renormalize)
 
+        topk_weights, topk_ids = fused_topk(gating_output, topk, renormalize)
+        # num_expert_groups, topk_groups, hardcoded
+        topk_weights, topk_ids = grouped_topk(x, gating_output, topk, renormalize, 1, 1)
+        
+        (sorted_token_ids, expert_ids,
+         num_tokens_post_padded) = moe_align_block_size(
+             topk_ids, 16, w1["qweight"].shape[0])
+
+        x = x.view(x.shape[0], 1, *x.shape[1:]).contiguous()
+        pack_factor = self.quant_config.pack_factor
+
+        gate_up = ops.awq_fused_moe(x, w1["qweight"], w1["scales"],
+                                     w1["qzeros"], topk_weights,
+                                     sorted_token_ids, expert_ids,
+                                     num_tokens_post_padded, False,
+                                     pack_factor)
+
+        out = torch.empty((gate_up.shape[:-1] + (gate_up.shape[-1] // 2, )),
+                          dtype=x.dtype,
+                          device=x.device)
+        ops.silu_and_mul(out, gate_up)
+
+        out = ops.awq_fused_moe(out, w2["qweight"], w2["scales"],
+                                 w2["qzeros"], topk_weights, sorted_token_ids,
+                                 expert_ids, num_tokens_post_padded, True,
+                                 pack_factor)
+
+        return torch.sum(out, dim=1)
+
+    #def apply(self, layer: torch.nn.Module, x: torch.Tensor,
+    #          topk_weights: torch.Tensor,
+    #          topk_ids: torch.Tensor) -> torch.Tensor:
+
+    def apply(self, layer: torch.nn.Module, x: torch.Tensor, topk: int, router_logits):
+        w1 = {
+            "qweight": layer.w13_qweight,
+            "scales": layer.w13_scales,
+            "qzeros": layer.w13_qzeros
+        }
+
+        w2 = {
+            "qweight": layer.w2_qweight,
+            "scales": layer.w2_scales,
+            "qzeros": layer.w2_qzeros
+        }
+        final_hidden_states = self.apply_moe_weights(
+            w1=w1,
+            w2=w2,
+            x=x,
+            topk=topk,
+            gating_output=router_logits,
+            renormalize=True,
+        )
+
+        """
         return fused_experts_awq(x, layer.w13_qweight, layer.w2_qweight,
                                  layer.w13_scales, layer.w2_scales,
                                  layer.w13_qzeros, layer.w2_qzeros,
                                  topk_weights, topk_ids,
                                  self.quant_config.pack_factor)
+        """
+        return final_hidden_states

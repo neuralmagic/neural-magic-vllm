@@ -7,9 +7,9 @@ from vllm.distributed import (get_tensor_model_parallel_rank,
                               get_tensor_model_parallel_world_size,
                               tensor_model_parallel_all_reduce)
 from vllm.logger import init_logger
-from vllm.model_executor.layers.fused_moe.fused_moe import (fused_experts,
-                                                            fused_topk,
-                                                            grouped_topk)
+#from vllm.model_executor.layers.fused_moe.fused_moe import (fused_experts,
+#                                                            fused_topk,
+#                                                            grouped_topk)
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig, QuantizeMethodBase)
 from vllm.model_executor.utils import set_weight_attrs
@@ -25,15 +25,20 @@ class FusedMoEMethodBase(QuantizeMethodBase):
                        params_dtype: torch.dtype, **extra_weight_attrs):
         raise NotImplementedError
 
+    """
     @abstractmethod
     def apply(self, layer: torch.nn.Module, x: torch.Tensor,
               topk_weights: torch.Tensor,
               topk_ids: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
+    """
 
+    @abstractmethod
+    def apply(self, layer: torch.nn.Module, x: torch.Tensor, topk: int, router_logits):
+        raise NotImplementedError
 
+"""
 class UnquantizedFusedMoEMethod(FusedMoEMethodBase):
-    """MoE method without quantization."""
 
     def create_weights(self, layer: torch.nn.Module, num_experts: int,
                        hidden_size: int, intermediate_size: int,
@@ -67,7 +72,7 @@ class UnquantizedFusedMoEMethod(FusedMoEMethodBase):
                              topk_weights,
                              topk_ids,
                              inplace=True)
-
+"""
 
 class FusedMoE(torch.nn.Module):
     """FusedMoE layer for MoE models.
@@ -231,6 +236,7 @@ class FusedMoE(torch.nn.Module):
         else:
             raise ValueError
 
+    """
     def _select_experts(self, hidden_states: torch.Tensor,
                         router_logits: torch.Tensor):
         # DeekSeekv2 uses grouped_top_k
@@ -246,12 +252,14 @@ class FusedMoE(torch.nn.Module):
                                                 self.top_k, self.renormalize)
 
         return topk_weights, topk_ids
-
+    """
+    
     def forward(self, hidden_states: torch.Tensor,
                 router_logits: torch.Tensor):
         assert self.quant_method is not None
 
         # Select experts.
+        """
         topk_weights, topk_ids = self._select_experts(hidden_states,
                                                       router_logits)
 
@@ -263,5 +271,11 @@ class FusedMoE(torch.nn.Module):
         if self.reduce_results and self.tp_size > 1:
             final_hidden_states = tensor_model_parallel_all_reduce(
                 final_hidden_states)
-
+        """
+        final_hidden_states = self.quant_method.apply(
+            layer=self,
+            x=hidden_states,
+            topk=self.top_k,
+            router_logits=router_logits
+        )
         return final_hidden_states
