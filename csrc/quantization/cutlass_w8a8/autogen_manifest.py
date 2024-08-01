@@ -102,25 +102,97 @@ DefaultInt8Cutlass2xArgs = Cutlass2xArgs(75,
                                         2,
                                         "cutlass::arch::OpMultiplyAdd")
 
-warp_m = [32, 64, 128]
+warp_m = [16, 32, 64, 128]
 warp_n = [32, 64, 128]
-warp_k = [64]
+warp_k = [32, 64]
 warps = list(product(warp_m, warp_n, warp_k))
 
-tile_m = [32, 64, 128]
+tile_m = [16, 32, 64, 128]
 tile_n = [32, 64, 128]
-tile_k = [64, 128]
+tile_k = [32, 64, 128]
 tiles = list(product(tile_m, tile_n, tile_k))
 
 stages = [2]
 swizzles = ["cutlass::gemm::threadblock::ThreadblockSwizzleStreamK"]
-modes = ['cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel']
+modes = ['cutlass::gemm::GemmUniversalMode::kGemm']
 #swizzles = ["cutlass::gemm::threadblock::ThreadblockSwizzleStreamK",
 #       "cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>"]
 #modes = ['cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel',
 #        'cutlass::gemm::GemmUniversalMode::kGemm']
 
 def is_bad_arg(arg: Cutlass2xArgs):
+
+
+    if arg.tile_shape == (128, 32, 64) and \
+            (arg.warp_shape == (16, 32, 32)  or \
+             arg.warp_shape == (16, 32, 64) or \
+             arg.warp_shape == (32, 32, 32) or \
+             arg.warp_shape == (64, 32, 32)):
+        return True
+
+    if arg.tile_shape == (128, 64, 32) and \
+            (arg.warp_shape == (16, 32, 32) or \
+             arg.warp_shape == (16, 64, 32) or \
+             arg.warp_shape == (32, 32, 32) or \
+             arg.warp_shape == (32, 64, 32) or \
+             arg.warp_shape == (64, 32, 32) or \
+             arg.warp_shape == (64, 32, 32)):
+        return True
+
+    if arg.tile_shape == (128, 64, 64) and \
+            (arg.warp_shape == (16, 32, 32) or \
+             arg.warp_shape == (16, 32, 64) or \
+             arg.warp_shape == (16, 64, 32) or \
+             arg.warp_shape == (32, 32, 32)):
+        return True
+
+    if arg.tile_shape == (128, 32, 128) and \
+            arg.warp_shape == (64, 32, 32):
+        return True
+
+    if arg.tile_shape == (128, 32, 32) and \
+            (arg.warp_shape == (16, 32, 32) or 
+             arg.warp_shape == (32, 32, 32)):
+        return True
+
+    if arg.tile_shape == (128, 128, 128) and \
+            (arg.warp_shape == (16, 32, 32) or \
+            arg.warp_shape == (16, 32, 64) or \
+            arg.warp_shape == (16, 64, 32) or \
+            arg.warp_shape == (128, 32, 32) or \
+            arg.warp_shape == (32, 32, 32)):
+        return True
+
+    if arg.tile_shape == (128, 128, 32) and \
+            (arg.warp_shape == (16, 32, 32) or \
+            arg.warp_shape == (16, 32, 64) or \
+            arg.warp_shape == (16, 64, 32) or \
+            arg.warp_shape == (32, 32, 32)):
+        return True
+
+    if arg.tile_shape == (128, 128, 64) and \
+            (arg.warp_shape == (16, 32, 32) or \
+            arg.warp_shape == (16, 32, 64) or \
+            arg.warp_shape == (16, 64, 32) or \
+            arg.warp_shape == (32, 32, 32)):
+        return True
+
+    if arg.tile_shape == (128, 32, 128) and \
+            (arg.warp_shape == (128, 32, 32) or \
+             arg.warp_shape == (16, 32, 32) or \
+             arg.warp_shape == (16, 32, 64) or \
+             arg.warp_shape == (32, 32, 32)):
+        return True
+
+    if arg.tile_shape == (128, 64, 128) and \
+            (arg.warp_shape == (128, 32, 32) or \
+             arg.warp_shape == (16, 32, 32) or \
+             arg.warp_shape == (16, 32, 64) or \
+             arg.warp_shape == (16, 64, 32) or \
+             arg.warp_shape == (32, 32, 32) or \
+             arg.warp_shape == (64, 32, 32)):
+        return True
+
     return False
 
 I8Cutlass2xArgsList = []
