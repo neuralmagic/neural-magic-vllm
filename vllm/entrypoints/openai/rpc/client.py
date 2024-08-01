@@ -13,7 +13,7 @@ from vllm.entrypoints.openai.rpc import (RPC_REQUEST_TYPE,
                                          RPCGenerateRequest, RPCUtilityRequest)
 from vllm.inputs import PromptInputs
 from vllm.lora.request import LoRARequest
-from vllm.outputs import RequestOutput
+from vllm.outputs import EmbeddingRequestOutput, RequestOutput
 from vllm.prompt_adapter.request import PromptAdapterRequest
 from vllm.sampling_params import SamplingParams
 from vllm.transformers_utils.tokenizer_group import init_tokenizer_from_configs
@@ -241,3 +241,8 @@ class RPCClient:
         if health_message != VLLM_RPC_HEALTHY_STR:
             raise ValueError("Expected healthy response from backend but got "
                              "f{health_message}")
+
+    async def encode(self, *args,
+                     **kwargs) -> AsyncIterator[EmbeddingRequestOutput]:
+        raise NotImplementedError(
+            "Embeddings not supported with multiprocessing backend")
