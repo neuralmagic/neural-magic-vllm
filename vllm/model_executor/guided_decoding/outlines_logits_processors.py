@@ -138,7 +138,7 @@ class JSONLogitsProcessor(RegexLogitsProcessor):
 class CFGLogitsProcessor(BaseLogitsProcessor):
 
     @classmethod
-    # @cache()
+    @cache()
     def _get_guide(cls, cfg: str, tokenizer: PreTrainedTokenizerBase) -> Guide:
         tokenizer = _adapt_tokenizer(tokenizer)
         return CFGGuide(cfg, tokenizer)
@@ -158,7 +158,7 @@ class CFGLogitsProcessor(BaseLogitsProcessor):
         self._guide = self._guide.copy()
 
 
-# @lru_cache(maxsize=32)
+@lru_cache(maxsize=32)
 def _adapt_tokenizer(tokenizer: PreTrainedTokenizerBase):
     """Adapt vLLM's tokenizer to use to compile the FSM.
 
