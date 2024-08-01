@@ -78,8 +78,8 @@ class BaseLogitsProcessor:
 
 
 class RegexLogitsProcessor(BaseLogitsProcessor):
-    @cache()
     @classmethod
+    @cache()
     def _get_guide(cls, regex_string: str,
                    tokenizer: PreTrainedTokenizerBase) -> Guide:
         tokenizer = _adapt_tokenizer(tokenizer)
