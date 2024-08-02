@@ -13,7 +13,7 @@ from vllm.model_executor.layers.quantization.utils.w8a8_utils import (
 from vllm.model_executor.utils import set_weight_attrs
 
 class ParameterX(Parameter):
-    pass
+    pass 
 
 class CompressedTensorsW8A8Int8(CompressedTensorsScheme):
 
