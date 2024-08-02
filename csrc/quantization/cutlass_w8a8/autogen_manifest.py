@@ -102,25 +102,51 @@ DefaultInt8Cutlass2xArgs = Cutlass2xArgs(75,
                                         2,
                                         "cutlass::arch::OpMultiplyAdd")
 
-warp_m = [16, 32, 64, 128]
-warp_n = [32, 64, 128]
-warp_k = [32, 64]
+inst_shapes = [(16, 8, 16), (16, 8, 32)]
+
+warp_m = [16, 32, 64]
+warp_n = [64]
+warp_k = [64]
 warps = list(product(warp_m, warp_n, warp_k))
 
-tile_m = [16, 32, 64, 128]
+#tile_m = [16, 32, 64, 128]
+tile_m = [16, 32]
 tile_n = [32, 64, 128]
 tile_k = [32, 64, 128]
 tiles = list(product(tile_m, tile_n, tile_k))
 
+#/*
+# * struct OpClassTensorOp {};
+# * - 8 8 16
+# * - 16 8 16
+# * - 16 8 32
+# */
+
 stages = [2]
 swizzles = ["cutlass::gemm::threadblock::ThreadblockSwizzleStreamK"]
-modes = ['cutlass::gemm::GemmUniversalMode::kGemm']
+modes = ['cutlass::gemm::GemmUniversalMode::kGemm',
+         'cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel']
 #swizzles = ["cutlass::gemm::threadblock::ThreadblockSwizzleStreamK",
 #       "cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<>"]
 #modes = ['cutlass::gemm::GemmUniversalMode::kGemmSplitKParallel',
 #        'cutlass::gemm::GemmUniversalMode::kGemm']
 
+
 def is_bad_arg(arg: Cutlass2xArgs):
+
+    # ignore if warp shape is < twice the tile shape
+
+    is_bad = False
+    #if  (arg.tile_shape[0] // arg.warp_shape[0] < 2 or \
+    #     arg.tile_shape[1] // arg.warp_shape[1] < 2 or \
+    #     arg.tile_shape[2] // arg.warp_shape[2] < 2):
+    #    is_bad = True
+
+    if (arg.tile_shape == (128, 128, 128)):
+        is_bad = True
+
+    #print (f"op {arg.tile_shape} {arg.warp_shape} is bad ? {is_bad}")
+    return is_bad
 
 
     if arg.tile_shape == (128, 32, 64) and \
@@ -203,12 +229,14 @@ for ts in tiles:
         if shape_is_less(ws, ts):
             warp_shapes.append(ws)
 
-    configs = list(product([ts], warp_shapes, stages, modes, swizzles))
+    configs = list(product([ts], warp_shapes, stages, modes, swizzles,
+                    inst_shapes))
     args = list(map(lambda x: DefaultInt8Cutlass2xArgs.with_tile_shape(x[0]) \
                                 .with_warp_shape(x[1]) \
                                 .with_main_loop_stages(x[2]) \
                                 .with_gemm_mode(x[3]) \
-                                .with_thread_block_swizzle(x[4]), configs))
+                                .with_thread_block_swizzle(x[4]) \
+                                .with_instruction_shape(x[5]), configs))
     I8Cutlass2xArgsList.extend(args)
 
 I8Cutlass2xArgsList = list(filter(lambda x: not is_bad_arg(x), I8Cutlass2xArgsList))

@@ -167,10 +167,10 @@ def bench_int8(dtype: torch.dtype, m: int, k: int, n: int, label: str,
     timers = []
     # pytorch impl
     timers.append(
-        bench_fn(a.to(dtype=torch.bfloat16, device="cuda"),
-                 b.to(dtype=torch.bfloat16, device="cuda"), scale_a, scale_b,
-                 torch.bfloat16, label, sub_label, pytorch_mm_impl,
-                 "pytorch_bf16_bf16_bf16_matmul-no-scales"))
+        bench_fn(a.to(dtype=torch.float16, device="cuda"),
+                 b.to(dtype=torch.float16, device="cuda"), scale_a, scale_b,
+                 torch.float16, label, sub_label, pytorch_mm_impl,
+                 "pytorch_f16_f16_f16_matmul-no-scales"))
 
     ## cutlass impl
     #timers.append(
@@ -179,7 +179,7 @@ def bench_int8(dtype: torch.dtype, m: int, k: int, n: int, label: str,
 
     # Autogen kernels
     timers.extend(bench_cutlass_impls(
-            a, b, scale_a, scale_b, torch.bfloat16, label, sub_label))
+            a, b, scale_a, scale_b, torch.float16, label, sub_label))
 
     return timers
 
