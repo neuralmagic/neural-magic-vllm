@@ -397,7 +397,10 @@ if __name__ == "__main__":
                         help="Only graph the top `top_k` entries by time.")
     parser.add_argument("--fold-json-node",
                         nargs='+',
-                        default=['Sampler', 'LogitsProcessor'])
+                        default=['Sampler', 'LogitsProcessor'],
+                        help='Do not plot the children of these nodes. Let, \
+                              the node represent the aggregate of all its \
+                              children')
     parser.add_argument("--plot-metric", 
                         type=str,
                         default="cuda_time_ms",
