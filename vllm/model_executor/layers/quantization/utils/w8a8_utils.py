@@ -6,9 +6,6 @@ from torch.nn import Parameter
 from vllm import _custom_ops as ops
 from vllm.model_executor.utils import set_weight_attrs
 from vllm.platforms import current_platform
-from torch.nn.parameter import _ParameterMeta
-from torch._C import _disabled_torch_function_impl
-
 
 class ParameterX(Parameter):
     pass
