@@ -11,14 +11,7 @@ from torch._C import _disabled_torch_function_impl
 
 
 class ParameterX(Parameter):
-    @staticmethod
-    def a_dispatcher(instance):
-        return (instance,)
-
-    @property
-    @torch.overrides.wrap_torch_function(a_dispatcher)
-    def a(self):
-        return 10
+    pass
 
 def get_param(*args, **kwargs):
     return ParameterX(*args, **kwargs)
