@@ -113,7 +113,7 @@ class FusedMoE(torch.nn.Module):
         intermediate_size: Intermediate size of the experts
         params_dtype: Data type for the parameters.
         reduce_results: Whether to all all_reduce on the output of the layer
-        renomalize: Whether to renormalize the logits in the fused_moe kernel
+        renormalize: Whether to renormalize the logits in the fused_moe kernel
         quant_config: Quantization configure.
     """
 
@@ -273,8 +273,8 @@ class FusedMoE(torch.nn.Module):
                                                   self.topk_group)
         else:
             topk_weights, topk_ids = fused_topk(hidden_states, router_logits,
-                                                self.top_k, self.renormalize)
-
+                                                self.top_k, self.renormalize)                             
+        
         return topk_weights, topk_ids
 
     def forward(self, hidden_states: torch.Tensor,
@@ -282,23 +282,28 @@ class FusedMoE(torch.nn.Module):
         assert self.quant_method is not None
 
         # Select experts.
-        topk_weights, topk_ids = self._select_experts(
-            hidden_states=hidden_states, router_logits=router_logits)
+        #topk_weights, topk_ids = self._select_experts(
+        #    hidden_states=hidden_states, router_logits=router_logits)
 
         # Call fused kernel.
         final_hidden_states = self.quant_method.apply(
             layer=self,
             x=hidden_states,
-            topk_weights=topk_weights,
-            topk_ids=topk_ids,
+            topk_weights=None,
+            topk_ids=None,
             topk=self.top_k,
             gating_output=router_logits,
             renormalize=self.renormalize,
-            use_grouped_topk=self.use_grouped_topk)
+            use_grouped_topk=self.use_grouped_topk,
+            num_expert_group=self.num_expert_group,
+            topk_group=self.topk_group)
+        return final_hidden_states
 
         # Optionally reduce.
+        """
         if self.reduce_results and self.tp_size > 1:
             final_hidden_states = tensor_model_parallel_all_reduce(
                 final_hidden_states)
 
         return final_hidden_states
+        """

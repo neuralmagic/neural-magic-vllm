@@ -408,7 +408,9 @@ class Fp8MoEMethod(FusedMoEMethodBase):
 
     def apply(self, layer: torch.nn.Module, x: torch.Tensor,
               topk_weights: torch.Tensor, topk_ids: torch.Tensor,
-              **kwargs) -> torch.Tensor:
+              topk, gating_output, renormalize, use_grouped_topk, num_expert_group, topk_group) -> torch.Tensor:
+
+        """
         from vllm.model_executor.layers.fused_moe import fused_experts
         return fused_experts(x,
                              layer.w13_weight,
@@ -421,7 +423,23 @@ class Fp8MoEMethod(FusedMoEMethodBase):
                              w2_scale=layer.w2_weight_scale,
                              a1_scale=layer.w13_input_scale,
                              a2_scale=layer.w2_input_scale)
-
+        """
+        from vllm.model_executor.layers.fused_moe.fused_moe import fused_moe
+        return fused_moe(hidden_states=x,
+                    w1=layer.w13_weight,
+                    w2=layer.w2_weight,
+                    topk=topk,
+                    inplace=True,
+                    use_fp8=True,
+                    w1_scale=layer.w13_weight_scale,
+                    w2_scale=layer.w2_weight_scale,
+                    a1_scale=layer.w13_input_scale,
+                    a2_scale=layer.w2_input_scale,
+                    num_expert_group=num_expert_group,
+                    topk_group=topk_group,
+                    use_grouped_topk=use_grouped_topk,
+                    gating_output=gating_output,
+                    renormalize=renormalize)
 
 class Fp8KVCacheMethod(BaseKVCacheMethod):
     """
