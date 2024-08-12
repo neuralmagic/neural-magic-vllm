@@ -198,6 +198,7 @@ class ReplicatedLinear(LinearBase):
 
         # All the linear layer supports quant method.
         assert self.quant_method is not None
+        print(self.quant_method)
         self.quant_method.create_weights(self,
                                          self.input_size, [self.output_size],
                                          self.input_size,

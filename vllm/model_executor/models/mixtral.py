@@ -419,11 +419,17 @@ class MixtralForCausalLM(nn.Module, SupportsLoRA):
             ckpt_up_proj_name="w3",
             num_experts=self.config.num_local_experts)
 
+        #print(expert_params_mapping)
+
         params_dict = dict(self.named_parameters())
         for name, loaded_weight in weights:
             if "rotary_emb.inv_freq" in name:
                 continue
+            
+            if "weight_shape" in name:
+                continue
 
+            print(name, loaded_weight.shape)
             for (param_name, weight_name, shard_id) in stacked_params_mapping:
                 if weight_name not in name:
                     continue
@@ -448,7 +454,11 @@ class MixtralForCausalLM(nn.Module, SupportsLoRA):
                     # Skip layers on other devices.
                     if is_pp_missing_parameter(name, self):
                         continue
+
+                    print("Name", name)
                     param = params_dict[name]
+                    print(param.shape)
+                    print("\n")
                     weight_loader = param.weight_loader
                     weight_loader(param,
                                   loaded_weight,

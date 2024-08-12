@@ -216,10 +216,14 @@ class FusedMoE(torch.nn.Module):
                 # We have to keep the weight scales of w1 and w3 because
                 # we need to re-quantize w1/w3 weights after weight loading.
                 idx = 0 if shard_id == 0 else 1
+                print(param_data.shape, loaded_weight.shape)
+                loaded_weight = torch.squeeze(loaded_weight)
                 param_data[expert_id][idx] = loaded_weight
             # If we are in the row parallel case (down_proj)
             #   shard_id 1 == down_proj / w2
             else:
+                print(param_data.shape, loaded_weight.shape)
+                loaded_weight = torch.squeeze(loaded_weight)
                 param_data[expert_id] = loaded_weight
         # Weights
         else:
@@ -287,7 +291,7 @@ class FusedMoE(torch.nn.Module):
             # (param_name, weight_name, expert_id, shard_id)
             ("experts.w13_weight"
              if weight_name in gate_up else "experts.w2_weight",
-             f"experts.{expert_id}.{weight_name}.weight", expert_id, shard_id)
+             f"experts.{expert_id}.{weight_name}.weight_packed", expert_id, shard_id)
             for expert_id in range(num_experts)
             for shard_id, weight_name in enumerate(gate_down_up)
         ] + [

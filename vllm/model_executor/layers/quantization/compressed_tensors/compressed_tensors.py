@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional
 import torch
 from pydantic import BaseModel
 
+from vllm.model_executor.layers.fused_moe import FusedMoE, FusedMoEMethodBase
 from vllm.model_executor.layers.linear import LinearBase, LinearMethodBase
 from vllm.model_executor.layers.quantization.base_config import (  # noqa: E501
     QuantizationConfig, QuantizeMethodBase)
@@ -18,6 +19,7 @@ from vllm.model_executor.layers.quantization.compressed_tensors.utils import (
     should_ignore_layer)
 from vllm.model_executor.layers.quantization.kv_cache import BaseKVCacheMethod
 from vllm.platforms import current_platform
+from vllm.model_executor.utils import set_weight_attrs
 
 __all__ = ["CompressedTensorsLinearMethod"]
 
@@ -64,6 +66,8 @@ class CompressedTensorsConfig(QuantizationConfig):
             return CompressedTensorsLinearMethod(self)
         if isinstance(layer, Attention):
             return CompressedTensorsKVCacheMethod(self)
+        if isinstance(layer, FusedMoE):
+            return CompressedTensorsMoEMethod(self)
         return None
 
     @classmethod
@@ -400,3 +404,50 @@ class CompressedTensorsKVCacheMethod(BaseKVCacheMethod):
                 "Only support symmetric scaling factor "
                 "for compressed-tensors KV cache. "
                 f"However found symmetric: {is_symmetric}")
+
+class CompressedTensorsMoEMethod(FusedMoEMethodBase):
+    def __init__(self, quant_config: QuantizationConfig):
+        self.quant_config = quant_config
+        self.packed_factor = 4
+
+    def create_weights(self, layer: torch.nn.Module, num_experts: int, hidden_size: int,
+                    intermediate_size: int, params_dtype: torch.dtype,
+                    **extra_weight_attrs): 
+
+        print("intermediate size", intermediate_size)
+        print("hidden size", hidden_size // self.packed_factor)
+        w13_weight = torch.nn.Parameter(torch.empty(num_experts,
+                                                    2 * intermediate_size,
+                                                    hidden_size // self.packed_factor,
+                                                    dtype=params_dtype),
+                                        requires_grad=False)
+        layer.register_parameter("w13_weight", w13_weight)
+        set_weight_attrs(w13_weight, extra_weight_attrs)
+
+        w2_weight = torch.nn.Parameter(torch.empty(num_experts,
+                                                   hidden_size,
+                                                   intermediate_size // self.packed_factor,
+                                                   dtype=params_dtype),
+                                       requires_grad=False)
+        layer.register_parameter("w2_weight", w2_weight)
+        set_weight_attrs(w2_weight, extra_weight_attrs)
+
+        w13_scale = torch.nn.Parameter(torch.ones(num_experts,
+                                                  2,
+                                                  intermediate_size,
+                                                  dtype=torch.float32),
+                                       requires_grad=False)
+        layer.register_parameter("w13_scale", w13_scale)
+        set_weight_attrs(w13_scale, extra_weight_attrs)
+
+        w2_scale = torch.nn.Parameter(torch.ones(num_experts,
+                                                 hidden_size,
+                                                 dtype=torch.float32),
+                                      requires_grad=False)
+        layer.register_parameter("w2_scale", w2_scale)
+        set_weight_attrs(w2_scale, extra_weight_attrs)
+        layer.a13_scale = None
+        layer.a2_scale = None
+    
+    def apply(self):
+        return None
