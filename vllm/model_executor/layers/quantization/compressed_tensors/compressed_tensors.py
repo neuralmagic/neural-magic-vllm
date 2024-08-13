@@ -414,8 +414,8 @@ class CompressedTensorsMoEMethod(FusedMoEMethodBase):
                     intermediate_size: int, params_dtype: torch.dtype,
                     **extra_weight_attrs): 
 
-        print("intermediate size", intermediate_size)
-        print("hidden size", hidden_size // self.packed_factor)
+        #print("intermediate size", intermediate_size)
+        #print("hidden size", hidden_size // self.packed_factor)
         w13_weight = torch.nn.Parameter(torch.empty(num_experts,
                                                     2 * intermediate_size,
                                                     hidden_size // self.packed_factor,
@@ -449,5 +449,16 @@ class CompressedTensorsMoEMethod(FusedMoEMethodBase):
         layer.a13_scale = None
         layer.a2_scale = None
     
-    def apply(self):
-        return None
+    def apply(self,
+            layer: torch.nn.Module,
+            x: torch.Tensor,
+            router_logits: torch.Tensor,
+            top_k: int,
+            renormalize: bool = True,
+            use_grouped_topk: bool = False,
+            num_expert_group: Optional[int] = None,
+            topk_group: Optional[int] = None) -> torch.Tensor:
+
+        # hook-up fused moe kernel
+        pass 
+
