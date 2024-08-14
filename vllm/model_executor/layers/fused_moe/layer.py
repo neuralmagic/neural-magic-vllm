@@ -233,15 +233,17 @@ class FusedMoE(torch.nn.Module):
             loaded_weight = loaded_weight.narrow(shard_dim,
                                                  tp_rank * shard_size,
                                                  shard_size)
-            expert_data.copy_(loaded_weight)
         elif shard_id in ("w1", "w3"):
             shard_dim = 0
-            shard_size = expert_data.shape[1]
+            shard_size = expert_data.shape[0] // 2
             loaded_weight = loaded_weight.narrow(shard_dim,
                                                  shard_size * tp_rank,
                                                  shard_size)
-            idx = 0 if shard_id == "w1" else 1
-            expert_data[idx].copy_(loaded_weight)
+            if shard_id == "w1":
+                expert_data = expert_data.narrow(shard_dim, 0, shard_size)
+            else:
+                expert_data = expert_data.narrow(shard_dim, shard_size, shard_size)
+        expert_data.copy_(loaded_weight)
 
     def _load_model_weights(self, shard_id: str, param: torch.nn.Parameter,
                             loaded_weight: torch.nn.Parameter,
