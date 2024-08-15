@@ -305,6 +305,7 @@ def awq_marlin_repack(b_q_weight: torch.Tensor, size_k: int, size_n: int,
                       num_bits: int) -> torch.Tensor:
     return torch.ops._C.awq_marlin_repack(b_q_weight, size_k, size_n, num_bits)
 
+
 def gptq_marlin_moe_repack(b_q_weight: torch.Tensor, perm: torch.Tensor,
                            size_k: int, size_n: int,
                            num_bits: int) -> torch.Tensor:
@@ -316,6 +317,7 @@ def gptq_marlin_moe_repack(b_q_weight: torch.Tensor, perm: torch.Tensor,
         output[e] = torch.ops._C.gptq_marlin_repack(b_q_weight[e], perm[e],
                                                     size_k, size_n, num_bits)
     return output
+
 
 def gptq_marlin_gemm(a: torch.Tensor,
                      b_q_weight: torch.Tensor,

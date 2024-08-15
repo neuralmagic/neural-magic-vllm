@@ -308,15 +308,9 @@ def get_moe_configs(E: int, N: int,
     return None
 
 
-def get_default_config(
-    M: int,
-    E: int,
-    N: int,
-    K: int,
-    topk: int,
-    dtype: Optional[str],
-    is_marlin: bool
-) -> Dict[str, int]:
+def get_default_config(M: int, E: int, N: int, K: int, topk: int,
+                       dtype: Optional[str],
+                       is_marlin: bool) -> Dict[str, int]:
     config = {
         'BLOCK_SIZE_M': 64,
         'BLOCK_SIZE_N': 64,
@@ -333,15 +327,14 @@ def get_default_config(
     return config
 
 
-def try_get_optimal_moe_config(
-    w1_shape: Tuple[int, ...],
-    w2_shape: Tuple[int, ...],
-    top_k: int,
-    dtype: Optional[str],
-    M: int,
-    override_config: Optional[Dict[str, Any]] = None,
-    is_marlin: bool = False
-):
+def try_get_optimal_moe_config(w1_shape: Tuple[int, ...],
+                               w2_shape: Tuple[int, ...],
+                               top_k: int,
+                               dtype: Optional[str],
+                               M: int,
+                               override_config: Optional[Dict[str,
+                                                              Any]] = None,
+                               is_marlin: bool = False):
     if override_config:
         config = override_config
     else:
@@ -355,7 +348,8 @@ def try_get_optimal_moe_config(
             config = configs[min(configs.keys(), key=lambda x: abs(x - M))]
         else:
             # Else use the default config
-            config = get_default_config(M, E, N, w1_shape[2], top_k, dtype, is_marlin)
+            config = get_default_config(M, E, N, w1_shape[2], top_k, dtype,
+                                        is_marlin)
     return config
 
 
@@ -427,6 +421,7 @@ def grouped_topk(hidden_states: torch.Tensor,
         topk_weights = topk_weights / topk_weights.sum(dim=-1, keepdim=True)
     return topk_weights, topk_ids
 
+
 def fused_marlin_moe(hidden_states: torch.Tensor,
                      w1: torch.Tensor,
                      w2: torch.Tensor,
@@ -468,7 +463,6 @@ def fused_marlin_moe(hidden_states: torch.Tensor,
     # Check constraints.
     assert hidden_states.shape[0] == gating_output.shape[0], (
         "Number of tokens mismatch")
-        
     assert hidden_states.shape[
         1] == w1.shape[1] * 16, "Hidden size mismatch w1"
     assert hidden_states.shape[
