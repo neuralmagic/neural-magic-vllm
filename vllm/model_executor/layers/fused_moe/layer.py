@@ -224,15 +224,16 @@ class FusedMoE(torch.nn.Module):
     def _load_group_weight_scale(self, expert_data: torch.Tensor,
                                  shard_id: str, loaded_weight: torch.tensor,
                                  tp_rank: int):
+        loaded_weight = loaded_weight.t().contiguous()
         if shard_id == "w2":
-            shard_dim = 1
-            shard_size = expert_data.shape[1]
+            shard_dim = 0
+            shard_size = expert_data.shape[0]
             loaded_weight = loaded_weight.narrow(shard_dim,
                                                  shard_size * tp_rank,
                                                  shard_size)
         elif shard_id in ("w1", "w3"):
-            shard_dim = 0
-            shard_size = expert_data.shape[0] // 2
+            shard_dim = 1
+            shard_size = expert_data.shape[1] // 2
             loaded_weight = loaded_weight.narrow(shard_dim,
                                                  shard_size * tp_rank,
                                                  shard_size)
@@ -249,11 +250,12 @@ class FusedMoE(torch.nn.Module):
                                        loaded_weight: torch.tensor,
                                        tp_rank: int):
         # for per channel weight quantization
+        loaded_weight = loaded_weight.t().contiguous()
         if shard_id == "w2":
             expert_data.copy_(loaded_weight)
         elif shard_id in ("w1", "w3"):
-            shard_dim = 0
-            shard_size = expert_data.shape[0] // 2
+            shard_dim = 1
+            shard_size = expert_data.shape[1] // 2
             loaded_weight = loaded_weight.narrow(shard_dim,
                                                  shard_size * tp_rank,
                                                  shard_size)
@@ -272,8 +274,9 @@ class FusedMoE(torch.nn.Module):
         # If transposed, weight is saved as [input_dim, output_dim]
         # Otherwise, weight is saved as     [output_dim, input_dim]
         # Default is not transposed/input dim is dim 1
-        input_dim = getattr(param, "input_dim", 1)
-        output_dim = getattr(param, "output_dim", 0)
+        loaded_weight = loaded_weight.t().contiguous()
+        input_dim = getattr(param, "input_dim", 0)
+        output_dim = getattr(param, "output_dim", 1)
 
         # Index the loaded weight for tp sharding.
         # down_proj: "RowParallel" so tp sharding on input_dim
