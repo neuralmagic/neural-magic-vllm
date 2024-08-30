@@ -1,6 +1,6 @@
 import re
 from enum import Enum
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, Optional, Union
 
 from pydantic import BaseModel, Field
 from torch.nn import Module
@@ -40,6 +40,20 @@ class QuantizationStrategy(str, Enum):
     TOKEN = "token"
 
 
+class ActivationOrderingStrategy(str, Enum):
+    """
+    Enum storing strategies for activation ordering
+
+    Weight := only reorder weight, not groups (default)
+    Grouped := reorder groups and weight
+    Off := do not reorder by activations
+    """
+
+    WEIGHT = "weight"
+    GROUP = "group"
+    OFF = "off"
+
+
 class QuantizationArgs(BaseModel):
     """
     User facing arguments used to define a quantization config 
@@ -69,7 +83,8 @@ class QuantizationArgs(BaseModel):
     strategy: Optional[QuantizationStrategy] = None
     block_structure: Optional[str] = None
     dynamic: bool = False
-    actorder: bool = False
+    actorder: Union[ActivationOrderingStrategy,
+                    bool] = ActivationOrderingStrategy.OFF
     observer: str = Field(
         default="minmax",
         description=("The class to use to compute the quantization param - "
