@@ -123,10 +123,9 @@ class CompressedTensorsWNA16(CompressedTensorsScheme):
                                          weight_loader=weight_loader)
 
         # group index (for activation reordering)
-        weight_g_idx = BasevLLMParameter(data=torch.full((input_size_per_partition, ),
-                                                  -1,
-                                                  dtype=torch.int32),
-                                  weight_loader=weight_loader)
+        weight_g_idx = BasevLLMParameter(data=torch.full(
+            (input_size_per_partition, ), -1, dtype=torch.int32),
+                                         weight_loader=weight_loader)
 
         layer.register_parameter("weight_packed", weight)
         layer.register_parameter("weight_scale", weight_scale)

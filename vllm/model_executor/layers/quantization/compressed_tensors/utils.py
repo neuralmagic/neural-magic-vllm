@@ -2,7 +2,7 @@ import re
 from enum import Enum
 from typing import Any, Dict, Iterable, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from torch.nn import Module
 
 from vllm.model_executor.layers.quantization.utils.quant_utils import (
@@ -96,6 +96,18 @@ class QuantizationArgs(BaseModel):
         ("optional dict of kwargs to be passed directly to torch quantization "
          "Observers constructor excluding quantization range or symmetry"),
     )
+
+    @field_validator("actorder", mode="before")
+    def validate_actorder(cls, value) -> ActivationOrderingStrategy:
+        if isinstance(value, bool):
+            # default to weight if True
+            return (ActivationOrderingStrategy.WEIGHT
+                    if value else cls.model_fields["actorder"].default)
+
+        if isinstance(value, str):
+            return ActivationOrderingStrategy(value.lower())
+
+        return value
 
 
 def is_activation_quantization_format(format: str) -> bool:
