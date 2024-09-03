@@ -1,8 +1,10 @@
 # nm-vllm
 
-## Overview
 
-`nm-vllm` is our supported enterprise distribution of [vLLM](https://github.com/vllm-project/vllm).
+__THIS REPO HAS BEEN ARCHIVED AS OF SEPTEMBER 2024. NEURAL MAGIC IS STILL RELEASING ENTERPRISE PACKAGES RELATED TO VLLM. OUR RELASE REPO HAS JUST GONE PRIVATE.__
+
+If you are looking to contribute to `vllm`, then please visit [vLLM](https://github.com/vllm-project/vllm). Also please checkout our work there as most of our contributions are still open to the public.
+
 
 ## Installation
 
